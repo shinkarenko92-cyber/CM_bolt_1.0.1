@@ -26,6 +26,9 @@ export function Dashboard() {
     try {
       console.log('Loading data for user:', user.id);
 
+      const session = await supabase.auth.getSession();
+      console.log('Session user ID:', session.data.session?.user?.id);
+
       const { data: propertiesData, error: propsError } = await supabase
         .from('properties')
         .select('*')
