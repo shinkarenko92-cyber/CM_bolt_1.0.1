@@ -1,3 +1,61 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.booking-block {
+  position: relative;
+  overflow: visible;
+  z-index: 1;
+}
+
+.booking-block.has-checkout-extension::after {
+  content: '';
+  position: absolute;
+  right: -28%;
+  top: 0;
+  width: 40%;
+  height: 100%;
+  background: inherit;
+  transform: skewX(-22deg);
+  border-radius: 0 6px 6px 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.booking-block:hover {
+  z-index: 10;
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.booking-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 200px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.booking-block:hover .booking-tooltip {
+  opacity: 1;
+}
+
+.booking-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1e293b;
+}

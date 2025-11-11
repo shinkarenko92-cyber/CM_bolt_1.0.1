@@ -288,7 +288,7 @@ export function Calendar({ properties, bookings, onAddReservation, onEditReserva
                         </div>
                       </div>
                     </div>
-                    <div className="flex-1 relative" style={{ height: `${rowHeight}px` }}>
+                    <div className="flex-1 relative" style={{ height: `${rowHeight}px`, overflow: 'visible' }}>
                       <div className="absolute inset-0 flex">
                         {dates.map((_, i) => (
                           <div key={i} className="w-12 border-r border-slate-700/50" />
@@ -304,24 +304,53 @@ export function Calendar({ properties, bookings, onAddReservation, onEditReserva
 
                           const statusColor = getStatusColor(booking.status);
                           const topOffset = 8 + (layerIndex * 52);
+                          const hasCheckoutExtension = span > 1;
+
+                          const statusLabels = {
+                            confirmed: 'Подтверждено',
+                            pending: 'Ожидание',
+                            cancelled: 'Отменено',
+                          };
 
                           return (
                             <div
                               key={booking.id}
                               onClick={() => onEditReservation(booking)}
-                              className={`absolute ${statusColor} rounded px-2 py-1 text-white text-xs font-medium overflow-hidden cursor-pointer hover:opacity-90 transition-opacity`}
+                              className={`booking-block ${hasCheckoutExtension ? 'has-checkout-extension' : ''} absolute ${statusColor} rounded px-2 py-1 text-white text-xs font-medium cursor-pointer transition-all`}
                               style={{
                                 left: `${startCol * 48}px`,
                                 width: `${Math.min(span, daysToShow - startCol) * 48}px`,
                                 top: `${topOffset}px`,
                                 height: '44px',
-                                clipPath: span > 1 ? `polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%)` : undefined
                               }}
-                              title={`${booking.guest_name} - ${booking.total_price} ${booking.currency} - ${booking.status}`}
                             >
                               <div className="truncate font-semibold">{booking.guest_name}</div>
                               <div className="text-[10px] opacity-90">
                                 {booking.total_price} {booking.currency}
+                              </div>
+
+                              <div className="booking-tooltip">
+                                <div className="text-white font-semibold mb-2 text-sm">
+                                  {booking.guest_name}
+                                </div>
+                                <div className="text-slate-300 text-xs space-y-1">
+                                  <div>
+                                    <span className="text-slate-400">Заезд:</span>{' '}
+                                    {new Date(booking.check_in).toLocaleDateString('ru-RU')}
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Выезд:</span>{' '}
+                                    {new Date(booking.check_out).toLocaleDateString('ru-RU')}
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Цена:</span>{' '}
+                                    {booking.total_price} {booking.currency}
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Статус:</span>{' '}
+                                    {statusLabels[booking.status as keyof typeof statusLabels] || booking.status}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           );
