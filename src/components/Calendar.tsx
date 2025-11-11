@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Settings } from 'lucide-react';
 import { Property, Booking, PropertyRate, supabase } from '../lib/supabase';
 import { CalendarHeader } from './CalendarHeader';
 import { PropertySidebarRow } from './PropertySidebarRow';
@@ -10,6 +10,7 @@ type CalendarProps = {
   bookings: Booking[];
   onAddReservation: (propertyId: string, checkIn: string, checkOut: string) => void;
   onEditReservation: (booking: Booking) => void;
+  onBookingUpdate: (bookingId: string, updates: Partial<Booking>) => void;
 };
 
 type DateSelection = {
@@ -28,6 +29,7 @@ export function Calendar({
   bookings,
   onAddReservation,
   onEditReservation,
+  onBookingUpdate,
 }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [daysToShow] = useState(60);
@@ -45,8 +47,8 @@ export function Calendar({
     originalPropertyId: null,
   });
   const [dragOverCell, setDragOverCell] = useState<{ propertyId: string; dateIndex: number } | null>(null);
+  const [showConditionsModal, setShowConditionsModal] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
-  const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
 
   const CELL_WIDTH = 64;
 
@@ -95,7 +97,6 @@ export function Calendar({
       }
       setDragState({ booking: null, originalPropertyId: null });
       setDragOverCell(null);
-      setTouchStartPos(null);
     };
 
     if (dragState.booking) {
@@ -154,7 +155,7 @@ export function Calendar({
     });
 
     if (hasOverlap) {
-      alert('Cannot move booking: overlaps with existing booking');
+      alert('Невозможно переместить бронь: пересечение с существующей бронью');
       return;
     }
 
@@ -170,10 +171,14 @@ export function Calendar({
 
       if (error) throw error;
 
-      window.location.reload();
+      onBookingUpdate(dragState.booking.id, {
+        property_id: targetPropertyId,
+        check_in: newCheckIn,
+        check_out: newCheckOutStr,
+      });
     } catch (error) {
       console.error('Error moving booking:', error);
-      alert('Failed to move booking');
+      alert('Ошибка перемещения брони');
     }
   };
 
@@ -322,17 +327,27 @@ export function Calendar({
           endDate: null,
         });
       } else {
-        const nextDay = new Date(end);
-        nextDay.setDate(nextDay.getDate() + 1);
-        const checkOut = nextDay.toISOString().split('T')[0];
-
-        onAddReservation(propertyId, dateSelection.startDate, checkOut);
         setDateSelection({
-          propertyId: '',
-          startDate: null,
-          endDate: null,
+          propertyId,
+          startDate: dateSelection.startDate,
+          endDate: dateString,
         });
       }
+    }
+  };
+
+  const handleCreateReservation = () => {
+    if (dateSelection.startDate && dateSelection.endDate) {
+      const nextDay = new Date(dateSelection.endDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      const checkOut = nextDay.toISOString().split('T')[0];
+
+      onAddReservation(dateSelection.propertyId, dateSelection.startDate, checkOut);
+      setDateSelection({
+        propertyId: '',
+        startDate: null,
+        endDate: null,
+      });
     }
   };
 
@@ -349,13 +364,32 @@ export function Calendar({
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-slate-900">
       <div className="bg-slate-800 border-b border-slate-700 px-6 py-3 flex items-center justify-between">
-        <button
-          onClick={() => onAddReservation('', '', '')}
-          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Добавить бронь
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onAddReservation('', '', '')}
+            className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Добавить бронь
+          </button>
+          {dateSelection.startDate && dateSelection.endDate && (
+            <button
+              onClick={() => setShowConditionsModal(true)}
+              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            >
+              <Settings className="w-4 h-4" />
+              Изменить условия
+            </button>
+          )}
+          {dateSelection.startDate && dateSelection.endDate && (
+            <button
+              onClick={handleCreateReservation}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              Создать бронь
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-hidden flex flex-col">
@@ -383,7 +417,7 @@ export function Calendar({
 
           <div className="flex-1 overflow-auto">
             <div className="relative">
-              {properties.map((property, propIndex) => {
+              {properties.map((property) => {
                 if (!expandedProperties.has(property.id)) return null;
 
                 const propertyBookings = bookings.filter((b) => b.property_id === property.id);
@@ -399,10 +433,15 @@ export function Calendar({
                           const isSelected =
                             dateSelection.propertyId === property.id &&
                             dateSelection.startDate === dateString;
+                          const isInRange =
+                            dateSelection.propertyId === property.id &&
+                            dateSelection.startDate &&
+                            dateSelection.endDate &&
+                            dateString >= dateSelection.startDate &&
+                            dateString <= dateSelection.endDate;
                           const isOccupied = isCellOccupied(property.id, date);
                           const rate = getRateForDate(property.id, date);
                           const displayPrice = rate?.daily_price || property.base_price;
-                          const displayMinStay = rate?.min_stay || property.minimum_booking_days;
                           const displayCurrency = rate?.currency || property.currency;
                           const isDragOver = dragOverCell?.propertyId === property.id && dragOverCell?.dateIndex === i;
 
@@ -411,16 +450,13 @@ export function Calendar({
                               key={i}
                               className={`w-16 flex-shrink-0 border-r border-slate-700/50 cursor-pointer transition-colors ${
                                 isSelected ? 'bg-teal-500/20' : ''
-                              } ${isDragOver ? 'bg-yellow-500/20' : ''} ${!isOccupied ? 'hover:bg-slate-800/30' : ''}`}
+                              } ${isInRange ? 'bg-blue-500/10' : ''} ${isDragOver ? 'bg-yellow-500/20' : ''} ${!isOccupied ? 'hover:bg-slate-800/30' : ''}`}
                               onClick={() => !isOccupied && handleCellClick(property.id, date)}
                             >
                               {!isOccupied && (
                                 <div className="h-full flex flex-col items-center justify-center text-center p-1">
                                   <div className="text-[10px] font-medium text-slate-400">
                                     {displayPrice} {displayCurrency}
-                                  </div>
-                                  <div className="text-[9px] text-slate-500 mt-0.5">
-                                    {displayMinStay}
                                   </div>
                                 </div>
                               )}
@@ -452,6 +488,24 @@ export function Calendar({
                           );
                         })
                       )}
+                    </div>
+
+                    <div className="h-8 bg-slate-800/50 border-t border-slate-700/50 flex">
+                      {dates.map((date, i) => {
+                        const rate = getRateForDate(property.id, date);
+                        const displayMinStay = rate?.min_stay || property.minimum_booking_days;
+
+                        return (
+                          <div
+                            key={i}
+                            className="w-16 flex-shrink-0 border-r border-slate-700/50 flex items-center justify-center"
+                          >
+                            <div className="text-[9px] text-slate-500">
+                              {displayMinStay}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );

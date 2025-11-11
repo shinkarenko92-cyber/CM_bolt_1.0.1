@@ -360,6 +360,13 @@ export function Dashboard() {
               bookings={filteredBookings}
               onAddReservation={handleAddReservation}
               onEditReservation={handleEditReservation}
+              onBookingUpdate={(id, updates) => {
+                const updatedBookings = bookings.map(b =>
+                  b.id === id ? { ...b, ...updates } : b
+                );
+                setBookings(updatedBookings);
+                setFilteredBookings(updatedBookings);
+              }}
             />
             <AddReservationModal
               isOpen={isAddModalOpen}
