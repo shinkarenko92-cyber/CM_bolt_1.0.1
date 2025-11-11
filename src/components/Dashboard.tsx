@@ -9,7 +9,8 @@ import { PropertiesView } from './PropertiesView';
 import { BookingsView } from './BookingsView';
 import { AnalyticsView } from './AnalyticsView';
 import { AdminView } from './AdminView';
-import { supabase, Property, Booking } from '../lib/supabase';
+import { UserProfileModal } from './UserProfileModal';
+import { supabase, Property, Booking, Profile } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { syncWithExternalAPIs } from '../services/apiSync';
 
@@ -18,6 +19,7 @@ export function Dashboard() {
   const [currentView, setCurrentView] = useState('calendar');
   const [properties, setProperties] = useState<Property[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -26,10 +28,29 @@ export function Dashboard() {
   const [isOverlapWarningOpen, setIsOverlapWarningOpen] = useState(false);
   const [overlappingBookings, setOverlappingBookings] = useState<Booking[]>([]);
   const [pendingReservation, setPendingReservation] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [userProfile, setUserProfile] = useState<Profile | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [prefilledDates, setPrefilledDates] = useState<{ propertyId: string; checkIn: string; checkOut: string } | null>(null);
 
   useEffect(() => {
     loadData();
   }, [user]);
+
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredBookings(bookings);
+    } else {
+      const query = searchQuery.toLowerCase();
+      const filtered = bookings.filter(
+        (b) =>
+          b.guest_name.toLowerCase().includes(query) ||
+          (b.guest_phone && b.guest_phone.toLowerCase().includes(query)) ||
+          (b.guest_email && b.guest_email.toLowerCase().includes(query))
+      );
+      setFilteredBookings(filtered);
+    }
+  }, [searchQuery, bookings]);
 
   const loadData = async () => {
     if (!user) {
@@ -69,8 +90,19 @@ export function Dashboard() {
 
           if (bookingsData) {
             setBookings(bookingsData);
+            setFilteredBookings(bookingsData);
           }
         }
+      }
+
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profileData) {
+        setUserProfile(profileData);
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -79,8 +111,17 @@ export function Dashboard() {
     }
   };
 
-  const handleAddReservation = (propertyIds: string[]) => {
-    setSelectedPropertyIds(propertyIds);
+  const handleAddReservation = (propertyIdOrIds: string | string[], checkIn?: string, checkOut?: string) => {
+    if (typeof propertyIdOrIds === 'string' && checkIn && checkOut) {
+      setPrefilledDates({ propertyId: propertyIdOrIds, checkIn, checkOut });
+      setSelectedPropertyIds([propertyIdOrIds]);
+    } else if (Array.isArray(propertyIdOrIds)) {
+      setSelectedPropertyIds(propertyIdOrIds);
+      setPrefilledDates(null);
+    } else {
+      setSelectedPropertyIds([]);
+      setPrefilledDates(null);
+    }
     setIsAddModalOpen(true);
   };
 
@@ -135,8 +176,10 @@ export function Dashboard() {
 
       if (data && data.length > 0) {
         setBookings([...bookings, data[0]]);
+        setFilteredBookings([...bookings, data[0]]);
       }
       setIsAddModalOpen(false);
+      setPrefilledDates(null);
     } catch (error) {
       console.error('Error saving reservation:', error);
       throw error;
@@ -167,11 +210,11 @@ export function Dashboard() {
 
       if (error) throw error;
 
-      setBookings(
-        bookings.map((b) =>
-          b.id === id ? { ...b, ...data } : b
-        )
+      const updatedBookings = bookings.map((b) =>
+        b.id === id ? { ...b, ...data } : b
       );
+      setBookings(updatedBookings);
+      setFilteredBookings(updatedBookings);
     } catch (error) {
       console.error('Error updating reservation:', error);
       throw error;
@@ -184,7 +227,9 @@ export function Dashboard() {
 
       if (error) throw error;
 
-      setBookings(bookings.filter((b) => b.id !== id));
+      const updatedBookings = bookings.filter((b) => b.id !== id);
+      setBookings(updatedBookings);
+      setFilteredBookings(updatedBookings);
     } catch (error) {
       console.error('Error deleting reservation:', error);
       throw error;
@@ -251,7 +296,9 @@ export function Dashboard() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search bookings, guests, properties..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by guest name, phone, or email..."
                   className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>
@@ -267,7 +314,11 @@ export function Dashboard() {
                 <span className="absolute top-1 right-1 w-2 h-2 bg-teal-500 rounded-full"></span>
               </button>
 
-              <div className="flex items-center gap-3 pl-4 border-l border-slate-700">
+              <div
+                className="flex items-center gap-3 pl-4 border-l border-slate-700 cursor-pointer hover:bg-slate-700/50 rounded-lg p-2 transition-colors"
+                onClick={() => setIsProfileModalOpen(true)}
+                title="View profile"
+              >
                 <div className="text-right">
                   <div className="text-sm font-medium text-white">My Properties</div>
                   <div className="text-xs text-slate-400">{user?.email}</div>
@@ -305,7 +356,7 @@ export function Dashboard() {
           <>
             <Calendar
               properties={properties}
-              bookings={bookings}
+              bookings={filteredBookings}
               onAddReservation={handleAddReservation}
               onEditReservation={handleEditReservation}
             />
@@ -314,9 +365,11 @@ export function Dashboard() {
               onClose={() => {
                 setIsAddModalOpen(false);
                 setSelectedPropertyIds([]);
+                setPrefilledDates(null);
               }}
               properties={properties}
               selectedProperties={selectedPropertyIds}
+              prefilledDates={prefilledDates}
               onAdd={handleSaveReservation}
             />
             <EditReservationModal
@@ -335,6 +388,11 @@ export function Dashboard() {
               onContinue={handleOverlapContinue}
               onGoBack={handleOverlapGoBack}
               overlappingBookings={overlappingBookings}
+            />
+            <UserProfileModal
+              isOpen={isProfileModalOpen}
+              onClose={() => setIsProfileModalOpen(false)}
+              profile={userProfile}
             />
           </>
         ) : (

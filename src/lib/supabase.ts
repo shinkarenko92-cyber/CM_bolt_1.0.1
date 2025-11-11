@@ -68,3 +68,14 @@ export type AdminAction = {
   details: any;
   created_at: string;
 };
+
+export type PropertyRate = {
+  id: string;
+  property_id: string;
+  date: string;
+  daily_price: number;
+  min_stay: number;
+  currency: string;
+  created_at: string;
+  updated_at: string;
+};

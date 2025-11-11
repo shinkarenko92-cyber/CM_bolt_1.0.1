@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { Property } from '../lib/supabase';
+import { Property, supabase } from '../lib/supabase';
 
 interface AddReservationModalProps {
   isOpen: boolean;
@@ -20,6 +20,7 @@ interface AddReservationModalProps {
     guests_count: number;
   }) => Promise<void>;
   selectedProperties?: string[];
+  prefilledDates?: { propertyId: string; checkIn: string; checkOut: string } | null;
 }
 
 export function AddReservationModal({
@@ -28,6 +29,7 @@ export function AddReservationModal({
   properties,
   onAdd,
   selectedProperties = [],
+  prefilledDates = null,
 }: AddReservationModalProps) {
   const [formData, setFormData] = useState({
     property_id: selectedProperties[0] || '',
@@ -45,6 +47,58 @@ export function AddReservationModal({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [calculatingPrice, setCalculatingPrice] = useState(false);
+
+  useEffect(() => {
+    if (prefilledDates) {
+      setFormData(prev => ({
+        ...prev,
+        property_id: prefilledDates.propertyId,
+        check_in: prefilledDates.checkIn,
+        check_out: prefilledDates.checkOut,
+      }));
+      calculatePrice(prefilledDates.propertyId, prefilledDates.checkIn, prefilledDates.checkOut);
+    }
+  }, [prefilledDates]);
+
+  useEffect(() => {
+    if (formData.property_id && formData.check_in && formData.check_out) {
+      calculatePrice(formData.property_id, formData.check_in, formData.check_out);
+    }
+  }, [formData.property_id, formData.check_in, formData.check_out]);
+
+  const calculatePrice = async (propertyId: string, checkIn: string, checkOut: string) => {
+    if (!propertyId || !checkIn || !checkOut) return;
+
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+
+    if (checkOutDate <= checkInDate) return;
+
+    setCalculatingPrice(true);
+    try {
+      const { data, error } = await supabase.rpc('calculate_booking_price', {
+        p_property_id: propertyId,
+        p_check_in: checkIn,
+        p_check_out: checkOut,
+      });
+
+      if (error) throw error;
+
+      if (data !== null) {
+        const property = properties.find(p => p.id === propertyId);
+        setFormData(prev => ({
+          ...prev,
+          total_price: data.toString(),
+          currency: property?.currency || 'RUB',
+        }));
+      }
+    } catch (err) {
+      console.error('Error calculating price:', err);
+    } finally {
+      setCalculatingPrice(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,7 +280,7 @@ export function AddReservationModal({
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Total Price
+                Total Price {calculatingPrice && '(calculating...)'}
               </label>
               <input
                 type="number"
@@ -237,6 +291,7 @@ export function AddReservationModal({
                 }
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
                 placeholder="0.00"
+                disabled={calculatingPrice}
               />
             </div>
 

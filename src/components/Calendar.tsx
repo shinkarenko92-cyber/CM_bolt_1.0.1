@@ -1,24 +1,120 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
-import { Property, Booking } from '../lib/supabase';
+import { Plus } from 'lucide-react';
+import { Property, Booking, PropertyRate, supabase } from '../lib/supabase';
+import { CalendarHeader } from './CalendarHeader';
+import { PropertySidebarRow } from './PropertySidebarRow';
+import { BookingBlock } from './BookingBlock';
+import { RateCell } from './RateCell';
 
 type CalendarProps = {
   properties: Property[];
   bookings: Booking[];
-  onAddReservation: (propertyIds: string[]) => void;
+  onAddReservation: (propertyId: string, checkIn: string, checkOut: string) => void;
   onEditReservation: (booking: Booking) => void;
 };
 
-export function Calendar({ properties, bookings, onAddReservation, onEditReservation }: CalendarProps) {
+type DateSelection = {
+  propertyId: string;
+  startDate: string | null;
+  endDate: string | null;
+};
+
+export function Calendar({
+  properties,
+  bookings,
+  onAddReservation,
+  onEditReservation,
+}: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [daysToShow, setDaysToShow] = useState(30);
-  const [selectedProperties, setSelectedProperties] = useState<string[]>([]);
+  const [daysToShow] = useState(60);
+  const [expandedProperties, setExpandedProperties] = useState<Set<string>>(
+    new Set(properties.map(p => p.id))
+  );
+  const [propertyRates, setPropertyRates] = useState<Map<string, PropertyRate[]>>(new Map());
+  const [dateSelection, setDateSelection] = useState<DateSelection>({
+    propertyId: '',
+    startDate: null,
+    endDate: null,
+  });
+
+  const CELL_WIDTH = 64;
 
   const dates = Array.from({ length: daysToShow }, (_, i) => {
     const date = new Date(currentDate);
     date.setDate(date.getDate() + i);
     return date;
   });
+
+  useEffect(() => {
+    loadPropertyRates();
+  }, [properties]);
+
+  const loadPropertyRates = async () => {
+    if (properties.length === 0) return;
+
+    try {
+      const propertyIds = properties.map(p => p.id);
+      const { data, error } = await supabase
+        .from('property_rates')
+        .select('*')
+        .in('property_id', propertyIds);
+
+      if (error) throw error;
+
+      const ratesMap = new Map<string, PropertyRate[]>();
+      data?.forEach((rate) => {
+        const existing = ratesMap.get(rate.property_id) || [];
+        ratesMap.set(rate.property_id, [...existing, rate]);
+      });
+
+      setPropertyRates(ratesMap);
+    } catch (error) {
+      console.error('Error loading property rates:', error);
+    }
+  };
+
+  const handleSaveRate = async (
+    propertyId: string,
+    date: string,
+    dailyPrice: number,
+    minStay: number
+  ) => {
+    try {
+      const property = properties.find(p => p.id === propertyId);
+      if (!property) return;
+
+      const { data, error } = await supabase
+        .from('property_rates')
+        .upsert(
+          {
+            property_id: propertyId,
+            date,
+            daily_price: dailyPrice,
+            min_stay: minStay,
+            currency: property.currency,
+          },
+          { onConflict: 'property_id,date' }
+        )
+        .select();
+
+      if (error) throw error;
+
+      await loadPropertyRates();
+    } catch (error) {
+      console.error('Error saving rate:', error);
+      throw error;
+    }
+  };
+
+  const togglePropertyExpansion = (propertyId: string) => {
+    const newExpanded = new Set(expandedProperties);
+    if (newExpanded.has(propertyId)) {
+      newExpanded.delete(propertyId);
+    } else {
+      newExpanded.add(propertyId);
+    }
+    setExpandedProperties(newExpanded);
+  };
 
   const goToToday = () => setCurrentDate(new Date());
   const goToPrevMonth = () => {
@@ -31,6 +127,16 @@ export function Calendar({ properties, bookings, onAddReservation, onEditReserva
     date.setMonth(date.getMonth() + 1);
     setCurrentDate(date);
   };
+  const goToPrevWeek = () => {
+    const date = new Date(currentDate);
+    date.setDate(date.getDate() - 7);
+    setCurrentDate(date);
+  };
+  const goToNextWeek = () => {
+    const date = new Date(currentDate);
+    date.setDate(date.getDate() + 7);
+    setCurrentDate(date);
+  };
 
   const isDateInRange = (date: Date, checkIn: string, checkOut: string) => {
     const d = new Date(date);
@@ -40,13 +146,6 @@ export function Calendar({ properties, bookings, onAddReservation, onEditReserva
     const end = new Date(checkOut);
     end.setHours(0, 0, 0, 0);
     return d >= start && d < end;
-  };
-
-  const getBookingForPropertyAndDate = (propertyId: string, date: Date) => {
-    return bookings.find(b =>
-      b.property_id === propertyId &&
-      isDateInRange(date, b.check_in, b.check_out)
-    );
   };
 
   const getBookingStartCol = (booking: Booking) => {
@@ -70,305 +169,232 @@ export function Calendar({ properties, bookings, onAddReservation, onEditReserva
     return diffDays;
   };
 
-  const colors = [
-    'bg-purple-500', 'bg-blue-500', 'bg-teal-500',
-    'bg-green-500', 'bg-yellow-500', 'bg-orange-500', 'bg-pink-500'
-  ];
+  const getBookingLayers = (propertyBookings: Booking[]) => {
+    const layers: Booking[][] = [];
+    const sortedBookings = [...propertyBookings].sort(
+      (a, b) => new Date(a.check_in).getTime() - new Date(b.check_in).getTime()
+    );
 
-  const getColorForBooking = (bookingId: string) => {
-    const hash = bookingId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[hash % colors.length];
-  };
+    sortedBookings.forEach((booking) => {
+      let placed = false;
+      for (let i = 0; i < layers.length; i++) {
+        const layer = layers[i];
+        const hasOverlap = layer.some((existingBooking) => {
+          const newStart = new Date(booking.check_in);
+          const newEnd = new Date(booking.check_out);
+          const existingStart = new Date(existingBooking.check_in);
+          const existingEnd = new Date(existingBooking.check_out);
 
-  const handlePropertyClick = (propertyId: string, event: React.MouseEvent) => {
-    if (event.shiftKey) {
-      if (selectedProperties.includes(propertyId)) {
-        setSelectedProperties(selectedProperties.filter(id => id !== propertyId));
-      } else {
-        setSelectedProperties([...selectedProperties, propertyId]);
+          return (
+            (newStart >= existingStart && newStart < existingEnd) ||
+            (newEnd > existingStart && newEnd <= existingEnd) ||
+            (newStart <= existingStart && newEnd >= existingEnd)
+          );
+        });
+
+        if (!hasOverlap) {
+          layer.push(booking);
+          placed = true;
+          break;
+        }
       }
-    } else {
-      setSelectedProperties([propertyId]);
+
+      if (!placed) {
+        layers.push([booking]);
+      }
+    });
+
+    return layers;
+  };
+
+  const calculateVacantCounts = () => {
+    const vacantMap = new Map<string, number>();
+
+    dates.forEach((date) => {
+      const dateKey = date.toISOString().split('T')[0];
+      let vacantCount = 0;
+
+      properties.forEach((property) => {
+        const hasBooking = bookings.some(
+          (b) => b.property_id === property.id && isDateInRange(date, b.check_in, b.check_out)
+        );
+        if (!hasBooking) {
+          vacantCount++;
+        }
+      });
+
+      vacantMap.set(dateKey, vacantCount);
+    });
+
+    return vacantMap;
+  };
+
+  const handleCellClick = (propertyId: string, date: Date) => {
+    const dateString = date.toISOString().split('T')[0];
+
+    if (!dateSelection.startDate || dateSelection.propertyId !== propertyId) {
+      setDateSelection({
+        propertyId,
+        startDate: dateString,
+        endDate: null,
+      });
+    } else if (dateSelection.startDate && !dateSelection.endDate) {
+      const start = new Date(dateSelection.startDate);
+      const end = new Date(dateString);
+
+      if (end <= start) {
+        setDateSelection({
+          propertyId,
+          startDate: dateString,
+          endDate: null,
+        });
+      } else {
+        const nextDay = new Date(end);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const checkOut = nextDay.toISOString().split('T')[0];
+
+        onAddReservation(propertyId, dateSelection.startDate, checkOut);
+        setDateSelection({
+          propertyId: '',
+          startDate: null,
+          endDate: null,
+        });
+      }
     }
   };
 
-  const handleAddReservation = () => {
-    if (selectedProperties.length > 0) {
-      onAddReservation(selectedProperties);
-    } else {
-      onAddReservation([]);
-    }
+  const getRateForDate = (propertyId: string, date: Date): PropertyRate | null => {
+    const rates = propertyRates.get(propertyId) || [];
+    const dateString = date.toISOString().split('T')[0];
+    return rates.find((r) => r.date === dateString) || null;
   };
 
-  const handleGroupReservation = () => {
-    if (selectedProperties.length > 1) {
-      onAddReservation(selectedProperties);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'confirmed':
-        return 'bg-blue-500';
-      case 'pending':
-        return 'bg-yellow-500';
-      case 'cancelled':
-        return 'bg-red-500';
-      default:
-        return 'bg-slate-500';
-    }
-  };
+  const vacantCounts = calculateVacantCounts();
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={handleAddReservation}
-            className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            + Add reservation
-          </button>
-          <button
-            onClick={handleGroupReservation}
-            disabled={selectedProperties.length < 2}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Group reservation {selectedProperties.length > 1 ? `(${selectedProperties.length})` : ''}
-          </button>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={goToPrevMonth}
-              className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
-            >
-              <ChevronsLeft className="w-4 h-4 text-slate-400" />
-            </button>
-            <button
-              onClick={() => {
-                const date = new Date(currentDate);
-                date.setDate(date.getDate() - 7);
-                setCurrentDate(date);
-              }}
-              className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4 text-slate-400" />
-            </button>
-            <button
-              onClick={goToToday}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Today
-            </button>
-            <button
-              onClick={() => {
-                const date = new Date(currentDate);
-                date.setDate(date.getDate() + 7);
-                setCurrentDate(date);
-              }}
-              className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
-            >
-              <ChevronRight className="w-4 h-4 text-slate-400" />
-            </button>
-            <button
-              onClick={goToNextMonth}
-              className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
-            >
-              <ChevronsRight className="w-4 h-4 text-slate-400" />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium">
-              View 1
-            </button>
-            <button className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors">
-              View 2
-            </button>
-          </div>
-        </div>
+    <div className="flex-1 flex flex-col overflow-hidden bg-slate-900">
+      <div className="bg-slate-800 border-b border-slate-700 px-6 py-3 flex items-center justify-between">
+        <button
+          onClick={() => onAddReservation('', '', '')}
+          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Add Reservation
+        </button>
       </div>
 
-      <div className="flex-1 overflow-auto bg-slate-900">
-        <div className="overflow-x-auto">
-          <div className="inline-block min-w-[800px]">
-            <div className="sticky top-0 z-10 bg-slate-800 border-b border-slate-700">
-            <div className="flex">
-              <div className="w-48 px-4 py-3 font-medium text-slate-300 text-sm border-r border-slate-700">
-                Units
-              </div>
-              <div className="flex">
-                {dates.map((date, i) => {
-                  const isToday = date.toDateString() === new Date().toDateString();
-                  return (
-                    <div
-                      key={i}
-                      className={`w-12 px-2 py-3 text-center border-r border-slate-700 ${
-                        isToday ? 'bg-teal-500/20' : ''
-                      }`}
-                    >
-                      <div className={`text-xs ${isToday ? 'text-teal-400' : 'text-slate-400'}`}>
-                        {date.toLocaleDateString('en-US', { weekday: 'short' })}
-                      </div>
-                      <div className={`text-sm font-medium ${isToday ? 'text-teal-400' : 'text-slate-300'}`}>
-                        {date.getDate()}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+      <div className="flex-1 overflow-hidden flex flex-col">
+        <CalendarHeader
+          dates={dates}
+          currentDate={currentDate}
+          onPrevMonth={goToPrevMonth}
+          onNextMonth={goToNextMonth}
+          onPrevWeek={goToPrevWeek}
+          onNextWeek={goToNextWeek}
+          onToday={goToToday}
+          vacantCounts={vacantCounts}
+        />
+
+        <div className="flex-1 overflow-auto flex">
+          <div className="w-64 flex-shrink-0 overflow-y-auto bg-slate-800 border-r border-slate-700">
+            {properties.map((property) => (
+              <PropertySidebarRow
+                key={property.id}
+                property={property}
+                isExpanded={expandedProperties.has(property.id)}
+                onToggle={() => togglePropertyExpansion(property.id)}
+              />
+            ))}
           </div>
 
-          <div>
-            {properties.map((property) => {
-              const propertyBookings = bookings.filter(b => b.property_id === property.id);
+          <div className="flex-1 overflow-auto">
+            <div className="relative">
+              {properties.map((property) => {
+                if (!expandedProperties.has(property.id)) return null;
 
-              const getBookingLayers = () => {
-                const layers: Booking[][] = [];
-                const sortedBookings = [...propertyBookings].sort((a, b) =>
-                  new Date(a.check_in).getTime() - new Date(b.check_in).getTime()
-                );
+                const propertyBookings = bookings.filter((b) => b.property_id === property.id);
+                const bookingLayers = getBookingLayers(propertyBookings);
+                const rowHeight = Math.max(120, bookingLayers.length * 52 + 68);
 
-                sortedBookings.forEach((booking) => {
-                  let placed = false;
-                  for (let i = 0; i < layers.length; i++) {
-                    const layer = layers[i];
-                    const hasOverlap = layer.some((existingBooking) => {
-                      const newStart = new Date(booking.check_in);
-                      const newEnd = new Date(booking.check_out);
-                      const existingStart = new Date(existingBooking.check_in);
-                      const existingEnd = new Date(existingBooking.check_out);
-
-                      return (
-                        (newStart >= existingStart && newStart < existingEnd) ||
-                        (newEnd > existingStart && newEnd <= existingEnd) ||
-                        (newStart <= existingStart && newEnd >= existingEnd)
-                      );
-                    });
-
-                    if (!hasOverlap) {
-                      layer.push(booking);
-                      placed = true;
-                      break;
-                    }
-                  }
-
-                  if (!placed) {
-                    layers.push([booking]);
-                  }
-                });
-
-                return layers;
-              };
-
-              const bookingLayers = getBookingLayers();
-              const rowHeight = Math.max(60, bookingLayers.length * 52);
-              const isSelected = selectedProperties.includes(property.id);
-
-              return (
-                <div key={property.id} className="border-b border-slate-700">
-                  <div className="flex">
-                    <div
-                      className={`w-48 px-4 py-3 border-r border-slate-700 cursor-pointer transition-colors ${
-                        isSelected ? 'bg-teal-500/20 border-l-4 border-l-teal-500' : 'hover:bg-slate-800'
-                      }`}
-                      onClick={(e) => handlePropertyClick(property.id, e)}
-                    >
-                      <div className="flex items-center gap-2">
-                        {isSelected && (
-                          <div className="w-4 h-4 bg-teal-500 rounded flex items-center justify-center">
-                            <span className="text-white text-xs">✓</span>
-                          </div>
-                        )}
-                        <div>
-                          <div className="text-sm font-medium text-white">{property.name}</div>
-                          <div className="text-xs text-slate-400 mt-1">{property.type}</div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex-1 relative" style={{ height: `${rowHeight}px`, overflow: 'visible' }}>
+                return (
+                  <div key={property.id} className="border-b border-slate-700">
+                    <div className="relative" style={{ height: `${rowHeight}px` }}>
                       <div className="absolute inset-0 flex">
-                        {dates.map((_, i) => (
-                          <div key={i} className="w-12 border-r border-slate-700/50" />
-                        ))}
+                        {dates.map((date, i) => {
+                          const dateString = date.toISOString().split('T')[0];
+                          const isSelected =
+                            dateSelection.propertyId === property.id &&
+                            dateSelection.startDate === dateString;
+
+                          return (
+                            <div
+                              key={i}
+                              className={`w-16 flex-shrink-0 border-r border-slate-700/50 cursor-pointer hover:bg-slate-800/30 transition-colors ${
+                                isSelected ? 'bg-teal-500/20' : ''
+                              }`}
+                              onClick={() => handleCellClick(property.id, date)}
+                            />
+                          );
+                        })}
                       </div>
 
-                      {bookingLayers.map((layer, layerIndex) => (
+                      {bookingLayers.map((layer, layerIndex) =>
                         layer.map((booking) => {
                           const startCol = getBookingStartCol(booking);
                           const span = getBookingSpan(booking);
 
                           if (startCol < 0 || startCol >= daysToShow) return null;
 
-                          const statusColor = getStatusColor(booking.status);
-                          const topOffset = 8 + (layerIndex * 52);
-                          const hasCheckoutExtension = span > 1;
-
-                          const statusLabels = {
-                            confirmed: 'Подтверждено',
-                            pending: 'Ожидание',
-                            cancelled: 'Отменено',
-                          };
-
                           return (
-                            <div
+                            <BookingBlock
                               key={booking.id}
+                              booking={booking}
+                              startCol={startCol}
+                              span={Math.min(span, daysToShow - startCol)}
+                              layerIndex={layerIndex}
+                              cellWidth={CELL_WIDTH}
                               onClick={() => onEditReservation(booking)}
-                              className={`booking-block ${hasCheckoutExtension ? 'has-checkout-extension' : ''} absolute ${statusColor} rounded px-2 py-1 text-white text-xs font-medium cursor-pointer transition-all`}
-                              style={{
-                                left: `${startCol * 48}px`,
-                                width: `${Math.min(span, daysToShow - startCol) * 48}px`,
-                                top: `${topOffset}px`,
-                                height: '44px',
-                              }}
-                            >
-                              <div className="truncate font-semibold">{booking.guest_name}</div>
-                              <div className="text-[10px] opacity-90">
-                                {booking.total_price} {booking.currency}
-                              </div>
-
-                              <div className="booking-tooltip">
-                                <div className="text-white font-semibold mb-2 text-sm">
-                                  {booking.guest_name}
-                                </div>
-                                <div className="text-slate-300 text-xs space-y-1">
-                                  <div>
-                                    <span className="text-slate-400">Заезд:</span>{' '}
-                                    {new Date(booking.check_in).toLocaleDateString('ru-RU')}
-                                  </div>
-                                  <div>
-                                    <span className="text-slate-400">Выезд:</span>{' '}
-                                    {new Date(booking.check_out).toLocaleDateString('ru-RU')}
-                                  </div>
-                                  <div>
-                                    <span className="text-slate-400">Цена:</span>{' '}
-                                    {booking.total_price} {booking.currency}
-                                  </div>
-                                  <div>
-                                    <span className="text-slate-400">Статус:</span>{' '}
-                                    {statusLabels[booking.status as keyof typeof statusLabels] || booking.status}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
+                            />
                           );
                         })
-                      ))}
+                      )}
+
+                      <div className="absolute bottom-0 left-0 right-0 flex border-t border-slate-700">
+                        {dates.map((date, i) => {
+                          const rate = getRateForDate(property.id, date);
+                          return (
+                            <div
+                              key={i}
+                              className="w-16 flex-shrink-0 border-r border-slate-700/50"
+                            >
+                              <RateCell
+                                date={date}
+                                propertyId={property.id}
+                                rate={rate}
+                                basePrice={property.base_price}
+                                baseCurrency={property.currency}
+                                baseMinStay={property.minimum_booking_days}
+                                onSave={(d, price, minStay) =>
+                                  handleSaveRate(property.id, d, price, minStay)
+                                }
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
 
-          {properties.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-slate-400">No properties yet. Add your first property to get started.</p>
+              {properties.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-slate-400">
+                    No properties yet. Add your first property to get started.
+                  </p>
+                </div>
+              )}
             </div>
-          )}
           </div>
         </div>
       </div>
