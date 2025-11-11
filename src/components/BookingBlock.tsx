@@ -36,7 +36,7 @@ export function BookingBlock({
   const source = booking.source.toLowerCase() as keyof typeof SOURCE_COLORS;
   const colorConfig = SOURCE_COLORS[source] || SOURCE_COLORS.manual;
 
-  const topOffset = 8 + layerIndex * 52;
+  const topOffset = 8 + layerIndex * 60;
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ru-RU');

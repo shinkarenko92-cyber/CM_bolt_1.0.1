@@ -500,7 +500,7 @@ export function Calendar({
 
                 const propertyBookings = bookings.filter((b) => b.property_id === property.id);
                 const bookingLayers = getBookingLayers(propertyBookings);
-                const rowHeight = Math.max(120, bookingLayers.length * 52 + 68);
+                const rowHeight = Math.max(120, bookingLayers.length * 60 + 68);
 
                 return (
                   <div key={property.id} className="border-b border-slate-700">
@@ -554,10 +554,7 @@ export function Calendar({
                               {!isOccupied && (
                                 <div className="h-full flex flex-col items-center justify-center text-center p-1">
                                   <div className="text-[10px] font-medium text-slate-400">
-                                    {displayPrice} {displayCurrency}
-                                  </div>
-                                  <div className="text-[9px] text-slate-500 mt-1">
-                                    Vacant
+                                    {displayPrice}
                                   </div>
                                 </div>
                               )}
