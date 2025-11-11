@@ -251,9 +251,9 @@ export function AddReservationModal({
                 }
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
               >
+                <option value="RUB">RUB</option>
                 <option value="EUR">EUR</option>
                 <option value="USD">USD</option>
-                <option value="RUB">RUB</option>
               </select>
             </div>
 

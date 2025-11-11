@@ -4,6 +4,10 @@ import { Sidebar } from './Sidebar';
 import { Calendar } from './Calendar';
 import { AddReservationModal } from './AddReservationModal';
 import { EditReservationModal } from './EditReservationModal';
+import { OverlapWarningModal } from './OverlapWarningModal';
+import { PropertiesView } from './PropertiesView';
+import { BookingsView } from './BookingsView';
+import { AnalyticsView } from './AnalyticsView';
 import { supabase, Property, Booking } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { syncWithExternalAPIs } from '../services/apiSync';
@@ -18,6 +22,9 @@ export function Dashboard() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
+  const [isOverlapWarningOpen, setIsOverlapWarningOpen] = useState(false);
+  const [overlappingBookings, setOverlappingBookings] = useState<Booking[]>([]);
+  const [pendingReservation, setPendingReservation] = useState<any>(null);
 
   useEffect(() => {
     loadData();
@@ -76,6 +83,24 @@ export function Dashboard() {
     setIsAddModalOpen(true);
   };
 
+  const checkDateOverlap = (propertyId: string, checkIn: string, checkOut: string) => {
+    const newStart = new Date(checkIn);
+    const newEnd = new Date(checkOut);
+
+    return bookings.filter((booking) => {
+      if (booking.property_id !== propertyId) return false;
+
+      const existingStart = new Date(booking.check_in);
+      const existingEnd = new Date(booking.check_out);
+
+      return (
+        (newStart >= existingStart && newStart < existingEnd) ||
+        (newEnd > existingStart && newEnd <= existingEnd) ||
+        (newStart <= existingStart && newEnd >= existingEnd)
+      );
+    });
+  };
+
   const handleSaveReservation = async (reservation: {
     property_id: string;
     guest_name: string;
@@ -89,6 +114,19 @@ export function Dashboard() {
     source: string;
     guests_count: number;
   }) => {
+    const overlaps = checkDateOverlap(reservation.property_id, reservation.check_in, reservation.check_out);
+
+    if (overlaps.length > 0) {
+      setPendingReservation(reservation);
+      setOverlappingBookings(overlaps);
+      setIsOverlapWarningOpen(true);
+      return;
+    }
+
+    await saveReservationToDatabase(reservation);
+  };
+
+  const saveReservationToDatabase = async (reservation: any) => {
     try {
       const { data, error } = await supabase.from('bookings').insert([reservation]).select();
 
@@ -97,10 +135,24 @@ export function Dashboard() {
       if (data && data.length > 0) {
         setBookings([...bookings, data[0]]);
       }
+      setIsAddModalOpen(false);
     } catch (error) {
       console.error('Error saving reservation:', error);
       throw error;
     }
+  };
+
+  const handleOverlapContinue = async () => {
+    setIsOverlapWarningOpen(false);
+    if (pendingReservation) {
+      await saveReservationToDatabase(pendingReservation);
+      setPendingReservation(null);
+    }
+  };
+
+  const handleOverlapGoBack = () => {
+    setIsOverlapWarningOpen(false);
+    setPendingReservation(null);
   };
 
   const handleEditReservation = (booking: Booking) => {
@@ -140,6 +192,50 @@ export function Dashboard() {
 
   const handleSync = async () => {
     await syncWithExternalAPIs();
+  };
+
+  const handleAddProperty = async (property: Omit<Property, 'id' | 'owner_id' | 'created_at' | 'updated_at'>) => {
+    try {
+      const { data, error } = await supabase
+        .from('properties')
+        .insert([{ ...property, owner_id: user!.id }])
+        .select();
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setProperties([...properties, data[0]]);
+      }
+    } catch (error) {
+      console.error('Error adding property:', error);
+      throw error;
+    }
+  };
+
+  const handleUpdateProperty = async (id: string, property: Partial<Property>) => {
+    try {
+      const { error } = await supabase.from('properties').update(property).eq('id', id);
+
+      if (error) throw error;
+
+      setProperties(properties.map((p) => (p.id === id ? { ...p, ...property } : p)));
+    } catch (error) {
+      console.error('Error updating property:', error);
+      throw error;
+    }
+  };
+
+  const handleDeleteProperty = async (id: string) => {
+    try {
+      const { error } = await supabase.from('properties').delete().eq('id', id);
+
+      if (error) throw error;
+
+      setProperties(properties.filter((p) => p.id !== id));
+    } catch (error) {
+      console.error('Error deleting property:', error);
+      throw error;
+    }
   };
 
   return (
@@ -187,6 +283,21 @@ export function Dashboard() {
           <div className="flex-1 flex items-center justify-center">
             <div className="text-slate-400">Loading...</div>
           </div>
+        ) : currentView === 'properties' ? (
+          <PropertiesView
+            properties={properties}
+            onAdd={handleAddProperty}
+            onUpdate={handleUpdateProperty}
+            onDelete={handleDeleteProperty}
+          />
+        ) : currentView === 'bookings' ? (
+          <BookingsView
+            bookings={bookings}
+            properties={properties}
+            onEdit={handleEditReservation}
+          />
+        ) : currentView === 'analytics' ? (
+          <AnalyticsView bookings={bookings} properties={properties} />
         ) : currentView === 'calendar' ? (
           <>
             <Calendar
@@ -215,6 +326,12 @@ export function Dashboard() {
               properties={properties}
               onUpdate={handleUpdateReservation}
               onDelete={handleDeleteReservation}
+            />
+            <OverlapWarningModal
+              isOpen={isOverlapWarningOpen}
+              onContinue={handleOverlapContinue}
+              onGoBack={handleOverlapGoBack}
+              overlappingBookings={overlappingBookings}
             />
           </>
         ) : (

@@ -21,6 +21,7 @@ export type Property = {
   base_price: number;
   currency: string;
   status: string;
+  minimum_booking_days: number;
   created_at: string;
   updated_at: string;
 };

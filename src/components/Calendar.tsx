@@ -225,6 +225,46 @@ export function Calendar({ properties, bookings, onAddReservation, onEditReserva
             {properties.map((property) => {
               const propertyBookings = bookings.filter(b => b.property_id === property.id);
 
+              const getBookingLayers = () => {
+                const layers: Booking[][] = [];
+                const sortedBookings = [...propertyBookings].sort((a, b) =>
+                  new Date(a.check_in).getTime() - new Date(b.check_in).getTime()
+                );
+
+                sortedBookings.forEach((booking) => {
+                  let placed = false;
+                  for (let i = 0; i < layers.length; i++) {
+                    const layer = layers[i];
+                    const hasOverlap = layer.some((existingBooking) => {
+                      const newStart = new Date(booking.check_in);
+                      const newEnd = new Date(booking.check_out);
+                      const existingStart = new Date(existingBooking.check_in);
+                      const existingEnd = new Date(existingBooking.check_out);
+
+                      return (
+                        (newStart >= existingStart && newStart < existingEnd) ||
+                        (newEnd > existingStart && newEnd <= existingEnd) ||
+                        (newStart <= existingStart && newEnd >= existingEnd)
+                      );
+                    });
+
+                    if (!hasOverlap) {
+                      layer.push(booking);
+                      placed = true;
+                      break;
+                    }
+                  }
+
+                  if (!placed) {
+                    layers.push([booking]);
+                  }
+                });
+
+                return layers;
+              };
+
+              const bookingLayers = getBookingLayers();
+              const rowHeight = Math.max(60, bookingLayers.length * 52);
               const isSelected = selectedProperties.includes(property.id);
 
               return (
@@ -248,44 +288,45 @@ export function Calendar({ properties, bookings, onAddReservation, onEditReserva
                         </div>
                       </div>
                     </div>
-                    <div className="flex-1 relative" style={{ height: '60px' }}>
+                    <div className="flex-1 relative" style={{ height: `${rowHeight}px` }}>
                       <div className="absolute inset-0 flex">
                         {dates.map((_, i) => (
                           <div key={i} className="w-12 border-r border-slate-700/50" />
                         ))}
                       </div>
 
-                      {propertyBookings.map((booking) => {
-                        const startCol = getBookingStartCol(booking);
-                        const span = getBookingSpan(booking);
-                        const color = getColorForBooking(booking.id);
+                      {bookingLayers.map((layer, layerIndex) => (
+                        layer.map((booking) => {
+                          const startCol = getBookingStartCol(booking);
+                          const span = getBookingSpan(booking);
 
-                        if (startCol < 0 || startCol >= daysToShow) return null;
+                          if (startCol < 0 || startCol >= daysToShow) return null;
 
-                        const statusColor = getStatusColor(booking.status);
-                        const isLastDay = startCol + span - 1;
+                          const statusColor = getStatusColor(booking.status);
+                          const topOffset = 8 + (layerIndex * 52);
 
-                        return (
-                          <div
-                            key={booking.id}
-                            onClick={() => onEditReservation(booking)}
-                            className={`absolute ${statusColor} rounded px-2 py-1 text-white text-xs font-medium overflow-hidden cursor-pointer hover:opacity-90 transition-opacity`}
-                            style={{
-                              left: `${startCol * 48}px`,
-                              width: `${Math.min(span, daysToShow - startCol) * 48}px`,
-                              top: '8px',
-                              height: '44px',
-                              clipPath: span > 1 ? `polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%)` : undefined
-                            }}
-                            title={`${booking.guest_name} - ${booking.total_price} ${booking.currency} - ${booking.status}`}
-                          >
-                            <div className="truncate font-semibold">{booking.guest_name}</div>
-                            <div className="text-[10px] opacity-90">
-                              {booking.total_price} {booking.currency}
+                          return (
+                            <div
+                              key={booking.id}
+                              onClick={() => onEditReservation(booking)}
+                              className={`absolute ${statusColor} rounded px-2 py-1 text-white text-xs font-medium overflow-hidden cursor-pointer hover:opacity-90 transition-opacity`}
+                              style={{
+                                left: `${startCol * 48}px`,
+                                width: `${Math.min(span, daysToShow - startCol) * 48}px`,
+                                top: `${topOffset}px`,
+                                height: '44px',
+                                clipPath: span > 1 ? `polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%)` : undefined
+                              }}
+                              title={`${booking.guest_name} - ${booking.total_price} ${booking.currency} - ${booking.status}`}
+                            >
+                              <div className="truncate font-semibold">{booking.guest_name}</div>
+                              <div className="text-[10px] opacity-90">
+                                {booking.total_price} {booking.currency}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })
+                      ))}
                     </div>
                   </div>
                 </div>

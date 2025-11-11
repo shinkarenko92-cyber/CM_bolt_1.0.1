@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Booking, Property } from '../lib/supabase';
 
@@ -20,16 +20,32 @@ export function EditReservationModal({
   onDelete,
 }: EditReservationModalProps) {
   const [formData, setFormData] = useState({
-    guest_name: booking?.guest_name || '',
-    guest_email: booking?.guest_email || '',
-    guest_phone: booking?.guest_phone || '',
-    check_in: booking?.check_in || '',
-    check_out: booking?.check_out || '',
-    total_price: booking?.total_price?.toString() || '',
-    currency: booking?.currency || 'EUR',
-    status: booking?.status || 'confirmed',
-    guests_count: booking?.guests_count?.toString() || '1',
+    guest_name: '',
+    guest_email: '',
+    guest_phone: '',
+    check_in: '',
+    check_out: '',
+    total_price: '',
+    currency: 'RUB',
+    status: 'confirmed',
+    guests_count: '1',
   });
+
+  useEffect(() => {
+    if (booking) {
+      setFormData({
+        guest_name: booking.guest_name || '',
+        guest_email: booking.guest_email || '',
+        guest_phone: booking.guest_phone || '',
+        check_in: booking.check_in || '',
+        check_out: booking.check_out || '',
+        total_price: booking.total_price?.toString() || '',
+        currency: booking.currency || 'RUB',
+        status: booking.status || 'confirmed',
+        guests_count: booking.guests_count?.toString() || '1',
+      });
+    }
+  }, [booking]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -251,9 +267,9 @@ export function EditReservationModal({
                   }
                   className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
                 >
+                  <option value="RUB">RUB</option>
                   <option value="EUR">EUR</option>
                   <option value="USD">USD</option>
-                  <option value="RUB">RUB</option>
                 </select>
               </div>
 
