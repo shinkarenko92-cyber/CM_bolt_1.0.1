@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { Search, Bell, User } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Calendar } from './Calendar';
+import { AddReservationModal } from './AddReservationModal';
+import { EditReservationModal } from './EditReservationModal';
 import { supabase, Property, Booking } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { syncWithExternalAPIs } from '../services/apiSync';
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -11,7 +14,10 @@ export function Dashboard() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hasSeeded, setHasSeeded] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
 
   useEffect(() => {
     loadData();
@@ -65,6 +71,77 @@ export function Dashboard() {
     }
   };
 
+  const handleAddReservation = (propertyIds: string[]) => {
+    setSelectedPropertyIds(propertyIds);
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveReservation = async (reservation: {
+    property_id: string;
+    guest_name: string;
+    guest_email: string;
+    guest_phone: string;
+    check_in: string;
+    check_out: string;
+    total_price: number;
+    currency: string;
+    status: string;
+    source: string;
+    guests_count: number;
+  }) => {
+    try {
+      const { data, error } = await supabase.from('bookings').insert([reservation]).select();
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setBookings([...bookings, data[0]]);
+      }
+    } catch (error) {
+      console.error('Error saving reservation:', error);
+      throw error;
+    }
+  };
+
+  const handleEditReservation = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateReservation = async (id: string, data: Partial<Booking>) => {
+    try {
+      const { error } = await supabase.from('bookings').update(data).eq('id', id);
+
+      if (error) throw error;
+
+      setBookings(
+        bookings.map((b) =>
+          b.id === id ? { ...b, ...data } : b
+        )
+      );
+    } catch (error) {
+      console.error('Error updating reservation:', error);
+      throw error;
+    }
+  };
+
+  const handleDeleteReservation = async (id: string) => {
+    try {
+      const { error } = await supabase.from('bookings').delete().eq('id', id);
+
+      if (error) throw error;
+
+      setBookings(bookings.filter((b) => b.id !== id));
+    } catch (error) {
+      console.error('Error deleting reservation:', error);
+      throw error;
+    }
+  };
+
+  const handleSync = async () => {
+    await syncWithExternalAPIs();
+  };
+
   return (
     <div className="flex h-screen bg-slate-900">
       <Sidebar currentView={currentView} onViewChange={setCurrentView} />
@@ -84,7 +161,11 @@ export function Dashboard() {
             </div>
 
             <div className="flex items-center gap-4 ml-6">
-              <button className="p-2 hover:bg-slate-700 rounded-lg transition-colors relative">
+              <button
+                onClick={handleSync}
+                className="p-2 hover:bg-slate-700 rounded-lg transition-colors relative"
+                title="Sync with external APIs"
+              >
                 <Bell className="w-5 h-5 text-slate-400" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-teal-500 rounded-full"></span>
               </button>
@@ -107,7 +188,35 @@ export function Dashboard() {
             <div className="text-slate-400">Loading...</div>
           </div>
         ) : currentView === 'calendar' ? (
-          <Calendar properties={properties} bookings={bookings} />
+          <>
+            <Calendar
+              properties={properties}
+              bookings={bookings}
+              onAddReservation={handleAddReservation}
+              onEditReservation={handleEditReservation}
+            />
+            <AddReservationModal
+              isOpen={isAddModalOpen}
+              onClose={() => {
+                setIsAddModalOpen(false);
+                setSelectedPropertyIds([]);
+              }}
+              properties={properties}
+              selectedProperties={selectedPropertyIds}
+              onAdd={handleSaveReservation}
+            />
+            <EditReservationModal
+              isOpen={isEditModalOpen}
+              onClose={() => {
+                setIsEditModalOpen(false);
+                setSelectedBooking(null);
+              }}
+              booking={selectedBooking}
+              properties={properties}
+              onUpdate={handleUpdateReservation}
+              onDelete={handleDeleteReservation}
+            />
+          </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
