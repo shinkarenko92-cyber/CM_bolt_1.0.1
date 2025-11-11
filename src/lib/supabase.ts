@@ -44,3 +44,27 @@ export type Booking = {
   created_at: string;
   updated_at: string;
 };
+
+export type Profile = {
+  id: string;
+  full_name: string | null;
+  business_name: string | null;
+  telegram_id: string | null;
+  email: string | null;
+  phone: string | null;
+  subscription_tier: string;
+  subscription_expires_at: string | null;
+  role: 'user' | 'admin';
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdminAction = {
+  id: string;
+  admin_id: string;
+  action_type: string;
+  target_user_id: string | null;
+  details: any;
+  created_at: string;
+};

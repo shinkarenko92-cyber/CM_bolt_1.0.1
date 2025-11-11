@@ -1,4 +1,4 @@
-import { Calendar, Home, Settings, BarChart3, Users, Bell, LogOut } from 'lucide-react';
+import { Calendar, Home, Settings, BarChart3, Users, Bell, LogOut, Shield } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 type SidebarProps = {
@@ -7,7 +7,7 @@ type SidebarProps = {
 };
 
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
-  const { signOut } = useAuth();
+  const { signOut, isAdmin } = useAuth();
 
   const menuItems = [
     { id: 'calendar', icon: Calendar, label: 'Calendar' },
@@ -16,6 +16,10 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
     { id: 'analytics', icon: BarChart3, label: 'Analytics' },
     { id: 'settings', icon: Settings, label: 'Settings' },
   ];
+
+  if (isAdmin) {
+    menuItems.push({ id: 'admin', icon: Shield, label: 'Admin' });
+  }
 
   return (
     <div className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col">

@@ -8,12 +8,13 @@ import { OverlapWarningModal } from './OverlapWarningModal';
 import { PropertiesView } from './PropertiesView';
 import { BookingsView } from './BookingsView';
 import { AnalyticsView } from './AnalyticsView';
+import { AdminView } from './AdminView';
 import { supabase, Property, Booking } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { syncWithExternalAPIs } from '../services/apiSync';
 
 export function Dashboard() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [currentView, setCurrentView] = useState('calendar');
   const [properties, setProperties] = useState<Property[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -298,6 +299,8 @@ export function Dashboard() {
           />
         ) : currentView === 'analytics' ? (
           <AnalyticsView bookings={bookings} properties={properties} />
+        ) : currentView === 'admin' && isAdmin ? (
+          <AdminView />
         ) : currentView === 'calendar' ? (
           <>
             <Calendar

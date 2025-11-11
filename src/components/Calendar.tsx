@@ -192,8 +192,9 @@ export function Calendar({ properties, bookings, onAddReservation, onEditReserva
       </div>
 
       <div className="flex-1 overflow-auto bg-slate-900">
-        <div className="inline-block min-w-full">
-          <div className="sticky top-0 z-10 bg-slate-800 border-b border-slate-700">
+        <div className="overflow-x-auto">
+          <div className="inline-block min-w-[800px]">
+            <div className="sticky top-0 z-10 bg-slate-800 border-b border-slate-700">
             <div className="flex">
               <div className="w-48 px-4 py-3 font-medium text-slate-300 text-sm border-r border-slate-700">
                 Units
@@ -368,6 +369,7 @@ export function Calendar({ properties, bookings, onAddReservation, onEditReserva
               <p className="text-slate-400">No properties yet. Add your first property to get started.</p>
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>
