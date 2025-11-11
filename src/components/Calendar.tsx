@@ -485,6 +485,8 @@ export function Calendar({
                             dateString <= dateSelection.endDate;
                           const isOccupied = isCellOccupied(property.id, date);
                           const rate = getRateForDate(property.id, date);
+                          const displayPrice = rate?.daily_price || property.base_price;
+                          const displayCurrency = rate?.currency || property.currency;
                           const displayMinStay = rate?.min_stay || property.minimum_booking_days;
                           const isDragOverThisCell = dragOverDates.has(dateString) && dragOverCell?.propertyId === property.id;
                           const dragOverColor = isDragValid ? 'bg-green-500/30' : 'bg-red-500/30';
@@ -499,8 +501,11 @@ export function Calendar({
                             >
                               {!isOccupied && (
                                 <div className="h-full flex flex-col items-center justify-center text-center p-1">
-                                  <div className="text-[9px] text-slate-500 mt-auto pb-1">
-                                    {displayMinStay}
+                                  <div className="text-[10px] font-medium text-slate-400">
+                                    {displayPrice} {displayCurrency}
+                                  </div>
+                                  <div className="text-[9px] text-slate-500 mt-1">
+                                    Vacant ({displayMinStay}д)
                                   </div>
                                 </div>
                               )}
