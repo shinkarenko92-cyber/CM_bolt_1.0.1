@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Settings } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Property, Booking, PropertyRate, supabase } from '../lib/supabase';
 import { CalendarHeader } from './CalendarHeader';
 import { PropertySidebarRow } from './PropertySidebarRow';
 import { BookingBlock } from './BookingBlock';
+import { ChangeConditionsModal } from './ChangeConditionsModal';
 
 type CalendarProps = {
   properties: Property[];
@@ -50,6 +51,14 @@ export function Calendar({
   const [dragOverDates, setDragOverDates] = useState<Set<string>>(new Set());
   const [isDragValid, setIsDragValid] = useState(true);
   const [showConditionsModal, setShowConditionsModal] = useState(false);
+  const [conditionsModalData, setConditionsModalData] = useState<{
+    propertyId: string;
+    startDate: string;
+    endDate: string;
+    price: number;
+    minStay: number;
+    currency: string;
+  } | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
 
   const CELL_WIDTH = 64;
@@ -260,7 +269,27 @@ export function Calendar({
     setExpandedProperties(newExpanded);
   };
 
-  const goToToday = () => setCurrentDate(new Date());
+  const goToToday = () => {
+    setCurrentDate(new Date());
+    setTimeout(() => {
+      if (calendarRef.current) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const firstDate = new Date(dates[0]);
+        firstDate.setHours(0, 0, 0, 0);
+        const diffTime = today.getTime() - firstDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays >= 0 && diffDays < daysToShow) {
+          const scrollContainer = calendarRef.current.querySelector('.flex-1.overflow-auto');
+          if (scrollContainer) {
+            const scrollLeft = diffDays * CELL_WIDTH;
+            scrollContainer.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+          }
+        }
+      }
+    }, 100);
+  };
   const goToPrevMonth = () => {
     const date = new Date(currentDate);
     date.setMonth(date.getMonth() - 1);
@@ -380,19 +409,33 @@ export function Calendar({
     }
   };
 
-  const handleCreateReservation = () => {
+  const handleOpenConditionsModal = () => {
     if (dateSelection.startDate && dateSelection.endDate) {
-      const nextDay = new Date(dateSelection.endDate);
-      nextDay.setDate(nextDay.getDate() + 1);
-      const checkOut = nextDay.toISOString().split('T')[0];
+      const property = properties.find(p => p.id === dateSelection.propertyId);
+      if (!property) return;
 
-      onAddReservation(dateSelection.propertyId, dateSelection.startDate, checkOut);
-      setDateSelection({
-        propertyId: '',
-        startDate: null,
-        endDate: null,
+      const rate = getRateForDate(dateSelection.propertyId, new Date(dateSelection.startDate));
+
+      setConditionsModalData({
+        propertyId: dateSelection.propertyId,
+        startDate: dateSelection.startDate,
+        endDate: dateSelection.endDate,
+        price: rate?.daily_price || property.base_price,
+        minStay: rate?.min_stay || property.minimum_booking_days,
+        currency: property.currency,
       });
+      setShowConditionsModal(true);
     }
+  };
+
+  const handleCloseConditionsModal = () => {
+    setShowConditionsModal(false);
+    setConditionsModalData(null);
+    setDateSelection({
+      propertyId: '',
+      startDate: null,
+      endDate: null,
+    });
   };
 
   const getRateForDate = (propertyId: string, date: Date): PropertyRate | null => {
@@ -418,19 +461,10 @@ export function Calendar({
           </button>
           {dateSelection.startDate && dateSelection.endDate && (
             <button
-              onClick={() => setShowConditionsModal(true)}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              onClick={handleOpenConditionsModal}
+              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
             >
-              <Settings className="w-4 h-4" />
               Изменить условия
-            </button>
-          )}
-          {dateSelection.startDate && dateSelection.endDate && (
-            <button
-              onClick={handleCreateReservation}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Создать бронь
             </button>
           )}
         </div>
@@ -470,6 +504,25 @@ export function Calendar({
 
                 return (
                   <div key={property.id} className="border-b border-slate-700">
+                    <div className="border-b border-slate-700/30 bg-slate-800/50">
+                      <div className="h-8 flex">
+                        {dates.map((date, i) => {
+                          const rate = getRateForDate(property.id, date);
+                          const displayMinStay = rate?.min_stay || property.minimum_booking_days;
+
+                          return (
+                            <div
+                              key={i}
+                              className="w-16 flex-shrink-0 border-r border-slate-700/30 flex items-center justify-center"
+                            >
+                              <div className="text-[10px] font-medium text-slate-500">
+                                {displayMinStay}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                     <div className="relative" style={{ height: `${rowHeight}px` }}>
                       <div className="absolute inset-0 flex">
                         {dates.map((date, i) => {
@@ -487,7 +540,6 @@ export function Calendar({
                           const rate = getRateForDate(property.id, date);
                           const displayPrice = rate?.daily_price || property.base_price;
                           const displayCurrency = rate?.currency || property.currency;
-                          const displayMinStay = rate?.min_stay || property.minimum_booking_days;
                           const isDragOverThisCell = dragOverDates.has(dateString) && dragOverCell?.propertyId === property.id;
                           const dragOverColor = isDragValid ? 'bg-green-500/30' : 'bg-red-500/30';
 
@@ -505,7 +557,7 @@ export function Calendar({
                                     {displayPrice} {displayCurrency}
                                   </div>
                                   <div className="text-[9px] text-slate-500 mt-1">
-                                    Vacant ({displayMinStay}д)
+                                    Vacant
                                   </div>
                                 </div>
                               )}
@@ -553,6 +605,19 @@ export function Calendar({
           </div>
         </div>
       </div>
+
+      {showConditionsModal && conditionsModalData && (
+        <ChangeConditionsModal
+          isOpen={showConditionsModal}
+          onClose={handleCloseConditionsModal}
+          propertyId={conditionsModalData.propertyId}
+          startDate={conditionsModalData.startDate}
+          endDate={conditionsModalData.endDate}
+          currentPrice={conditionsModalData.price}
+          currentMinStay={conditionsModalData.minStay}
+          currency={conditionsModalData.currency}
+        />
+      )}
     </div>
   );
 }
