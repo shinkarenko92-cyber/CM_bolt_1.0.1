@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Booking } from '../lib/supabase';
 
 type BookingBlockProps = {
@@ -7,14 +8,17 @@ type BookingBlockProps = {
   layerIndex: number;
   cellWidth: number;
   onClick: () => void;
+  onDragStart: (booking: Booking) => void;
+  onDragEnd: () => void;
+  isDragging: boolean;
 };
 
 const SOURCE_COLORS = {
-  avito: { bg: 'bg-[#4CAF50]', text: 'text-white', badge: 'A' },
-  cian: { bg: 'bg-[#2196F3]', text: 'text-white', badge: 'C' },
-  booking: { bg: 'bg-[#F44336]', text: 'text-white', badge: 'B' },
-  airbnb: { bg: 'bg-[#FF5A5F]', text: 'text-white', badge: 'Ab' },
-  manual: { bg: 'bg-slate-600', text: 'text-white', badge: 'M' },
+  avito: { bg: '#4CAF50', text: 'text-white', badge: 'A' },
+  cian: { bg: '#2196F3', text: 'text-white', badge: 'C' },
+  booking: { bg: '#F44336', text: 'text-white', badge: 'B' },
+  airbnb: { bg: '#FF5A5F', text: 'text-white', badge: 'Ab' },
+  manual: { bg: '#64748b', text: 'text-white', badge: 'M' },
 };
 
 export function BookingBlock({
@@ -24,27 +28,59 @@ export function BookingBlock({
   layerIndex,
   cellWidth,
   onClick,
+  onDragStart,
+  onDragEnd,
+  isDragging,
 }: BookingBlockProps) {
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
   const source = booking.source.toLowerCase() as keyof typeof SOURCE_COLORS;
   const colorConfig = SOURCE_COLORS[source] || SOURCE_COLORS.manual;
 
   const topOffset = 8 + layerIndex * 52;
-  const hasCheckout = span > 1;
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ru-RU');
   };
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 0) {
+      onDragStart(booking);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    setTouchStart({ x: touch.clientX, y: touch.clientY });
+    setTimeout(() => {
+      if (touchStart) {
+        onDragStart(booking);
+      }
+    }, 200);
+  };
+
+  const handleTouchEnd = () => {
+    setTouchStart(null);
+    onDragEnd();
+  };
+
   return (
     <div
       onClick={onClick}
-      className={`absolute ${colorConfig.bg} rounded px-2 py-1 ${colorConfig.text} text-xs font-medium cursor-pointer transition-all hover:shadow-lg hover:z-10 group`}
+      onMouseDown={handleMouseDown}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      className={`absolute rounded px-2 py-1 ${colorConfig.text} text-xs font-medium cursor-grab active:cursor-grabbing transition-all hover:shadow-lg hover:z-10 group ${
+        isDragging ? 'opacity-50 cursor-grabbing' : ''
+      }`}
       style={{
         left: `${startCol * cellWidth}px`,
         width: `${span * cellWidth}px`,
         top: `${topOffset}px`,
         height: '44px',
-        opacity: hasCheckout ? 1 : 0.7,
+        backgroundColor: colorConfig.bg,
+        clipPath: span > 1
+          ? 'polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 0 100%)'
+          : 'none',
       }}
     >
       <div className="flex items-start justify-between">
@@ -54,16 +90,21 @@ export function BookingBlock({
             {booking.total_price} {booking.currency}
           </div>
         </div>
-        <div className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${colorConfig.bg} bg-opacity-80 border border-white/30`}>
+        <div
+          className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold border border-white/30`}
+          style={{ backgroundColor: colorConfig.bg, opacity: 0.8 }}
+        >
           {colorConfig.badge}
         </div>
       </div>
 
-      {hasCheckout && (
+      {span > 1 && (
         <div
-          className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-black/20 to-transparent pointer-events-none"
+          className="absolute top-0 bottom-0 pointer-events-none"
           style={{
-            background: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.1), rgba(0,0,0,0.1) 10px, transparent 10px, transparent 20px)',
+            right: 0,
+            width: '32px',
+            background: `linear-gradient(135deg, transparent 0%, transparent calc(50% - 1px), rgba(0,0,0,0.3) calc(50%), transparent calc(50% + 1px), transparent 100%)`,
           }}
         />
       )}
@@ -74,20 +115,20 @@ export function BookingBlock({
         </div>
         <div className="text-slate-300 text-xs space-y-1">
           <div>
-            <span className="text-slate-400">Check-in:</span>{' '}
+            <span className="text-slate-400">Заезд:</span>{' '}
             {formatDate(booking.check_in)}
           </div>
           <div>
-            <span className="text-slate-400">Check-out:</span>{' '}
+            <span className="text-slate-400">Выезд:</span>{' '}
             {formatDate(booking.check_out)}
           </div>
           <div>
-            <span className="text-slate-400">Price:</span>{' '}
+            <span className="text-slate-400">Цена:</span>{' '}
             {booking.total_price} {booking.currency}
           </div>
           {booking.guest_phone && (
             <div>
-              <span className="text-slate-400">Phone:</span>{' '}
+              <span className="text-slate-400">Телефон:</span>{' '}
               {booking.guest_phone}
             </div>
           )}
@@ -98,11 +139,11 @@ export function BookingBlock({
             </div>
           )}
           <div>
-            <span className="text-slate-400">Source:</span>{' '}
+            <span className="text-slate-400">Источник:</span>{' '}
             <span className="capitalize">{booking.source}</span>
           </div>
           <div>
-            <span className="text-slate-400">Status:</span>{' '}
+            <span className="text-slate-400">Статус:</span>{' '}
             <span className="capitalize">{booking.status}</span>
           </div>
         </div>

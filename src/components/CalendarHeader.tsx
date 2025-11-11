@@ -8,7 +8,6 @@ type CalendarHeaderProps = {
   onPrevWeek: () => void;
   onNextWeek: () => void;
   onToday: () => void;
-  vacantCounts: Map<string, number>;
 };
 
 export function CalendarHeader({
@@ -19,7 +18,6 @@ export function CalendarHeader({
   onPrevWeek,
   onNextWeek,
   onToday,
-  vacantCounts,
 }: CalendarHeaderProps) {
   const formatMonthYear = (date: Date) => {
     return date.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
@@ -58,7 +56,7 @@ export function CalendarHeader({
             onClick={onToday}
             className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
           >
-            Today
+            Сегодня
           </button>
           <button
             onClick={onNextWeek}
@@ -79,13 +77,11 @@ export function CalendarHeader({
 
       <div className="flex">
         <div className="w-64 px-4 py-3 font-medium text-slate-300 text-sm border-r border-slate-700 flex-shrink-0">
-          Properties
+          Объекты
         </div>
         <div className="flex overflow-x-auto">
           {dates.map((date, i) => {
             const today = isToday(date);
-            const dateKey = date.toISOString().split('T')[0];
-            const vacantCount = vacantCounts.get(dateKey) || 0;
 
             return (
               <div
@@ -94,18 +90,12 @@ export function CalendarHeader({
                   today ? 'bg-teal-500/10' : ''
                 }`}
               >
-                <div className="px-2 py-2 text-center border-b border-slate-700/50">
+                <div className="px-2 py-3 text-center">
                   <div className={`text-xs ${today ? 'text-teal-400' : 'text-slate-400'}`}>
                     {date.toLocaleDateString('ru-RU', { weekday: 'short' })}
                   </div>
                   <div className={`text-sm font-medium ${today ? 'text-teal-400' : 'text-slate-300'}`}>
                     {date.getDate()}
-                  </div>
-                </div>
-                <div className="px-2 py-1 text-center">
-                  <div className="text-xs text-slate-500">Vacant</div>
-                  <div className="text-sm font-semibold text-slate-300">
-                    {vacantCount}
                   </div>
                 </div>
               </div>

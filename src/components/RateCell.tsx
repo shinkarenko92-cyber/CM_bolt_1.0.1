@@ -116,14 +116,14 @@ export function RateCell({
   return (
     <div
       onDoubleClick={handleDoubleClick}
-      className="px-2 py-1 text-center cursor-pointer hover:bg-slate-700/50 transition-colors"
+      className="px-2 py-1 text-center cursor-pointer hover:bg-slate-700/50 transition-colors h-full flex flex-col justify-center"
       title="Double-click to edit rate"
     >
       <div className="text-xs font-medium text-slate-300">
         {displayPrice} {displayCurrency}
       </div>
-      <div className="text-[10px] text-slate-500">
-        {displayMinStay}n min
+      <div className="text-[10px] text-slate-500 mt-0.5">
+        {displayMinStay}
       </div>
     </div>
   );

@@ -291,15 +291,16 @@ export function Dashboard() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-slate-800 border-b border-slate-700 px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex-1 max-w-2xl">
-              <div className="relative">
+            <div className="flex items-center gap-4">
+              <h1 className="text-2xl font-bold text-teal-400">Сдавайка</h1>
+              <div className="relative max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by guest name, phone, or email..."
-                  className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="Поиск по имени, телефону или email..."
+                  className="pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>
             </div>
