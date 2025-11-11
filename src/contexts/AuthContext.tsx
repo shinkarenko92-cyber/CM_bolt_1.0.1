@@ -88,7 +88,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (result.data.user) {
       await new Promise(resolve => setTimeout(resolve, 1000));
-      const profileData = await fetchProfile(result.data.user.id);
+
+      // Check if profile exists
+      let profileData = await fetchProfile(result.data.user.id);
+
+      // If no profile exists, create one
+      if (!profileData) {
+        // Check if this is the first user
+        const { count } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
+
+        const isFirstUser = count === 0;
+
+        // Create profile
+        const { data: newProfile, error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: result.data.user.id,
+            email: result.data.user.email,
+            role: isFirstUser ? 'admin' : 'user',
+            is_active: true,
+          })
+          .select()
+          .single();
+
+        if (profileError) {
+          console.error('Error creating profile:', profileError);
+        } else {
+          profileData = newProfile;
+        }
+      }
+
       setProfile(profileData);
     }
 
