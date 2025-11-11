@@ -1,5 +1,6 @@
-import { X, CreditCard, CheckCircle, XCircle } from 'lucide-react';
+import { X, CreditCard, CheckCircle, XCircle, Sun, Moon } from 'lucide-react';
 import { Profile } from '../lib/supabase';
+import { useTheme } from '../contexts/ThemeContext';
 
 type UserProfileModalProps = {
   isOpen: boolean;
@@ -8,6 +9,8 @@ type UserProfileModalProps = {
 };
 
 export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalProps) {
+  const { theme, toggleTheme } = useTheme();
+
   if (!isOpen || !profile) return null;
 
   const isPaid = profile.subscription_tier !== 'free' && profile.subscription_tier !== 'basic';
@@ -137,6 +140,32 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
                 Upgrade Subscription
               </button>
             )}
+          </div>
+
+          <div className="border-t border-slate-700 pt-6">
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-slate-300 mb-3">
+                Тема оформления
+              </label>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={toggleTheme}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+                >
+                  {theme === 'dark' ? (
+                    <>
+                      <Moon className="w-5 h-5 text-slate-300" />
+                      <span className="text-white font-medium">Темная тема</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sun className="w-5 h-5 text-yellow-400" />
+                      <span className="text-white font-medium">Светлая тема</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="border-t border-slate-700 pt-4">

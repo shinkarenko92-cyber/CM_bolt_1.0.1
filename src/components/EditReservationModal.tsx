@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { Booking, Property } from '../lib/supabase';
+import { Booking, Property, supabase, PropertyRate } from '../lib/supabase';
+import { PriceRecalculationModal } from './PriceRecalculationModal';
 
 interface EditReservationModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export function EditReservationModal({
   onDelete,
 }: EditReservationModalProps) {
   const [formData, setFormData] = useState({
+    property_id: '',
     guest_name: '',
     guest_email: '',
     guest_phone: '',
@@ -30,10 +32,15 @@ export function EditReservationModal({
     status: 'confirmed',
     guests_count: '1',
   });
+  const [originalPropertyId, setOriginalPropertyId] = useState('');
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  const [calculatedPrice, setCalculatedPrice] = useState(0);
+  const [pendingPropertyChange, setPendingPropertyChange] = useState(false);
 
   useEffect(() => {
     if (booking) {
       setFormData({
+        property_id: booking.property_id || '',
         guest_name: booking.guest_name || '',
         guest_email: booking.guest_email || '',
         guest_phone: booking.guest_phone || '',
@@ -44,6 +51,7 @@ export function EditReservationModal({
         status: booking.status || 'confirmed',
         guests_count: booking.guests_count?.toString() || '1',
       });
+      setOriginalPropertyId(booking.property_id);
     }
   }, [booking]);
 
@@ -52,6 +60,58 @@ export function EditReservationModal({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   if (!booking) return null;
+
+  const calculateNewPrice = async (propertyId: string, checkIn: string, checkOut: string): Promise<number> => {
+    const property = properties.find(p => p.id === propertyId);
+    if (!property) return 0;
+
+    const { data: rates } = await supabase
+      .from('property_rates')
+      .select('*')
+      .eq('property_id', propertyId);
+
+    const start = new Date(checkIn);
+    const end = new Date(checkOut);
+    let total = 0;
+    const current = new Date(start);
+
+    while (current < end) {
+      const dateStr = current.toISOString().split('T')[0];
+      const rate = rates?.find(r => r.date === dateStr);
+      total += rate?.daily_price || property.base_price;
+      current.setDate(current.getDate() + 1);
+    }
+
+    return total;
+  };
+
+  const handlePropertyChange = async (newPropertyId: string) => {
+    if (newPropertyId !== originalPropertyId) {
+      const newPrice = await calculateNewPrice(newPropertyId, formData.check_in, formData.check_out);
+      setCalculatedPrice(newPrice);
+      setPendingPropertyChange(true);
+      setShowPriceModal(true);
+      setFormData({ ...formData, property_id: newPropertyId });
+    } else {
+      setFormData({ ...formData, property_id: newPropertyId });
+    }
+  };
+
+  const handleKeepPrice = () => {
+    setShowPriceModal(false);
+    setPendingPropertyChange(false);
+  };
+
+  const handleRecalculatePrice = () => {
+    const newProperty = properties.find(p => p.id === formData.property_id);
+    setFormData({
+      ...formData,
+      total_price: calculatedPrice.toString(),
+      currency: newProperty?.currency || formData.currency,
+    });
+    setShowPriceModal(false);
+    setPendingPropertyChange(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +128,7 @@ export function EditReservationModal({
       }
 
       await onUpdate(booking.id, {
+        property_id: formData.property_id,
         guest_name: formData.guest_name,
         guest_email: formData.guest_email,
         guest_phone: formData.guest_phone,
@@ -151,6 +212,24 @@ export function EditReservationModal({
                 {error}
               </div>
             )}
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Property
+              </label>
+              <select
+                value={formData.property_id}
+                onChange={(e) => handlePropertyChange(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                required
+              >
+                {properties.map((property) => (
+                  <option key={property.id} value={property.id}>
+                    {property.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -321,6 +400,17 @@ export function EditReservationModal({
           </form>
         )}
       </div>
+
+      <PriceRecalculationModal
+        isOpen={showPriceModal}
+        onClose={() => setShowPriceModal(false)}
+        onKeepPrice={handleKeepPrice}
+        onRecalculate={handleRecalculatePrice}
+        booking={booking}
+        oldProperty={properties.find(p => p.id === originalPropertyId) || null}
+        newProperty={properties.find(p => p.id === formData.property_id) || null}
+        calculatedPrice={calculatedPrice}
+      />
     </div>
   );
 }

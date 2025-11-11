@@ -29,6 +29,8 @@ export function Dashboard() {
   const [overlappingBookings, setOverlappingBookings] = useState<Booking[]>([]);
   const [pendingReservation, setPendingReservation] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [searchResults, setSearchResults] = useState<Booking[]>([]);
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [prefilledDates, setPrefilledDates] = useState<{ propertyId: string; checkIn: string; checkOut: string } | null>(null);
@@ -40,6 +42,8 @@ export function Dashboard() {
   useEffect(() => {
     if (searchQuery.trim() === '') {
       setFilteredBookings(bookings);
+      setSearchResults([]);
+      setShowSearchDropdown(false);
     } else {
       const query = searchQuery.toLowerCase();
       const filtered = bookings.filter(
@@ -49,6 +53,8 @@ export function Dashboard() {
           (b.guest_email && b.guest_email.toLowerCase().includes(query))
       );
       setFilteredBookings(filtered);
+      setSearchResults(filtered);
+      setShowSearchDropdown(true);
     }
   }, [searchQuery, bookings]);
 
@@ -293,15 +299,46 @@ export function Dashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <h1 className="text-2xl font-bold text-teal-400">Сдавайка</h1>
-              <div className="relative max-w-md">
+              <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => searchQuery && setShowSearchDropdown(true)}
                   placeholder="Поиск по имени, телефону или email..."
-                  className="pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-96 pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
+                {showSearchDropdown && searchResults.length > 0 && (
+                  <div className="absolute top-full mt-1 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-96 overflow-y-auto z-50">
+                    {searchResults.map((booking) => {
+                      const property = properties.find(p => p.id === booking.property_id);
+                      const checkIn = new Date(booking.check_in).toLocaleDateString('ru-RU');
+                      const checkOut = new Date(booking.check_out).toLocaleDateString('ru-RU');
+                      return (
+                        <button
+                          key={booking.id}
+                          onClick={() => {
+                            setShowSearchDropdown(false);
+                            handleEditReservation(booking);
+                          }}
+                          className="w-full text-left px-4 py-3 hover:bg-slate-700 transition-colors border-b border-slate-700 last:border-b-0"
+                        >
+                          <div className="font-semibold text-white mb-1">{booking.guest_name}</div>
+                          <div className="text-sm text-slate-400">
+                            {property?.name || 'Unknown Property'}
+                          </div>
+                          <div className="text-xs text-slate-500 mt-1">
+                            {checkIn} - {checkOut}
+                          </div>
+                          {booking.guest_phone && (
+                            <div className="text-xs text-slate-500">{booking.guest_phone}</div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 

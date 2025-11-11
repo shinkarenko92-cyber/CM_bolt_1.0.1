@@ -2,6 +2,160 @@
 @tailwind components;
 @tailwind utilities;
 
+:root[data-theme='light'] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --bg-hover: #e2e8f0;
+  --border-color: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #64748b;
+  --accent-color: #0ea5e9;
+  --accent-hover: #0284c7;
+  --accent-light: #e0f2fe;
+  --success-color: #10b981;
+  --error-color: #ef4444;
+  --warning-color: #f59e0b;
+}
+
+:root[data-theme='dark'] {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --bg-hover: #475569;
+  --border-color: #475569;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #94a3b8;
+  --accent-color: #14b8a6;
+  --accent-hover: #0d9488;
+  --accent-light: #134e4a;
+  --success-color: #10b981;
+  --error-color: #ef4444;
+  --warning-color: #f59e0b;
+}
+
+[data-theme='light'] body {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+[data-theme='light'] .bg-slate-900 {
+  background-color: var(--bg-secondary) !important;
+}
+
+[data-theme='light'] .bg-slate-800 {
+  background-color: var(--bg-primary) !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='light'] .bg-slate-700 {
+  background-color: var(--bg-tertiary) !important;
+}
+
+[data-theme='light'] .bg-slate-700\/50 {
+  background-color: var(--bg-tertiary) !important;
+  opacity: 0.9;
+}
+
+[data-theme='light'] .bg-slate-800\/50 {
+  background-color: var(--bg-tertiary) !important;
+  opacity: 0.9;
+}
+
+[data-theme='light'] .border-slate-700 {
+  border-color: var(--border-color) !important;
+}
+
+[data-theme='light'] .border-slate-600 {
+  border-color: var(--border-color) !important;
+}
+
+[data-theme='light'] .border-slate-700\/50 {
+  border-color: var(--border-color) !important;
+  opacity: 0.5;
+}
+
+[data-theme='light'] .text-white {
+  color: var(--text-primary) !important;
+}
+
+[data-theme='light'] .text-slate-300 {
+  color: var(--text-secondary) !important;
+}
+
+[data-theme='light'] .text-slate-400 {
+  color: var(--text-tertiary) !important;
+}
+
+[data-theme='light'] .text-slate-500 {
+  color: var(--text-tertiary) !important;
+}
+
+[data-theme='light'] .text-teal-400 {
+  color: var(--accent-color) !important;
+}
+
+[data-theme='light'] .bg-teal-600 {
+  background-color: var(--accent-color) !important;
+}
+
+[data-theme='light'] .bg-teal-700 {
+  background-color: var(--accent-hover) !important;
+}
+
+[data-theme='light'] .hover\:bg-teal-700:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+[data-theme='light'] .bg-blue-600 {
+  background-color: #3b82f6 !important;
+}
+
+[data-theme='light'] .bg-blue-700 {
+  background-color: #2563eb !important;
+}
+
+[data-theme='light'] .hover\:bg-slate-700:hover {
+  background-color: var(--bg-hover) !important;
+}
+
+[data-theme='light'] .hover\:bg-slate-600:hover {
+  background-color: var(--bg-hover) !important;
+}
+
+[data-theme='light'] .hover\:bg-slate-800\/30:hover {
+  background-color: var(--bg-hover) !important;
+  opacity: 0.3;
+}
+
+[data-theme='light'] .hover\:bg-slate-700\/50:hover {
+  background-color: var(--bg-hover) !important;
+  opacity: 0.5;
+}
+
+[data-theme='light'] input,
+[data-theme='light'] select,
+[data-theme='light'] textarea {
+  background-color: var(--bg-tertiary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme='light'] input::placeholder {
+  color: var(--text-tertiary) !important;
+}
+
+[data-theme='light'] .booking-tooltip {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+[data-theme='light'] .booking-tooltip::after {
+  border-top-color: var(--bg-primary);
+}
+
 .booking-block {
   position: relative;
   overflow: visible;

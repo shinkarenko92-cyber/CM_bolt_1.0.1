@@ -47,6 +47,8 @@ export function Calendar({
     originalPropertyId: null,
   });
   const [dragOverCell, setDragOverCell] = useState<{ propertyId: string; dateIndex: number } | null>(null);
+  const [dragOverDates, setDragOverDates] = useState<Set<string>>(new Set());
+  const [isDragValid, setIsDragValid] = useState(true);
   const [showConditionsModal, setShowConditionsModal] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
 
@@ -73,11 +75,13 @@ export function Calendar({
     };
 
     const handleMouseUp = () => {
-      if (dragState.booking && dragOverCell) {
+      if (dragState.booking && dragOverCell && isDragValid) {
         handleDrop(dragOverCell.propertyId, dragOverCell.dateIndex);
       }
       setDragState({ booking: null, originalPropertyId: null });
       setDragOverCell(null);
+      setDragOverDates(new Set());
+      setIsDragValid(true);
     };
 
     const handleTouchMove = (e: TouchEvent) => {
@@ -92,11 +96,13 @@ export function Calendar({
     };
 
     const handleTouchEnd = () => {
-      if (dragState.booking && dragOverCell) {
+      if (dragState.booking && dragOverCell && isDragValid) {
         handleDrop(dragOverCell.propertyId, dragOverCell.dateIndex);
       }
       setDragState({ booking: null, originalPropertyId: null });
       setDragOverCell(null);
+      setDragOverDates(new Set());
+      setIsDragValid(true);
     };
 
     if (dragState.booking) {
@@ -121,6 +127,44 @@ export function Calendar({
     if (propertyIndex >= 0 && propertyIndex < properties.length && dateIndex >= 0 && dateIndex < dates.length) {
       const propertyId = properties[propertyIndex].id;
       setDragOverCell({ propertyId, dateIndex });
+
+      if (dragState.booking) {
+        const bookingStart = new Date(dragState.booking.check_in);
+        const bookingEnd = new Date(dragState.booking.check_out);
+        const duration = Math.ceil((bookingEnd.getTime() - bookingStart.getTime()) / (1000 * 60 * 60 * 24));
+
+        const affectedDates = new Set<string>();
+        for (let i = 0; i < duration; i++) {
+          const targetDate = new Date(dates[dateIndex]);
+          targetDate.setDate(targetDate.getDate() + i);
+          affectedDates.add(targetDate.toISOString().split('T')[0]);
+        }
+        setDragOverDates(affectedDates);
+
+        const targetDate = dates[dateIndex];
+        const newCheckIn = targetDate.toISOString().split('T')[0];
+        const newCheckOut = new Date(targetDate);
+        newCheckOut.setDate(newCheckOut.getDate() + duration);
+        const newCheckOutStr = newCheckOut.toISOString().split('T')[0];
+
+        const hasOverlap = bookings.some(b => {
+          if (b.id === dragState.booking!.id) return false;
+          if (b.property_id !== propertyId) return false;
+
+          const existingStart = new Date(b.check_in);
+          const existingEnd = new Date(b.check_out);
+          const newStart = new Date(newCheckIn);
+          const newEnd = new Date(newCheckOutStr);
+
+          return (
+            (newStart >= existingStart && newStart < existingEnd) ||
+            (newEnd > existingStart && newEnd <= existingEnd) ||
+            (newStart <= existingStart && newEnd >= existingEnd)
+          );
+        });
+
+        setIsDragValid(!hasOverlap);
+      }
     }
   };
 
@@ -441,22 +485,22 @@ export function Calendar({
                             dateString <= dateSelection.endDate;
                           const isOccupied = isCellOccupied(property.id, date);
                           const rate = getRateForDate(property.id, date);
-                          const displayPrice = rate?.daily_price || property.base_price;
-                          const displayCurrency = rate?.currency || property.currency;
-                          const isDragOver = dragOverCell?.propertyId === property.id && dragOverCell?.dateIndex === i;
+                          const displayMinStay = rate?.min_stay || property.minimum_booking_days;
+                          const isDragOverThisCell = dragOverDates.has(dateString) && dragOverCell?.propertyId === property.id;
+                          const dragOverColor = isDragValid ? 'bg-green-500/30' : 'bg-red-500/30';
 
                           return (
                             <div
                               key={i}
                               className={`w-16 flex-shrink-0 border-r border-slate-700/50 cursor-pointer transition-colors ${
                                 isSelected ? 'bg-teal-500/20' : ''
-                              } ${isInRange ? 'bg-blue-500/10' : ''} ${isDragOver ? 'bg-yellow-500/20' : ''} ${!isOccupied ? 'hover:bg-slate-800/30' : ''}`}
+                              } ${isInRange ? 'bg-blue-500/10' : ''} ${isDragOverThisCell ? dragOverColor : ''} ${!isOccupied ? 'hover:bg-slate-800/30' : ''}`}
                               onClick={() => !isOccupied && handleCellClick(property.id, date)}
                             >
                               {!isOccupied && (
                                 <div className="h-full flex flex-col items-center justify-center text-center p-1">
-                                  <div className="text-[10px] font-medium text-slate-400">
-                                    {displayPrice} {displayCurrency}
+                                  <div className="text-[9px] text-slate-500 mt-auto pb-1">
+                                    {displayMinStay}
                                   </div>
                                 </div>
                               )}
@@ -488,24 +532,6 @@ export function Calendar({
                           );
                         })
                       )}
-                    </div>
-
-                    <div className="h-8 bg-slate-800/50 border-t border-slate-700/50 flex">
-                      {dates.map((date, i) => {
-                        const rate = getRateForDate(property.id, date);
-                        const displayMinStay = rate?.min_stay || property.minimum_booking_days;
-
-                        return (
-                          <div
-                            key={i}
-                            className="w-16 flex-shrink-0 border-r border-slate-700/50 flex items-center justify-center"
-                          >
-                            <div className="text-[9px] text-slate-500">
-                              {displayMinStay}
-                            </div>
-                          </div>
-                        );
-                      })}
                     </div>
                   </div>
                 );
