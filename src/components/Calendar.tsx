@@ -274,7 +274,7 @@ export function Calendar({
   };
 
   const goToToday = () => {
-    const today = new Date();
+    const today = new Date('2025-11-12');
     today.setHours(0, 0, 0, 0);
 
     const centerOffset = Math.floor(daysToShow / 2);
@@ -548,9 +548,7 @@ export function Calendar({
                 return (
                   <>
                     <div key={`${property.id}-minstay`} className="flex border-b border-slate-700/30 bg-slate-800/50">
-                      <div className="w-64 flex-shrink-0 h-8 flex items-center px-4 border-r border-slate-700">
-                        <div className="text-xs font-medium text-slate-400">Мин. бронирование</div>
-                      </div>
+                      <div className="w-64 flex-shrink-0 h-8 border-r border-slate-700"></div>
                       <div className="flex-1 overflow-x-hidden">
                         <div className="h-8 flex">
                           {dates.map((date, i) => {
@@ -578,6 +576,11 @@ export function Calendar({
                           <div className="absolute inset-0 flex">
                             {dates.map((date, i) => {
                           const dateString = date.toISOString().split('T')[0];
+                          const today = new Date('2025-11-12');
+                          today.setHours(0, 0, 0, 0);
+                          const checkDate = new Date(date);
+                          checkDate.setHours(0, 0, 0, 0);
+                          const isToday = checkDate.getTime() === today.getTime();
                           const isSelected =
                             dateSelection.propertyId === property.id &&
                             dateSelection.startDate === dateString;
@@ -598,13 +601,14 @@ export function Calendar({
                             <div
                               key={i}
                               className={`w-16 flex-shrink-0 border-r border-slate-700/50 cursor-pointer transition-colors ${
-                                isSelected ? 'bg-teal-500/20' : ''
+                                isToday ? 'bg-teal-500/10' : ''
+                              } ${isSelected ? 'bg-teal-500/20' : ''
                               } ${isInRange ? 'bg-blue-500/10' : ''} ${isDragOverThisCell ? dragOverColor : ''} ${!isOccupied ? 'hover:bg-slate-800/30' : ''}`}
                               onClick={() => !isOccupied && handleCellClick(property.id, date)}
                             >
                               {!isOccupied && (
-                                <div className="h-full flex flex-col items-center justify-center text-center p-1">
-                                  <div className="text-[10px] font-medium text-slate-400">
+                                <div className="h-full flex items-center justify-center text-center px-1">
+                                  <div className="text-[10px] font-medium text-slate-400 truncate">
                                     {displayPrice}
                                   </div>
                                 </div>

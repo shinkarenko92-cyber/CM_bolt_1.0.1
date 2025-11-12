@@ -29,7 +29,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
             <Calendar className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-white font-bold text-lg">Rentl.io</h1>
+            <h1 className="text-white font-bold text-lg">Сдавайка</h1>
             <p className="text-slate-400 text-xs">Booking Manager</p>
           </div>
         </div>
