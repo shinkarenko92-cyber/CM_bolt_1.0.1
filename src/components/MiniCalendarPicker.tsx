@@ -63,12 +63,11 @@ export function MiniCalendarPicker({ onDateSelect, currentDate }: MiniCalendarPi
       days.push(<div key={`empty-${i}`} className="h-8" />);
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayDate = new Date();
+    const today = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
 
     for (let day = 1; day <= daysInMonth; day++) {
       const dateToCheck = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
-      dateToCheck.setHours(0, 0, 0, 0);
       const isToday = dateToCheck.getTime() === today.getTime();
       const isSelected =
         dateToCheck.getFullYear() === currentDate.getFullYear() &&

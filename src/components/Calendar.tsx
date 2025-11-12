@@ -34,9 +34,9 @@ export function Calendar({
 }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(() => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const centerOffset = Math.floor(60 / 2);
-    const startDate = new Date(today);
+    const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const centerOffset = 20;
+    const startDate = new Date(localToday);
     startDate.setDate(startDate.getDate() - centerOffset);
     return startDate;
   });
@@ -87,7 +87,7 @@ export function Calendar({
       if (calendarRef.current) {
         const scrollContainer = calendarRef.current.querySelector('.flex-1.overflow-auto');
         if (scrollContainer) {
-          const centerOffset = Math.floor(daysToShow / 2);
+          const centerOffset = 20;
           const scrollLeft = centerOffset * CELL_WIDTH;
           scrollContainer.scrollTo({ left: scrollLeft, behavior: 'auto' });
         }
@@ -293,10 +293,10 @@ export function Calendar({
 
   const goToToday = () => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-    const centerOffset = Math.floor(daysToShow / 2);
-    const newStartDate = new Date(today);
+    const centerOffset = 20;
+    const newStartDate = new Date(localToday);
     newStartDate.setDate(newStartDate.getDate() - centerOffset);
 
     setCurrentDate(newStartDate);
@@ -313,10 +313,10 @@ export function Calendar({
   };
 
   const goToDate = (targetDate: Date) => {
-    targetDate.setHours(0, 0, 0, 0);
+    const localDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
 
-    const centerOffset = Math.floor(daysToShow / 2);
-    const newStartDate = new Date(targetDate);
+    const centerOffset = 20;
+    const newStartDate = new Date(localDate);
     newStartDate.setDate(newStartDate.getDate() - centerOffset);
 
     setCurrentDate(newStartDate);
@@ -353,20 +353,19 @@ export function Calendar({
   };
 
   const isDateInRange = (date: Date, checkIn: string, checkOut: string) => {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const start = new Date(checkIn);
-    start.setHours(0, 0, 0, 0);
+    const localStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
     const end = new Date(checkOut);
-    end.setHours(0, 0, 0, 0);
-    return d >= start && d < end;
+    const localEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    return d >= localStart && d < localEnd;
   };
 
   const getBookingStartCol = (booking: Booking) => {
-    const startDate = new Date(booking.check_in);
-    startDate.setHours(0, 0, 0, 0);
-    const firstDate = new Date(dates[0]);
-    firstDate.setHours(0, 0, 0, 0);
+    const start = new Date(booking.check_in);
+    const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const first = new Date(dates[0]);
+    const firstDate = new Date(first.getFullYear(), first.getMonth(), first.getDate());
 
     if (startDate < firstDate) return 0;
 
@@ -376,8 +375,10 @@ export function Calendar({
   };
 
   const getBookingSpan = (booking: Booking) => {
-    const start = new Date(booking.check_in);
-    const end = new Date(booking.check_out);
+    const checkIn = new Date(booking.check_in);
+    const start = new Date(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate());
+    const checkOut = new Date(booking.check_out);
+    const end = new Date(checkOut.getFullYear(), checkOut.getMonth(), checkOut.getDate());
     const diffTime = end.getTime() - start.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
@@ -546,16 +547,18 @@ export function Calendar({
               {properties.map((property) => {
                 if (!expandedProperties.has(property.id)) return null;
 
-                const firstVisibleDate = new Date(dates[0]);
-                firstVisibleDate.setHours(0, 0, 0, 0);
-                const lastVisibleDate = new Date(dates[dates.length - 1]);
-                lastVisibleDate.setHours(23, 59, 59, 999);
+                const first = new Date(dates[0]);
+                const firstVisibleDate = new Date(first.getFullYear(), first.getMonth(), first.getDate(), 0, 0, 0, 0);
+                const last = new Date(dates[dates.length - 1]);
+                const lastVisibleDate = new Date(last.getFullYear(), last.getMonth(), last.getDate(), 23, 59, 59, 999);
 
                 const propertyBookings = bookings.filter((b) => {
                   if (b.property_id !== property.id) return false;
 
-                  const checkIn = new Date(b.check_in);
-                  const checkOut = new Date(b.check_out);
+                  const checkInDate = new Date(b.check_in);
+                  const checkIn = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
+                  const checkOutDate = new Date(b.check_out);
+                  const checkOut = new Date(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate());
 
                   return checkOut > firstVisibleDate && checkIn <= lastVisibleDate;
                 });
@@ -566,7 +569,7 @@ export function Calendar({
                 return (
                   <>
                     <div key={`${property.id}-minstay`} className="border-b border-slate-700/30 bg-slate-800/50">
-                      <div className="h-8 flex">
+                      <div className="h-16 flex">
                         {dates.map((date, i) => {
                           const rate = getRateForDate(property.id, date);
                           const displayMinStay = rate?.min_stay || property.minimum_booking_days;
@@ -590,10 +593,9 @@ export function Calendar({
                           {dates.map((date, i) => {
                           const dateString = date.toISOString().split('T')[0];
                           const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          const checkDate = new Date(date);
-                          checkDate.setHours(0, 0, 0, 0);
-                          const isToday = checkDate.getTime() === today.getTime();
+                          const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                          const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                          const isToday = checkDate.getTime() === localToday.getTime();
                           const isSelected =
                             dateSelection.propertyId === property.id &&
                             dateSelection.startDate === dateString;

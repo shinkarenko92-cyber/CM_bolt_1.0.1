@@ -60,16 +60,16 @@ export function BookingsView({ bookings, properties, onEdit }: BookingsViewProps
   };
 
   const filteredAndSortedBookings = useMemo(() => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
+    const nowDate = new Date();
+    const now = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
 
     let filtered = bookings.filter((booking) => {
       const matchesSearch =
         booking.guest_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         getPropertyName(booking.property_id).toLowerCase().includes(searchTerm.toLowerCase());
 
-      const checkIn = new Date(booking.check_in);
-      checkIn.setHours(0, 0, 0, 0);
+      const checkInDate = new Date(booking.check_in);
+      const checkIn = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
 
       const matchesFilter =
         filterType === 'all' ||
@@ -94,18 +94,18 @@ export function BookingsView({ bookings, properties, onEdit }: BookingsViewProps
   }, [bookings, searchTerm, filterType, sortBy, properties]);
 
   const stats = useMemo(() => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
+    const nowDate = new Date();
+    const now = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
 
     const upcoming = bookings.filter((b) => {
-      const checkIn = new Date(b.check_in);
-      checkIn.setHours(0, 0, 0, 0);
+      const checkInDate = new Date(b.check_in);
+      const checkIn = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
       return checkIn >= now;
     }).length;
 
     const past = bookings.filter((b) => {
-      const checkIn = new Date(b.check_in);
-      checkIn.setHours(0, 0, 0, 0);
+      const checkInDate = new Date(b.check_in);
+      const checkIn = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
       return checkIn < now;
     }).length;
 

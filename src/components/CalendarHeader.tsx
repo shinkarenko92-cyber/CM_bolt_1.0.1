@@ -28,10 +28,9 @@ export function CalendarHeader({
 
   const isToday = (date: Date) => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const checkDate = new Date(date);
-    checkDate.setHours(0, 0, 0, 0);
-    return checkDate.getTime() === today.getTime();
+    const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    return checkDate.getTime() === localToday.getTime();
   };
 
   return (
