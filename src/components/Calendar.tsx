@@ -564,7 +564,7 @@ export function Calendar({
                 });
 
                 const bookingLayers = getBookingLayers(propertyBookings);
-                const rowHeight = Math.max(120, bookingLayers.length * 60 + 68);
+                const rowHeight = Math.max(44, bookingLayers.length * 60 + 8);
 
                 return (
                   <>
