@@ -11,7 +11,7 @@ export function PropertySidebarRow({ property, isExpanded, onToggle }: PropertyS
   return (
     <div
       className="flex items-center gap-2 px-4 border-b border-slate-700 hover:bg-slate-800/50 transition-colors cursor-pointer"
-      style={{ height: '136px' }}
+      style={{ height: '102px' }}
       onClick={onToggle}
     >
       <button className="text-slate-400 hover:text-slate-300 flex-shrink-0">
