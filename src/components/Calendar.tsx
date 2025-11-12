@@ -76,6 +76,8 @@ export function Calendar({
     return date;
   });
 
+  const centerDate = dates[Math.floor(daysToShow / 2)] || currentDate;
+
   useEffect(() => {
     loadPropertyRates();
   }, [properties]);
@@ -518,7 +520,7 @@ export function Calendar({
       <div className="flex-1 overflow-hidden flex flex-col">
         <CalendarHeader
           dates={dates}
-          currentDate={currentDate}
+          currentDate={centerDate}
           onPrevMonth={goToPrevMonth}
           onNextMonth={goToNextMonth}
           onPrevWeek={goToPrevWeek}
