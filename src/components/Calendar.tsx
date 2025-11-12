@@ -35,7 +35,10 @@ export function Calendar({
   const [currentDate, setCurrentDate] = useState(() => {
     const today = new Date('2025-11-12');
     today.setHours(0, 0, 0, 0);
-    return today;
+    const centerOffset = Math.floor(60 / 2);
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - centerOffset);
+    return startDate;
   });
   const [daysToShow] = useState(60);
   const [expandedProperties, setExpandedProperties] = useState<Set<string>>(
@@ -76,6 +79,19 @@ export function Calendar({
   useEffect(() => {
     loadPropertyRates();
   }, [properties]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      if (calendarRef.current) {
+        const scrollContainer = calendarRef.current.querySelector('.flex-1.overflow-auto');
+        if (scrollContainer) {
+          const centerOffset = Math.floor(daysToShow / 2);
+          const scrollLeft = centerOffset * CELL_WIDTH;
+          scrollContainer.scrollTo({ left: scrollLeft, behavior: 'auto' });
+        }
+      }
+    }, 100);
+  }, []);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -547,34 +563,29 @@ export function Calendar({
 
                 return (
                   <>
-                    <div key={`${property.id}-minstay`} className="flex border-b border-slate-700/30 bg-slate-800/50">
-                      <div className="w-64 flex-shrink-0 h-8 border-r border-slate-700"></div>
-                      <div className="flex-1 overflow-x-hidden">
-                        <div className="h-8 flex">
-                          {dates.map((date, i) => {
-                            const rate = getRateForDate(property.id, date);
-                            const displayMinStay = rate?.min_stay || property.minimum_booking_days;
+                    <div key={`${property.id}-minstay`} className="border-b border-slate-700/30 bg-slate-800/50">
+                      <div className="h-8 flex">
+                        {dates.map((date, i) => {
+                          const rate = getRateForDate(property.id, date);
+                          const displayMinStay = rate?.min_stay || property.minimum_booking_days;
 
-                            return (
-                              <div
-                                key={i}
-                                className="w-16 flex-shrink-0 border-r border border-slate-600 flex items-center justify-center"
-                              >
-                                <div className="text-[10px] font-medium text-slate-500">
-                                  {displayMinStay}
-                                </div>
+                          return (
+                            <div
+                              key={i}
+                              className="w-16 flex-shrink-0 border-r border border-slate-600 flex items-center justify-center"
+                            >
+                              <div className="text-[10px] font-medium text-slate-500">
+                                {displayMinStay}
                               </div>
-                            );
-                          })}
-                        </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                    <div key={property.id} className="flex border-b border-slate-700">
-                      <div className="w-64 flex-shrink-0 border-r border-slate-700"></div>
-                      <div className="flex-1 overflow-x-hidden">
-                        <div className="relative" style={{ height: `${rowHeight}px` }}>
-                          <div className="absolute inset-0 flex">
-                            {dates.map((date, i) => {
+                    <div key={property.id} className="border-b border-slate-700">
+                      <div className="relative" style={{ height: `${rowHeight}px` }}>
+                        <div className="absolute inset-0 flex">
+                          {dates.map((date, i) => {
                           const dateString = date.toISOString().split('T')[0];
                           const today = new Date('2025-11-12');
                           today.setHours(0, 0, 0, 0);
@@ -607,7 +618,7 @@ export function Calendar({
                               onClick={() => !isOccupied && handleCellClick(property.id, date)}
                             >
                               {!isOccupied && (
-                                <div className="h-full flex items-center justify-center text-center px-1">
+                                <div className="h-11 flex items-center justify-center text-center px-1">
                                   <div className="text-[10px] font-medium text-slate-400 truncate">
                                     {displayPrice}
                                   </div>
@@ -639,9 +650,8 @@ export function Calendar({
                               isDragging={dragState.booking?.id === booking.id}
                             />
                           );
-                            })
-                          )}
-                        </div>
+                          })
+                        )}
                       </div>
                     </div>
                   </>
