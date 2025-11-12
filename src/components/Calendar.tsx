@@ -32,7 +32,11 @@ export function Calendar({
   onEditReservation,
   onBookingUpdate,
 }: CalendarProps) {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(() => {
+    const today = new Date('2025-11-12');
+    today.setHours(0, 0, 0, 0);
+    return today;
+  });
   const [daysToShow] = useState(60);
   const [expandedProperties, setExpandedProperties] = useState<Set<string>>(
     new Set(properties.map(p => p.id))
@@ -419,16 +423,17 @@ export function Calendar({
           endDate: null,
         });
       } else {
+        setDateSelection({
+          propertyId,
+          startDate: dateSelection.startDate,
+          endDate: dateString,
+        });
+
         const endPlusOne = new Date(end);
         endPlusOne.setDate(endPlusOne.getDate() + 1);
         const checkOutString = endPlusOne.toISOString().split('T')[0];
 
         onAddReservation(propertyId, dateSelection.startDate, checkOutString);
-        setDateSelection({
-          propertyId: '',
-          startDate: null,
-          endDate: null,
-        });
       }
     }
   };
@@ -541,29 +546,37 @@ export function Calendar({
                 const rowHeight = Math.max(120, bookingLayers.length * 60 + 68);
 
                 return (
-                  <div key={property.id} className="border-b border-slate-700">
-                    <div className="border-b border-slate-700/30 bg-slate-800/50">
-                      <div className="h-8 flex">
-                        {dates.map((date, i) => {
-                          const rate = getRateForDate(property.id, date);
-                          const displayMinStay = rate?.min_stay || property.minimum_booking_days;
+                  <>
+                    <div key={`${property.id}-minstay`} className="flex border-b border-slate-700/30 bg-slate-800/50">
+                      <div className="w-64 flex-shrink-0 h-8 flex items-center px-4 border-r border-slate-700">
+                        <div className="text-xs font-medium text-slate-400">Мин. бронирование</div>
+                      </div>
+                      <div className="flex-1 overflow-x-hidden">
+                        <div className="h-8 flex">
+                          {dates.map((date, i) => {
+                            const rate = getRateForDate(property.id, date);
+                            const displayMinStay = rate?.min_stay || property.minimum_booking_days;
 
-                          return (
-                            <div
-                              key={i}
-                              className="w-16 flex-shrink-0 border-r border-slate-700/30 flex items-center justify-center"
-                            >
-                              <div className="text-[10px] font-medium text-slate-500">
-                                {displayMinStay}
+                            return (
+                              <div
+                                key={i}
+                                className="w-16 flex-shrink-0 border-r border border-slate-600 flex items-center justify-center"
+                              >
+                                <div className="text-[10px] font-medium text-slate-500">
+                                  {displayMinStay}
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
-                    <div className="relative" style={{ height: `${rowHeight}px` }}>
-                      <div className="absolute inset-0 flex">
-                        {dates.map((date, i) => {
+                    <div key={property.id} className="flex border-b border-slate-700">
+                      <div className="w-64 flex-shrink-0 border-r border-slate-700"></div>
+                      <div className="flex-1 overflow-x-hidden">
+                        <div className="relative" style={{ height: `${rowHeight}px` }}>
+                          <div className="absolute inset-0 flex">
+                            {dates.map((date, i) => {
                           const dateString = date.toISOString().split('T')[0];
                           const isSelected =
                             dateSelection.propertyId === property.id &&
@@ -622,10 +635,12 @@ export function Calendar({
                               isDragging={dragState.booking?.id === booking.id}
                             />
                           );
-                        })
-                      )}
+                            })
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  </>
                 );
               })}
 
