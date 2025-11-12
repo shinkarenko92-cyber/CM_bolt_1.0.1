@@ -532,14 +532,28 @@ export function Calendar({
 
         <div className="flex-1 overflow-auto flex" ref={calendarRef}>
           <div className="w-64 flex-shrink-0 overflow-y-auto bg-slate-800 border-r border-slate-700">
-            {properties.map((property) => (
-              <PropertySidebarRow
-                key={property.id}
-                property={property}
-                isExpanded={expandedProperties.has(property.id)}
-                onToggle={() => togglePropertyExpansion(property.id)}
-              />
-            ))}
+            {properties.map((property) => {
+              const isExpanded = expandedProperties.has(property.id);
+              return (
+                <div key={property.id}>
+                  <PropertySidebarRow
+                    property={property}
+                    isExpanded={isExpanded}
+                    onToggle={() => togglePropertyExpansion(property.id)}
+                  />
+                  {isExpanded && (
+                    <>
+                      <div className="h-8 border-b border-slate-700/30 bg-slate-800/50 flex items-center justify-center">
+                        <span className="text-[10px] font-medium text-slate-500">мин. дни</span>
+                      </div>
+                      <div className="h-11 border-b border-slate-700 flex items-center justify-center">
+                        <span className="text-[10px] font-medium text-slate-400">цена</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           <div className="flex-1 overflow-auto">
