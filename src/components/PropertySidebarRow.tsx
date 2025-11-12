@@ -10,7 +10,7 @@ type PropertySidebarRowProps = {
 export function PropertySidebarRow({ property, isExpanded, onToggle }: PropertySidebarRowProps) {
   return (
     <div
-      className="flex items-center gap-2 px-4 py-3 border-b border-slate-700 hover:bg-slate-800/50 transition-colors cursor-pointer"
+      className="flex items-center gap-2 px-4 py-2 border-b border-slate-700 hover:bg-slate-800/50 transition-colors cursor-pointer h-8"
       onClick={onToggle}
     >
       <button className="text-slate-400 hover:text-slate-300">

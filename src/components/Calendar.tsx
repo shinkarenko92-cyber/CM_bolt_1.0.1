@@ -35,7 +35,7 @@ export function Calendar({
   const [currentDate, setCurrentDate] = useState(() => {
     const today = new Date();
     const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const centerOffset = 20;
+    const centerOffset = Math.floor(60 / 2);
     const startDate = new Date(localToday);
     startDate.setDate(startDate.getDate() - centerOffset);
     return startDate;
@@ -87,7 +87,7 @@ export function Calendar({
       if (calendarRef.current) {
         const scrollContainer = calendarRef.current.querySelector('.flex-1.overflow-auto');
         if (scrollContainer) {
-          const centerOffset = 20;
+          const centerOffset = Math.floor(60 / 2);
           const scrollLeft = centerOffset * CELL_WIDTH;
           scrollContainer.scrollTo({ left: scrollLeft, behavior: 'auto' });
         }
@@ -295,7 +295,7 @@ export function Calendar({
     const today = new Date();
     const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-    const centerOffset = 20;
+    const centerOffset = Math.floor(60 / 2);
     const newStartDate = new Date(localToday);
     newStartDate.setDate(newStartDate.getDate() - centerOffset);
 
@@ -315,7 +315,7 @@ export function Calendar({
   const goToDate = (targetDate: Date) => {
     const localDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
 
-    const centerOffset = 20;
+    const centerOffset = Math.floor(60 / 2);
     const newStartDate = new Date(localDate);
     newStartDate.setDate(newStartDate.getDate() - centerOffset);
 
@@ -569,7 +569,7 @@ export function Calendar({
                 return (
                   <>
                     <div key={`${property.id}-minstay`} className="border-b border-slate-700/30 bg-slate-800/50">
-                      <div className="h-16 flex">
+                      <div className="h-8 flex">
                         {dates.map((date, i) => {
                           const rate = getRateForDate(property.id, date);
                           const displayMinStay = rate?.min_stay || property.minimum_booking_days;
