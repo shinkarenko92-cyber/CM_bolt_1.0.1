@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isToday } from 'date-fns';
+import { ru } from 'date-fns/locale';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Property, Booking, PropertyRate, supabase } from '../lib/supabase';
-import { CalendarHeader } from './CalendarHeader';
-import { PropertySidebarRow } from './PropertySidebarRow';
-import { BookingBlock } from './BookingBlock';
 import { ChangeConditionsModal } from './ChangeConditionsModal';
 
 type CalendarProps = {
@@ -20,10 +19,7 @@ type DateSelection = {
   endDate: string | null;
 };
 
-type DragState = {
-  booking: Booking | null;
-  originalPropertyId: string | null;
-};
+const CURRENT_DATE = new Date('2025-11-12');
 
 export function Calendar({
   properties,
@@ -32,31 +28,13 @@ export function Calendar({
   onEditReservation,
   onBookingUpdate,
 }: CalendarProps) {
-  const [currentDate, setCurrentDate] = useState(() => {
-    const today = new Date('2025-11-12');
-    today.setHours(0, 0, 0, 0);
-    const centerOffset = Math.floor(60 / 2);
-    const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - centerOffset);
-    return startDate;
-  });
-  const [daysToShow] = useState(60);
-  const [expandedProperties, setExpandedProperties] = useState<Set<string>>(
-    new Set(properties.map(p => p.id))
-  );
+  const [currentMonth, setCurrentMonth] = useState(startOfMonth(CURRENT_DATE));
   const [propertyRates, setPropertyRates] = useState<Map<string, PropertyRate[]>>(new Map());
   const [dateSelection, setDateSelection] = useState<DateSelection>({
     propertyId: '',
     startDate: null,
     endDate: null,
   });
-  const [dragState, setDragState] = useState<DragState>({
-    booking: null,
-    originalPropertyId: null,
-  });
-  const [dragOverCell, setDragOverCell] = useState<{ propertyId: string; dateIndex: number } | null>(null);
-  const [dragOverDates, setDragOverDates] = useState<Set<string>>(new Set());
-  const [isDragValid, setIsDragValid] = useState(true);
   const [showConditionsModal, setShowConditionsModal] = useState(false);
   const [conditionsModalData, setConditionsModalData] = useState<{
     propertyId: string;
@@ -66,14 +44,11 @@ export function Calendar({
     minStay: number;
     currency: string;
   } | null>(null);
-  const calendarRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const CELL_WIDTH = 64;
-
-  const dates = Array.from({ length: daysToShow }, (_, i) => {
-    const date = new Date(currentDate);
-    date.setDate(date.getDate() + i);
-    return date;
+  const days = eachDayOfInterval({
+    start: startOfMonth(currentMonth),
+    end: endOfMonth(currentMonth),
   });
 
   useEffect(() => {
@@ -81,346 +56,49 @@ export function Calendar({
   }, [properties]);
 
   useEffect(() => {
+    goToToday();
+  }, [currentMonth]);
+
+  const goToToday = () => {
     setTimeout(() => {
-      if (calendarRef.current) {
-        const scrollContainer = calendarRef.current.querySelector('.flex-1.overflow-auto');
-        if (scrollContainer) {
-          const centerOffset = Math.floor(daysToShow / 2);
-          const scrollLeft = centerOffset * CELL_WIDTH;
-          scrollContainer.scrollTo({ left: scrollLeft, behavior: 'auto' });
+      if (scrollRef.current && days.length > 0) {
+        const todayDate = CURRENT_DATE.getDate();
+        const todayIndex = days.findIndex(d => d.getDate() === todayDate);
+        if (todayIndex !== -1) {
+          const cellWidth = 48;
+          const offset = todayIndex * cellWidth - (scrollRef.current.clientWidth / 2) + (cellWidth / 2);
+          scrollRef.current.scrollTo({ left: Math.max(0, offset), behavior: 'smooth' });
         }
       }
     }, 100);
-  }, []);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (dragState.booking && calendarRef.current) {
-        const rect = calendarRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        updateDragOver(x, y);
-      }
-    };
-
-    const handleMouseUp = () => {
-      if (dragState.booking && dragOverCell && isDragValid) {
-        handleDrop(dragOverCell.propertyId, dragOverCell.dateIndex);
-      }
-      setDragState({ booking: null, originalPropertyId: null });
-      setDragOverCell(null);
-      setDragOverDates(new Set());
-      setIsDragValid(true);
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (dragState.booking && calendarRef.current && e.touches[0]) {
-        const touch = e.touches[0];
-        const rect = calendarRef.current.getBoundingClientRect();
-        const x = touch.clientX - rect.left;
-        const y = touch.clientY - rect.top;
-        updateDragOver(x, y);
-        e.preventDefault();
-      }
-    };
-
-    const handleTouchEnd = () => {
-      if (dragState.booking && dragOverCell && isDragValid) {
-        handleDrop(dragOverCell.propertyId, dragOverCell.dateIndex);
-      }
-      setDragState({ booking: null, originalPropertyId: null });
-      setDragOverCell(null);
-      setDragOverDates(new Set());
-      setIsDragValid(true);
-    };
-
-    if (dragState.booking) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      document.addEventListener('touchmove', handleTouchMove, { passive: false });
-      document.addEventListener('touchend', handleTouchEnd);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, [dragState, dragOverCell]);
-
-  const updateDragOver = (x: number, y: number) => {
-    const propertyIndex = Math.floor(y / 120);
-    const dateIndex = Math.floor((x - 256) / CELL_WIDTH);
-
-    if (propertyIndex >= 0 && propertyIndex < properties.length && dateIndex >= 0 && dateIndex < dates.length) {
-      const propertyId = properties[propertyIndex].id;
-      setDragOverCell({ propertyId, dateIndex });
-
-      if (dragState.booking) {
-        const bookingStart = new Date(dragState.booking.check_in);
-        const bookingEnd = new Date(dragState.booking.check_out);
-        const duration = Math.ceil((bookingEnd.getTime() - bookingStart.getTime()) / (1000 * 60 * 60 * 24));
-
-        const affectedDates = new Set<string>();
-        for (let i = 0; i < duration; i++) {
-          const targetDate = new Date(dates[dateIndex]);
-          targetDate.setDate(targetDate.getDate() + i);
-          affectedDates.add(targetDate.toISOString().split('T')[0]);
-        }
-        setDragOverDates(affectedDates);
-
-        const targetDate = dates[dateIndex];
-        const newCheckIn = targetDate.toISOString().split('T')[0];
-        const newCheckOut = new Date(targetDate);
-        newCheckOut.setDate(newCheckOut.getDate() + duration);
-        const newCheckOutStr = newCheckOut.toISOString().split('T')[0];
-
-        const hasOverlap = bookings.some(b => {
-          if (b.id === dragState.booking!.id) return false;
-          if (b.property_id !== propertyId) return false;
-
-          const existingStart = new Date(b.check_in);
-          const existingEnd = new Date(b.check_out);
-          const newStart = new Date(newCheckIn);
-          const newEnd = new Date(newCheckOutStr);
-
-          return (
-            (newStart >= existingStart && newStart < existingEnd) ||
-            (newEnd > existingStart && newEnd <= existingEnd) ||
-            (newStart <= existingStart && newEnd >= existingEnd)
-          );
-        });
-
-        setIsDragValid(!hasOverlap);
-      }
-    }
-  };
-
-  const handleDrop = async (targetPropertyId: string, targetDateIndex: number) => {
-    if (!dragState.booking) return;
-
-    const targetDate = dates[targetDateIndex];
-    const newCheckIn = targetDate.toISOString().split('T')[0];
-
-    const bookingStart = new Date(dragState.booking.check_in);
-    const bookingEnd = new Date(dragState.booking.check_out);
-    const duration = Math.ceil((bookingEnd.getTime() - bookingStart.getTime()) / (1000 * 60 * 60 * 24));
-
-    const newCheckOut = new Date(targetDate);
-    newCheckOut.setDate(newCheckOut.getDate() + duration);
-    const newCheckOutStr = newCheckOut.toISOString().split('T')[0];
-
-    const hasOverlap = bookings.some(b => {
-      if (b.id === dragState.booking!.id) return false;
-      if (b.property_id !== targetPropertyId) return false;
-
-      const existingStart = new Date(b.check_in);
-      const existingEnd = new Date(b.check_out);
-      const newStart = new Date(newCheckIn);
-      const newEnd = new Date(newCheckOutStr);
-
-      return (
-        (newStart >= existingStart && newStart < existingEnd) ||
-        (newEnd > existingStart && newEnd <= existingEnd) ||
-        (newStart <= existingStart && newEnd >= existingEnd)
-      );
-    });
-
-    if (hasOverlap) {
-      alert('Невозможно переместить бронь: пересечение с существующей бронью');
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('bookings')
-        .update({
-          property_id: targetPropertyId,
-          check_in: newCheckIn,
-          check_out: newCheckOutStr,
-        })
-        .eq('id', dragState.booking.id);
-
-      if (error) throw error;
-
-      onBookingUpdate(dragState.booking.id, {
-        property_id: targetPropertyId,
-        check_in: newCheckIn,
-        check_out: newCheckOutStr,
-      });
-    } catch (error) {
-      console.error('Error moving booking:', error);
-      alert('Ошибка перемещения брони');
-    }
   };
 
   const loadPropertyRates = async () => {
-    if (properties.length === 0) return;
-
-    try {
-      const propertyIds = properties.map(p => p.id);
+    const ratesMap = new Map<string, PropertyRate[]>();
+    for (const property of properties) {
       const { data, error } = await supabase
         .from('property_rates')
         .select('*')
-        .in('property_id', propertyIds);
+        .eq('property_id', property.id)
+        .order('date', { ascending: true });
 
-      if (error) throw error;
-
-      const ratesMap = new Map<string, PropertyRate[]>();
-      data?.forEach((rate) => {
-        const existing = ratesMap.get(rate.property_id) || [];
-        ratesMap.set(rate.property_id, [...existing, rate]);
-      });
-
-      setPropertyRates(ratesMap);
-    } catch (error) {
-      console.error('Error loading property rates:', error);
+      if (!error && data) {
+        ratesMap.set(property.id, data);
+      }
     }
+    setPropertyRates(ratesMap);
   };
 
-  const togglePropertyExpansion = (propertyId: string) => {
-    const newExpanded = new Set(expandedProperties);
-    if (newExpanded.has(propertyId)) {
-      newExpanded.delete(propertyId);
-    } else {
-      newExpanded.add(propertyId);
-    }
-    setExpandedProperties(newExpanded);
-  };
-
-  const goToToday = () => {
-    const today = new Date('2025-11-12');
-    today.setHours(0, 0, 0, 0);
-
-    const centerOffset = Math.floor(daysToShow / 2);
-    const newStartDate = new Date(today);
-    newStartDate.setDate(newStartDate.getDate() - centerOffset);
-
-    setCurrentDate(newStartDate);
-
-    setTimeout(() => {
-      if (calendarRef.current) {
-        const scrollContainer = calendarRef.current.querySelector('.flex-1.overflow-auto');
-        if (scrollContainer) {
-          const scrollLeft = centerOffset * CELL_WIDTH;
-          scrollContainer.scrollTo({ left: scrollLeft, behavior: 'smooth' });
-        }
-      }
-    }, 100);
-  };
-
-  const goToDate = (targetDate: Date) => {
-    targetDate.setHours(0, 0, 0, 0);
-
-    const centerOffset = Math.floor(daysToShow / 2);
-    const newStartDate = new Date(targetDate);
-    newStartDate.setDate(newStartDate.getDate() - centerOffset);
-
-    setCurrentDate(newStartDate);
-
-    setTimeout(() => {
-      if (calendarRef.current) {
-        const scrollContainer = calendarRef.current.querySelector('.flex-1.overflow-auto');
-        if (scrollContainer) {
-          const scrollLeft = centerOffset * CELL_WIDTH;
-          scrollContainer.scrollTo({ left: scrollLeft, behavior: 'smooth' });
-        }
-      }
-    }, 100);
-  };
-  const goToPrevMonth = () => {
-    const date = new Date(currentDate);
-    date.setMonth(date.getMonth() - 1);
-    setCurrentDate(date);
-  };
-  const goToNextMonth = () => {
-    const date = new Date(currentDate);
-    date.setMonth(date.getMonth() + 1);
-    setCurrentDate(date);
-  };
-  const goToPrevWeek = () => {
-    const date = new Date(currentDate);
-    date.setDate(date.getDate() - 7);
-    setCurrentDate(date);
-  };
-  const goToNextWeek = () => {
-    const date = new Date(currentDate);
-    date.setDate(date.getDate() + 7);
-    setCurrentDate(date);
-  };
-
-  const isDateInRange = (date: Date, checkIn: string, checkOut: string) => {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    const start = new Date(checkIn);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(checkOut);
-    end.setHours(0, 0, 0, 0);
-    return d >= start && d < end;
-  };
-
-  const getBookingStartCol = (booking: Booking) => {
-    const startDate = new Date(booking.check_in);
-    startDate.setHours(0, 0, 0, 0);
-    const firstDate = new Date(dates[0]);
-    firstDate.setHours(0, 0, 0, 0);
-
-    if (startDate < firstDate) return 0;
-
-    const diffTime = startDate.getTime() - firstDate.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
-
-  const getBookingSpan = (booking: Booking) => {
-    const start = new Date(booking.check_in);
-    const end = new Date(booking.check_out);
-    const diffTime = end.getTime() - start.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
-
-  const getBookingLayers = (propertyBookings: Booking[]) => {
-    const layers: Booking[][] = [];
-    const sortedBookings = [...propertyBookings].sort(
-      (a, b) => new Date(a.check_in).getTime() - new Date(b.check_in).getTime()
-    );
-
-    sortedBookings.forEach((booking) => {
-      let placed = false;
-      for (let i = 0; i < layers.length; i++) {
-        const layer = layers[i];
-        const hasOverlap = layer.some((existingBooking) => {
-          const newStart = new Date(booking.check_in);
-          const newEnd = new Date(booking.check_out);
-          const existingStart = new Date(existingBooking.check_in);
-          const existingEnd = new Date(existingBooking.check_out);
-
-          return (
-            (newStart >= existingStart && newStart < existingEnd) ||
-            (newEnd > existingStart && newEnd <= existingEnd) ||
-            (newStart <= existingStart && newEnd >= existingEnd)
-          );
-        });
-
-        if (!hasOverlap) {
-          layer.push(booking);
-          placed = true;
-          break;
-        }
-      }
-
-      if (!placed) {
-        layers.push([booking]);
-      }
-    });
-
-    return layers;
+  const getRateForDate = (propertyId: string, date: Date): PropertyRate | undefined => {
+    const rates = propertyRates.get(propertyId) || [];
+    const dateString = date.toISOString().split('T')[0];
+    return rates.find(rate => rate.date === dateString);
   };
 
   const handleCellClick = (propertyId: string, date: Date) => {
     const dateString = date.toISOString().split('T')[0];
+    const property = properties.find(p => p.id === propertyId);
+    if (!property) return;
 
     if (!dateSelection.startDate || dateSelection.propertyId !== propertyId) {
       setDateSelection({
@@ -428,15 +106,15 @@ export function Calendar({
         startDate: dateString,
         endDate: null,
       });
-    } else if (dateSelection.startDate && !dateSelection.endDate) {
+    } else if (!dateSelection.endDate) {
       const start = new Date(dateSelection.startDate);
       const end = new Date(dateString);
 
-      if (end <= start) {
+      if (end < start) {
         setDateSelection({
           propertyId,
           startDate: dateString,
-          endDate: null,
+          endDate: dateSelection.startDate,
         });
       } else {
         setDateSelection({
@@ -444,242 +122,228 @@ export function Calendar({
           startDate: dateSelection.startDate,
           endDate: dateString,
         });
-
-        const endPlusOne = new Date(end);
-        endPlusOne.setDate(endPlusOne.getDate() + 1);
-        const checkOutString = endPlusOne.toISOString().split('T')[0];
-
-        onAddReservation(propertyId, dateSelection.startDate, checkOutString);
       }
-    }
-  };
 
-  const handleOpenConditionsModal = () => {
-    if (dateSelection.startDate && dateSelection.endDate) {
-      const property = properties.find(p => p.id === dateSelection.propertyId);
-      if (!property) return;
-
-      const rate = getRateForDate(dateSelection.propertyId, new Date(dateSelection.startDate));
-
+      const rate = getRateForDate(propertyId, start);
       setConditionsModalData({
-        propertyId: dateSelection.propertyId,
+        propertyId,
         startDate: dateSelection.startDate,
-        endDate: dateSelection.endDate,
+        endDate: dateString,
         price: rate?.daily_price || property.base_price,
         minStay: rate?.min_stay || property.minimum_booking_days,
-        currency: property.currency,
+        currency: rate?.currency || property.currency,
       });
       setShowConditionsModal(true);
     }
   };
 
-  const handleCloseConditionsModal = () => {
+  const handleConditionsSubmit = () => {
+    if (conditionsModalData) {
+      const start = new Date(conditionsModalData.startDate);
+      const end = new Date(conditionsModalData.endDate);
+      start.setDate(start.getDate() + 1);
+      end.setDate(end.getDate() + 1);
+
+      onAddReservation(
+        conditionsModalData.propertyId,
+        start.toISOString().split('T')[0],
+        end.toISOString().split('T')[0]
+      );
+    }
     setShowConditionsModal(false);
     setConditionsModalData(null);
-    setDateSelection({
-      propertyId: '',
-      startDate: null,
-      endDate: null,
+    setDateSelection({ propertyId: '', startDate: null, endDate: null });
+  };
+
+  const handleConditionsCancel = () => {
+    setShowConditionsModal(false);
+    setConditionsModalData(null);
+    setDateSelection({ propertyId: '', startDate: null, endDate: null });
+  };
+
+  const getBookingPosition = (booking: Booking, dayIndex: number): boolean => {
+    const checkIn = new Date(booking.check_in);
+    const checkOut = new Date(booking.check_out);
+    const dayDate = days[dayIndex];
+
+    if (!dayDate) return false;
+
+    return dayDate >= checkIn && dayDate < checkOut;
+  };
+
+  const isBookingStart = (booking: Booking, dayIndex: number): boolean => {
+    const checkIn = new Date(booking.check_in);
+    const dayDate = days[dayIndex];
+    return dayDate && dayDate.toDateString() === checkIn.toDateString();
+  };
+
+  const renderBooking = (propertyId: string, dayIndex: number) => {
+    const propertyBookings = bookings.filter(b => b.property_id === propertyId);
+
+    return propertyBookings.map(booking => {
+      if (!getBookingPosition(booking, dayIndex)) return null;
+      if (!isBookingStart(booking, dayIndex)) return null;
+
+      const checkIn = new Date(booking.check_in);
+      const checkOut = new Date(booking.check_out);
+      const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+
+      const startIndex = days.findIndex(d => d.toDateString() === checkIn.toDateString());
+      const endIndex = days.findIndex(d => d.toDateString() === checkOut.toDateString());
+
+      const visibleNights = endIndex >= 0 ? endIndex - startIndex : nights;
+
+      return (
+        <div
+          key={booking.id}
+          className="absolute top-1 h-10 rounded-lg bg-red-500 bg-opacity-90 text-white text-xs flex items-center overflow-hidden"
+          style={{
+            left: '2px',
+            right: '2px',
+            width: `calc(${visibleNights * 48}px - 4px)`,
+            zIndex: 10,
+          }}
+        >
+          <span className="absolute left-1 top-0.5 text-xs font-bold">
+            D
+          </span>
+          <span className="mx-6 truncate text-xs">{booking.guest_name}</span>
+          <span className="absolute right-1 top-0.5 text-xs">
+            {booking.total_price} {booking.currency}
+          </span>
+        </div>
+      );
     });
   };
 
-  const getRateForDate = (propertyId: string, date: Date): PropertyRate | null => {
-    const rates = propertyRates.get(propertyId) || [];
-    const dateString = date.toISOString().split('T')[0];
-    return rates.find((r) => r.date === dateString) || null;
-  };
-
-  const isCellOccupied = (propertyId: string, date: Date): boolean => {
-    return bookings.some(b => b.property_id === propertyId && isDateInRange(date, b.check_in, b.check_out));
-  };
-
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-slate-900">
-      <div className="bg-slate-800 border-b border-slate-700 px-6 py-3 flex items-center justify-between">
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Month Navigation */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
         <div className="flex items-center gap-2">
           <button
-            onClick={() => onAddReservation('', '', '')}
-            className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+            className="p-2 hover:bg-slate-700 rounded-lg transition"
           >
-            <Plus className="w-4 h-4" />
-            Добавить бронь
+            <ChevronLeft className="w-5 h-5" />
           </button>
-          {dateSelection.startDate && dateSelection.endDate && (
-            <button
-              onClick={handleOpenConditionsModal}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Изменить условия
-            </button>
-          )}
+          <h2 className="text-2xl font-bold min-w-[200px] text-center">
+            {format(currentMonth, 'LLLL yyyy', { locale: ru })}
+          </h2>
+          <button
+            onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+            className="p-2 hover:bg-slate-700 rounded-lg transition"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
         </div>
+        <button
+          onClick={() => {
+            setCurrentMonth(startOfMonth(CURRENT_DATE));
+            setTimeout(goToToday, 100);
+          }}
+          className="px-4 py-2 bg-teal-500 hover:bg-teal-600 rounded-lg text-sm font-medium transition"
+        >
+          Сегодня
+        </button>
       </div>
 
-      <div className="flex-1 overflow-hidden flex flex-col">
-        <CalendarHeader
-          dates={dates}
-          currentDate={currentDate}
-          onPrevMonth={goToPrevMonth}
-          onNextMonth={goToNextMonth}
-          onPrevWeek={goToPrevWeek}
-          onNextWeek={goToNextWeek}
-          onToday={goToToday}
-          onDateSelect={goToDate}
-        />
-
-        <div className="flex-1 overflow-auto flex" ref={calendarRef}>
-          <div className="w-64 flex-shrink-0 overflow-y-auto bg-slate-800 border-r border-slate-700">
-            {properties.map((property) => (
-              <PropertySidebarRow
-                key={property.id}
-                property={property}
-                isExpanded={expandedProperties.has(property.id)}
-                onToggle={() => togglePropertyExpansion(property.id)}
-              />
-            ))}
-          </div>
-
-          <div className="flex-1 overflow-auto">
-            <div className="relative">
-              {properties.map((property) => {
-                if (!expandedProperties.has(property.id)) return null;
-
-                const firstVisibleDate = new Date(dates[0]);
-                firstVisibleDate.setHours(0, 0, 0, 0);
-                const lastVisibleDate = new Date(dates[dates.length - 1]);
-                lastVisibleDate.setHours(23, 59, 59, 999);
-
-                const propertyBookings = bookings.filter((b) => {
-                  if (b.property_id !== property.id) return false;
-
-                  const checkIn = new Date(b.check_in);
-                  const checkOut = new Date(b.check_out);
-
-                  return checkOut > firstVisibleDate && checkIn <= lastVisibleDate;
-                });
-
-                const bookingLayers = getBookingLayers(propertyBookings);
-                const rowHeight = Math.max(120, bookingLayers.length * 60 + 68);
-
-                return (
-                  <>
-                    <div key={`${property.id}-minstay`} className="border-b border-slate-700/30 bg-slate-800/50">
-                      <div className="h-8 flex">
-                        {dates.map((date, i) => {
-                          const rate = getRateForDate(property.id, date);
-                          const displayMinStay = rate?.min_stay || property.minimum_booking_days;
-
-                          return (
-                            <div
-                              key={i}
-                              className="w-16 flex-shrink-0 border-r border border-slate-600 flex items-center justify-center"
-                            >
-                              <div className="text-[10px] font-medium text-slate-500">
-                                {displayMinStay}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    <div key={property.id} className="border-b border-slate-700">
-                      <div className="relative" style={{ height: `${rowHeight}px` }}>
-                        <div className="absolute inset-0 flex">
-                          {dates.map((date, i) => {
-                          const dateString = date.toISOString().split('T')[0];
-                          const today = new Date('2025-11-12');
-                          today.setHours(0, 0, 0, 0);
-                          const checkDate = new Date(date);
-                          checkDate.setHours(0, 0, 0, 0);
-                          const isToday = checkDate.getTime() === today.getTime();
-                          const isSelected =
-                            dateSelection.propertyId === property.id &&
-                            dateSelection.startDate === dateString;
-                          const isInRange =
-                            dateSelection.propertyId === property.id &&
-                            dateSelection.startDate &&
-                            dateSelection.endDate &&
-                            dateString >= dateSelection.startDate &&
-                            dateString <= dateSelection.endDate;
-                          const isOccupied = isCellOccupied(property.id, date);
-                          const rate = getRateForDate(property.id, date);
-                          const displayPrice = rate?.daily_price || property.base_price;
-                          const displayCurrency = rate?.currency || property.currency;
-                          const isDragOverThisCell = dragOverDates.has(dateString) && dragOverCell?.propertyId === property.id;
-                          const dragOverColor = isDragValid ? 'bg-green-500/30' : 'bg-red-500/30';
-
-                          return (
-                            <div
-                              key={i}
-                              className={`w-16 flex-shrink-0 border-r border-slate-700/50 cursor-pointer transition-colors ${
-                                isToday ? 'bg-teal-500/10' : ''
-                              } ${isSelected ? 'bg-teal-500/20' : ''
-                              } ${isInRange ? 'bg-blue-500/10' : ''} ${isDragOverThisCell ? dragOverColor : ''} ${!isOccupied ? 'hover:bg-slate-800/30' : ''}`}
-                              onClick={() => !isOccupied && handleCellClick(property.id, date)}
-                            >
-                              {!isOccupied && (
-                                <div className="h-11 flex items-center justify-center text-center px-1">
-                                  <div className="text-[10px] font-medium text-slate-400 truncate">
-                                    {displayPrice}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {bookingLayers.map((layer, layerIndex) =>
-                        layer.map((booking) => {
-                          const startCol = getBookingStartCol(booking);
-                          const span = getBookingSpan(booking);
-
-                          if (startCol < 0 || startCol >= daysToShow) return null;
-
-                          return (
-                            <BookingBlock
-                              key={booking.id}
-                              booking={booking}
-                              startCol={startCol}
-                              span={Math.min(span, daysToShow - startCol)}
-                              layerIndex={layerIndex}
-                              cellWidth={CELL_WIDTH}
-                              onClick={() => onEditReservation(booking)}
-                              onDragStart={(b) => setDragState({ booking: b, originalPropertyId: property.id })}
-                              onDragEnd={() => setDragState({ booking: null, originalPropertyId: null })}
-                              isDragging={dragState.booking?.id === booking.id}
-                            />
-                          );
-                          })
-                        )}
-                      </div>
-                    </div>
-                  </>
-                );
-              })}
-
-              {properties.length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-slate-400">
-                    Нет объектов. Добавьте первый объект для начала работы.
-                  </p>
+      {/* Calendar Grid */}
+      <div className="flex-1 overflow-auto" ref={scrollRef}>
+        <div className="min-w-max">
+          {/* Header: Days */}
+          <div className="sticky top-0 z-20 bg-slate-900 border-b border-slate-700 pb-2 mb-2">
+            <div className="flex">
+              <div className="w-48 flex-shrink-0 text-sm font-medium text-slate-400 px-4 py-2">
+                Объекты
+              </div>
+              {days.map((day, i) => (
+                <div
+                  key={i}
+                  className={`w-12 flex-shrink-0 text-center ${
+                    isToday(day) ? 'text-teal-400' : 'text-slate-400'
+                  }`}
+                >
+                  <div className="text-xs font-medium">
+                    {format(day, 'EEE', { locale: ru }).slice(0, 2)}
+                  </div>
+                  <div className={`text-lg ${isToday(day) ? 'text-white font-bold' : ''}`}>
+                    {day.getDate()}
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
           </div>
+
+          {/* Properties */}
+          {properties.map((property) => (
+            <div key={property.id} className="border-b border-slate-800">
+              {/* Property Name + Prices Row */}
+              <div className="flex items-center py-2">
+                <div className="w-48 flex-shrink-0 font-medium text-white px-4">
+                  {property.name}
+                </div>
+                {days.map((day, i) => {
+                  const rate = getRateForDate(property.id, day);
+                  const displayPrice = rate?.daily_price || property.base_price;
+                  const hasBooking = bookings.some(b =>
+                    b.property_id === property.id && getBookingPosition(b, i)
+                  );
+
+                  return (
+                    <div key={i} className="w-12 flex-shrink-0 text-center">
+                      {!hasBooking && (
+                        <span className="text-xs text-slate-400">{displayPrice}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Bookings Row */}
+              <div className="flex relative h-12">
+                <div className="w-48 flex-shrink-0"></div>
+                {days.map((day, i) => {
+                  const dateString = day.toISOString().split('T')[0];
+                  const hasBooking = bookings.some(b =>
+                    b.property_id === property.id && getBookingPosition(b, i)
+                  );
+                  const isSelected = dateSelection.propertyId === property.id &&
+                    dateSelection.startDate === dateString;
+                  const isInRange = dateSelection.propertyId === property.id &&
+                    dateSelection.startDate &&
+                    dateSelection.endDate &&
+                    new Date(dateString) >= new Date(dateSelection.startDate) &&
+                    new Date(dateString) <= new Date(dateSelection.endDate);
+
+                  return (
+                    <div
+                      key={i}
+                      className={`w-12 flex-shrink-0 relative border border-slate-700 mx-0.5 rounded cursor-pointer transition-colors ${
+                        isToday(day) ? 'bg-teal-500/10' : ''
+                      } ${isSelected ? 'bg-teal-500/20' : ''} ${
+                        isInRange ? 'bg-blue-500/10' : ''
+                      } ${!hasBooking ? 'hover:bg-slate-800/30' : ''}`}
+                      onClick={() => !hasBooking && handleCellClick(property.id, day)}
+                    >
+                      {renderBooking(property.id, i)}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
       {showConditionsModal && conditionsModalData && (
         <ChangeConditionsModal
           isOpen={showConditionsModal}
-          onClose={handleCloseConditionsModal}
-          propertyId={conditionsModalData.propertyId}
-          startDate={conditionsModalData.startDate}
-          endDate={conditionsModalData.endDate}
-          currentPrice={conditionsModalData.price}
-          currentMinStay={conditionsModalData.minStay}
-          currency={conditionsModalData.currency}
+          onClose={handleConditionsCancel}
+          onConfirm={handleConditionsSubmit}
+          initialPrice={conditionsModalData.price}
+          initialMinStay={conditionsModalData.minStay}
+          initialCurrency={conditionsModalData.currency}
         />
       )}
     </div>
