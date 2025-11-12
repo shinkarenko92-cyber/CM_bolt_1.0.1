@@ -27,7 +27,7 @@ export function CalendarHeader({
   };
 
   const isToday = (date: Date) => {
-    const today = new Date('2025-11-12');
+    const today = new Date();
     today.setHours(0, 0, 0, 0);
     const checkDate = new Date(date);
     checkDate.setHours(0, 0, 0, 0);

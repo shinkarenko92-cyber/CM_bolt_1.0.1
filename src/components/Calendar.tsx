@@ -33,7 +33,7 @@ export function Calendar({
   onBookingUpdate,
 }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(() => {
-    const today = new Date('2025-11-12');
+    const today = new Date();
     today.setHours(0, 0, 0, 0);
     const centerOffset = Math.floor(60 / 2);
     const startDate = new Date(today);
@@ -290,7 +290,7 @@ export function Calendar({
   };
 
   const goToToday = () => {
-    const today = new Date('2025-11-12');
+    const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const centerOffset = Math.floor(daysToShow / 2);
@@ -587,7 +587,7 @@ export function Calendar({
                         <div className="absolute inset-0 flex">
                           {dates.map((date, i) => {
                           const dateString = date.toISOString().split('T')[0];
-                          const today = new Date('2025-11-12');
+                          const today = new Date();
                           today.setHours(0, 0, 0, 0);
                           const checkDate = new Date(date);
                           checkDate.setHours(0, 0, 0, 0);
