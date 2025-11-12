@@ -7,13 +7,13 @@
   --bg-secondary: #f8fafc;
   --bg-tertiary: #f1f5f9;
   --bg-hover: #e2e8f0;
-  --border-color: #3b82f6;
+  --border-color: #e2e8f0;
   --text-primary: #111827;
   --text-secondary: #374151;
   --text-tertiary: #6b7280;
-  --accent-color: #3b82f6;
-  --accent-hover: #2563eb;
-  --accent-light: #dbeafe;
+  --accent-color: #14b8a6;
+  --accent-hover: #0d9488;
+  --accent-light: #ccfbf1;
   --success-color: #10b981;
   --error-color: #ef4444;
   --warning-color: #f59e0b;
@@ -48,7 +48,6 @@
 [data-theme='light'] .bg-slate-800 {
   background-color: var(--bg-primary) !important;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border: 2px solid var(--border-color) !important;
 }
 
 [data-theme='light'] .bg-slate-700 {
@@ -111,11 +110,15 @@
 }
 
 [data-theme='light'] .bg-blue-600 {
-  background-color: #3b82f6 !important;
+  background-color: var(--accent-color) !important;
 }
 
 [data-theme='light'] .bg-blue-700 {
-  background-color: #2563eb !important;
+  background-color: var(--accent-hover) !important;
+}
+
+[data-theme='light'] .hover\:bg-blue-700:hover {
+  background-color: var(--accent-hover) !important;
 }
 
 [data-theme='light'] .hover\:bg-slate-700:hover {
@@ -139,9 +142,17 @@
 [data-theme='light'] input,
 [data-theme='light'] select,
 [data-theme='light'] textarea {
-  background-color: var(--bg-tertiary) !important;
+  background-color: var(--bg-primary) !important;
   border-color: var(--border-color) !important;
   color: var(--text-primary) !important;
+}
+
+[data-theme='light'] input:focus,
+[data-theme='light'] select:focus,
+[data-theme='light'] textarea:focus {
+  border-color: var(--accent-color) !important;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-light);
 }
 
 [data-theme='light'] input::placeholder {

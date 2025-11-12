@@ -270,22 +270,41 @@ export function Calendar({
   };
 
   const goToToday = () => {
-    setCurrentDate(new Date());
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const centerOffset = Math.floor(daysToShow / 2);
+    const newStartDate = new Date(today);
+    newStartDate.setDate(newStartDate.getDate() - centerOffset);
+
+    setCurrentDate(newStartDate);
+
     setTimeout(() => {
       if (calendarRef.current) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const firstDate = new Date(dates[0]);
-        firstDate.setHours(0, 0, 0, 0);
-        const diffTime = today.getTime() - firstDate.getTime();
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        const scrollContainer = calendarRef.current.querySelector('.flex-1.overflow-auto');
+        if (scrollContainer) {
+          const scrollLeft = centerOffset * CELL_WIDTH;
+          scrollContainer.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+        }
+      }
+    }, 100);
+  };
 
-        if (diffDays >= 0 && diffDays < daysToShow) {
-          const scrollContainer = calendarRef.current.querySelector('.flex-1.overflow-auto');
-          if (scrollContainer) {
-            const scrollLeft = diffDays * CELL_WIDTH;
-            scrollContainer.scrollTo({ left: scrollLeft, behavior: 'smooth' });
-          }
+  const goToDate = (targetDate: Date) => {
+    targetDate.setHours(0, 0, 0, 0);
+
+    const centerOffset = Math.floor(daysToShow / 2);
+    const newStartDate = new Date(targetDate);
+    newStartDate.setDate(newStartDate.getDate() - centerOffset);
+
+    setCurrentDate(newStartDate);
+
+    setTimeout(() => {
+      if (calendarRef.current) {
+        const scrollContainer = calendarRef.current.querySelector('.flex-1.overflow-auto');
+        if (scrollContainer) {
+          const scrollLeft = centerOffset * CELL_WIDTH;
+          scrollContainer.scrollTo({ left: scrollLeft, behavior: 'smooth' });
         }
       }
     }, 100);
@@ -400,10 +419,15 @@ export function Calendar({
           endDate: null,
         });
       } else {
+        const endPlusOne = new Date(end);
+        endPlusOne.setDate(endPlusOne.getDate() + 1);
+        const checkOutString = endPlusOne.toISOString().split('T')[0];
+
+        onAddReservation(propertyId, dateSelection.startDate, checkOutString);
         setDateSelection({
-          propertyId,
-          startDate: dateSelection.startDate,
-          endDate: dateString,
+          propertyId: '',
+          startDate: null,
+          endDate: null,
         });
       }
     }
@@ -479,6 +503,7 @@ export function Calendar({
           onPrevWeek={goToPrevWeek}
           onNextWeek={goToNextWeek}
           onToday={goToToday}
+          onDateSelect={goToDate}
         />
 
         <div className="flex-1 overflow-auto flex" ref={calendarRef}>
@@ -498,7 +523,20 @@ export function Calendar({
               {properties.map((property) => {
                 if (!expandedProperties.has(property.id)) return null;
 
-                const propertyBookings = bookings.filter((b) => b.property_id === property.id);
+                const firstVisibleDate = new Date(dates[0]);
+                firstVisibleDate.setHours(0, 0, 0, 0);
+                const lastVisibleDate = new Date(dates[dates.length - 1]);
+                lastVisibleDate.setHours(23, 59, 59, 999);
+
+                const propertyBookings = bookings.filter((b) => {
+                  if (b.property_id !== property.id) return false;
+
+                  const checkIn = new Date(b.check_in);
+                  const checkOut = new Date(b.check_out);
+
+                  return checkOut > firstVisibleDate && checkIn <= lastVisibleDate;
+                });
+
                 const bookingLayers = getBookingLayers(propertyBookings);
                 const rowHeight = Math.max(120, bookingLayers.length * 60 + 68);
 

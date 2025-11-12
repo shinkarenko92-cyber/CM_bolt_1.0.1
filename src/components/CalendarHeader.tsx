@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { MiniCalendarPicker } from './MiniCalendarPicker';
 
 type CalendarHeaderProps = {
   dates: Date[];
@@ -8,6 +9,7 @@ type CalendarHeaderProps = {
   onPrevWeek: () => void;
   onNextWeek: () => void;
   onToday: () => void;
+  onDateSelect: (date: Date) => void;
 };
 
 export function CalendarHeader({
@@ -18,6 +20,7 @@ export function CalendarHeader({
   onPrevWeek,
   onNextWeek,
   onToday,
+  onDateSelect,
 }: CalendarHeaderProps) {
   const formatMonthYear = (date: Date) => {
     return date.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
@@ -72,6 +75,8 @@ export function CalendarHeader({
           >
             <ChevronsRight className="w-4 h-4 text-slate-400" />
           </button>
+          <div className="w-px h-6 bg-slate-700 mx-1" />
+          <MiniCalendarPicker onDateSelect={onDateSelect} currentDate={currentDate} />
         </div>
       </div>
 

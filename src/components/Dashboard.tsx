@@ -10,6 +10,7 @@ import { BookingsView } from './BookingsView';
 import { AnalyticsView } from './AnalyticsView';
 import { AdminView } from './AdminView';
 import { UserProfileModal } from './UserProfileModal';
+import { ThemeToggle } from './ThemeToggle';
 import { supabase, Property, Booking, Profile } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { syncWithExternalAPIs } from '../services/apiSync';
@@ -343,6 +344,8 @@ export function Dashboard() {
             </div>
 
             <div className="flex items-center gap-4 ml-6">
+              <ThemeToggle />
+
               <button
                 onClick={handleSync}
                 className="p-2 hover:bg-slate-700 rounded-lg transition-colors relative"
