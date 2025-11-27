@@ -1,13 +1,22 @@
 {
   "rewrites": [
-    { "source": "/app/(.*)", "destination": "/$1" },
-    { "source": "/app", "destination": "/" },
-    { "source": "/", "destination": "https://roomi-landing.vercel.app" },
-    { "source": "/(.*)", "destination": "https://roomi-landing.vercel.app/$1" }
+    {
+      "source": "/app/(.*)",
+      "destination": "/$1"
+    },
+    {
+      "source": "/app",
+      "destination": "/"
+    },
+    {
+      "source": "/((?!app$).*)",
+      "destination": "https://roomi-landing.vercel.app/$1"
+    },
+    {
+      "source": "/",
+      "destination": "https://roomi-landing.vercel.app"
+    }
   ],
-  "redirects": [
-    { "source": "/dashboard", "destination": "/app", "permanent": true },
-    { "source": "/login", "destination": "/app, "permanent": true }
-  ],
-  "cleanUrls": true
+  "cleanUrls": true,
+  "trailingSlash": false
 }
