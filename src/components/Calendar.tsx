@@ -67,6 +67,8 @@ export function Calendar({
     currency: string;
   } | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const headerScrollRef = useRef<HTMLDivElement>(null);
 
   const CELL_WIDTH = 64;
 
@@ -77,23 +79,57 @@ export function Calendar({
   });
 
   const centerDate = dates[Math.floor(daysToShow / 2)] || currentDate;
+  const [visibleDate, setVisibleDate] = useState<Date>(centerDate);
 
   useEffect(() => {
     loadPropertyRates();
   }, [properties]);
 
+  // При изменении текущей базовой даты центрируем скролл и обновляем "видимую" дату
   useEffect(() => {
-    setTimeout(() => {
-      if (calendarRef.current) {
-        const scrollContainer = calendarRef.current.querySelector('.flex-1.overflow-auto');
-        if (scrollContainer) {
-          const centerOffset = Math.floor(60 / 2);
-          const scrollLeft = centerOffset * CELL_WIDTH;
-          scrollContainer.scrollTo({ left: scrollLeft, behavior: 'auto' });
-        }
+    const centerOffset = Math.floor(60 / 2);
+    const scrollLeft = centerOffset * CELL_WIDTH;
+
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer) {
+      scrollContainer.scrollTo({ left: scrollLeft, behavior: 'auto' });
+    }
+
+    if (headerScrollRef.current) {
+      headerScrollRef.current.scrollLeft = scrollLeft;
+    }
+
+    setVisibleDate(centerDate);
+  }, [centerDate]);
+
+  // Синхронизация скролла основной сетки и шапки + обновление текущей видимой даты
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      const { scrollLeft, clientWidth } = scrollContainer;
+      const startIndex = Math.max(0, Math.round(scrollLeft / CELL_WIDTH));
+      const daysInView = Math.max(1, Math.floor(clientWidth / CELL_WIDTH));
+      const centerIndex = Math.min(
+        dates.length - 1,
+        startIndex + Math.floor(daysInView / 2)
+      );
+
+      const newVisibleDate = dates[centerIndex] || centerDate;
+      setVisibleDate(newVisibleDate);
+
+      if (headerScrollRef.current && headerScrollRef.current !== scrollContainer) {
+        headerScrollRef.current.scrollLeft = scrollLeft;
       }
-    }, 100);
-  }, []);
+    };
+
+    handleScroll();
+    scrollContainer.addEventListener('scroll', handleScroll);
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll);
+    };
+  }, [dates, centerDate]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -300,16 +336,6 @@ export function Calendar({
     newStartDate.setDate(newStartDate.getDate() - centerOffset);
 
     setCurrentDate(newStartDate);
-
-    setTimeout(() => {
-      if (calendarRef.current) {
-        const scrollContainer = calendarRef.current.querySelector('.flex-1.overflow-auto');
-        if (scrollContainer) {
-          const scrollLeft = centerOffset * CELL_WIDTH;
-          scrollContainer.scrollTo({ left: scrollLeft, behavior: 'smooth' });
-        }
-      }
-    }, 100);
   };
 
   const goToDate = (targetDate: Date) => {
@@ -320,16 +346,6 @@ export function Calendar({
     newStartDate.setDate(newStartDate.getDate() - centerOffset);
 
     setCurrentDate(newStartDate);
-
-    setTimeout(() => {
-      if (calendarRef.current) {
-        const scrollContainer = calendarRef.current.querySelector('.flex-1.overflow-auto');
-        if (scrollContainer) {
-          const scrollLeft = centerOffset * CELL_WIDTH;
-          scrollContainer.scrollTo({ left: scrollLeft, behavior: 'smooth' });
-        }
-      }
-    }, 100);
   };
   const goToPrevMonth = () => {
     const date = new Date(currentDate);
@@ -521,13 +537,14 @@ export function Calendar({
       <div className="flex-1 overflow-hidden flex flex-col">
         <CalendarHeader
           dates={dates}
-          currentDate={centerDate}
+          currentDate={visibleDate}
           onPrevMonth={goToPrevMonth}
           onNextMonth={goToNextMonth}
           onPrevWeek={goToPrevWeek}
           onNextWeek={goToNextWeek}
           onToday={goToToday}
           onDateSelect={goToDate}
+          headerScrollRef={headerScrollRef}
         />
 
         <div className="flex-1 overflow-auto flex" ref={calendarRef}>
@@ -542,7 +559,7 @@ export function Calendar({
             ))}
           </div>
 
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto" ref={scrollContainerRef}>
             <div className="relative">
               {properties.map((property) => {
                 if (!expandedProperties.has(property.id)) return null;

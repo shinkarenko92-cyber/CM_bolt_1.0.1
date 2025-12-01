@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import type { RefObject } from 'react';
 import { MiniCalendarPicker } from './MiniCalendarPicker';
 
 type CalendarHeaderProps = {
@@ -10,6 +11,8 @@ type CalendarHeaderProps = {
   onNextWeek: () => void;
   onToday: () => void;
   onDateSelect: (date: Date) => void;
+  /** Ссылка на скролл-контейнер для синхронизации с основной сеткой календаря */
+  headerScrollRef: RefObject<HTMLDivElement>;
 };
 
 export function CalendarHeader({
@@ -21,6 +24,7 @@ export function CalendarHeader({
   onNextWeek,
   onToday,
   onDateSelect,
+  headerScrollRef,
 }: CalendarHeaderProps) {
   const formatMonthYear = (date: Date) => {
     return date.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
@@ -86,7 +90,7 @@ export function CalendarHeader({
         <div className="w-64 px-4 py-3 font-medium text-slate-300 text-sm border-r border-slate-700 flex-shrink-0">
           Объекты
         </div>
-        <div className="flex overflow-x-auto">
+        <div className="flex overflow-x-auto" ref={headerScrollRef}>
           {dates.map((date, i) => {
             const today = isToday(date);
 
