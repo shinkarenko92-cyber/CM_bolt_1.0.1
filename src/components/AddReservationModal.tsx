@@ -122,7 +122,7 @@ export function AddReservationModal({
       await onAdd({
         property_id: formData.property_id,
         guest_name: formData.guest_name,
-        guest_email: formData.guest_email || `guest-${Date.now()}@rentlio.local`,
+        guest_email: formData.guest_email || `guest-${Date.now()}@roomi.local`,
         guest_phone: formData.guest_phone || '',
         check_in: formData.check_in,
         check_out: formData.check_out,

@@ -1,4 +1,4 @@
-# Testing Guide - Rentlio Lite MVP
+# Testing Guide - Roomi
 
 Руководство по тестированию диагонального эффекта check-out и других новых возможностей.
 

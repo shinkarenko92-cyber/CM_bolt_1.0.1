@@ -86,8 +86,10 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       await onSave({
         name: formData.name,
         type: formData.type,
-        address: formData.address || null,
-        description: formData.description || null,
+        // В БД address сейчас NOT NULL, поэтому при пустом значении шлём пустую строку
+        address: formData.address || '',
+        // Для описания тоже безопаснее слать строку, а не null
+        description: formData.description || '',
         max_guests: parseInt(formData.max_guests) || 2,
         bedrooms: parseInt(formData.bedrooms) || 1,
         base_price: parseFloat(formData.base_price) || 0,
