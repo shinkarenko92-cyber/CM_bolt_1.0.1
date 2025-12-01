@@ -547,7 +547,7 @@ export function Calendar({
           headerScrollRef={headerScrollRef}
         />
 
-        <div className="flex-1 overflow-auto flex" ref={calendarRef}>
+        <div className="flex-1 flex" ref={calendarRef}>
           <div className="w-64 flex-shrink-0 overflow-y-auto bg-slate-800 border-r border-slate-700">
             {properties.map((property) => (
               <PropertySidebarRow
