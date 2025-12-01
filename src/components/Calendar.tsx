@@ -68,8 +68,6 @@ export function Calendar({
   } | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const headerScrollRef = useRef<HTMLDivElement>(null);
-  const isSyncingScrollRef = useRef(false);
 
   const CELL_WIDTH = 64;
 
@@ -96,23 +94,15 @@ export function Calendar({
       scrollContainer.scrollTo({ left: scrollLeft, behavior: 'auto' });
     }
 
-    if (headerScrollRef.current) {
-      headerScrollRef.current.scrollLeft = scrollLeft;
-    }
-
     setVisibleDate(centerDate);
   }, [centerDate]);
 
-  // Синхронизация скролла основной сетки и шапки + обновление текущей видимой даты
+  // Обновление текущей видимой даты по горизонтальному скроллу
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
-    const headerContainer = headerScrollRef.current;
-    if (!scrollContainer || !headerContainer) return;
+    if (!scrollContainer) return;
 
     const handleBodyScroll = () => {
-      if (isSyncingScrollRef.current) return;
-      isSyncingScrollRef.current = true;
-
       const { scrollLeft, clientWidth } = scrollContainer;
       const startIndex = Math.max(0, Math.round(scrollLeft / CELL_WIDTH));
       const daysInView = Math.max(1, Math.floor(clientWidth / CELL_WIDTH));
@@ -123,34 +113,14 @@ export function Calendar({
 
       const newVisibleDate = dates[centerIndex] || centerDate;
       setVisibleDate(newVisibleDate);
-
-      if (headerScrollRef.current && headerScrollRef.current !== scrollContainer) {
-        headerScrollRef.current.scrollLeft = scrollLeft;
-      }
-
-      isSyncingScrollRef.current = false;
-    };
-
-    const handleHeaderScroll = () => {
-      if (isSyncingScrollRef.current) return;
-      isSyncingScrollRef.current = true;
-
-      const { scrollLeft } = headerContainer;
-      if (scrollContainerRef.current && scrollContainerRef.current !== headerContainer) {
-        scrollContainerRef.current.scrollLeft = scrollLeft;
-      }
-
-      isSyncingScrollRef.current = false;
     };
 
     // Инициализируем состояние при монтировании
     handleBodyScroll();
 
     scrollContainer.addEventListener('scroll', handleBodyScroll);
-    headerContainer.addEventListener('scroll', handleHeaderScroll);
     return () => {
       scrollContainer.removeEventListener('scroll', handleBodyScroll);
-      headerContainer.removeEventListener('scroll', handleHeaderScroll);
     };
   }, [dates, centerDate]);
 
@@ -559,7 +529,6 @@ export function Calendar({
 
       <div className="flex-1 overflow-hidden flex flex-col">
         <CalendarHeader
-          dates={dates}
           currentDate={visibleDate}
           onPrevMonth={goToPrevMonth}
           onNextMonth={goToNextMonth}
@@ -567,7 +536,6 @@ export function Calendar({
           onNextWeek={goToNextWeek}
           onToday={goToToday}
           onDateSelect={goToDate}
-          headerScrollRef={headerScrollRef}
         />
 
         <div className="flex-1 flex" ref={calendarRef}>
@@ -583,6 +551,35 @@ export function Calendar({
           </div>
 
           <div className="flex-1 overflow-auto" ref={scrollContainerRef}>
+            <div className="bg-slate-800 border-b border-slate-700">
+              <div className="flex">
+                {dates.map((date, i) => {
+                  const today = new Date();
+                  const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                  const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                  const isToday = checkDate.getTime() === localToday.getTime();
+
+                  return (
+                    <div
+                      key={i}
+                      className={`w-16 flex-shrink-0 border-r border-slate-700 ${
+                        isToday ? 'bg-teal-500/10' : ''
+                      }`}
+                    >
+                      <div className="px-2 py-3 text-center">
+                        <div className={`text-xs ${isToday ? 'text-teал-400' : 'text-slate-400'}`}>
+                          {date.toLocaleDateString('ru-RU', { weekday: 'short' })}
+                        </div>
+                        <div className={`text-sm font-medium ${isToday ? 'text-teал-400' : 'text-slate-300'}`}>
+                          {date.getDate()}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="relative">
               {properties.map((property) => {
                 if (!expandedProperties.has(property.id)) return null;

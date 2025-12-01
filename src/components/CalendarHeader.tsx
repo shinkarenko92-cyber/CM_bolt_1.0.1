@@ -1,9 +1,7 @@
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
-import type { RefObject } from 'react';
 import { MiniCalendarPicker } from './MiniCalendarPicker';
 
 type CalendarHeaderProps = {
-  dates: Date[];
   currentDate: Date;
   onPrevMonth: () => void;
   onNextMonth: () => void;
@@ -11,12 +9,9 @@ type CalendarHeaderProps = {
   onNextWeek: () => void;
   onToday: () => void;
   onDateSelect: (date: Date) => void;
-  /** Ссылка на скролл-контейнер для синхронизации с основной сеткой календаря */
-  headerScrollRef: RefObject<HTMLDivElement>;
 };
 
 export function CalendarHeader({
-  dates,
   currentDate,
   onPrevMonth,
   onNextMonth,
@@ -24,17 +19,9 @@ export function CalendarHeader({
   onNextWeek,
   onToday,
   onDateSelect,
-  headerScrollRef,
 }: CalendarHeaderProps) {
   const formatMonthYear = (date: Date) => {
     return date.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
-  };
-
-  const isToday = (date: Date) => {
-    const today = new Date();
-    const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    return checkDate.getTime() === localToday.getTime();
   };
 
   return (
@@ -86,34 +73,6 @@ export function CalendarHeader({
         </div>
       </div>
 
-      <div className="flex">
-        <div className="w-64 px-4 py-3 font-medium text-slate-300 text-sm border-r border-slate-700 flex-shrink-0">
-          Объекты
-        </div>
-        <div className="flex overflow-x-auto" ref={headerScrollRef}>
-          {dates.map((date, i) => {
-            const today = isToday(date);
-
-            return (
-              <div
-                key={i}
-                className={`w-16 flex-shrink-0 border-r border-slate-700 ${
-                  today ? 'bg-teal-500/10' : ''
-                }`}
-              >
-                <div className="px-2 py-3 text-center">
-                  <div className={`text-xs ${today ? 'text-teal-400' : 'text-slate-400'}`}>
-                    {date.toLocaleDateString('ru-RU', { weekday: 'short' })}
-                  </div>
-                  <div className={`text-sm font-medium ${today ? 'text-teal-400' : 'text-slate-300'}`}>
-                    {date.getDate()}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 }
