@@ -69,6 +69,7 @@ export function Calendar({
   const calendarRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const headerScrollRef = useRef<HTMLDivElement>(null);
+  const isSyncingScrollRef = useRef(false);
 
   const CELL_WIDTH = 64;
 
@@ -105,9 +106,13 @@ export function Calendar({
   // Синхронизация скролла основной сетки и шапки + обновление текущей видимой даты
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
-    if (!scrollContainer) return;
+    const headerContainer = headerScrollRef.current;
+    if (!scrollContainer || !headerContainer) return;
 
-    const handleScroll = () => {
+    const handleBodyScroll = () => {
+      if (isSyncingScrollRef.current) return;
+      isSyncingScrollRef.current = true;
+
       const { scrollLeft, clientWidth } = scrollContainer;
       const startIndex = Math.max(0, Math.round(scrollLeft / CELL_WIDTH));
       const daysInView = Math.max(1, Math.floor(clientWidth / CELL_WIDTH));
@@ -122,12 +127,30 @@ export function Calendar({
       if (headerScrollRef.current && headerScrollRef.current !== scrollContainer) {
         headerScrollRef.current.scrollLeft = scrollLeft;
       }
+
+      isSyncingScrollRef.current = false;
     };
 
-    handleScroll();
-    scrollContainer.addEventListener('scroll', handleScroll);
+    const handleHeaderScroll = () => {
+      if (isSyncingScrollRef.current) return;
+      isSyncingScrollRef.current = true;
+
+      const { scrollLeft } = headerContainer;
+      if (scrollContainerRef.current && scrollContainerRef.current !== headerContainer) {
+        scrollContainerRef.current.scrollLeft = scrollLeft;
+      }
+
+      isSyncingScrollRef.current = false;
+    };
+
+    // Инициализируем состояние при монтировании
+    handleBodyScroll();
+
+    scrollContainer.addEventListener('scroll', handleBodyScroll);
+    headerContainer.addEventListener('scroll', handleHeaderScroll);
     return () => {
-      scrollContainer.removeEventListener('scroll', handleScroll);
+      scrollContainer.removeEventListener('scroll', handleBodyScroll);
+      headerContainer.removeEventListener('scroll', handleHeaderScroll);
     };
   }, [dates, centerDate]);
 
