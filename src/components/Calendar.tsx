@@ -646,9 +646,11 @@ export function Calendar({
                   return checkOut > firstVisibleDate && checkIn <= lastVisibleDate;
                 });
 
+                const isExpanded = expandedProperties.has(property.id);
                 const bookingLayers = getBookingLayers(propertyBookings);
                 const rowHeight = Math.max(44, bookingLayers.length * 60 + 8);
-                const totalRowHeight = 32 + rowHeight;
+                const collapsedHeight = 48;
+                const totalRowHeight = isExpanded ? 32 + rowHeight : collapsedHeight;
 
                 return (
                   <div key={property.id} className="flex border-b border-slate-700">
@@ -660,7 +662,7 @@ export function Calendar({
                         className="text-slate-400 hover:text-slate-300 flex-shrink-0"
                         onClick={() => togglePropertyExpansion(property.id)}
                       >
-                        {expandedProperties.has(property.id) ? (
+                        {isExpanded ? (
                           <ChevronDown className="w-4 h-4" />
                         ) : (
                           <ChevronRight className="w-4 h-4" />
@@ -676,7 +678,7 @@ export function Calendar({
                       </div>
                     </div>
                     
-                    {expandedProperties.has(property.id) && (
+                    {isExpanded && (
                       <div className="flex-1">
                         <div className="border-b border-slate-700/30 bg-slate-800/50">
                           <div className="h-8 flex">
