@@ -106,7 +106,7 @@ export function BookingBlock({
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className={`absolute ${colorConfig.text} text-xs font-medium cursor-grab active:cursor-grabbing transition-all hover:shadow-lg hover:z-20 group ${
+      className={`absolute ${colorConfig.text} text-xs font-medium cursor-grab active:cursor-grabbing transition-all hover:shadow-lg group ${
         isDragging ? 'opacity-50 cursor-grabbing' : ''
       }`}
       style={{
@@ -116,7 +116,7 @@ export function BookingBlock({
         height: `${blockHeight}px`,
         backgroundColor: colorConfig.bg,
         clipPath: generateClipPath(),
-        zIndex: 10,
+        zIndex: 5,
       }}
       data-testid={`booking-block-${booking.id}`}
     >
