@@ -11,18 +11,16 @@ type BookingBlockProps = {
   onDragStart: (booking: Booking) => void;
   onDragEnd: () => void;
   isDragging: boolean;
-  hasCheckoutOnSameDay?: boolean;
-  hasCheckinOnSameDay?: boolean;
   isStartTruncated?: boolean;
   isEndTruncated?: boolean;
 };
 
 const SOURCE_COLORS = {
-  avito: { bg: '#4CAF50', text: 'text-white', badge: 'A' },
-  cian: { bg: '#2196F3', text: 'text-white', badge: 'C' },
-  booking: { bg: '#F44336', text: 'text-white', badge: 'B' },
-  airbnb: { bg: '#FF5A5F', text: 'text-white', badge: 'Ab' },
-  manual: { bg: '#64748b', text: 'text-white', badge: 'M' },
+  avito: { bg: '#E8998D', text: 'text-white', badge: 'A' },
+  cian: { bg: '#E8998D', text: 'text-white', badge: 'C' },
+  booking: { bg: '#E8998D', text: 'text-white', badge: 'B' },
+  airbnb: { bg: '#E8998D', text: 'text-white', badge: 'Ab' },
+  manual: { bg: '#E8998D', text: 'text-white', badge: 'M' },
 };
 
 export function BookingBlock({
@@ -35,8 +33,6 @@ export function BookingBlock({
   onDragStart,
   onDragEnd,
   isDragging,
-  hasCheckoutOnSameDay = false,
-  hasCheckinOnSameDay = false,
   isStartTruncated = false,
   isEndTruncated = false,
 }: BookingBlockProps) {
@@ -44,17 +40,13 @@ export function BookingBlock({
   const source = (booking.source || 'manual').toLowerCase() as keyof typeof SOURCE_COLORS;
   const colorConfig = SOURCE_COLORS[source] || SOURCE_COLORS.manual;
 
-  const blockHeight = 36;
-  const topOffset = 4 + layerIndex * (blockHeight + 8);
-  const halfCell = cellWidth / 2;
+  const blockHeight = 24;
+  const topOffset = 8 + layerIndex * (blockHeight + 8);
 
-  const showLeftDiagonal = !isStartTruncated && !hasCheckoutOnSameDay;
-  const showRightDiagonal = !isEndTruncated && !hasCheckinOnSameDay;
-
-  const leftOffset = isStartTruncated ? 0 : halfCell;
-
-  const leftPosition = startCol * cellWidth + leftOffset;
-  const blockWidth = span * cellWidth - leftOffset + (isEndTruncated ? 0 : halfCell);
+  const leftMargin = isStartTruncated ? 0 : 4;
+  const rightMargin = isEndTruncated ? 0 : 4;
+  const leftPosition = startCol * cellWidth + leftMargin;
+  const blockWidth = span * cellWidth - leftMargin - rightMargin;
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ru-RU');
@@ -81,61 +73,31 @@ export function BookingBlock({
     onDragEnd();
   };
 
-  const generateClipPath = () => {
-    const leftDiag = showLeftDiagonal ? halfCell : 0;
-    const rightDiag = showRightDiagonal ? halfCell : 0;
-    
-    if (leftDiag === 0 && rightDiag === 0) {
-      return 'none';
-    }
-    
-    return `polygon(
-      0 100%,
-      ${leftDiag}px 0,
-      calc(100% - ${rightDiag}px) 0,
-      100% 100%
-    )`;
-  };
-
-  const contentPaddingLeft = showLeftDiagonal ? halfCell : 8;
-  const contentPaddingRight = showRightDiagonal ? halfCell : 8;
-
   return (
     <div
       onClick={onClick}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className={`absolute ${colorConfig.text} text-xs font-medium cursor-grab active:cursor-grabbing transition-all hover:shadow-lg group ${
+      className={`absolute text-xs font-medium cursor-grab active:cursor-grabbing transition-all hover:brightness-110 group overflow-hidden ${
+        isStartTruncated ? '' : 'rounded-l-md'
+      } ${
+        isEndTruncated ? '' : 'rounded-r-md'
+      } ${
         isDragging ? 'opacity-50 cursor-grabbing' : ''
       }`}
       style={{
         left: `${leftPosition}px`,
-        width: `${Math.max(blockWidth, halfCell)}px`,
+        width: `${Math.max(blockWidth, 20)}px`,
         top: `${topOffset}px`,
         height: `${blockHeight}px`,
         backgroundColor: colorConfig.bg,
-        clipPath: generateClipPath(),
         zIndex: 5,
       }}
       data-testid={`booking-block-${booking.id}`}
     >
-      <div 
-        className="flex items-center h-full overflow-hidden"
-        style={{ 
-          paddingLeft: `${contentPaddingLeft}px`,
-          paddingRight: `${contentPaddingRight}px`,
-        }}
-      >
-        <div className="flex items-center gap-1 min-w-0 flex-1">
-          <div className="truncate font-semibold text-[11px]">{booking.guest_name}</div>
-          <div
-            className="flex-shrink-0 px-1 py-0.5 rounded text-[9px] font-bold border border-white/30"
-            style={{ backgroundColor: colorConfig.bg }}
-          >
-            {colorConfig.badge}
-          </div>
-        </div>
+      <div className="flex items-center justify-center h-full px-2 overflow-hidden">
+        <div className="truncate text-white font-medium text-[11px]">{booking.guest_name}</div>
       </div>
 
       <div 

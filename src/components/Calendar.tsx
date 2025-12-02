@@ -672,7 +672,7 @@ export function Calendar({
 
                 const isExpanded = expandedProperties.has(property.id);
                 const bookingLayers = getBookingLayers(propertyBookings);
-                const rowHeight = Math.max(44, bookingLayers.length * 60 + 8);
+                const rowHeight = Math.max(44, bookingLayers.length * 32 + 16);
                 const collapsedHeight = 48;
                 const totalRowHeight = isExpanded ? 32 + rowHeight : collapsedHeight;
 
@@ -717,11 +717,24 @@ export function Calendar({
                               {dates.map((date, i) => {
                                 const rate = getRateForDate(property.id, date);
                                 const displayMinStay = rate?.min_stay || property.minimum_booking_days;
+                                const dateString = date.toISOString().split('T')[0];
+                                const displayPrice = rate?.daily_price || property.base_price;
 
                                 return (
                                   <div
                                     key={i}
-                                    className="w-16 flex-shrink-0 border-r border-slate-600 flex items-center justify-center"
+                                    className="w-16 flex-shrink-0 border-r border-slate-600 flex items-center justify-center cursor-pointer hover:bg-slate-700/50 transition-colors"
+                                    onClick={() => {
+                                      setConditionsModalData({
+                                        propertyId: property.id,
+                                        startDate: dateString,
+                                        endDate: dateString,
+                                        price: displayPrice,
+                                        minStay: displayMinStay,
+                                        currency: property.currency,
+                                      });
+                                      setShowConditionsModal(true);
+                                    }}
                                   >
                                     <div className="text-[10px] font-medium text-slate-500">
                                       {displayMinStay}
@@ -785,12 +798,6 @@ export function Calendar({
 
                                   if (startCol < 0 || startCol >= daysToShow) return null;
 
-                                  const hasCheckoutOnSameDay = propertyBookings.some(
-                                    (b) => b.id !== booking.id && b.check_out === booking.check_in
-                                  );
-                                  const hasCheckinOnSameDay = propertyBookings.some(
-                                    (b) => b.id !== booking.id && b.check_in === booking.check_out
-                                  );
                                   const isStartTruncated = isBookingStartTruncated(booking);
                                   const isEndTruncated = isBookingEndTruncated(booking);
 
@@ -806,8 +813,6 @@ export function Calendar({
                                       onDragStart={(b) => setDragState({ booking: b, originalPropertyId: property.id })}
                                       onDragEnd={() => setDragState({ booking: null, originalPropertyId: null })}
                                       isDragging={dragState.booking?.id === booking.id}
-                                      hasCheckoutOnSameDay={hasCheckoutOnSameDay}
-                                      hasCheckinOnSameDay={hasCheckinOnSameDay}
                                       isStartTruncated={isStartTruncated}
                                       isEndTruncated={isEndTruncated}
                                     />
