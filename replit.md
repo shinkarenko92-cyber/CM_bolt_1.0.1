@@ -10,6 +10,17 @@ The application serves property managers who need to visualize bookings across m
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (December 2025)
+
+**Calendar Layout Refactoring:**
+- Separated date header row from property rows for cleaner interface
+- Sticky date header with horizontal scroll synchronization
+- Property names displayed as sticky-left column (256px width) within each row
+- Expand/collapse functionality with chevron icons for each property
+- Collapsed rows use compact 48px height, expanded rows dynamically size based on booking layers
+- Booking blocks only render when property is expanded (prevents overlap issues)
+- Left-truncated booking width calculation fixed to account for hidden days at start of visible range
+
 ## System Architecture
 
 ### Frontend Architecture
