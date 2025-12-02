@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
 import { Plus } from 'lucide-react';
 import { Property, Booking, PropertyRate, supabase } from '../lib/supabase';
 import { CalendarHeader } from './CalendarHeader';
@@ -71,14 +71,26 @@ export function Calendar({
 
   const CELL_WIDTH = 64;
 
-  const dates = Array.from({ length: daysToShow }, (_, i) => {
-    const date = new Date(currentDate);
-    date.setDate(date.getDate() + i);
-    return date;
-  });
+  const currentDateTimestamp = currentDate.getTime();
+  
+  const dates = useMemo(() => {
+    return Array.from({ length: daysToShow }, (_, i) => {
+      const date = new Date(currentDateTimestamp);
+      date.setDate(date.getDate() + i);
+      return date;
+    });
+  }, [currentDateTimestamp, daysToShow]);
 
-  const centerDate = dates[Math.floor(daysToShow / 2)] || currentDate;
-  const [visibleDate, setVisibleDate] = useState<Date>(centerDate);
+  const centerDate = useMemo(() => {
+    return dates[Math.floor(daysToShow / 2)] || new Date(currentDateTimestamp);
+  }, [dates, daysToShow, currentDateTimestamp]);
+
+  const [visibleDate, setVisibleDate] = useState<Date>(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  });
+  
+  const initialScrollDone = useRef(false);
 
   useEffect(() => {
     loadPropertyRates();
@@ -95,7 +107,8 @@ export function Calendar({
     }
 
     setVisibleDate(centerDate);
-  }, [centerDate]);
+    initialScrollDone.current = true;
+  }, [currentDateTimestamp]);
 
   // Обновление текущей видимой даты по горизонтальному скроллу
   useEffect(() => {
@@ -103,6 +116,8 @@ export function Calendar({
     if (!scrollContainer) return;
 
     const handleBodyScroll = () => {
+      if (!initialScrollDone.current) return;
+      
       const { scrollLeft, clientWidth } = scrollContainer;
       const startIndex = Math.max(0, Math.round(scrollLeft / CELL_WIDTH));
       const daysInView = Math.max(1, Math.floor(clientWidth / CELL_WIDTH));
@@ -111,18 +126,17 @@ export function Calendar({
         startIndex + Math.floor(daysInView / 2)
       );
 
-      const newVisibleDate = dates[centerIndex] || centerDate;
-      setVisibleDate(newVisibleDate);
+      const newVisibleDate = dates[centerIndex];
+      if (newVisibleDate) {
+        setVisibleDate(newVisibleDate);
+      }
     };
-
-    // Инициализируем состояние при монтировании
-    handleBodyScroll();
 
     scrollContainer.addEventListener('scroll', handleBodyScroll);
     return () => {
       scrollContainer.removeEventListener('scroll', handleBodyScroll);
     };
-  }, [dates, centerDate]);
+  }, [dates]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -604,8 +618,8 @@ export function Calendar({
                 const rowHeight = Math.max(44, bookingLayers.length * 60 + 8);
 
                 return (
-                  <>
-                    <div key={`${property.id}-minstay`} className="border-b border-slate-700/30 bg-slate-800/50">
+                  <Fragment key={property.id}>
+                    <div className="border-b border-slate-700/30 bg-slate-800/50">
                       <div className="h-8 flex">
                         {dates.map((date, i) => {
                           const rate = getRateForDate(property.id, date);
@@ -624,7 +638,7 @@ export function Calendar({
                         })}
                       </div>
                     </div>
-                    <div key={property.id} className="border-b border-slate-700">
+                    <div className="border-b border-slate-700">
                       <div className="relative" style={{ height: `${rowHeight}px` }}>
                         <div className="absolute inset-0 flex">
                           {dates.map((date, i) => {
@@ -645,7 +659,6 @@ export function Calendar({
                           const isOccupied = isCellOccupied(property.id, date);
                           const rate = getRateForDate(property.id, date);
                           const displayPrice = rate?.daily_price || property.base_price;
-                          const displayCurrency = rate?.currency || property.currency;
                           const isDragOverThisCell = dragOverDates.has(dateString) && dragOverCell?.propertyId === property.id;
                           const dragOverColor = isDragValid ? 'bg-green-500/30' : 'bg-red-500/30';
 
@@ -695,7 +708,7 @@ export function Calendar({
                         )}
                       </div>
                     </div>
-                  </>
+                  </Fragment>
                 );
               })}
 
