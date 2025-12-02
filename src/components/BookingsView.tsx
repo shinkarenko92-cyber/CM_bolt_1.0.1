@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Search, Calendar, MapPin, User, Phone, Mail, ExternalLink } from 'lucide-react';
+import { useState, useMemo, useCallback } from 'react';
+import { Search, Calendar, MapPin, User, Phone, Mail } from 'lucide-react';
 import { Booking, Property } from '../lib/supabase';
 
 interface BookingsViewProps {
@@ -13,9 +13,9 @@ export function BookingsView({ bookings, properties, onEdit }: BookingsViewProps
   const [filterType, setFilterType] = useState<'all' | 'upcoming' | 'past'>('all');
   const [sortBy, setSortBy] = useState<'date' | 'property' | 'source'>('date');
 
-  const getPropertyName = (propertyId: string) => {
+  const getPropertyName = useCallback((propertyId: string) => {
     return properties.find((p) => p.id === propertyId)?.name || 'Неизвестно';
-  };
+  }, [properties]);
 
   const getSourceBadge = (source: string) => {
     const colors = {
@@ -63,7 +63,7 @@ export function BookingsView({ bookings, properties, onEdit }: BookingsViewProps
     const nowDate = new Date();
     const now = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
 
-    let filtered = bookings.filter((booking) => {
+    const filtered = bookings.filter((booking) => {
       const matchesSearch =
         booking.guest_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         getPropertyName(booking.property_id).toLowerCase().includes(searchTerm.toLowerCase());
@@ -91,7 +91,7 @@ export function BookingsView({ bookings, properties, onEdit }: BookingsViewProps
     });
 
     return filtered;
-  }, [bookings, searchTerm, filterType, sortBy, properties]);
+  }, [bookings, searchTerm, filterType, sortBy, getPropertyName]);
 
   const stats = useMemo(() => {
     const nowDate = new Date();
@@ -192,7 +192,7 @@ export function BookingsView({ bookings, properties, onEdit }: BookingsViewProps
 
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => setSortBy(e.target.value as 'date' | 'property' | 'source')}
               className="px-4 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
             >
               <option value="date">Сортировка: Дата</option>

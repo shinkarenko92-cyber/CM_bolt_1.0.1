@@ -141,7 +141,7 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
             if (selectedProperty) {
               await onUpdate(selectedProperty.id, data);
             } else {
-              await onAdd(data as any);
+              await onAdd(data as Omit<Property, 'id' | 'owner_id' | 'created_at' | 'updated_at'>);
             }
             setIsModalOpen(false);
             setSelectedProperty(null);

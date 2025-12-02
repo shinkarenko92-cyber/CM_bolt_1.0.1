@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { Booking, Property, supabase, PropertyRate } from '../lib/supabase';
+import { Booking, Property, supabase } from '../lib/supabase';
 import { PriceRecalculationModal } from './PriceRecalculationModal';
 
 interface EditReservationModalProps {
@@ -35,7 +35,7 @@ export function EditReservationModal({
   const [originalPropertyId, setOriginalPropertyId] = useState('');
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [calculatedPrice, setCalculatedPrice] = useState(0);
-  const [pendingPropertyChange, setPendingPropertyChange] = useState(false);
+  const [, setPendingPropertyChange] = useState(false);
 
   useEffect(() => {
     if (booking) {

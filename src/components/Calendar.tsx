@@ -95,6 +95,7 @@ export function Calendar({
 
   useEffect(() => {
     loadPropertyRates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [properties]);
 
   // Автоматически разворачиваем только действительно новые объекты при их загрузке
@@ -133,6 +134,7 @@ export function Calendar({
     setHeaderScrollLeft(scrollLeft);
     setVisibleDate(centerDate);
     initialScrollDone.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDateTimestamp]);
 
   // Обновление текущей видимой даты и позиции заголовка по горизонтальному скроллу
@@ -220,6 +222,7 @@ export function Calendar({
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleTouchEnd);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dragState, dragOverCell]);
 
   const getPropertyRowHeight = (property: Property) => {

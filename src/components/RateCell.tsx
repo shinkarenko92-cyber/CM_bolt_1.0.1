@@ -4,7 +4,6 @@ import { PropertyRate } from '../lib/supabase';
 
 type RateCellProps = {
   date: Date;
-  propertyId: string;
   rate: PropertyRate | null;
   basePrice: number;
   baseCurrency: string;
@@ -14,7 +13,6 @@ type RateCellProps = {
 
 export function RateCell({
   date,
-  propertyId,
   rate,
   basePrice,
   baseCurrency,

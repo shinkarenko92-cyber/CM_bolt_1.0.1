@@ -169,13 +169,13 @@ export function AdminView() {
     return filtered;
   };
 
-  const getPaginatedData = (data: any[]) => {
+  const getPaginatedData = <T,>(data: T[]): T[] => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     return data.slice(startIndex, endIndex);
   };
 
-  const getTotalPages = (data: any[]) => {
+  const getTotalPages = <T,>(data: T[]): number => {
     return Math.ceil(data.length / itemsPerPage);
   };
 

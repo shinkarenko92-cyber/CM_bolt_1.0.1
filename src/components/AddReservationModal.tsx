@@ -59,12 +59,14 @@ export function AddReservationModal({
       }));
       calculatePrice(prefilledDates.propertyId, prefilledDates.checkIn, prefilledDates.checkOut);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefilledDates]);
 
   useEffect(() => {
     if (formData.property_id && formData.check_in && formData.check_out) {
       calculatePrice(formData.property_id, formData.check_in, formData.check_out);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.property_id, formData.check_in, formData.check_out]);
 
   const calculatePrice = async (propertyId: string, checkIn: string, checkOut: string) => {

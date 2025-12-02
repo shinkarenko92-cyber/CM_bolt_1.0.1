@@ -15,6 +15,20 @@ import { supabase, Property, Booking, Profile } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { syncWithExternalAPIs } from '../services/apiSync';
 
+type NewReservation = {
+  property_id: string;
+  guest_name: string;
+  guest_email: string;
+  guest_phone: string;
+  check_in: string;
+  check_out: string;
+  total_price: number;
+  currency: string;
+  status: string;
+  source: string;
+  guests_count: number;
+};
+
 export function Dashboard() {
   const { user, isAdmin } = useAuth();
   const [currentView, setCurrentView] = useState('calendar');
@@ -28,7 +42,7 @@ export function Dashboard() {
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
   const [isOverlapWarningOpen, setIsOverlapWarningOpen] = useState(false);
   const [overlappingBookings, setOverlappingBookings] = useState<Booking[]>([]);
-  const [pendingReservation, setPendingReservation] = useState<any>(null);
+  const [pendingReservation, setPendingReservation] = useState<NewReservation | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [searchResults, setSearchResults] = useState<Booking[]>([]);
@@ -38,6 +52,7 @@ export function Dashboard() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   useEffect(() => {
@@ -175,7 +190,7 @@ export function Dashboard() {
     await saveReservationToDatabase(reservation);
   };
 
-  const saveReservationToDatabase = async (reservation: any) => {
+  const saveReservationToDatabase = async (reservation: NewReservation) => {
     try {
       const { data, error } = await supabase.from('bookings').insert([reservation]).select();
 
