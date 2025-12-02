@@ -1,11 +1,28 @@
 import { useMemo, useState } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Calendar, Home, Percent } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Calendar, Percent } from 'lucide-react';
 import { Booking, Property } from '../lib/supabase';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  Legend,
+} from 'recharts';
 
 interface AnalyticsViewProps {
   bookings: Booking[];
   properties: Property[];
 }
+
+const COLORS = ['#14b8a6', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#22c55e'];
 
 export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -13,21 +30,21 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
 
+  const convertToRUB = (amount: number, currency: string) => {
+    const rates: { [key: string]: number } = {
+      RUB: 1,
+      EUR: 100,
+      USD: 92,
+    };
+    return amount * (rates[currency] || 1);
+  };
+
   const analytics = useMemo(() => {
     const [year, month] = selectedMonth.split('-').map(Number);
     const currentMonthStart = new Date(year, month - 1, 1);
     const currentMonthEnd = new Date(year, month, 0);
     const previousMonthStart = new Date(year, month - 2, 1);
     const previousMonthEnd = new Date(year, month - 1, 0);
-
-    const convertToRUB = (amount: number, currency: string) => {
-      const rates: { [key: string]: number } = {
-        RUB: 1,
-        EUR: 100,
-        USD: 92,
-      };
-      return amount * (rates[currency] || 1);
-    };
 
     const filterBookingsByDateRange = (start: Date, end: Date) => {
       return bookings.filter((booking) => {
@@ -118,7 +135,79 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     };
   }, [bookings, properties, selectedMonth]);
 
-  const getSourceLabel = (source: string) => {
+  const monthlyRevenueData = useMemo(() => {
+    const data: { month: string; revenue: number; bookings: number }[] = [];
+    const now = new Date();
+    
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+      const monthLabel = date.toLocaleDateString('ru-RU', { month: 'short' });
+      
+      const monthBookings = bookings.filter((booking) => {
+        const checkIn = new Date(booking.check_in);
+        return checkIn >= date && checkIn <= monthEnd;
+      });
+      
+      const revenue = monthBookings.reduce((sum, b) => sum + convertToRUB(b.total_price, b.currency), 0);
+      
+      data.push({
+        month: monthLabel,
+        revenue: Math.round(revenue),
+        bookings: monthBookings.length,
+      });
+    }
+    
+    return data;
+  }, [bookings]);
+
+  const sourceChartData = useMemo(() => {
+    return Object.entries(analytics.sourceBreakdown).map(([source, revenue]) => ({
+      name: getSourceLabel(source),
+      value: Math.round(revenue),
+    }));
+  }, [analytics.sourceBreakdown]);
+
+  const propertyOccupancyData = useMemo(() => {
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const monthStart = new Date(year, month - 1, 1);
+    const monthEnd = new Date(year, month, 0);
+    const daysInMonth = monthEnd.getDate();
+
+    return properties.map((property) => {
+      const propertyBookings = bookings.filter((b) => {
+        if (b.property_id !== property.id) return false;
+        const checkIn = new Date(b.check_in);
+        const checkOut = new Date(b.check_out);
+        return (
+          (checkIn >= monthStart && checkIn <= monthEnd) ||
+          (checkOut >= monthStart && checkOut <= monthEnd) ||
+          (checkIn <= monthStart && checkOut >= monthEnd)
+        );
+      });
+
+      let occupiedNights = 0;
+      propertyBookings.forEach((booking) => {
+        const checkIn = new Date(booking.check_in);
+        const checkOut = new Date(booking.check_out);
+        const effectiveStart = checkIn > monthStart ? checkIn : monthStart;
+        const effectiveEnd = checkOut < monthEnd ? checkOut : monthEnd;
+        if (effectiveStart < effectiveEnd) {
+          const nights = Math.ceil((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24));
+          occupiedNights += nights;
+        }
+      });
+
+      const occupancy = Math.round((occupiedNights / daysInMonth) * 100);
+      return {
+        name: property.name.length > 15 ? property.name.substring(0, 15) + '...' : property.name,
+        occupancy,
+        nights: occupiedNights,
+      };
+    });
+  }, [bookings, properties, selectedMonth]);
+
+  function getSourceLabel(source: string) {
     const labels: { [key: string]: string } = {
       manual: 'Вручную',
       airbnb: 'Airbnb',
@@ -127,7 +216,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
       cian: 'CIAN',
     };
     return labels[source] || source;
-  };
+  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ru-RU').format(Math.round(amount));
@@ -145,19 +234,36 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     return result;
   }, []);
 
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string }>; label?: string }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 shadow-lg">
+          <p className="text-slate-300 text-sm mb-1">{label}</p>
+          {payload.map((entry, index) => (
+            <p key={index} className="text-white text-sm font-medium">
+              {entry.name}: {formatCurrency(entry.value)} {entry.name === 'revenue' ? '₽' : ''}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
-    <div className="flex-1 overflow-auto p-6">
+    <div className="flex-1 overflow-auto p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1">Аналитика</h1>
-            <p className="text-slate-400">Доходы и статистика бронирований</p>
+            <h1 className="text-xl md:text-2xl font-bold text-white mb-1">Аналитика</h1>
+            <p className="text-slate-400 text-sm md:text-base">Доходы и статистика бронирований</p>
           </div>
 
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+            className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm"
+            data-testid="select-month"
           >
             {months.map((month) => (
               <option key={month.value} value={month.value}>
@@ -167,112 +273,151 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
           </select>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-slate-800 rounded-lg p-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
+          <div className="bg-slate-800 rounded-lg p-4 md:p-6">
             <div className="flex items-center justify-between mb-3">
-              <div className="p-3 bg-teal-500/20 rounded-lg">
-                <DollarSign className="w-6 h-6 text-teal-400" />
+              <div className="p-2 md:p-3 bg-teal-500/20 rounded-lg">
+                <DollarSign className="w-5 h-5 md:w-6 md:h-6 text-teal-400" />
               </div>
               {analytics.revenueChange !== 0 && (
                 <div
-                  className={`flex items-center gap-1 text-sm font-medium ${
+                  className={`flex items-center gap-1 text-xs md:text-sm font-medium ${
                     analytics.revenueChange > 0 ? 'text-green-400' : 'text-red-400'
                   }`}
                 >
                   {analytics.revenueChange > 0 ? (
-                    <TrendingUp size={16} />
+                    <TrendingUp size={14} />
                   ) : (
-                    <TrendingDown size={16} />
+                    <TrendingDown size={14} />
                   )}
                   {Math.abs(analytics.revenueChange).toFixed(1)}%
                 </div>
               )}
             </div>
-            <div className="text-2xl font-bold text-white mb-1">
+            <div className="text-lg md:text-2xl font-bold text-white mb-1">
               {formatCurrency(analytics.currentRevenue)} ₽
             </div>
-            <div className="text-sm text-slate-400">Доход за месяц</div>
+            <div className="text-xs md:text-sm text-slate-400">Доход за месяц</div>
           </div>
 
-          <div className="bg-slate-800 rounded-lg p-6">
+          <div className="bg-slate-800 rounded-lg p-4 md:p-6">
             <div className="flex items-center justify-between mb-3">
-              <div className="p-3 bg-blue-500/20 rounded-lg">
-                <Calendar className="w-6 h-6 text-blue-400" />
+              <div className="p-2 md:p-3 bg-blue-500/20 rounded-lg">
+                <Calendar className="w-5 h-5 md:w-6 md:h-6 text-blue-400" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-white mb-1">
+            <div className="text-lg md:text-2xl font-bold text-white mb-1">
               {formatCurrency(analytics.avgPricePerNight)} ₽
             </div>
-            <div className="text-sm text-slate-400">Средняя цена за ночь</div>
+            <div className="text-xs md:text-sm text-slate-400">Средняя цена за ночь</div>
           </div>
 
-          <div className="bg-slate-800 rounded-lg p-6">
+          <div className="bg-slate-800 rounded-lg p-4 md:p-6">
             <div className="flex items-center justify-between mb-3">
-              <div className="p-3 bg-purple-500/20 rounded-lg">
-                <DollarSign className="w-6 h-6 text-purple-400" />
+              <div className="p-2 md:p-3 bg-purple-500/20 rounded-lg">
+                <DollarSign className="w-5 h-5 md:w-6 md:h-6 text-purple-400" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-white mb-1">
+            <div className="text-lg md:text-2xl font-bold text-white mb-1">
               {formatCurrency(analytics.dailyAvgRevenue)} ₽
             </div>
-            <div className="text-sm text-slate-400">Средний доход в день</div>
+            <div className="text-xs md:text-sm text-slate-400">Средний доход в день</div>
           </div>
 
-          <div className="bg-slate-800 rounded-lg p-6">
+          <div className="bg-slate-800 rounded-lg p-4 md:p-6">
             <div className="flex items-center justify-between mb-3">
-              <div className="p-3 bg-green-500/20 rounded-lg">
-                <Percent className="w-6 h-6 text-green-400" />
+              <div className="p-2 md:p-3 bg-green-500/20 rounded-lg">
+                <Percent className="w-5 h-5 md:w-6 md:h-6 text-green-400" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-white mb-1">
+            <div className="text-lg md:text-2xl font-bold text-white mb-1">
               {analytics.occupancyRate.toFixed(1)}%
             </div>
-            <div className="text-sm text-slate-400">
-              Загруженность ({analytics.occupiedNights}/{analytics.totalPossibleNights} ночей)
+            <div className="text-xs md:text-sm text-slate-400">
+              Загруженность ({analytics.occupiedNights}/{analytics.totalPossibleNights})
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-slate-800 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Доход по источникам</h3>
-            {Object.keys(analytics.sourceBreakdown).length === 0 ? (
-              <p className="text-slate-400 text-center py-8">Нет данных за выбранный период</p>
+          <div className="bg-slate-800 rounded-lg p-4 md:p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Доходы по месяцам</h3>
+            {monthlyRevenueData.length === 0 ? (
+              <p className="text-slate-400 text-center py-8">Нет данных</p>
             ) : (
-              <div className="space-y-3">
-                {Object.entries(analytics.sourceBreakdown)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([source, revenue]) => {
-                    const percentage = (revenue / analytics.currentRevenue) * 100;
-                    return (
-                      <div key={source}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm text-slate-300">{getSourceLabel(source)}</span>
-                          <span className="text-sm font-medium text-white">
-                            {formatCurrency(revenue)} ₽ ({percentage.toFixed(1)}%)
-                          </span>
-                        </div>
-                        <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-teal-500 rounded-full transition-all"
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyRevenueData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
+                    <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar dataKey="revenue" name="Доход" fill="#14b8a6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             )}
           </div>
 
-          <div className="bg-slate-800 rounded-lg p-6">
+          <div className="bg-slate-800 rounded-lg p-4 md:p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Доход по источникам</h3>
+            {sourceChartData.length === 0 ? (
+              <p className="text-slate-400 text-center py-8">Нет данных за выбранный период</p>
+            ) : (
+              <div className="h-64 flex items-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={sourceChartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                      labelLine={false}
+                    >
+                      {sourceChartData.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => [`${formatCurrency(value)} ₽`, 'Доход']} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="bg-slate-800 rounded-lg p-4 md:p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Загрузка по объектам</h3>
+            {propertyOccupancyData.length === 0 ? (
+              <p className="text-slate-400 text-center py-8">Нет объектов</p>
+            ) : (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={propertyOccupancyData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis type="number" stroke="#9ca3af" fontSize={12} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                    <YAxis dataKey="name" type="category" stroke="#9ca3af" fontSize={11} width={100} />
+                    <Tooltip formatter={(value: number) => [`${value}%`, 'Загрузка']} />
+                    <Bar dataKey="occupancy" name="Загрузка" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-slate-800 rounded-lg p-4 md:p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Топ объектов по доходу</h3>
             {analytics.topProperties.length === 0 ? (
               <p className="text-slate-400 text-center py-8">Нет данных за выбранный период</p>
             ) : (
               <div className="space-y-3">
                 {analytics.topProperties.map((item, idx) => {
-                  const percentage = (item.revenue / analytics.currentRevenue) * 100;
+                  const percentage = analytics.currentRevenue > 0 ? (item.revenue / analytics.currentRevenue) * 100 : 0;
                   return (
                     <div key={item.property!.id} className="flex items-center gap-3">
                       <div className="flex-shrink-0 w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center">
@@ -280,7 +425,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm text-white font-medium">
+                          <span className="text-sm text-white font-medium truncate max-w-[120px]">
                             {item.property!.name}
                           </span>
                           <span className="text-sm text-slate-300">
@@ -302,52 +447,21 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
           </div>
         </div>
 
-        <div className="bg-slate-800 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Сравнение с предыдущим месяцем</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <div className="text-sm text-slate-400 mb-2">Текущий месяц</div>
-              <div className="text-2xl font-bold text-white">
-                {formatCurrency(analytics.currentRevenue)} ₽
-              </div>
-              <div className="text-sm text-slate-500 mt-1">
-                {analytics.currentBookings} бронирований
-              </div>
-            </div>
-
-            <div>
-              <div className="text-sm text-slate-400 mb-2">Предыдущий месяц</div>
-              <div className="text-2xl font-bold text-slate-400">
-                {formatCurrency(analytics.previousRevenue)} ₽
-              </div>
-            </div>
-
-            <div>
-              <div className="text-sm text-slate-400 mb-2">Изменение</div>
-              <div
-                className={`text-2xl font-bold ${
-                  analytics.revenueChange > 0
-                    ? 'text-green-400'
-                    : analytics.revenueChange < 0
-                    ? 'text-red-400'
-                    : 'text-slate-400'
-                }`}
-              >
-                {analytics.revenueChange > 0 ? '+' : ''}
-                {analytics.revenueChange.toFixed(1)}%
-              </div>
-              <div className="text-sm text-slate-500 mt-1">
-                {analytics.revenueChange > 0 ? (
-                  <span className="text-green-400">
-                    +{formatCurrency(analytics.currentRevenue - analytics.previousRevenue)} ₽
-                  </span>
-                ) : (
-                  <span className="text-red-400">
-                    {formatCurrency(analytics.currentRevenue - analytics.previousRevenue)} ₽
-                  </span>
-                )}
-              </div>
-            </div>
+        <div className="bg-slate-800 rounded-lg p-4 md:p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Динамика бронирований</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={monthlyRevenueData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
+                <YAxis yAxisId="left" stroke="#9ca3af" fontSize={12} />
+                <YAxis yAxisId="right" orientation="right" stroke="#9ca3af" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Line yAxisId="left" type="monotone" dataKey="bookings" name="Бронирования" stroke="#8b5cf6" strokeWidth={2} dot={{ fill: '#8b5cf6' }} />
+                <Line yAxisId="right" type="monotone" dataKey="revenue" name="Доход" stroke="#14b8a6" strokeWidth={2} dot={{ fill: '#14b8a6' }} />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>

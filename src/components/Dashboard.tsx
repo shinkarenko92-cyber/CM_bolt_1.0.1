@@ -102,7 +102,7 @@ export function Dashboard() {
         }
       }
 
-      const { data: profileData, error: profileError } = await supabase
+      const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
@@ -296,43 +296,60 @@ export function Dashboard() {
       <Sidebar currentView={currentView} onViewChange={setCurrentView} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-slate-800 border-b border-slate-700 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+        <header className="bg-slate-800 border-b border-slate-700 px-3 md:px-6 py-3 md:py-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-slate-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => searchQuery && setShowSearchDropdown(true)}
-                placeholder="Поиск по имени, телефону или email..."
-                className="w-96 pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                placeholder="Поиск..."
+                className="w-full pl-9 md:pl-10 pr-3 md:pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                data-testid="input-search"
               />
               {showSearchDropdown && searchResults.length > 0 && (
                 <div className="absolute top-full mt-1 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-96 overflow-y-auto z-50">
+                  <div className="px-3 py-2 border-b border-slate-700 text-xs text-slate-500">
+                    Найдено: {searchResults.length} бронирований
+                  </div>
                   {searchResults.map((booking) => {
                     const property = properties.find(p => p.id === booking.property_id);
                     const checkIn = new Date(booking.check_in).toLocaleDateString('ru-RU');
                     const checkOut = new Date(booking.check_out).toLocaleDateString('ru-RU');
+                    const nights = Math.ceil((new Date(booking.check_out).getTime() - new Date(booking.check_in).getTime()) / (1000 * 60 * 60 * 24));
                     return (
                       <button
                         key={booking.id}
                         onClick={() => {
                           setShowSearchDropdown(false);
+                          setSearchQuery('');
                           handleEditReservation(booking);
                         }}
                         className="w-full text-left px-4 py-3 hover:bg-slate-700 transition-colors border-b border-slate-700 last:border-b-0"
+                        data-testid={`search-result-${booking.id}`}
                       >
-                        <div className="font-semibold text-white mb-1">{booking.guest_name}</div>
-                        <div className="text-sm text-slate-400">
-                          {property?.name || 'Unknown Property'}
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-semibold text-white">{booking.guest_name}</span>
+                          <span className="text-sm font-medium text-teal-400">
+                            {booking.total_price.toLocaleString('ru-RU')} {booking.currency}
+                          </span>
                         </div>
-                        <div className="text-xs text-slate-500 mt-1">
-                          {checkIn} - {checkOut}
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-400">{property?.name || 'Неизвестно'}</span>
+                          <span className={`px-2 py-0.5 rounded text-xs ${
+                            booking.status === 'confirmed' ? 'bg-green-500/20 text-green-400' :
+                            booking.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                            'bg-red-500/20 text-red-400'
+                          }`}>
+                            {booking.status === 'confirmed' ? 'Подтв.' : booking.status === 'pending' ? 'Ожид.' : 'Отмен.'}
+                          </span>
                         </div>
-                        {booking.guest_phone && (
-                          <div className="text-xs text-slate-500">{booking.guest_phone}</div>
-                        )}
+                        <div className="flex items-center justify-between text-xs text-slate-500 mt-1">
+                          <span>{checkIn} - {checkOut} ({nights} {nights === 1 ? 'ночь' : nights < 5 ? 'ночи' : 'ночей'})</span>
+                          {booking.guest_phone && <span>{booking.guest_phone}</span>}
+                        </div>
                       </button>
                     );
                   })}
@@ -340,29 +357,31 @@ export function Dashboard() {
               )}
             </div>
 
-            <div className="flex items-center gap-4 ml-6">
+            <div className="flex items-center gap-2 md:gap-4">
               <ThemeToggle />
 
               <button
                 onClick={handleSync}
                 className="p-2 hover:bg-slate-700 rounded-lg transition-colors relative"
                 title="Sync with external APIs"
+                data-testid="button-sync"
               >
-                <Bell className="w-5 h-5 text-slate-400" />
+                <Bell className="w-4 h-4 md:w-5 md:h-5 text-slate-400" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-teal-500 rounded-full"></span>
               </button>
 
               <div
-                className="flex items-center gap-3 pl-4 border-l border-slate-700 cursor-pointer hover:bg-slate-700/50 rounded-lg p-2 transition-colors"
+                className="flex items-center gap-2 md:gap-3 pl-2 md:pl-4 border-l border-slate-700 cursor-pointer hover:bg-slate-700/50 rounded-lg p-1 md:p-2 transition-colors"
                 onClick={() => setIsProfileModalOpen(true)}
                 title="View profile"
+                data-testid="button-profile"
               >
-                <div className="text-right">
+                <div className="text-right hidden sm:block">
                   <div className="text-sm font-medium text-white">My Properties</div>
                   <div className="text-xs text-slate-400">{user?.email}</div>
                 </div>
-                <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
-                  <User className="w-5 h-5 text-white" />
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-teal-600 rounded-lg flex items-center justify-center">
+                  <User className="w-4 h-4 md:w-5 md:h-5 text-white" />
                 </div>
               </div>
             </div>

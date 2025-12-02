@@ -222,12 +222,46 @@ export function Calendar({
     };
   }, [dragState, dragOverCell]);
 
+  const getPropertyRowHeight = (property: Property) => {
+    const first = dates[0];
+    const firstVisibleDate = new Date(first.getFullYear(), first.getMonth(), first.getDate(), 0, 0, 0, 0);
+    const last = dates[dates.length - 1];
+    const lastVisibleDate = new Date(last.getFullYear(), last.getMonth(), last.getDate(), 23, 59, 59, 999);
+
+    const propertyBookings = bookings.filter((b) => {
+      if (b.property_id !== property.id) return false;
+      const checkInDate = new Date(b.check_in);
+      const checkIn = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
+      const checkOutDate = new Date(b.check_out);
+      const checkOut = new Date(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate());
+      return checkOut > firstVisibleDate && checkIn <= lastVisibleDate;
+    });
+
+    const isExpanded = expandedProperties.has(property.id);
+    const bookingLayers = getBookingLayers(propertyBookings);
+    const rowHeight = Math.max(44, bookingLayers.length * 32 + 16);
+    const collapsedHeight = 48;
+    return isExpanded ? 32 + rowHeight : collapsedHeight;
+  };
+
+  const getPropertyAtY = (y: number): { propertyId: string; propertyIndex: number } | null => {
+    let accumulatedHeight = 0;
+    for (let i = 0; i < properties.length; i++) {
+      const rowHeight = getPropertyRowHeight(properties[i]);
+      if (y >= accumulatedHeight && y < accumulatedHeight + rowHeight) {
+        return { propertyId: properties[i].id, propertyIndex: i };
+      }
+      accumulatedHeight += rowHeight;
+    }
+    return null;
+  };
+
   const updateDragOver = (x: number, y: number) => {
-    const propertyIndex = Math.floor(y / 120);
+    const propertyInfo = getPropertyAtY(y);
     const dateIndex = Math.floor((x - 256) / CELL_WIDTH);
 
-    if (propertyIndex >= 0 && propertyIndex < properties.length && dateIndex >= 0 && dateIndex < dates.length) {
-      const propertyId = properties[propertyIndex].id;
+    if (propertyInfo && dateIndex >= 0 && dateIndex < dates.length) {
+      const { propertyId } = propertyInfo;
       setDragOverCell({ propertyId, dateIndex });
 
       if (dragState.booking) {
@@ -267,6 +301,9 @@ export function Calendar({
 
         setIsDragValid(!hasOverlap);
       }
+    } else {
+      setDragOverCell(null);
+      setDragOverDates(new Set());
     }
   };
 
