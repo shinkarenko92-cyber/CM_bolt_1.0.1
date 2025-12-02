@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, Property } from '../lib/supabase';
 
 interface ChangeConditionsModalProps {
   isOpen: boolean;
@@ -11,6 +11,7 @@ interface ChangeConditionsModalProps {
   currentPrice: number;
   currentMinStay: number;
   currency: string;
+  properties?: Property[];
 }
 
 export function ChangeConditionsModal({
@@ -22,8 +23,12 @@ export function ChangeConditionsModal({
   currentPrice,
   currentMinStay,
   currency,
+  properties = [],
 }: ChangeConditionsModalProps) {
   const [formData, setFormData] = useState({
+    selectedPropertyId: propertyId,
+    startDate: startDate,
+    endDate: endDate,
     dailyPrice: currentPrice.toString(),
     minStay: currentMinStay.toString(),
   });
@@ -33,12 +38,15 @@ export function ChangeConditionsModal({
   useEffect(() => {
     if (isOpen) {
       setFormData({
+        selectedPropertyId: propertyId,
+        startDate: startDate,
+        endDate: endDate,
         dailyPrice: currentPrice.toString(),
         minStay: currentMinStay.toString(),
       });
       setError(null);
     }
-  }, [isOpen, currentPrice, currentMinStay]);
+  }, [isOpen, propertyId, startDate, endDate, currentPrice, currentMinStay]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,18 +57,41 @@ export function ChangeConditionsModal({
       const dailyPrice = parseFloat(formData.dailyPrice);
       const minStay = parseInt(formData.minStay, 10);
 
+      if (!formData.selectedPropertyId) {
+        setError('Пожалуйста, выберите объект');
+        setLoading(false);
+        return;
+      }
+
+      if (!formData.startDate || !formData.endDate) {
+        setError('Пожалуйста, выберите даты');
+        setLoading(false);
+        return;
+      }
+
+      if (new Date(formData.startDate) > new Date(formData.endDate)) {
+        setError('Дата начала не может быть позже даты окончания');
+        setLoading(false);
+        return;
+      }
+
       if (isNaN(dailyPrice) || dailyPrice < 0) {
         setError('Пожалуйста, введите корректную цену');
+        setLoading(false);
         return;
       }
 
       if (isNaN(minStay) || minStay < 1) {
         setError('Минимальный срок бронирования должен быть не менее 1 дня');
+        setLoading(false);
         return;
       }
 
-      const start = new Date(startDate);
-      const end = new Date(endDate);
+      const selectedProperty = properties.find(p => p.id === formData.selectedPropertyId);
+      const propertyCurrency = selectedProperty?.currency || currency;
+
+      const start = new Date(formData.startDate);
+      const end = new Date(formData.endDate);
       const dates: string[] = [];
 
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
@@ -68,11 +99,11 @@ export function ChangeConditionsModal({
       }
 
       const rateRecords = dates.map((date) => ({
-        property_id: propertyId,
+        property_id: formData.selectedPropertyId,
         date,
         daily_price: dailyPrice,
         min_stay: minStay,
-        currency,
+        currency: propertyCurrency,
       }));
 
       const { error: upsertError } = await supabase
@@ -94,9 +125,16 @@ export function ChangeConditionsModal({
 
   if (!isOpen) return null;
 
-  const daysCount = Math.ceil(
-    (new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)
-  ) + 1;
+  const getDaysCount = () => {
+    if (!formData.startDate || !formData.endDate) return 0;
+    return Math.ceil(
+      (new Date(formData.endDate).getTime() - new Date(formData.startDate).getTime()) / (1000 * 60 * 60 * 24)
+    ) + 1;
+  };
+
+  const daysCount = getDaysCount();
+  const selectedProperty = properties.find(p => p.id === formData.selectedPropertyId);
+  const displayCurrency = selectedProperty?.currency || currency;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
@@ -121,9 +159,65 @@ export function ChangeConditionsModal({
             </div>
           )}
 
-          <div className="text-sm text-slate-400 mb-4">
-            Изменение условий для выбранного периода ({daysCount} {daysCount === 1 ? 'день' : 'дней'})
+          {properties.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Объект
+              </label>
+              <select
+                value={formData.selectedPropertyId}
+                onChange={(e) => {
+                  const prop = properties.find(p => p.id === e.target.value);
+                  setFormData({ 
+                    ...formData, 
+                    selectedPropertyId: e.target.value,
+                    dailyPrice: prop?.base_price.toString() || formData.dailyPrice,
+                    minStay: prop?.minimum_booking_days.toString() || formData.minStay,
+                  });
+                }}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+              >
+                {properties.map((prop) => (
+                  <option key={prop.id} value={prop.id}>
+                    {prop.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Дата начала
+              </label>
+              <input
+                type="date"
+                value={formData.startDate}
+                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Дата окончания
+              </label>
+              <input
+                type="date"
+                value={formData.endDate}
+                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                required
+              />
+            </div>
           </div>
+
+          {daysCount > 0 && (
+            <div className="text-sm text-slate-400">
+              Период: {daysCount} {daysCount === 1 ? 'день' : daysCount < 5 ? 'дня' : 'дней'}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -140,7 +234,7 @@ export function ChangeConditionsModal({
                 placeholder="0.00"
                 required
               />
-              <span className="text-slate-400">{currency}</span>
+              <span className="text-slate-400">{displayCurrency}</span>
             </div>
           </div>
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Settings } from 'lucide-react';
 import { Property, Booking, PropertyRate, supabase } from '../lib/supabase';
 import { CalendarHeader } from './CalendarHeader';
 import { BookingBlock } from './BookingBlock';
@@ -536,25 +536,6 @@ export function Calendar({
     }
   };
 
-  const handleOpenConditionsModal = () => {
-    if (dateSelection.startDate && dateSelection.endDate) {
-      const property = properties.find(p => p.id === dateSelection.propertyId);
-      if (!property) return;
-
-      const rate = getRateForDate(dateSelection.propertyId, new Date(dateSelection.startDate));
-
-      setConditionsModalData({
-        propertyId: dateSelection.propertyId,
-        startDate: dateSelection.startDate,
-        endDate: dateSelection.endDate,
-        price: rate?.daily_price || property.base_price,
-        minStay: rate?.min_stay || property.minimum_booking_days,
-        currency: property.currency,
-      });
-      setShowConditionsModal(true);
-    }
-  };
-
   const handleCloseConditionsModal = () => {
     setShowConditionsModal(false);
     setConditionsModalData(null);
@@ -586,14 +567,23 @@ export function Calendar({
             <Plus className="w-4 h-4" />
             Добавить бронь
           </button>
-          {dateSelection.startDate && dateSelection.endDate && (
-            <button
-              onClick={handleOpenConditionsModal}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Изменить условия
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setConditionsModalData({
+                propertyId: properties[0]?.id || '',
+                startDate: new Date().toISOString().split('T')[0],
+                endDate: new Date().toISOString().split('T')[0],
+                price: properties[0]?.base_price || 0,
+                minStay: properties[0]?.minimum_booking_days || 1,
+                currency: properties[0]?.currency || 'RUB',
+              });
+              setShowConditionsModal(true);
+            }}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+          >
+            <Settings className="w-4 h-4" />
+            Изменить условия
+          </button>
         </div>
       </div>
 
@@ -850,6 +840,7 @@ export function Calendar({
           currentPrice={conditionsModalData.price}
           currentMinStay={conditionsModalData.minStay}
           currency={conditionsModalData.currency}
+          properties={properties}
         />
       )}
     </div>

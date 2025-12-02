@@ -43,9 +43,13 @@ export function BookingBlock({
   const blockHeight = 24;
   const topOffset = 8 + layerIndex * (blockHeight + 8);
 
-  const leftMargin = isStartTruncated ? 0 : 4;
-  const rightMargin = isEndTruncated ? 0 : 4;
-  const leftPosition = startCol * cellWidth + leftMargin;
+  const halfCell = cellWidth / 2;
+  const leftMargin = isStartTruncated ? 0 : 2;
+  const rightMargin = isEndTruncated ? 0 : 2;
+  
+  const startOffset = isStartTruncated ? 0 : halfCell;
+  
+  const leftPosition = startCol * cellWidth + startOffset + leftMargin;
   const blockWidth = span * cellWidth - leftMargin - rightMargin;
 
   const formatDate = (dateString: string) => {
