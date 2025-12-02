@@ -20,6 +20,7 @@ Preferred communication style: Simple, everyday language.
 - Collapsed rows use compact 48px height, expanded rows dynamically size based on booking layers
 - Booking blocks only render when property is expanded (prevents overlap issues)
 - Left-truncated booking width calculation fixed to account for hidden days at start of visible range
+- Smart auto-expansion: uses seenPropertyIds ref to track ever-seen properties, so user-collapsed rows stay collapsed across data refreshes while new properties auto-expand
 
 ## System Architecture
 
