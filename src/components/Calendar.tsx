@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
-import { Plus } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Plus, ChevronDown, ChevronRight } from 'lucide-react';
 import { Property, Booking, PropertyRate, supabase } from '../lib/supabase';
 import { CalendarHeader } from './CalendarHeader';
-import { PropertySidebarRow } from './PropertySidebarRow';
 import { BookingBlock } from './BookingBlock';
 import { ChangeConditionsModal } from './ChangeConditionsModal';
 
@@ -89,6 +88,7 @@ export function Calendar({
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), today.getDate());
   });
+  const [headerScrollLeft, setHeaderScrollLeft] = useState(0);
   
   const initialScrollDone = useRef(false);
 
@@ -106,11 +106,12 @@ export function Calendar({
       scrollContainer.scrollTo({ left: scrollLeft, behavior: 'auto' });
     }
 
+    setHeaderScrollLeft(scrollLeft);
     setVisibleDate(centerDate);
     initialScrollDone.current = true;
   }, [currentDateTimestamp]);
 
-  // Обновление текущей видимой даты по горизонтальному скроллу
+  // Обновление текущей видимой даты и позиции заголовка по горизонтальному скроллу
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
     if (!scrollContainer) return;
@@ -119,6 +120,9 @@ export function Calendar({
       if (!initialScrollDone.current) return;
       
       const { scrollLeft, clientWidth } = scrollContainer;
+      
+      setHeaderScrollLeft(scrollLeft);
+      
       const startIndex = Math.max(0, Math.round(scrollLeft / CELL_WIDTH));
       const daysInView = Math.max(1, Math.floor(clientWidth / CELL_WIDTH));
       const centerIndex = Math.min(
@@ -580,21 +584,21 @@ export function Calendar({
           onDateSelect={goToDate}
         />
 
-        <div className="flex-1 flex" ref={calendarRef}>
-          <div className="w-64 flex-shrink-0 overflow-y-auto bg-slate-800 border-r border-slate-700">
-            {properties.map((property) => (
-              <PropertySidebarRow
-                key={property.id}
-                property={property}
-                isExpanded={expandedProperties.has(property.id)}
-                onToggle={() => togglePropertyExpansion(property.id)}
-              />
-            ))}
-          </div>
-
-          <div className="flex-1 overflow-auto" ref={scrollContainerRef}>
-            <div className="bg-slate-800 border-b border-slate-700">
-              <div className="flex">
+        <div className="flex-1 flex flex-col overflow-hidden" ref={calendarRef}>
+          <div className="flex border-b border-slate-700 bg-slate-800 sticky top-0 z-20">
+            <div className="w-64 flex-shrink-0 border-r border-slate-700 bg-slate-800">
+              <div className="h-14 flex items-center justify-center">
+                <span className="text-sm text-slate-400">Объекты</span>
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <div 
+                className="flex" 
+                style={{ 
+                  transform: `translateX(-${headerScrollLeft}px)`,
+                  width: `${dates.length * CELL_WIDTH}px`
+                }}
+              >
                 {dates.map((date, i) => {
                   const today = new Date();
                   const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -608,12 +612,12 @@ export function Calendar({
                         isToday ? 'bg-teal-500/10' : ''
                       }`}
                     >
-                      <div className="px-2 py-3 text-center">
-                        <div className={`text-xs ${isToday ? 'text-teал-400' : 'text-slate-400'}`}>
-                          {date.toLocaleDateString('ru-RU', { weekday: 'short' })}
-                        </div>
-                        <div className={`text-sm font-medium ${isToday ? 'text-teал-400' : 'text-slate-300'}`}>
+                      <div className="px-2 py-2 text-center">
+                        <div className={`text-sm font-medium ${isToday ? 'text-teal-400' : 'text-slate-300'}`}>
                           {date.getDate()}
+                        </div>
+                        <div className={`text-xs ${isToday ? 'text-teal-400' : 'text-slate-400'}`}>
+                          {date.toLocaleDateString('ru-RU', { weekday: 'short' })}
                         </div>
                       </div>
                     </div>
@@ -621,11 +625,11 @@ export function Calendar({
                 })}
               </div>
             </div>
+          </div>
 
+          <div className="flex-1 overflow-auto" ref={scrollContainerRef}>
             <div className="relative">
               {properties.map((property) => {
-                if (!expandedProperties.has(property.id)) return null;
-
                 const first = new Date(dates[0]);
                 const firstVisibleDate = new Date(first.getFullYear(), first.getMonth(), first.getDate(), 0, 0, 0, 0);
                 const last = new Date(dates[dates.length - 1]);
@@ -644,29 +648,56 @@ export function Calendar({
 
                 const bookingLayers = getBookingLayers(propertyBookings);
                 const rowHeight = Math.max(44, bookingLayers.length * 60 + 8);
+                const totalRowHeight = 32 + rowHeight;
 
                 return (
-                  <Fragment key={property.id}>
-                    <div className="border-b border-slate-700/30 bg-slate-800/50">
-                      <div className="h-8 flex">
-                        {dates.map((date, i) => {
-                          const rate = getRateForDate(property.id, date);
-                          const displayMinStay = rate?.min_stay || property.minimum_booking_days;
-
-                          return (
-                            <div
-                              key={i}
-                              className="w-16 flex-shrink-0 border-r border border-slate-600 flex items-center justify-center"
-                            >
-                              <div className="text-[10px] font-medium text-slate-500">
-                                {displayMinStay}
-                              </div>
-                            </div>
-                          );
-                        })}
+                  <div key={property.id} className="flex border-b border-slate-700">
+                    <div 
+                      className="w-64 flex-shrink-0 sticky left-0 z-10 bg-slate-800 border-r border-slate-700 flex items-center px-4 gap-2"
+                      style={{ height: `${totalRowHeight}px` }}
+                    >
+                      <button 
+                        className="text-slate-400 hover:text-slate-300 flex-shrink-0"
+                        onClick={() => togglePropertyExpansion(property.id)}
+                      >
+                        {expandedProperties.has(property.id) ? (
+                          <ChevronDown className="w-4 h-4" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" />
+                        )}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-white leading-tight truncate">
+                          {property.name}
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {property.type}
+                        </div>
                       </div>
                     </div>
-                    <div className="border-b border-slate-700">
+                    
+                    {expandedProperties.has(property.id) && (
+                      <div className="flex-1">
+                        <div className="border-b border-slate-700/30 bg-slate-800/50">
+                          <div className="h-8 flex">
+                            {dates.map((date, i) => {
+                              const rate = getRateForDate(property.id, date);
+                              const displayMinStay = rate?.min_stay || property.minimum_booking_days;
+
+                              return (
+                                <div
+                                  key={i}
+                                  className="w-16 flex-shrink-0 border-r border-slate-600 flex items-center justify-center"
+                                >
+                                  <div className="text-[10px] font-medium text-slate-500">
+                                    {displayMinStay}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div className="border-b border-slate-700">
                       <div className="relative" style={{ height: `${rowHeight}px` }}>
                         <div className="absolute inset-0 flex">
                           {dates.map((date, i) => {
@@ -747,11 +778,13 @@ export function Calendar({
                               isEndTruncated={isEndTruncated}
                             />
                           );
-                          })
-                        )}
+                        })
+                      )}
                       </div>
                     </div>
-                  </Fragment>
+                  </div>
+                    )}
+                  </div>
                 );
               })}
 
