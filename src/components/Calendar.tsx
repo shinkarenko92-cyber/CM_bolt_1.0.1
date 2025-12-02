@@ -67,6 +67,7 @@ export function Calendar({
   } | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const seenPropertyIds = useRef<Set<string>>(new Set());
 
   const CELL_WIDTH = 64;
 
@@ -94,6 +95,29 @@ export function Calendar({
 
   useEffect(() => {
     loadPropertyRates();
+  }, [properties]);
+
+  // Автоматически разворачиваем только действительно новые объекты при их загрузке
+  // seenPropertyIds отслеживает все объекты, которые мы когда-либо видели
+  useEffect(() => {
+    if (properties.length > 0) {
+      // Находим объекты, которые мы ещё никогда не видели
+      const trulyNewPropertyIds = properties
+        .filter(p => !seenPropertyIds.current.has(p.id))
+        .map(p => p.id);
+      
+      // Добавляем все текущие объекты в список "виденных"
+      properties.forEach(p => seenPropertyIds.current.add(p.id));
+      
+      // Разворачиваем только действительно новые объекты
+      if (trulyNewPropertyIds.length > 0) {
+        setExpandedProperties(prev => {
+          const newExpanded = new Set(prev);
+          trulyNewPropertyIds.forEach(id => newExpanded.add(id));
+          return newExpanded;
+        });
+      }
+    }
   }, [properties]);
 
   // При изменении текущей базовой даты центрируем скролл и обновляем "видимую" дату
