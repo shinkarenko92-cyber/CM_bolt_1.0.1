@@ -677,7 +677,11 @@ export function Calendar({
                 const totalRowHeight = isExpanded ? 32 + rowHeight : collapsedHeight;
 
                 return (
-                  <div key={property.id} className="flex border-b border-slate-700">
+                  <div 
+                    key={property.id} 
+                    className="flex border-b border-slate-700"
+                    style={{ minWidth: `${256 + dates.length * CELL_WIDTH}px` }}
+                  >
                     <div 
                       className="w-64 flex-shrink-0 sticky left-0 z-10 bg-slate-800 border-r border-slate-700 flex items-center px-4 gap-2"
                       style={{ height: `${totalRowHeight}px` }}
