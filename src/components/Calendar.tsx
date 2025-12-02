@@ -702,114 +702,119 @@ export function Calendar({
                       </div>
                     </div>
                     
-                    {isExpanded && (
-                      <div className="flex-1">
-                        <div className="border-b border-slate-700/30 bg-slate-800/50">
-                          <div className="h-8 flex">
-                            {dates.map((date, i) => {
-                              const rate = getRateForDate(property.id, date);
-                              const displayMinStay = rate?.min_stay || property.minimum_booking_days;
+                    <div 
+                      className="flex-shrink-0"
+                      style={{ width: `${dates.length * CELL_WIDTH}px`, height: `${totalRowHeight}px` }}
+                    >
+                      {isExpanded && (
+                        <div className="flex flex-col h-full">
+                          <div className="border-b border-slate-700/30 bg-slate-800/50">
+                            <div className="h-8 flex">
+                              {dates.map((date, i) => {
+                                const rate = getRateForDate(property.id, date);
+                                const displayMinStay = rate?.min_stay || property.minimum_booking_days;
 
-                              return (
-                                <div
-                                  key={i}
-                                  className="w-16 flex-shrink-0 border-r border-slate-600 flex items-center justify-center"
-                                >
-                                  <div className="text-[10px] font-medium text-slate-500">
-                                    {displayMinStay}
+                                return (
+                                  <div
+                                    key={i}
+                                    className="w-16 flex-shrink-0 border-r border-slate-600 flex items-center justify-center"
+                                  >
+                                    <div className="text-[10px] font-medium text-slate-500">
+                                      {displayMinStay}
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                        <div className="border-b border-slate-700">
-                      <div className="relative" style={{ height: `${rowHeight}px` }}>
-                        <div className="absolute inset-0 flex">
-                          {dates.map((date, i) => {
-                          const dateString = date.toISOString().split('T')[0];
-                          const today = new Date();
-                          const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                          const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                          const isToday = checkDate.getTime() === localToday.getTime();
-                          const isSelected =
-                            dateSelection.propertyId === property.id &&
-                            dateSelection.startDate === dateString;
-                          const isInRange =
-                            dateSelection.propertyId === property.id &&
-                            dateSelection.startDate &&
-                            dateSelection.endDate &&
-                            dateString >= dateSelection.startDate &&
-                            dateString <= dateSelection.endDate;
-                          const isOccupied = isCellOccupied(property.id, date);
-                          const rate = getRateForDate(property.id, date);
-                          const displayPrice = rate?.daily_price || property.base_price;
-                          const isDragOverThisCell = dragOverDates.has(dateString) && dragOverCell?.propertyId === property.id;
-                          const dragOverColor = isDragValid ? 'bg-green-500/30' : 'bg-red-500/30';
+                          <div className="flex-1 border-b border-slate-700">
+                            <div className="relative h-full" style={{ minHeight: `${rowHeight}px` }}>
+                              <div className="absolute inset-0 flex">
+                                {dates.map((date, i) => {
+                                  const dateString = date.toISOString().split('T')[0];
+                                  const today = new Date();
+                                  const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                                  const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                                  const isToday = checkDate.getTime() === localToday.getTime();
+                                  const isSelected =
+                                    dateSelection.propertyId === property.id &&
+                                    dateSelection.startDate === dateString;
+                                  const isInRange =
+                                    dateSelection.propertyId === property.id &&
+                                    dateSelection.startDate &&
+                                    dateSelection.endDate &&
+                                    dateString >= dateSelection.startDate &&
+                                    dateString <= dateSelection.endDate;
+                                  const isOccupied = isCellOccupied(property.id, date);
+                                  const rate = getRateForDate(property.id, date);
+                                  const displayPrice = rate?.daily_price || property.base_price;
+                                  const isDragOverThisCell = dragOverDates.has(dateString) && dragOverCell?.propertyId === property.id;
+                                  const dragOverColor = isDragValid ? 'bg-green-500/30' : 'bg-red-500/30';
 
-                          return (
-                            <div
-                              key={i}
-                              className={`w-16 flex-shrink-0 border-r border-slate-700/50 cursor-pointer transition-colors ${
-                                isToday ? 'bg-teal-500/10' : ''
-                              } ${isSelected ? 'bg-teal-500/20' : ''
-                              } ${isInRange ? 'bg-blue-500/10' : ''} ${isDragOverThisCell ? dragOverColor : ''} ${!isOccupied ? 'hover:bg-slate-800/30' : ''}`}
-                              onClick={() => !isOccupied && handleCellClick(property.id, date)}
-                            >
-                              {!isOccupied && (
-                                <div className="h-11 flex items-center justify-center text-center px-1">
-                                  <div className="text-[10px] font-medium text-slate-400 truncate">
-                                    {displayPrice}
-                                  </div>
-                                </div>
+                                  return (
+                                    <div
+                                      key={i}
+                                      className={`w-16 flex-shrink-0 border-r border-slate-700/50 cursor-pointer transition-colors ${
+                                        isToday ? 'bg-teal-500/10' : ''
+                                      } ${isSelected ? 'bg-teal-500/20' : ''
+                                      } ${isInRange ? 'bg-blue-500/10' : ''} ${isDragOverThisCell ? dragOverColor : ''} ${!isOccupied ? 'hover:bg-slate-800/30' : ''}`}
+                                      onClick={() => !isOccupied && handleCellClick(property.id, date)}
+                                    >
+                                      {!isOccupied && (
+                                        <div className="h-11 flex items-center justify-center text-center px-1">
+                                          <div className="text-[10px] font-medium text-slate-400 truncate">
+                                            {displayPrice}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              {bookingLayers.map((layer, layerIndex) =>
+                                layer.map((booking) => {
+                                  const startCol = getBookingStartCol(booking);
+                                  const fullSpan = getBookingSpan(booking);
+                                  const hiddenDaysAtStart = getHiddenDaysAtStart(booking);
+                                  const visibleSpan = fullSpan - hiddenDaysAtStart;
+
+                                  if (startCol < 0 || startCol >= daysToShow) return null;
+
+                                  const hasCheckoutOnSameDay = propertyBookings.some(
+                                    (b) => b.id !== booking.id && b.check_out === booking.check_in
+                                  );
+                                  const hasCheckinOnSameDay = propertyBookings.some(
+                                    (b) => b.id !== booking.id && b.check_in === booking.check_out
+                                  );
+                                  const isStartTruncated = isBookingStartTruncated(booking);
+                                  const isEndTruncated = isBookingEndTruncated(booking);
+
+                                  return (
+                                    <BookingBlock
+                                      key={booking.id}
+                                      booking={booking}
+                                      startCol={startCol}
+                                      span={Math.min(visibleSpan, daysToShow - startCol)}
+                                      layerIndex={layerIndex}
+                                      cellWidth={CELL_WIDTH}
+                                      onClick={() => onEditReservation(booking)}
+                                      onDragStart={(b) => setDragState({ booking: b, originalPropertyId: property.id })}
+                                      onDragEnd={() => setDragState({ booking: null, originalPropertyId: null })}
+                                      isDragging={dragState.booking?.id === booking.id}
+                                      hasCheckoutOnSameDay={hasCheckoutOnSameDay}
+                                      hasCheckinOnSameDay={hasCheckinOnSameDay}
+                                      isStartTruncated={isStartTruncated}
+                                      isEndTruncated={isEndTruncated}
+                                    />
+                                  );
+                                })
                               )}
                             </div>
-                          );
-                        })}
-                      </div>
-
-                      {bookingLayers.map((layer, layerIndex) =>
-                        layer.map((booking) => {
-                          const startCol = getBookingStartCol(booking);
-                          const fullSpan = getBookingSpan(booking);
-                          const hiddenDaysAtStart = getHiddenDaysAtStart(booking);
-                          const visibleSpan = fullSpan - hiddenDaysAtStart;
-
-                          if (startCol < 0 || startCol >= daysToShow) return null;
-
-                          const hasCheckoutOnSameDay = propertyBookings.some(
-                            (b) => b.id !== booking.id && b.check_out === booking.check_in
-                          );
-                          const hasCheckinOnSameDay = propertyBookings.some(
-                            (b) => b.id !== booking.id && b.check_in === booking.check_out
-                          );
-                          const isStartTruncated = isBookingStartTruncated(booking);
-                          const isEndTruncated = isBookingEndTruncated(booking);
-
-                          return (
-                            <BookingBlock
-                              key={booking.id}
-                              booking={booking}
-                              startCol={startCol}
-                              span={Math.min(visibleSpan, daysToShow - startCol)}
-                              layerIndex={layerIndex}
-                              cellWidth={CELL_WIDTH}
-                              onClick={() => onEditReservation(booking)}
-                              onDragStart={(b) => setDragState({ booking: b, originalPropertyId: property.id })}
-                              onDragEnd={() => setDragState({ booking: null, originalPropertyId: null })}
-                              isDragging={dragState.booking?.id === booking.id}
-                              hasCheckoutOnSameDay={hasCheckoutOnSameDay}
-                              hasCheckinOnSameDay={hasCheckinOnSameDay}
-                              isStartTruncated={isStartTruncated}
-                              isEndTruncated={isEndTruncated}
-                            />
-                          );
-                        })
+                          </div>
+                        </div>
                       )}
-                      </div>
                     </div>
-                  </div>
-                    )}
                   </div>
                 );
               })}
