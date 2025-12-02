@@ -397,6 +397,34 @@ export function Calendar({
     return diffDays;
   };
 
+  const isBookingStartTruncated = (booking: Booking) => {
+    const start = new Date(booking.check_in);
+    const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const first = new Date(dates[0]);
+    const firstDate = new Date(first.getFullYear(), first.getMonth(), first.getDate());
+    return startDate < firstDate;
+  };
+
+  const isBookingEndTruncated = (booking: Booking) => {
+    const end = new Date(booking.check_out);
+    const endDate = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    const last = new Date(dates[dates.length - 1]);
+    const lastDate = new Date(last.getFullYear(), last.getMonth(), last.getDate());
+    return endDate > lastDate;
+  };
+
+  const getHiddenDaysAtStart = (booking: Booking) => {
+    const start = new Date(booking.check_in);
+    const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const first = new Date(dates[0]);
+    const firstDate = new Date(first.getFullYear(), first.getMonth(), first.getDate());
+    
+    if (startDate >= firstDate) return 0;
+    
+    const diffTime = firstDate.getTime() - startDate.getTime();
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  };
+
   const getBookingSpan = (booking: Booking) => {
     const checkIn = new Date(booking.check_in);
     const start = new Date(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate());
@@ -686,22 +714,37 @@ export function Calendar({
                       {bookingLayers.map((layer, layerIndex) =>
                         layer.map((booking) => {
                           const startCol = getBookingStartCol(booking);
-                          const span = getBookingSpan(booking);
+                          const fullSpan = getBookingSpan(booking);
+                          const hiddenDaysAtStart = getHiddenDaysAtStart(booking);
+                          const visibleSpan = fullSpan - hiddenDaysAtStart;
 
                           if (startCol < 0 || startCol >= daysToShow) return null;
+
+                          const hasCheckoutOnSameDay = propertyBookings.some(
+                            (b) => b.id !== booking.id && b.check_out === booking.check_in
+                          );
+                          const hasCheckinOnSameDay = propertyBookings.some(
+                            (b) => b.id !== booking.id && b.check_in === booking.check_out
+                          );
+                          const isStartTruncated = isBookingStartTruncated(booking);
+                          const isEndTruncated = isBookingEndTruncated(booking);
 
                           return (
                             <BookingBlock
                               key={booking.id}
                               booking={booking}
                               startCol={startCol}
-                              span={Math.min(span, daysToShow - startCol)}
+                              span={Math.min(visibleSpan, daysToShow - startCol)}
                               layerIndex={layerIndex}
                               cellWidth={CELL_WIDTH}
                               onClick={() => onEditReservation(booking)}
                               onDragStart={(b) => setDragState({ booking: b, originalPropertyId: property.id })}
                               onDragEnd={() => setDragState({ booking: null, originalPropertyId: null })}
                               isDragging={dragState.booking?.id === booking.id}
+                              hasCheckoutOnSameDay={hasCheckoutOnSameDay}
+                              hasCheckinOnSameDay={hasCheckinOnSameDay}
+                              isStartTruncated={isStartTruncated}
+                              isEndTruncated={isEndTruncated}
                             />
                           );
                           })

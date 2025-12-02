@@ -11,6 +11,10 @@ type BookingBlockProps = {
   onDragStart: (booking: Booking) => void;
   onDragEnd: () => void;
   isDragging: boolean;
+  hasCheckoutOnSameDay?: boolean;
+  hasCheckinOnSameDay?: boolean;
+  isStartTruncated?: boolean;
+  isEndTruncated?: boolean;
 };
 
 const SOURCE_COLORS = {
@@ -31,12 +35,26 @@ export function BookingBlock({
   onDragStart,
   onDragEnd,
   isDragging,
+  hasCheckoutOnSameDay = false,
+  hasCheckinOnSameDay = false,
+  isStartTruncated = false,
+  isEndTruncated = false,
 }: BookingBlockProps) {
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
-  const source = booking.source.toLowerCase() as keyof typeof SOURCE_COLORS;
+  const source = (booking.source || 'manual').toLowerCase() as keyof typeof SOURCE_COLORS;
   const colorConfig = SOURCE_COLORS[source] || SOURCE_COLORS.manual;
 
-  const topOffset = 8 + layerIndex * 60;
+  const blockHeight = 36;
+  const topOffset = 4 + layerIndex * (blockHeight + 8);
+  const halfCell = cellWidth / 2;
+
+  const showLeftDiagonal = !isStartTruncated && !hasCheckoutOnSameDay;
+  const showRightDiagonal = !isEndTruncated && !hasCheckinOnSameDay;
+
+  const leftOffset = isStartTruncated ? 0 : halfCell;
+
+  const leftPosition = startCol * cellWidth + leftOffset;
+  const blockWidth = span * cellWidth - leftOffset + (isEndTruncated ? 0 : halfCell);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ru-RU');
@@ -63,53 +81,66 @@ export function BookingBlock({
     onDragEnd();
   };
 
+  const generateClipPath = () => {
+    const leftDiag = showLeftDiagonal ? halfCell : 0;
+    const rightDiag = showRightDiagonal ? halfCell : 0;
+    
+    if (leftDiag === 0 && rightDiag === 0) {
+      return 'none';
+    }
+    
+    return `polygon(
+      0 100%,
+      ${leftDiag}px 0,
+      calc(100% - ${rightDiag}px) 0,
+      100% 100%
+    )`;
+  };
+
+  const contentPaddingLeft = showLeftDiagonal ? halfCell : 8;
+  const contentPaddingRight = showRightDiagonal ? halfCell : 8;
+
   return (
     <div
       onClick={onClick}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className={`absolute rounded px-2 py-1 ${colorConfig.text} text-xs font-medium cursor-grab active:cursor-grabbing transition-all hover:shadow-lg hover:z-10 group ${
+      className={`absolute ${colorConfig.text} text-xs font-medium cursor-grab active:cursor-grabbing transition-all hover:shadow-lg hover:z-20 group ${
         isDragging ? 'opacity-50 cursor-grabbing' : ''
       }`}
       style={{
-        left: `${startCol * cellWidth}px`,
-        width: `${span * cellWidth}px`,
+        left: `${leftPosition}px`,
+        width: `${Math.max(blockWidth, halfCell)}px`,
         top: `${topOffset}px`,
-        height: '44px',
+        height: `${blockHeight}px`,
         backgroundColor: colorConfig.bg,
-        clipPath: span > 1
-          ? 'polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 0 100%)'
-          : 'none',
+        clipPath: generateClipPath(),
+        zIndex: 10,
       }}
+      data-testid={`booking-block-${booking.id}`}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <div className="truncate font-semibold">{booking.guest_name}</div>
-          <div className="text-[10px] opacity-90 truncate">
-            {booking.total_price} {booking.currency}
+      <div 
+        className="flex items-center h-full overflow-hidden"
+        style={{ 
+          paddingLeft: `${contentPaddingLeft}px`,
+          paddingRight: `${contentPaddingRight}px`,
+        }}
+      >
+        <div className="flex items-center gap-1 min-w-0 flex-1">
+          <div className="truncate font-semibold text-[11px]">{booking.guest_name}</div>
+          <div
+            className="flex-shrink-0 px-1 py-0.5 rounded text-[9px] font-bold border border-white/30"
+            style={{ backgroundColor: colorConfig.bg }}
+          >
+            {colorConfig.badge}
           </div>
-        </div>
-        <div
-          className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold border border-white/30`}
-          style={{ backgroundColor: colorConfig.bg, opacity: 0.8 }}
-        >
-          {colorConfig.badge}
         </div>
       </div>
 
-      {span > 1 && (
-        <div
-          className="absolute top-0 bottom-0 pointer-events-none"
-          style={{
-            right: 0,
-            width: '32px',
-            background: `linear-gradient(135deg, transparent 0%, transparent calc(50% - 1px), rgba(0,0,0,0.3) calc(50%), transparent calc(50% + 1px), transparent 100%)`,
-          }}
-        />
-      )}
-
-      <div className="absolute left-0 top-full mt-2 hidden group-hover:block z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-xl p-3 min-w-[250px]">
+      <div 
+        className="absolute left-1/2 -translate-x-1/2 top-full mt-2 hidden group-hover:block z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-xl p-3 min-w-[250px]"
+      >
         <div className="text-white font-semibold mb-2 text-sm">
           {booking.guest_name}
         </div>
