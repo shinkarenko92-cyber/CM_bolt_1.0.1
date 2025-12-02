@@ -12,6 +12,15 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (December 2025)
 
+**ESLint & TypeScript Cleanup (Dec 2):**
+- Replaced all `any` types with proper TypeScript types (Booking[], Property[], User, etc.)
+- Removed unused imports and variables across all components
+- Fixed `let` → `const` where values are never reassigned
+- Added missing useEffect/useMemo dependencies for React hooks compliance
+- Wrapped callback functions in useCallback for stable references
+- Added eslint-disable comments only where intentional (context exports, drag event handlers)
+- Zero ESLint errors, ready for CI
+
 **Calendar Layout Refactoring:**
 - Separated date header row from property rows for cleaner interface
 - Sticky date header with horizontal scroll synchronization
