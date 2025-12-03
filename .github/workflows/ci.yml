@@ -1,7 +1,12 @@
 name: Roomi Pro CI/CD
 
 on:
-  workflow_dispatch:  # запуск вручную
+  workflow_dispatch:
+    inputs:
+      claude_prompt:
+        description: 'Prompt для генерации файлов через Claude'
+        required: false
+        default: 'Сгенерируй markdown документацию для проекта Roomi Pro.'
   push:
     branches: [ main ]
   pull_request:
@@ -38,26 +43,35 @@ jobs:
 
       - name: Generate files with Claude API
         run: |
-          echo "Calling Claude API..."
-          curl -X POST https://api.anthropic.com/v1/complete \
-            -H "Authorization: Bearer ${{ secrets.ANTHROPIC_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "model": "claude-v1",
-              "prompt": "Сгенерируй markdown документацию для проекта Roomi Pro.",
-              "max_tokens_to_sample": 2000
-            }' > GENERATED.md
+          PROMPT="${{ github.event.inputs.claude_prompt }}"
+          echo "Generating files with Claude API..."
+          mkdir -p generated_files
+          
+          # Пример генерации двух файлов
+          for FILE in doc1.md doc2.md; do
+            curl -X POST https://api.anthropic.com/v1/complete \
+              -H "Authorization: Bearer ${{ secrets.ANTHROPIC_API_KEY }}" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"model\": \"claude-v1\",
+                \"prompt\": \"$PROMPT (сохрани в формате Markdown, файл: $FILE)\",
+                \"max_tokens_to_sample\": 2000
+              }" > generated_files/$FILE
+          done
 
       - name: Commit generated files
         run: |
           git config user.name "continue-bot"
           git config user.email "bot@example.com"
           git checkout -B continue-changes
-          git add GENERATED.md
-          git commit -m "Auto-generated files from Claude" || echo "No changes"
-          git push origin continue-changes --force
+          git add generated_files/*
+          # Коммит только если есть изменения
+          git diff-index --quiet HEAD || git commit -m "Auto-generated files from Claude"
+          # Push через токен
+          git push https://${{ secrets.CONTINUE_GITHUB_TOKEN }}@github.com/<USERNAME>/<REPO>.git continue-changes --force || echo "Push skipped"
 
-      - name: Create Pull Request
+      - name: Create Pull Request if changes exist
+        if: success() && steps.commit_generated_files.outcome != 'skipped'
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.CONTINUE_GITHUB_TOKEN }}
