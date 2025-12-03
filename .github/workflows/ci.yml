@@ -1,6 +1,7 @@
 name: Roomi Pro CI/CD
 
 on:
+  workflow_dispatch: # запускаем вручную для генерации изменений
   push:
     branches: [ main ]
   pull_request:
@@ -27,36 +28,34 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
 
-  # ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
-  # AGENTS.MD ВРЕМЕННО ОТКЛЮЧЕН — пока не починится секрет
-  # Раскомментируешь потом, когда захочешь авто-доки
-  # agents-md:
-  #   needs: test-and-build
-  #   runs-on: ubuntu-latest
-  #   if: github.event_name == 'pull_request'
-  #   steps:
-  #     - name: Fix long filenames
-  #       run: git config --global core.longpaths true
-  #     - uses: actions/checkout@v4
-  #     - uses: continue/run-agents-md-action@v1
-  #       env:
-  #         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-
-  deploy:
+  continue-generate:
     needs: test-and-build
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          fetch-depth: 0
 
-      - run: npm ci
-      - run: npm install -g vercel
-
-      - run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
+      # Шаг генерации файлов через Continue.dev
+      # Используется официальный action continue/run-agents-md-action
+      - name: Generate files with Continue
+        uses: continue/run-agents-md-action@v1
         env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      # Commit изменений в отдельную ветку
+      - name: Commit changes from Continue
+        run: |
+          git config user.name "continue-bot"
+          git config user.email "bot@example.com"
+          git checkout -B continue-changes
+          git add .
+          git commit -m "Auto-generated changes from Continue" || echo "No changes"
+          git push origin continue-changes --force
+
+      # Создание Pull Request в main
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message
