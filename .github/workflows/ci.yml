@@ -1,4 +1,4 @@
-name: Roomi Pro CI/CD + AGENTS.md
+name: Roomi Pro CI/CD
 
 on:
   push:
@@ -10,31 +10,37 @@ jobs:
   test-and-build:
     runs-on: ubuntu-latest
     steps:
-      - name: Fix long filenames
+      - name: Fix long filenames (Windows bug)
         run: git config --global core.longpaths true
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
+
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
 
-  agents-md:
-    needs: test-and-build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - name: Fix long filenames
-        run: git config --global core.longpaths true
-      - uses: actions/checkout@v4
-      - uses: continue/run-agents-md-action@v1
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  # ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
+  # AGENTS.MD ВРЕМЕННО ОТКЛЮЧЕН — пока не починится секрет
+  # Раскомментируешь потом, когда захочешь авто-доки
+  # agents-md:
+  #   needs: test-and-build
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name == 'pull_request'
+  #   steps:
+  #     - name: Fix long filenames
+  #       run: git config --global core.longpaths true
+  #     - uses: actions/checkout@v4
+  #     - uses: continue/run-agents-md-action@v1
+  #       env:
+  #         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
   deploy:
     needs: test-and-build
@@ -42,11 +48,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+
       - run: npm ci
       - run: npm install -g vercel
+
       - run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
