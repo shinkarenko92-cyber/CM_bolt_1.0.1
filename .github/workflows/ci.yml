@@ -41,9 +41,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install jq for safe JSON
-        run: sudo apt-get update && sudo apt-get install -y jq
-
       - name: Generate files with Claude API
         run: |
           PROMPT="${{ github.event.inputs.claude_prompt }}"
@@ -51,14 +48,17 @@ jobs:
           mkdir -p generated_files
 
           for FILE in doc1.md doc2.md; do
-            PAYLOAD=$(jq -n --arg model "claude-v1" --arg prompt "$PROMPT (Markdown для $FILE)" --argjson max 2000 \
-              '{model: $model, prompt: $prompt, max_tokens_to_sample: $max}')
+            # Экранируем кавычки и спецсимволы
+            SAFE_PROMPT=$(echo "$PROMPT (Markdown для $FILE)" | sed 's/"/\\"/g; s/\$/\\$/g')
             
             curl -s -X POST https://api.anthropic.com/v1/complete \
               -H "Authorization: Bearer ${{ secrets.ANTHROPIC_API_KEY }}" \
               -H "Content-Type: application/json" \
-              -d "$PAYLOAD" \
-              -o generated_files/$FILE || echo "Failed to generate $FILE, skipping..."
+              -d "{
+                \"model\": \"claude-v1\",
+                \"prompt\": \"$SAFE_PROMPT\",
+                \"max_tokens_to_sample\": 2000
+              }" -o generated_files/$FILE || echo "⚠️ Failed to generate $FILE, skipping..."
           done
 
       - name: Commit generated files
