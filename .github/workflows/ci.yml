@@ -57,21 +57,25 @@ jobs:
                 \"prompt\": \"$PROMPT (сохрани в формате Markdown, файл: $FILE)\",
                 \"max_tokens_to_sample\": 2000
               }" > generated_files/$FILE
-          done
 
       - name: Commit generated files
+        id: commit_generated_files
         run: |
           git config user.name "continue-bot"
           git config user.email "bot@example.com"
           git checkout -B continue-changes
           git add generated_files/*
-          # Коммит только если есть изменения
-          git diff-index --quiet HEAD || git commit -m "Auto-generated files from Claude"
-          # Push через токен
-          git push https://${{ secrets.CONTINUE_GITHUB_TOKEN }}@github.com/<USERNAME>/<REPO>.git continue-changes --force || echo "Push skipped"
+          
+          if ! git diff-index --quiet HEAD; then
+            git commit -m "Auto-generated files from Claude"
+            git push https://${{ secrets.CONTINUE_GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git continue-changes --force
+            echo "changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "No changes to commit"
+            echo "changes=false" >> $GITHUB_OUTPUT
 
       - name: Create Pull Request if changes exist
-        if: success() && steps.commit_generated_files.outcome != 'skipped'
+        if: steps.commit_generated_files.outputs.changes == 'true'
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.CONTINUE_GITHUB_TOKEN }}
