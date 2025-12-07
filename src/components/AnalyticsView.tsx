@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Calendar, Percent } from 'lucide-react';
+import { useMemo, useState, useCallback } from 'react';
+import { TrendingUp, TrendingDown, DollarSign, Percent, Home, BedDouble } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Booking, Property } from '../lib/supabase';
 import {
   BarChart,
@@ -25,6 +26,7 @@ interface AnalyticsViewProps {
 const COLORS = ['#14b8a6', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#22c55e'];
 
 export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
+  const { t } = useTranslation();
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -96,8 +98,26 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     const occupiedNights = calculateOccupiedNights(currentBookings, currentMonthStart, currentMonthEnd);
     const occupancyRate = totalPossibleNights > 0 ? (occupiedNights / totalPossibleNights) * 100 : 0;
 
-    const avgPricePerNight = occupiedNights > 0 ? currentRevenue / occupiedNights : 0;
+    // ADR (Average Daily Rate) - average revenue per occupied night
+    const adr = occupiedNights > 0 ? currentRevenue / occupiedNights : 0;
+    
+    // RevPAR (Revenue Per Available Room) - revenue per available room night
+    const revPar = totalPossibleNights > 0 ? currentRevenue / totalPossibleNights : 0;
+    
+    // For backwards compatibility
+    const avgPricePerNight = adr;
     const dailyAvgRevenue = daysInCurrentMonth > 0 ? currentRevenue / daysInCurrentMonth : 0;
+    
+    // Average booking value
+    const avgBookingValue = currentBookings.length > 0 ? currentRevenue / currentBookings.length : 0;
+    
+    // Average length of stay
+    const totalNightsBooked = currentBookings.reduce((sum, b) => {
+      const checkIn = new Date(b.check_in);
+      const checkOut = new Date(b.check_out);
+      return sum + Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+    }, 0);
+    const avgLengthOfStay = currentBookings.length > 0 ? totalNightsBooked / currentBookings.length : 0;
 
     const sourceBreakdown = currentBookings.reduce((acc, booking) => {
       const revenue = convertToRUB(booking.total_price, booking.currency);
@@ -124,12 +144,16 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
       currentRevenue,
       previousRevenue,
       revenueChange,
+      adr,
+      revPar,
       avgPricePerNight,
       dailyAvgRevenue,
       occupancyRate,
       occupiedNights,
       totalPossibleNights,
       currentBookings: currentBookings.length,
+      avgBookingValue,
+      avgLengthOfStay,
       sourceBreakdown,
       topProperties,
     };
@@ -161,12 +185,23 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     return data;
   }, [bookings]);
 
+  const getSourceLabel = useCallback((source: string) => {
+    const labels: { [key: string]: string } = {
+      manual: t('sources.manual'),
+      airbnb: t('sources.airbnb'),
+      booking: t('sources.booking'),
+      avito: t('sources.avito'),
+      cian: t('sources.cian'),
+    };
+    return labels[source] || source;
+  }, [t]);
+
   const sourceChartData = useMemo(() => {
     return Object.entries(analytics.sourceBreakdown).map(([source, revenue]) => ({
       name: getSourceLabel(source),
       value: Math.round(revenue),
     }));
-  }, [analytics.sourceBreakdown]);
+  }, [analytics.sourceBreakdown, getSourceLabel]);
 
   const propertyOccupancyData = useMemo(() => {
     const [year, month] = selectedMonth.split('-').map(Number);
@@ -207,17 +242,6 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     });
   }, [bookings, properties, selectedMonth]);
 
-  function getSourceLabel(source: string) {
-    const labels: { [key: string]: string } = {
-      manual: 'Вручную',
-      airbnb: 'Airbnb',
-      booking: 'Booking.com',
-      avito: 'Avito',
-      cian: 'CIAN',
-    };
-    return labels[source] || source;
-  }
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ru-RU').format(Math.round(amount));
   };
@@ -255,8 +279,8 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-white mb-1">Аналитика</h1>
-            <p className="text-slate-400 text-sm md:text-base">Доходы и статистика бронирований</p>
+            <h1 className="text-xl md:text-2xl font-bold text-white mb-1">{t('analytics.title')}</h1>
+            <p className="text-slate-400 text-sm md:text-base">{t('analytics.subtitle')}</p>
           </div>
 
           <select
@@ -297,31 +321,33 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             <div className="text-lg md:text-2xl font-bold text-white mb-1">
               {formatCurrency(analytics.currentRevenue)} ₽
             </div>
-            <div className="text-xs md:text-sm text-slate-400">Доход за месяц</div>
+            <div className="text-xs md:text-sm text-slate-400">{t('analytics.monthlyRevenue')}</div>
           </div>
 
           <div className="bg-slate-800 rounded-lg p-4 md:p-6">
             <div className="flex items-center justify-between mb-3">
               <div className="p-2 md:p-3 bg-blue-500/20 rounded-lg">
-                <Calendar className="w-5 h-5 md:w-6 md:h-6 text-blue-400" />
+                <BedDouble className="w-5 h-5 md:w-6 md:h-6 text-blue-400" />
               </div>
+              <span className="text-xs text-blue-400 font-medium">ADR</span>
             </div>
             <div className="text-lg md:text-2xl font-bold text-white mb-1">
-              {formatCurrency(analytics.avgPricePerNight)} ₽
+              {formatCurrency(analytics.adr)} ₽
             </div>
-            <div className="text-xs md:text-sm text-slate-400">Средняя цена за ночь</div>
+            <div className="text-xs md:text-sm text-slate-400">{t('analytics.avgPricePerNight')}</div>
           </div>
 
           <div className="bg-slate-800 rounded-lg p-4 md:p-6">
             <div className="flex items-center justify-between mb-3">
               <div className="p-2 md:p-3 bg-purple-500/20 rounded-lg">
-                <DollarSign className="w-5 h-5 md:w-6 md:h-6 text-purple-400" />
+                <Home className="w-5 h-5 md:w-6 md:h-6 text-purple-400" />
               </div>
+              <span className="text-xs text-purple-400 font-medium">RevPAR</span>
             </div>
             <div className="text-lg md:text-2xl font-bold text-white mb-1">
-              {formatCurrency(analytics.dailyAvgRevenue)} ₽
+              {formatCurrency(analytics.revPar)} ₽
             </div>
-            <div className="text-xs md:text-sm text-slate-400">Средний доход в день</div>
+            <div className="text-xs md:text-sm text-slate-400">{t('analytics.avgDailyRevenue')}</div>
           </div>
 
           <div className="bg-slate-800 rounded-lg p-4 md:p-6">
@@ -334,16 +360,16 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
               {analytics.occupancyRate.toFixed(1)}%
             </div>
             <div className="text-xs md:text-sm text-slate-400">
-              Загруженность ({analytics.occupiedNights}/{analytics.totalPossibleNights})
+              {t('analytics.occupancyRate')} ({analytics.occupiedNights}/{analytics.totalPossibleNights})
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-slate-800 rounded-lg p-4 md:p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Доходы по месяцам</h3>
+            <h3 className="text-lg font-semibold text-white mb-4">{t('analytics.revenueByMonth')}</h3>
             {monthlyRevenueData.length === 0 ? (
-              <p className="text-slate-400 text-center py-8">Нет данных</p>
+              <p className="text-slate-400 text-center py-8">{t('analytics.noData')}</p>
             ) : (
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
@@ -352,7 +378,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                     <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
                     <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="revenue" name="Доход" fill="#14b8a6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="revenue" name={t('analytics.revenue')} fill="#14b8a6" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -360,9 +386,9 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
           </div>
 
           <div className="bg-slate-800 rounded-lg p-4 md:p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Доход по источникам</h3>
+            <h3 className="text-lg font-semibold text-white mb-4">{t('analytics.revenueBySource')}</h3>
             {sourceChartData.length === 0 ? (
-              <p className="text-slate-400 text-center py-8">Нет данных за выбранный период</p>
+              <p className="text-slate-400 text-center py-8">{t('analytics.noDataForPeriod')}</p>
             ) : (
               <div className="h-64 flex items-center">
                 <ResponsiveContainer width="100%" height="100%">
@@ -382,7 +408,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: number) => [`${formatCurrency(value)} ₽`, 'Доход']} />
+                    <Tooltip formatter={(value: number) => [`${formatCurrency(value)} ₽`, t('analytics.revenue')]} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -392,9 +418,9 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-slate-800 rounded-lg p-4 md:p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Загрузка по объектам</h3>
+            <h3 className="text-lg font-semibold text-white mb-4">{t('analytics.occupancyByProperty')}</h3>
             {propertyOccupancyData.length === 0 ? (
-              <p className="text-slate-400 text-center py-8">Нет объектов</p>
+              <p className="text-slate-400 text-center py-8">{t('analytics.noData')}</p>
             ) : (
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
@@ -402,8 +428,8 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                     <XAxis type="number" stroke="#9ca3af" fontSize={12} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                     <YAxis dataKey="name" type="category" stroke="#9ca3af" fontSize={11} width={100} />
-                    <Tooltip formatter={(value: number) => [`${value}%`, 'Загрузка']} />
-                    <Bar dataKey="occupancy" name="Загрузка" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                    <Tooltip formatter={(value: number) => [`${value}%`, t('analytics.occupancyRate')]} />
+                    <Bar dataKey="occupancy" name={t('analytics.occupancyRate')} fill="#3b82f6" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -411,9 +437,9 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
           </div>
 
           <div className="bg-slate-800 rounded-lg p-4 md:p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Топ объектов по доходу</h3>
+            <h3 className="text-lg font-semibold text-white mb-4">{t('analytics.topProperties')}</h3>
             {analytics.topProperties.length === 0 ? (
-              <p className="text-slate-400 text-center py-8">Нет данных за выбранный период</p>
+              <p className="text-slate-400 text-center py-8">{t('analytics.noDataForPeriod')}</p>
             ) : (
               <div className="space-y-3">
                 {analytics.topProperties.map((item, idx) => {
@@ -448,7 +474,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
         </div>
 
         <div className="bg-slate-800 rounded-lg p-4 md:p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Динамика бронирований</h3>
+          <h3 className="text-lg font-semibold text-white mb-4">{t('analytics.bookingsDynamics')}</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={monthlyRevenueData}>
@@ -458,8 +484,8 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                 <YAxis yAxisId="right" orientation="right" stroke="#9ca3af" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
-                <Line yAxisId="left" type="monotone" dataKey="bookings" name="Бронирования" stroke="#8b5cf6" strokeWidth={2} dot={{ fill: '#8b5cf6' }} />
-                <Line yAxisId="right" type="monotone" dataKey="revenue" name="Доход" stroke="#14b8a6" strokeWidth={2} dot={{ fill: '#14b8a6' }} />
+                <Line yAxisId="left" type="monotone" dataKey="bookings" name={t('analytics.bookingsCount')} stroke="#8b5cf6" strokeWidth={2} dot={{ fill: '#8b5cf6' }} />
+                <Line yAxisId="right" type="monotone" dataKey="revenue" name={t('analytics.revenue')} stroke="#14b8a6" strokeWidth={2} dot={{ fill: '#14b8a6' }} />
               </LineChart>
             </ResponsiveContainer>
           </div>

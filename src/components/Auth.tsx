@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { LanguageSelector } from './LanguageSelector';
 
 export function Auth() {
+  const { t } = useTranslation();
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -24,7 +27,7 @@ export function Auth() {
           redirectTo: `${window.location.origin}/reset-password`,
         });
         if (error) throw error;
-        setSuccess('Password reset email sent! Check your inbox.');
+        setSuccess(t('auth.passwordResetSent'));
         setEmail('');
       } else if (isSignUp) {
         const { data, error } = await signUp(email, password);
@@ -62,18 +65,21 @@ export function Auth() {
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="absolute top-4 right-4">
+        <LanguageSelector />
+      </div>
       <div className="bg-slate-800 rounded-lg shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Booking Manager</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">Roomi Pro</h1>
           <p className="text-slate-400">
-            {isForgotPassword ? 'Reset your password' : isSignUp ? 'Create your account' : 'Sign in to your account'}
+            {isForgotPassword ? t('auth.resetPassword') : isSignUp ? t('auth.createAccount') : t('auth.signIn')}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
-              Email
+              {t('auth.email')}
             </label>
             <input
               id="email"
@@ -89,7 +95,7 @@ export function Auth() {
           {!isForgotPassword && (
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
-                Password
+                {t('auth.password')}
               </label>
               <input
                 id="password"
@@ -121,7 +127,7 @@ export function Auth() {
             disabled={loading}
             className="w-full bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Loading...' : isForgotPassword ? 'Send Reset Email' : isSignUp ? 'Sign Up' : 'Sign In'}
+            {loading ? t('common.loading') : isForgotPassword ? t('auth.resetPassword') : isSignUp ? t('auth.signUp') : t('auth.signIn')}
           </button>
         </form>
 
@@ -135,7 +141,7 @@ export function Auth() {
               }}
               className="block w-full text-teal-400 hover:text-teal-300 text-sm"
             >
-              Forgot password?
+              {t('auth.forgotPassword')}
             </button>
           )}
 
@@ -151,7 +157,7 @@ export function Auth() {
             }}
             className="text-teal-400 hover:text-teal-300 text-sm"
           >
-            {isForgotPassword ? 'Back to sign in' : isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+            {isForgotPassword ? t('auth.backToSignIn') : isSignUp ? t('auth.alreadyHaveAccount') : t('auth.noAccount')}
           </button>
         </div>
       </div>
