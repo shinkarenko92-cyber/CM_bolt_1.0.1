@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Calendar, Percent, Home, BedDouble } from 'lucide-react';
+import { useMemo, useState, useCallback } from 'react';
+import { TrendingUp, TrendingDown, DollarSign, Percent, Home, BedDouble } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Booking, Property } from '../lib/supabase';
 import {
@@ -185,12 +185,23 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     return data;
   }, [bookings]);
 
+  const getSourceLabel = useCallback((source: string) => {
+    const labels: { [key: string]: string } = {
+      manual: t('sources.manual'),
+      airbnb: t('sources.airbnb'),
+      booking: t('sources.booking'),
+      avito: t('sources.avito'),
+      cian: t('sources.cian'),
+    };
+    return labels[source] || source;
+  }, [t]);
+
   const sourceChartData = useMemo(() => {
     return Object.entries(analytics.sourceBreakdown).map(([source, revenue]) => ({
       name: getSourceLabel(source),
       value: Math.round(revenue),
     }));
-  }, [analytics.sourceBreakdown]);
+  }, [analytics.sourceBreakdown, getSourceLabel]);
 
   const propertyOccupancyData = useMemo(() => {
     const [year, month] = selectedMonth.split('-').map(Number);
@@ -230,17 +241,6 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
       };
     });
   }, [bookings, properties, selectedMonth]);
-
-  function getSourceLabel(source: string) {
-    const labels: { [key: string]: string } = {
-      manual: t('sources.manual'),
-      airbnb: t('sources.airbnb'),
-      booking: t('sources.booking'),
-      avito: t('sources.avito'),
-      cian: t('sources.cian'),
-    };
-    return labels[source] || source;
-  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ru-RU').format(Math.round(amount));

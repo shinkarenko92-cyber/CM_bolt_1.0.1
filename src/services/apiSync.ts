@@ -53,7 +53,7 @@ async function syncBookingsToAvito(
 /**
  * Sync property rates to Avito
  */
-async function syncRatesToAvito(
+export async function syncRatesToAvito(
   avitoUserId: string,
   propertyId: string,
   avitoItemId: string,
