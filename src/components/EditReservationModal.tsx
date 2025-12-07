@@ -35,7 +35,6 @@ export function EditReservationModal({
   const [originalPropertyId, setOriginalPropertyId] = useState('');
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [calculatedPrice, setCalculatedPrice] = useState(0);
-  const [, setPendingPropertyChange] = useState(false);
 
   useEffect(() => {
     if (booking) {
@@ -89,7 +88,6 @@ export function EditReservationModal({
     if (newPropertyId !== originalPropertyId) {
       const newPrice = await calculateNewPrice(newPropertyId, formData.check_in, formData.check_out);
       setCalculatedPrice(newPrice);
-      setPendingPropertyChange(true);
       setShowPriceModal(true);
       setFormData({ ...formData, property_id: newPropertyId });
     } else {
@@ -99,7 +97,6 @@ export function EditReservationModal({
 
   const handleKeepPrice = () => {
     setShowPriceModal(false);
-    setPendingPropertyChange(false);
   };
 
   const handleRecalculatePrice = () => {
@@ -110,7 +107,6 @@ export function EditReservationModal({
       currency: newProperty?.currency || formData.currency,
     });
     setShowPriceModal(false);
-    setPendingPropertyChange(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

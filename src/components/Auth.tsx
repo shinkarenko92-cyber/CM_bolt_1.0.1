@@ -34,11 +34,15 @@ export function Auth() {
           await new Promise(resolve => setTimeout(resolve, 1500));
 
           try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const accessToken = sessionData?.session?.access_token;
+            
             const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-test-data`;
             await fetch(apiUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
+                ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
               },
               body: JSON.stringify({ userId: data.user.id }),
             });

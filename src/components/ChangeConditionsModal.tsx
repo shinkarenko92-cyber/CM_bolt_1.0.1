@@ -5,6 +5,7 @@ import { supabase, Property } from '../lib/supabase';
 interface ChangeConditionsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   propertyId: string;
   startDate: string;
   endDate: string;
@@ -17,6 +18,7 @@ interface ChangeConditionsModalProps {
 export function ChangeConditionsModal({
   isOpen,
   onClose,
+  onSuccess,
   propertyId,
   startDate,
   endDate,
@@ -115,7 +117,7 @@ export function ChangeConditionsModal({
       if (upsertError) throw upsertError;
 
       onClose();
-      window.location.reload();
+      onSuccess?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Произошла ошибка');
     } finally {

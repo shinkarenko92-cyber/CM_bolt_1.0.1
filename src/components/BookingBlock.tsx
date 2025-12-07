@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef } from 'react';
 import { Booking } from '../lib/supabase';
 
 type BookingBlockProps = {
@@ -36,7 +36,7 @@ export function BookingBlock({
   isStartTruncated = false,
   isEndTruncated = false,
 }: BookingBlockProps) {
-  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const source = (booking.source || 'manual').toLowerCase() as keyof typeof SOURCE_COLORS;
   const colorConfig = SOURCE_COLORS[source] || SOURCE_COLORS.manual;
 
@@ -64,16 +64,16 @@ export function BookingBlock({
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
-    setTouchStart({ x: touch.clientX, y: touch.clientY });
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
     setTimeout(() => {
-      if (touchStart) {
+      if (touchStartRef.current) {
         onDragStart(booking);
       }
     }, 200);
   };
 
   const handleTouchEnd = () => {
-    setTouchStart(null);
+    touchStartRef.current = null;
     onDragEnd();
   };
 

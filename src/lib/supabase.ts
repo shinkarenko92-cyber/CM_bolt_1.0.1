@@ -56,6 +56,7 @@ export type Profile = {
   subscription_expires_at: string | null;
   role: 'user' | 'admin';
   is_active: boolean;
+  theme?: 'light' | 'dark';
   created_at: string;
   updated_at: string;
 };

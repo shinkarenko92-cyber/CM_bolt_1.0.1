@@ -874,6 +874,7 @@ export function Calendar({
         <ChangeConditionsModal
           isOpen={showConditionsModal}
           onClose={handleCloseConditionsModal}
+          onSuccess={loadPropertyRates}
           propertyId={conditionsModalData.propertyId}
           startDate={conditionsModalData.startDate}
           endDate={conditionsModalData.endDate}

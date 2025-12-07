@@ -275,7 +275,7 @@ export function BookingsView({ bookings, properties, onEdit }: BookingsViewProps
                         {booking.total_price} {booking.currency}
                       </div>
                       <div className="text-sm text-slate-400 mt-1">
-                        {(booking.total_price / nights).toFixed(0)} {booking.currency}/ночь
+                        {nights > 0 ? (booking.total_price / nights).toFixed(0) : 0} {booking.currency}/ночь
                       </div>
                     </div>
                   </div>
