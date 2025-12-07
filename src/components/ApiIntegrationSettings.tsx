@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import {
   Link2,
   ChevronDown,
   ChevronUp,
   Check,
-  X,
   ExternalLink,
   Percent,
   DollarSign,
@@ -28,7 +26,6 @@ type Platform = {
 };
 
 export function ApiIntegrationSettings({ property, onIntegrationsChange }: ApiIntegrationSettingsProps) {
-  const { t } = useTranslation();
   const [showOthers, setShowOthers] = useState(false);
   const [integrations, setIntegrations] = useState<Record<string, PropertyIntegration>>({});
   const [expandedPlatform, setExpandedPlatform] = useState<string | null>(null);
