@@ -80,3 +80,58 @@ export type PropertyRate = {
   created_at: string;
   updated_at: string;
 };
+
+export type PropertyIntegration = {
+  id: string;
+  property_id: string;
+  platform: string;
+  external_id: string;
+  markup_type: 'percent' | 'fixed';
+  markup_value: number;
+  is_enabled: boolean;
+  last_sync_at: string | null;
+};
+
+// All supported aggregator platforms
+export const AGGREGATOR_PLATFORMS = {
+  // Main platforms (shown first)
+  main: [
+    { id: 'avito', name: 'Avito', hasApi: true },
+    { id: 'booking', name: 'Booking.com', hasApi: false },
+    { id: 'airbnb', name: 'Airbnb', hasApi: false },
+    { id: 'cian', name: 'ЦИАН', hasApi: false },
+  ],
+  // Other platforms
+  others: [
+    { id: '101hotels', name: '101hotels.com', hasApi: false },
+    { id: '1001kvartira', name: '1001kvartira.ru', hasApi: false },
+    { id: 'apartsharing', name: 'Apart sharing', hasApi: false },
+    { id: 'bronevik', name: 'Bronevik.com', hasApi: false },
+    { id: 'cbooking', name: 'Cbooking', hasApi: false },
+    { id: 'domclick', name: 'Домклик', hasApi: false },
+    { id: 'edemvgosti', name: 'Edem-v-gosti.ru', hasApi: false },
+    { id: 'expedia', name: 'Expedia.com', hasApi: false },
+    { id: 'forento', name: 'Forento.ru/vkrim.info', hasApi: false },
+    { id: 'gdekv', name: 'Гдеквартира', hasApi: false },
+    { id: 'hotelbook', name: 'Hotelbook', hasApi: false },
+    { id: 'kufar', name: 'Kufar.by', hasApi: false },
+    { id: 'kvartirka', name: 'Kvartirka.com', hasApi: false },
+    { id: 'mirtur', name: 'Миртурбаз', hasApi: false },
+    { id: 'nochleg24', name: 'Nochleg24.com', hasApi: false },
+    { id: 'onetwotrip', name: 'Onetwotrip.com', hasApi: false },
+    { id: 'ostrovok', name: 'Ostrovok.ru', hasApi: false },
+    { id: 'otello', name: 'Отелло', hasApi: false },
+    { id: 'privettur', name: 'Приветтур', hasApi: false },
+    { id: 'qqrenta', name: 'Qqrenta', hasApi: false },
+    { id: 'roomook', name: 'Roomook', hasApi: false },
+    { id: 'sutochno', name: 'Sutochno.ru', hasApi: false },
+    { id: 'tripvenue', name: 'Трипвеню', hasApi: false },
+    { id: 'tutu', name: 'Tutu', hasApi: false },
+    { id: 'tvil', name: 'Tvil.ru', hasApi: false },
+    { id: 'vezde', name: 'Везде как дома', hasApi: false },
+    { id: 'yandex', name: 'Яндекс путешествия', hasApi: false },
+    { id: 'zabroniryi', name: 'Zabroniryi.ru', hasApi: false },
+    { id: 'zhilibyli', name: 'Жилибыли', hasApi: false },
+    { id: 'icalendar', name: 'iCalendar', hasApi: true },
+  ],
+} as const;

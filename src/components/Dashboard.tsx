@@ -14,7 +14,6 @@ import { AdminView } from './AdminView';
 import { SettingsView } from './SettingsView';
 import { UserProfileModal } from './UserProfileModal';
 import { ThemeToggle } from './ThemeToggle';
-import { LanguageSelector } from './LanguageSelector';
 import { SkeletonCalendar } from './Skeleton';
 import { supabase, Property, Booking, Profile } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -390,7 +389,6 @@ export function Dashboard() {
             </div>
 
             <div className="flex items-center gap-2 md:gap-4">
-              <LanguageSelector />
               <ThemeToggle />
 
               <button

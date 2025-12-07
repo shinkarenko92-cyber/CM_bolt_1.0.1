@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Home, Settings, Link2, DollarSign } from 'lucide-react';
 import { Property } from '../lib/supabase';
+import { ApiIntegrationSettings } from './ApiIntegrationSettings';
 
 interface PropertyModalProps {
   isOpen: boolean;
@@ -22,15 +23,12 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     currency: 'RUB',
     minimum_booking_days: '1',
     status: 'active',
-    avito_enabled: false,
-    cian_enabled: false,
-    booking_enabled: false,
-    airbnb_enabled: false,
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [activeTab, setActiveTab] = useState<'info' | 'params' | 'pricing' | 'integrations'>('info');
 
   useEffect(() => {
     if (property) {
@@ -45,10 +43,6 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
         currency: property.currency || 'RUB',
         minimum_booking_days: property.minimum_booking_days?.toString() || '1',
         status: property.status || 'active',
-        avito_enabled: false,
-        cian_enabled: false,
-        booking_enabled: false,
-        airbnb_enabled: false,
       });
     } else {
       setFormData({
@@ -62,14 +56,11 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
         currency: 'RUB',
         minimum_booking_days: '1',
         status: 'active',
-        avito_enabled: false,
-        cian_enabled: false,
-        booking_enabled: false,
-        airbnb_enabled: false,
       });
     }
     setShowDeleteConfirm(false);
     setError(null);
+    setActiveTab('info');
   }, [property, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -160,250 +151,260 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="p-6 space-y-6">
-            {error && (
-              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded text-red-200 text-sm">
-                {error}
-              </div>
-            )}
-
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">Основная информация</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Название *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                    placeholder="Например: Double Room 1"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Тип объекта
-                  </label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                  >
-                    <option value="apartment">Квартира</option>
-                    <option value="DOUBLE ROOM">Двухместный номер</option>
-                    <option value="ONE BEDROOM">Однокомнатная</option>
-                    <option value="studio">Студия</option>
-                    <option value="house">Дом</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Статус
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                  >
-                    <option value="active">Активен</option>
-                    <option value="inactive">Неактивен</option>
-                  </select>
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Адрес</label>
-                  <input
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                    placeholder="Улица, дом, квартира"
-                  />
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Описание</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                    rows={3}
-                    placeholder="Дополнительная информация об объекте"
-                  />
-                </div>
-              </div>
+          <div className="flex flex-col h-full">
+            {/* Tabs */}
+            <div className="flex border-b border-slate-700">
+              <button
+                onClick={() => setActiveTab('info')}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
+                  activeTab === 'info'
+                    ? 'text-teal-400 border-b-2 border-teal-400 -mb-px'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Home className="w-4 h-4" />
+                Основное
+              </button>
+              <button
+                onClick={() => setActiveTab('params')}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
+                  activeTab === 'params'
+                    ? 'text-teal-400 border-b-2 border-teal-400 -mb-px'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                Параметры
+              </button>
+              <button
+                onClick={() => setActiveTab('pricing')}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
+                  activeTab === 'pricing'
+                    ? 'text-teal-400 border-b-2 border-teal-400 -mb-px'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <DollarSign className="w-4 h-4" />
+                Цены
+              </button>
+              <button
+                onClick={() => setActiveTab('integrations')}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
+                  activeTab === 'integrations'
+                    ? 'text-teal-400 border-b-2 border-teal-400 -mb-px'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Link2 className="w-4 h-4" />
+                API интеграции
+              </button>
             </div>
 
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">Параметры</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Максимум гостей
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={formData.max_guests}
-                    onChange={(e) => setFormData({ ...formData, max_guests: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                  />
+            <form onSubmit={handleSubmit} className="p-6 space-y-6 flex-1 overflow-y-auto">
+              {error && (
+                <div className="p-3 bg-red-500/20 border border-red-500/50 rounded text-red-200 text-sm">
+                  {error}
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Количество спален
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.bedrooms}
-                    onChange={(e) => setFormData({ ...formData, bedrooms: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">Цены и бронирование</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Цена за ночь *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.base_price}
-                    onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                    placeholder="0.00"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Валюта</label>
-                  <select
-                    value={formData.currency}
-                    onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                  >
-                    <option value="RUB">RUB</option>
-                    <option value="EUR">EUR</option>
-                    <option value="USD">USD</option>
-                  </select>
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Минимальный срок бронирования (ночей)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={formData.minimum_booking_days}
-                    onChange={(e) =>
-                      setFormData({ ...formData, minimum_booking_days: e.target.value })
-                    }
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">API интеграции</h3>
-              <p className="text-sm text-slate-400 mb-4">
-                Настройте подключение к платформам бронирования (скоро будет доступно)
-              </p>
-              <div className="space-y-3">
-                <label className="flex items-center gap-3 p-3 bg-slate-700/50 rounded cursor-not-allowed opacity-50">
-                  <input
-                    type="checkbox"
-                    checked={formData.avito_enabled}
-                    disabled
-                    className="rounded"
-                  />
-                  <div>
-                    <div className="text-white font-medium">Avito</div>
-                    <div className="text-xs text-slate-400">Синхронизация с Avito</div>
-                  </div>
-                </label>
-
-                <label className="flex items-center gap-3 p-3 bg-slate-700/50 rounded cursor-not-allowed opacity-50">
-                  <input type="checkbox" checked={formData.cian_enabled} disabled className="rounded" />
-                  <div>
-                    <div className="text-white font-medium">CIAN</div>
-                    <div className="text-xs text-slate-400">Синхронизация с CIAN</div>
-                  </div>
-                </label>
-
-                <label className="flex items-center gap-3 p-3 bg-slate-700/50 rounded cursor-not-allowed opacity-50">
-                  <input
-                    type="checkbox"
-                    checked={formData.booking_enabled}
-                    disabled
-                    className="rounded"
-                  />
-                  <div>
-                    <div className="text-white font-medium">Booking.com</div>
-                    <div className="text-xs text-slate-400">Синхронизация с Booking.com</div>
-                  </div>
-                </label>
-
-                <label className="flex items-center gap-3 p-3 bg-slate-700/50 rounded cursor-not-allowed opacity-50">
-                  <input
-                    type="checkbox"
-                    checked={formData.airbnb_enabled}
-                    disabled
-                    className="rounded"
-                  />
-                  <div>
-                    <div className="text-white font-medium">Airbnb</div>
-                    <div className="text-xs text-slate-400">Синхронизация с Airbnb</div>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            <div className="flex gap-3 justify-between pt-4 border-t border-slate-700">
-              {property && (
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded transition"
-                  disabled={loading}
-                >
-                  Удалить
-                </button>
               )}
-              <div className="flex gap-3 ml-auto">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 text-slate-300 hover:text-white transition"
-                  disabled={loading}
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded transition disabled:opacity-50"
-                  disabled={loading}
-                >
-                  {loading ? 'Сохранение...' : 'Сохранить'}
-                </button>
+
+              {/* Tab: Info */}
+              {activeTab === 'info' && (
+                <div className="space-y-4">
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Название *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                      placeholder="Например: Double Room 1"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Тип объекта
+                      </label>
+                      <select
+                        value={formData.type}
+                        onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                      >
+                        <option value="apartment">Квартира</option>
+                        <option value="DOUBLE ROOM">Двухместный номер</option>
+                        <option value="ONE BEDROOM">Однокомнатная</option>
+                        <option value="studio">Студия</option>
+                        <option value="house">Дом</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Статус
+                      </label>
+                      <select
+                        value={formData.status}
+                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                      >
+                        <option value="active">Активен</option>
+                        <option value="inactive">Неактивен</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Адрес</label>
+                    <input
+                      type="text"
+                      value={formData.address}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                      placeholder="Улица, дом, квартира"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Описание</label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                      rows={3}
+                      placeholder="Дополнительная информация об объекте"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Tab: Params */}
+              {activeTab === 'params' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Максимум гостей
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={formData.max_guests}
+                      onChange={(e) => setFormData({ ...formData, max_guests: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Количество спален
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.bedrooms}
+                      onChange={(e) => setFormData({ ...formData, bedrooms: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Tab: Pricing */}
+              {activeTab === 'pricing' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Цена за ночь *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.base_price}
+                      onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                      placeholder="0.00"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Валюта</label>
+                    <select
+                      value={formData.currency}
+                      onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                    >
+                      <option value="RUB">RUB</option>
+                      <option value="EUR">EUR</option>
+                      <option value="USD">USD</option>
+                    </select>
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Минимальный срок бронирования (ночей)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={formData.minimum_booking_days}
+                      onChange={(e) =>
+                        setFormData({ ...formData, minimum_booking_days: e.target.value })
+                      }
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Tab: Integrations */}
+              {activeTab === 'integrations' && property && (
+                <ApiIntegrationSettings property={property} />
+              )}
+              
+              {activeTab === 'integrations' && !property && (
+                <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                  <p className="text-yellow-300 text-sm">
+                    Сначала сохраните объект, чтобы настроить интеграции с площадками.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3 justify-between pt-4 border-t border-slate-700">
+                {property && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded transition"
+                    disabled={loading}
+                  >
+                    Удалить
+                  </button>
+                )}
+                <div className="flex gap-3 ml-auto">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-4 py-2 text-slate-300 hover:text-white transition"
+                    disabled={loading}
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded transition disabled:opacity-50"
+                    disabled={loading}
+                  >
+                    {loading ? 'Сохранение...' : 'Сохранить'}
+                  </button>
+                </div>
               </div>
-            </div>
-          </form>
+            </form>
+          </div>
         )}
       </div>
     </div>

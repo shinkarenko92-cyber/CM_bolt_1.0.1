@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { 
@@ -9,9 +9,7 @@ import {
   Link2, 
   RefreshCw,
   FileSpreadsheet,
-  FileText,
-  Building,
-  Loader2
+  FileText
 } from 'lucide-react';
 import { Booking, Property } from '../lib/supabase';
 import { 
@@ -19,7 +17,6 @@ import {
   clearAvitoCredentials, 
   isAvitoConfigured 
 } from '../services/avitoApi';
-import { syncWithExternalAPIs } from '../services/apiSync';
 
 interface SettingsViewProps {
   bookings: Booking[];
@@ -33,63 +30,6 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
   const [avitoUserId, setAvitoUserId] = useState(localStorage.getItem('avito_user_id') || '');
   const [isAvitoConnected, setIsAvitoConnected] = useState(isAvitoConfigured());
   const [exportDateRange, setExportDateRange] = useState('all');
-  const [propertyMappings, setPropertyMappings] = useState<Record<string, string>>({});
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [lastSyncTime, setLastSyncTime] = useState<string | null>(localStorage.getItem('last_sync_time'));
-
-  // Load property mappings from localStorage
-  useEffect(() => {
-    const mappings: Record<string, string> = {};
-    properties.forEach(prop => {
-      const avitoItemId = localStorage.getItem(`avito_item_${prop.id}`);
-      if (avitoItemId) {
-        mappings[prop.id] = avitoItemId;
-      }
-    });
-    setPropertyMappings(mappings);
-  }, [properties]);
-
-  const handleSavePropertyMapping = (propertyId: string, avitoItemId: string) => {
-    if (avitoItemId.trim()) {
-      localStorage.setItem(`avito_item_${propertyId}`, avitoItemId.trim());
-      setPropertyMappings(prev => ({ ...prev, [propertyId]: avitoItemId.trim() }));
-      toast.success(t('success.saved'));
-    } else {
-      localStorage.removeItem(`avito_item_${propertyId}`);
-      setPropertyMappings(prev => {
-        const updated = { ...prev };
-        delete updated[propertyId];
-        return updated;
-      });
-    }
-  };
-
-  const handleSyncNow = async () => {
-    if (!isAvitoConnected) {
-      toast.error('Сначала подключите Avito API');
-      return;
-    }
-    
-    setIsSyncing(true);
-    try {
-      const results = await syncWithExternalAPIs(undefined, properties, bookings);
-      const avitoResult = results.find(r => r.platform === 'Avito');
-      
-      if (avitoResult?.success) {
-        toast.success(`Синхронизация завершена: ${avitoResult.message}`);
-        const now = new Date().toLocaleString('ru-RU');
-        setLastSyncTime(now);
-        localStorage.setItem('last_sync_time', now);
-      } else {
-        toast.error(`Ошибка синхронизации: ${avitoResult?.message || 'Unknown error'}`);
-      }
-    } catch (error) {
-      toast.error('Ошибка при синхронизации');
-      console.error('Sync error:', error);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   const handleSaveAvitoCredentials = () => {
     if (!avitoClientId || !avitoClientSecret) {
@@ -477,69 +417,13 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
           </div>
         </div>
 
-        {/* Property-Avito Mappings */}
-        {isAvitoConnected && properties.length > 0 && (
-          <div className="bg-slate-800 rounded-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-500/20 rounded-lg">
-                  <Building className="w-5 h-5 text-orange-400" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-white">Привязка объектов к Avito</h2>
-                  <p className="text-sm text-slate-400">Свяжите ваши объекты с объявлениями на Avito</p>
-                </div>
-              </div>
-              <button
-                onClick={handleSyncNow}
-                disabled={isSyncing}
-                className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-600/50 text-white rounded-lg transition-colors"
-              >
-                {isSyncing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4" />
-                )}
-                {isSyncing ? 'Синхронизация...' : 'Синхронизировать'}
-              </button>
-            </div>
-            
-            {lastSyncTime && (
-              <p className="text-xs text-slate-500 mb-4">
-                Последняя синхронизация: {lastSyncTime}
-              </p>
-            )}
-            
-            <div className="space-y-3">
-              {properties.map(property => (
-                <div key={property.id} className="flex items-center gap-4 p-3 bg-slate-700/50 rounded-lg">
-                  <div className="flex-1">
-                    <p className="text-sm text-white font-medium">{property.name}</p>
-                    <p className="text-xs text-slate-400">{property.address || 'Адрес не указан'}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={propertyMappings[property.id] || ''}
-                      onChange={(e) => setPropertyMappings(prev => ({ ...prev, [property.id]: e.target.value }))}
-                      onBlur={(e) => handleSavePropertyMapping(property.id, e.target.value)}
-                      placeholder="Avito Item ID"
-                      className="w-40 px-3 py-1.5 bg-slate-600 border border-slate-500 rounded text-sm text-white placeholder-slate-400"
-                    />
-                    {propertyMappings[property.id] && (
-                      <span className="w-2 h-2 bg-green-500 rounded-full" title="Привязано"></span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-              <p className="text-sm text-blue-300">
-                <strong>Совет:</strong> Avito Item ID можно найти в URL объявления на Avito.
-                Например: avito.ru/moskva/kvartiry/123456789 - ID будет 123456789
-              </p>
-            </div>
+        {/* Note about property integrations */}
+        {isAvitoConnected && (
+          <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+            <p className="text-sm text-blue-300">
+              <strong>Совет:</strong> Настройка интеграций для каждого объекта теперь доступна в 
+              <span className="font-medium"> Объекты → Редактировать объект → API интеграции</span>
+            </p>
           </div>
         )}
       </div>
