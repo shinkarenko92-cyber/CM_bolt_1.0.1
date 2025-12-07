@@ -61,7 +61,7 @@ jobs:
               }" -o generated_files/$FILE || echo "⚠️ Failed to generate $FILE, skipping..."
           done
 
-      - name: Commit generated files
+            - name: Commit generated files
         id: commit_generated_files
         run: |
           git config user.name "continue-bot"
@@ -76,7 +76,7 @@ jobs:
           else
             echo "No changes to commit"
             echo "changes=false" >> $GITHUB_OUTPUT
-
+          fi
       - name: Create Pull Request if changes exist
         if: steps.commit_generated_files.outputs.changes == 'true'
         uses: peter-evans/create-pull-request@v5
