@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import {
   Link2,
   ChevronDown,
   ChevronUp,
   Check,
-  X,
   ExternalLink,
   Percent,
   DollarSign,
@@ -28,7 +26,6 @@ type Platform = {
 };
 
 export function ApiIntegrationSettings({ property, onIntegrationsChange }: ApiIntegrationSettingsProps) {
-  const { t } = useTranslation();
   const [showOthers, setShowOthers] = useState(false);
   const [integrations, setIntegrations] = useState<Record<string, PropertyIntegration>>({});
   const [expandedPlatform, setExpandedPlatform] = useState<string | null>(null);
@@ -177,6 +174,41 @@ export function ApiIntegrationSettings({ property, onIntegrationsChange }: ApiIn
                   <ExternalLink className="w-5 h-5 text-slate-300" />
                 </a>
               </div>
+              
+              {/* Helpful hint */}
+              {platform.id === 'avito' && (
+                <div className="mt-2 p-2 bg-slate-800 rounded text-xs">
+                  <p className="text-slate-400 mb-1">Как найти ID:</p>
+                  <div className="text-slate-300 font-mono text-xs">
+                    avito.ru/moskva/kvartiry/<span className="text-teal-400 font-bold">123456789</span>
+                  </div>
+                  <p className="text-slate-500 mt-1">ID — это число в конце ссылки</p>
+                </div>
+              )}
+              {platform.id === 'booking' && (
+                <div className="mt-2 p-2 bg-slate-800 rounded text-xs">
+                  <p className="text-slate-400 mb-1">Как найти ID:</p>
+                  <div className="text-slate-300 font-mono text-xs">
+                    booking.com/hotel/ru/<span className="text-teal-400 font-bold">hotel-name</span>.html
+                  </div>
+                </div>
+              )}
+              {platform.id === 'airbnb' && (
+                <div className="mt-2 p-2 bg-slate-800 rounded text-xs">
+                  <p className="text-slate-400 mb-1">Как найти ID:</p>
+                  <div className="text-slate-300 font-mono text-xs">
+                    airbnb.ru/rooms/<span className="text-teal-400 font-bold">12345678</span>
+                  </div>
+                </div>
+              )}
+              {platform.id === 'cian' && (
+                <div className="mt-2 p-2 bg-slate-800 rounded text-xs">
+                  <p className="text-slate-400 mb-1">Как найти ID:</p>
+                  <div className="text-slate-300 font-mono text-xs">
+                    cian.ru/rent/flat/<span className="text-teal-400 font-bold">123456789</span>
+                  </div>
+                </div>
+              )}
             </div>
             
             {/* Markup */}
