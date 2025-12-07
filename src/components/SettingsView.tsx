@@ -406,13 +406,27 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
             </div>
             
             <div className="mt-4 p-4 bg-slate-700/50 rounded-lg">
-              <h4 className="text-sm font-medium text-white mb-2">Как получить API ключи?</h4>
-              <ol className="text-sm text-slate-400 space-y-1 list-decimal list-inside">
-                <li>Перейдите в <a href="https://developers.avito.ru" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:underline">developers.avito.ru</a></li>
-                <li>Создайте новое приложение</li>
-                <li>Скопируйте Client ID и Client Secret</li>
-                <li>Введите их выше и нажмите "Подключить"</li>
+              <h4 className="text-sm font-medium text-white mb-2">Как подключить Avito?</h4>
+              <ol className="text-sm text-slate-400 space-y-2 list-decimal list-inside">
+                <li>Зайдите на <a href="https://avito.ru" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:underline">avito.ru</a> и авторизуйтесь</li>
+                <li>Откройте ваше объявление</li>
+                <li>Скопируйте ID из адресной строки</li>
               </ol>
+              <div className="mt-3 p-2 bg-slate-800 rounded text-xs text-slate-300 font-mono">
+                avito.ru/moskva/kvartiry/<span className="text-teal-400 font-bold">123456789</span> → ID: <span className="text-teal-400 font-bold">123456789</span>
+              </div>
+              <p className="mt-3 text-xs text-slate-500">
+                После этого перейдите в <strong>Объекты → Редактировать → API интеграции</strong> и введите ID объявления для каждого объекта.
+              </p>
+              <details className="mt-3">
+                <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300">
+                  Расширенные настройки (API ключи)
+                </summary>
+                <p className="mt-2 text-xs text-slate-500">
+                  API ключи нужны для автоматической синхронизации цен и календаря.
+                  Получите их на <a href="https://developers.avito.ru" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:underline">developers.avito.ru</a>
+                </p>
+              </details>
             </div>
           </div>
         </div>

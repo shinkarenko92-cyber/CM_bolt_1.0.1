@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Percent, Home, BedDouble } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Percent, Home, BedDouble, Calendar } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Booking, Property } from '../lib/supabase';
 import {
@@ -25,11 +25,23 @@ interface AnalyticsViewProps {
 
 const COLORS = ['#14b8a6', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#22c55e'];
 
+type DateRangeType = 'month' | 'custom';
+
 export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
   const { t } = useTranslation();
+  const [dateRangeType, setDateRangeType] = useState<DateRangeType>('month');
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [customStartDate, setCustomStartDate] = useState(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    return start.toISOString().split('T')[0];
+  });
+  const [customEndDate, setCustomEndDate] = useState(() => {
+    const now = new Date();
+    return now.toISOString().split('T')[0];
   });
 
   const convertToRUB = (amount: number, currency: string) => {
@@ -41,12 +53,28 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     return amount * (rates[currency] || 1);
   };
 
-  const analytics = useMemo(() => {
+  // Calculate date range based on selection type
+  const dateRange = useMemo(() => {
+    if (dateRangeType === 'custom') {
+      return {
+        start: new Date(customStartDate),
+        end: new Date(customEndDate + 'T23:59:59'),
+      };
+    }
     const [year, month] = selectedMonth.split('-').map(Number);
-    const currentMonthStart = new Date(year, month - 1, 1);
-    const currentMonthEnd = new Date(year, month, 0);
-    const previousMonthStart = new Date(year, month - 2, 1);
-    const previousMonthEnd = new Date(year, month - 1, 0);
+    return {
+      start: new Date(year, month - 1, 1),
+      end: new Date(year, month, 0, 23, 59, 59),
+    };
+  }, [dateRangeType, selectedMonth, customStartDate, customEndDate]);
+
+  const analytics = useMemo(() => {
+    const { start: currentStart, end: currentEnd } = dateRange;
+    
+    // Calculate previous period for comparison
+    const periodLength = currentEnd.getTime() - currentStart.getTime();
+    const previousEnd = new Date(currentStart.getTime() - 1);
+    const previousStart = new Date(previousEnd.getTime() - periodLength);
 
     const filterBookingsByDateRange = (start: Date, end: Date) => {
       return bookings.filter((booking) => {
@@ -86,16 +114,16 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
       return totalNights;
     };
 
-    const currentBookings = filterBookingsByDateRange(currentMonthStart, currentMonthEnd);
-    const previousBookings = filterBookingsByDateRange(previousMonthStart, previousMonthEnd);
+    const currentBookings = filterBookingsByDateRange(currentStart, currentEnd);
+    const previousBookings = filterBookingsByDateRange(previousStart, previousEnd);
 
     const currentRevenue = calculateRevenue(currentBookings);
     const previousRevenue = calculateRevenue(previousBookings);
     const revenueChange = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
 
-    const daysInCurrentMonth = currentMonthEnd.getDate();
-    const totalPossibleNights = properties.length * daysInCurrentMonth;
-    const occupiedNights = calculateOccupiedNights(currentBookings, currentMonthStart, currentMonthEnd);
+    const daysInPeriod = Math.ceil((currentEnd.getTime() - currentStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const totalPossibleNights = properties.length * daysInPeriod;
+    const occupiedNights = calculateOccupiedNights(currentBookings, currentStart, currentEnd);
     const occupancyRate = totalPossibleNights > 0 ? (occupiedNights / totalPossibleNights) * 100 : 0;
 
     // ADR (Average Daily Rate) - average revenue per occupied night
@@ -106,7 +134,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     
     // For backwards compatibility
     const avgPricePerNight = adr;
-    const dailyAvgRevenue = daysInCurrentMonth > 0 ? currentRevenue / daysInCurrentMonth : 0;
+    const dailyAvgRevenue = daysInPeriod > 0 ? currentRevenue / daysInPeriod : 0;
     
     // Average booking value
     const avgBookingValue = currentBookings.length > 0 ? currentRevenue / currentBookings.length : 0;
@@ -157,7 +185,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
       sourceBreakdown,
       topProperties,
     };
-  }, [bookings, properties, selectedMonth]);
+  }, [bookings, properties, dateRange]);
 
   const monthlyRevenueData = useMemo(() => {
     const data: { month: string; revenue: number; bookings: number }[] = [];
@@ -204,10 +232,8 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
   }, [analytics.sourceBreakdown, getSourceLabel]);
 
   const propertyOccupancyData = useMemo(() => {
-    const [year, month] = selectedMonth.split('-').map(Number);
-    const monthStart = new Date(year, month - 1, 1);
-    const monthEnd = new Date(year, month, 0);
-    const daysInMonth = monthEnd.getDate();
+    const { start: monthStart, end: monthEnd } = dateRange;
+    const daysInPeriod = Math.ceil((monthEnd.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
     return properties.map((property) => {
       const propertyBookings = bookings.filter((b) => {
@@ -233,14 +259,14 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
         }
       });
 
-      const occupancy = Math.round((occupiedNights / daysInMonth) * 100);
+      const occupancy = Math.round((occupiedNights / daysInPeriod) * 100);
       return {
         name: property.name.length > 15 ? property.name.substring(0, 15) + '...' : property.name,
         occupancy,
         nights: occupiedNights,
       };
     });
-  }, [bookings, properties, selectedMonth]);
+  }, [bookings, properties, dateRange]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ru-RU').format(Math.round(amount));
@@ -274,6 +300,23 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     return null;
   };
 
+  // Custom legend for Pie chart with full labels
+  const renderCustomLegend = () => {
+    return (
+      <div className="flex flex-wrap justify-center gap-3 mt-4">
+        {sourceChartData.map((entry, index) => (
+          <div key={entry.name} className="flex items-center gap-2">
+            <div
+              className="w-3 h-3 rounded-full"
+              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+            />
+            <span className="text-sm text-slate-300">{entry.name}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="flex-1 overflow-auto p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
@@ -283,18 +326,63 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             <p className="text-slate-400 text-sm md:text-base">{t('analytics.subtitle')}</p>
           </div>
 
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm"
-            data-testid="select-month"
-          >
-            {months.map((month) => (
-              <option key={month.value} value={month.value}>
-                {month.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Date range type selector */}
+            <div className="flex bg-slate-700 rounded-lg p-1">
+              <button
+                onClick={() => setDateRangeType('month')}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  dateRangeType === 'month'
+                    ? 'bg-teal-600 text-white'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Месяц
+              </button>
+              <button
+                onClick={() => setDateRangeType('custom')}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors flex items-center gap-1 ${
+                  dateRangeType === 'custom'
+                    ? 'bg-teal-600 text-white'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <Calendar className="w-4 h-4" />
+                Период
+              </button>
+            </div>
+
+            {dateRangeType === 'month' ? (
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm"
+                data-testid="select-month"
+              >
+                {months.map((month) => (
+                  <option key={month.value} value={month.value}>
+                    {month.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm"
+                />
+                <span className="text-slate-400">—</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
@@ -390,27 +478,30 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             {sourceChartData.length === 0 ? (
               <p className="text-slate-400 text-center py-8">{t('analytics.noDataForPeriod')}</p>
             ) : (
-              <div className="h-64 flex items-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={sourceChartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                      labelLine={false}
-                    >
-                      {sourceChartData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => [`${formatCurrency(value)} ₽`, t('analytics.revenue')]} />
-                  </PieChart>
-                </ResponsiveContainer>
+              <div className="h-64 flex flex-col">
+                <div className="flex-1">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={sourceChartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={40}
+                        outerRadius={70}
+                        paddingAngle={2}
+                        dataKey="value"
+                        label={({ percent }) => `${((percent || 0) * 100).toFixed(0)}%`}
+                        labelLine={false}
+                      >
+                        {sourceChartData.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => [`${formatCurrency(value)} ₽`, t('analytics.revenue')]} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                {renderCustomLegend()}
               </div>
             )}
           </div>
