@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
@@ -16,16 +16,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [theme, setThemeState] = useState<Theme>('dark');
 
-  useEffect(() => {
-    loadTheme();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
-
-  const loadTheme = async () => {
+  const loadTheme = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -41,7 +32,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error loading theme:', error);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    loadTheme();
+  }, [loadTheme]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   const setTheme = async (newTheme: Theme) => {
     setThemeState(newTheme);

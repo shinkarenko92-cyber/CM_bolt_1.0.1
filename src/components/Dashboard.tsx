@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Search, Bell, User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { Sidebar } from './Sidebar';
 import { Calendar } from './Calendar';
 import { AddReservationModal } from './AddReservationModal';
@@ -9,8 +11,11 @@ import { PropertiesView } from './PropertiesView';
 import { BookingsView } from './BookingsView';
 import { AnalyticsView } from './AnalyticsView';
 import { AdminView } from './AdminView';
+import { SettingsView } from './SettingsView';
 import { UserProfileModal } from './UserProfileModal';
 import { ThemeToggle } from './ThemeToggle';
+import { LanguageSelector } from './LanguageSelector';
+import { SkeletonCalendar } from './Skeleton';
 import { supabase, Property, Booking, Profile } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { syncWithExternalAPIs } from '../services/apiSync';
@@ -30,6 +35,7 @@ type NewReservation = {
 };
 
 export function Dashboard() {
+  const { t } = useTranslation();
   const { user, isAdmin } = useAuth();
   const [currentView, setCurrentView] = useState('calendar');
   const [properties, setProperties] = useState<Property[]>([]);
@@ -50,31 +56,7 @@ export function Dashboard() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [prefilledDates, setPrefilledDates] = useState<{ propertyId: string; checkIn: string; checkOut: string } | null>(null);
 
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
-
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredBookings(bookings);
-      setSearchResults([]);
-      setShowSearchDropdown(false);
-    } else {
-      const query = searchQuery.toLowerCase();
-      const filtered = bookings.filter(
-        (b) =>
-          b.guest_name.toLowerCase().includes(query) ||
-          (b.guest_phone && b.guest_phone.toLowerCase().includes(query)) ||
-          (b.guest_email && b.guest_email.toLowerCase().includes(query))
-      );
-      setFilteredBookings(filtered);
-      setSearchResults(filtered);
-      setShowSearchDropdown(true);
-    }
-  }, [searchQuery, bookings]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!user) {
       setLoading(false);
       return;
@@ -131,7 +113,30 @@ export function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredBookings(bookings);
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+    } else {
+      const query = searchQuery.toLowerCase();
+      const filtered = bookings.filter(
+        (b) =>
+          b.guest_name.toLowerCase().includes(query) ||
+          (b.guest_phone && b.guest_phone.toLowerCase().includes(query)) ||
+          (b.guest_email && b.guest_email.toLowerCase().includes(query))
+      );
+      setFilteredBookings(filtered);
+      setSearchResults(filtered);
+      setShowSearchDropdown(true);
+    }
+  }, [searchQuery, bookings]);
 
   const handleAddReservation = (propertyIdOrIds: string | string[], checkIn?: string, checkOut?: string) => {
     if (typeof propertyIdOrIds === 'string' && checkIn && checkOut) {
@@ -202,8 +207,10 @@ export function Dashboard() {
       }
       setIsAddModalOpen(false);
       setPrefilledDates(null);
+      toast.success(t('success.bookingCreated'));
     } catch (error) {
       console.error('Error saving reservation:', error);
+      toast.error(t('errors.somethingWentWrong'));
       throw error;
     }
   };
@@ -237,8 +244,10 @@ export function Dashboard() {
       );
       setBookings(updatedBookings);
       setFilteredBookings(updatedBookings);
+      toast.success(t('success.bookingUpdated'));
     } catch (error) {
       console.error('Error updating reservation:', error);
+      toast.error(t('errors.somethingWentWrong'));
       throw error;
     }
   };
@@ -252,8 +261,10 @@ export function Dashboard() {
       const updatedBookings = bookings.filter((b) => b.id !== id);
       setBookings(updatedBookings);
       setFilteredBookings(updatedBookings);
+      toast.success(t('success.bookingDeleted'));
     } catch (error) {
       console.error('Error deleting reservation:', error);
+      toast.error(t('errors.somethingWentWrong'));
       throw error;
     }
   };
@@ -274,8 +285,10 @@ export function Dashboard() {
       if (data && data.length > 0) {
         setProperties([...properties, data[0]]);
       }
+      toast.success(t('success.propertyCreated'));
     } catch (error) {
       console.error('Error adding property:', error);
+      toast.error(t('errors.somethingWentWrong'));
       throw error;
     }
   };
@@ -287,8 +300,10 @@ export function Dashboard() {
       if (error) throw error;
 
       setProperties(properties.map((p) => (p.id === id ? { ...p, ...property } : p)));
+      toast.success(t('success.propertyUpdated'));
     } catch (error) {
       console.error('Error updating property:', error);
+      toast.error(t('errors.somethingWentWrong'));
       throw error;
     }
   };
@@ -300,8 +315,10 @@ export function Dashboard() {
       if (error) throw error;
 
       setProperties(properties.filter((p) => p.id !== id));
+      toast.success(t('success.propertyDeleted'));
     } catch (error) {
       console.error('Error deleting property:', error);
+      toast.error(t('errors.somethingWentWrong'));
       throw error;
     }
   };
@@ -320,14 +337,14 @@ export function Dashboard() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => searchQuery && setShowSearchDropdown(true)}
-                placeholder="Поиск..."
+                placeholder={t('common.search')}
                 className="w-full pl-9 md:pl-10 pr-3 md:pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                 data-testid="input-search"
               />
               {showSearchDropdown && searchResults.length > 0 && (
                 <div className="absolute top-full mt-1 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-96 overflow-y-auto z-50">
                   <div className="px-3 py-2 border-b border-slate-700 text-xs text-slate-500">
-                    Найдено: {searchResults.length} бронирований
+                    {t('bookings.found')}: {searchResults.length}
                   </div>
                   {searchResults.map((booking) => {
                     const property = properties.find(p => p.id === booking.property_id);
@@ -352,17 +369,17 @@ export function Dashboard() {
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-400">{property?.name || 'Неизвестно'}</span>
+                          <span className="text-slate-400">{property?.name || t('common.unknown')}</span>
                           <span className={`px-2 py-0.5 rounded text-xs ${
                             booking.status === 'confirmed' ? 'bg-green-500/20 text-green-400' :
                             booking.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
                             'bg-red-500/20 text-red-400'
                           }`}>
-                            {booking.status === 'confirmed' ? 'Подтв.' : booking.status === 'pending' ? 'Ожид.' : 'Отмен.'}
+                            {booking.status === 'confirmed' ? t('bookings.confirmed') : booking.status === 'pending' ? t('bookings.pending') : t('bookings.cancelled')}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-xs text-slate-500 mt-1">
-                          <span>{checkIn} - {checkOut} ({nights} {nights === 1 ? 'ночь' : nights < 5 ? 'ночи' : 'ночей'})</span>
+                          <span>{checkIn} - {checkOut} ({nights} {nights === 1 ? t('common.night') : nights < 5 ? t('common.nights_few') : t('common.nights')})</span>
                           {booking.guest_phone && <span>{booking.guest_phone}</span>}
                         </div>
                       </button>
@@ -373,6 +390,7 @@ export function Dashboard() {
             </div>
 
             <div className="flex items-center gap-2 md:gap-4">
+              <LanguageSelector />
               <ThemeToggle />
 
               <button
@@ -388,11 +406,11 @@ export function Dashboard() {
               <div
                 className="flex items-center gap-2 md:gap-3 pl-2 md:pl-4 border-l border-slate-700 cursor-pointer hover:bg-slate-700/50 rounded-lg p-1 md:p-2 transition-colors"
                 onClick={() => setIsProfileModalOpen(true)}
-                title="View profile"
+                title={t('settings.profile')}
                 data-testid="button-profile"
               >
                 <div className="text-right hidden sm:block">
-                  <div className="text-sm font-medium text-white">My Properties</div>
+                  <div className="text-sm font-medium text-white">{t('properties.title')}</div>
                   <div className="text-xs text-slate-400">{user?.email}</div>
                 </div>
                 <div className="w-8 h-8 md:w-10 md:h-10 bg-teal-600 rounded-lg flex items-center justify-center">
@@ -404,9 +422,7 @@ export function Dashboard() {
         </header>
 
         {loading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-slate-400">Loading...</div>
-          </div>
+          <SkeletonCalendar />
         ) : currentView === 'properties' ? (
           <PropertiesView
             properties={properties}
@@ -424,6 +440,8 @@ export function Dashboard() {
           <AnalyticsView bookings={bookings} properties={properties} />
         ) : currentView === 'admin' && isAdmin ? (
           <AdminView />
+        ) : currentView === 'settings' ? (
+          <SettingsView bookings={bookings} properties={properties} />
         ) : currentView === 'calendar' ? (
           <>
             <Calendar
@@ -477,12 +495,12 @@ export function Dashboard() {
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-slate-400 mb-4">This section is under development</p>
+              <p className="text-slate-400 mb-4">{t('common.underDevelopment')}</p>
               <button
                 onClick={() => setCurrentView('calendar')}
                 className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors"
               >
-                Go to Calendar
+                {t('nav.calendar')}
               </button>
             </div>
           </div>

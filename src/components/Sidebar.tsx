@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Calendar, Home, Settings, BarChart3, Users, LogOut, Shield, Menu, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 
 type SidebarProps = {
@@ -8,19 +9,20 @@ type SidebarProps = {
 };
 
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
+  const { t } = useTranslation();
   const { signOut, isAdmin } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
   const menuItems = [
-    { id: 'calendar', icon: Calendar, label: 'Календарь' },
-    { id: 'properties', icon: Home, label: 'Объекты' },
-    { id: 'bookings', icon: Users, label: 'Брони' },
-    { id: 'analytics', icon: BarChart3, label: 'Аналитика' },
-    { id: 'settings', icon: Settings, label: 'Настройки' },
+    { id: 'calendar', icon: Calendar, label: t('nav.calendar') },
+    { id: 'properties', icon: Home, label: t('nav.properties') },
+    { id: 'bookings', icon: Users, label: t('nav.bookings') },
+    { id: 'analytics', icon: BarChart3, label: t('nav.analytics') },
+    { id: 'settings', icon: Settings, label: t('nav.settings') },
   ];
 
   if (isAdmin) {
-    menuItems.push({ id: 'admin', icon: Shield, label: 'Админ' });
+    menuItems.push({ id: 'admin', icon: Shield, label: t('nav.admin') });
   }
 
   const handleNavClick = (id: string) => {
@@ -93,7 +95,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
             className="w-full flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
           >
             <LogOut className="w-5 h-5" />
-            <span className="font-medium text-sm md:text-base">Выйти</span>
+            <span className="font-medium text-sm md:text-base">{t('auth.signOut')}</span>
           </button>
         </div>
       </div>

@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Search, Shield, UserX, UserCheck, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { supabase, Profile, Property, Booking } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { ConfirmModal } from './ConfirmModal';
 
 type AdminStats = {
   totalUsers: number;
@@ -10,7 +13,14 @@ type AdminStats = {
   activeUsers: number;
 };
 
+type ConfirmAction = {
+  type: 'makeAdmin' | 'activate' | 'deactivate';
+  userId: string;
+  userName?: string;
+} | null;
+
 export function AdminView() {
+  const { t } = useTranslation();
   const { user, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<'users' | 'properties' | 'bookings'>('users');
   const [users, setUsers] = useState<Profile[]>([]);
@@ -28,6 +38,7 @@ export function AdminView() {
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
 
   useEffect(() => {
     loadAdminData();
@@ -68,8 +79,6 @@ export function AdminView() {
   };
 
   const handleMakeAdmin = async (userId: string) => {
-    if (!confirm('Are you sure you want to make this user an admin?')) return;
-
     setActionLoading(true);
     try {
       const { error } = await supabase
@@ -87,18 +96,18 @@ export function AdminView() {
       });
 
       await loadAdminData();
-      alert('User promoted to admin successfully');
+      toast.success(t('admin.userPromoted'));
     } catch (error) {
       console.error('Error making user admin:', error);
-      alert('Failed to promote user to admin');
+      toast.error(t('admin.actionFailed'));
     } finally {
       setActionLoading(false);
+      setConfirmAction(null);
     }
   };
 
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
     const action = currentStatus ? 'deactivate' : 'activate';
-    if (!confirm(`Are you sure you want to ${action} this user?`)) return;
 
     setActionLoading(true);
     try {
@@ -120,12 +129,13 @@ export function AdminView() {
       if (userId === user?.id) {
         await refreshProfile();
       }
-      alert(`User ${action}d successfully`);
+      toast.success(currentStatus ? t('admin.userDeactivated') : t('admin.userActivated'));
     } catch (error) {
       console.error(`Error ${action}ing user:`, error);
-      alert(`Failed to ${action} user`);
+      toast.error(t('admin.actionFailed'));
     } finally {
       setActionLoading(false);
+      setConfirmAction(null);
     }
   };
 
@@ -236,16 +246,20 @@ export function AdminView() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                     {profile.role !== 'admin' && (
                       <button
-                        onClick={() => handleMakeAdmin(profile.id)}
+                        onClick={() => setConfirmAction({ type: 'makeAdmin', userId: profile.id, userName: profile.email || profile.full_name || '' })}
                         disabled={actionLoading}
                         className="inline-flex items-center gap-1 px-3 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded text-xs transition-colors disabled:opacity-50"
                       >
                         <Shield className="w-3 h-3" />
-                        Make Admin
+                        {t('admin.makeAdmin')}
                       </button>
                     )}
                     <button
-                      onClick={() => handleToggleUserStatus(profile.id, profile.is_active)}
+                      onClick={() => setConfirmAction({ 
+                        type: profile.is_active ? 'deactivate' : 'activate', 
+                        userId: profile.id,
+                        userName: profile.email || profile.full_name || ''
+                      })}
                       disabled={actionLoading}
                       className={`inline-flex items-center gap-1 px-3 py-1 rounded text-xs transition-colors disabled:opacity-50 ${
                         profile.is_active
@@ -256,12 +270,12 @@ export function AdminView() {
                       {profile.is_active ? (
                         <>
                           <UserX className="w-3 h-3" />
-                          Deactivate
+                          {t('admin.deactivate')}
                         </>
                       ) : (
                         <>
                           <UserCheck className="w-3 h-3" />
-                          Activate
+                          {t('admin.activate')}
                         </>
                       )}
                     </button>
@@ -557,6 +571,36 @@ export function AdminView() {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={confirmAction !== null}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={() => {
+          if (confirmAction?.type === 'makeAdmin') {
+            handleMakeAdmin(confirmAction.userId);
+          } else if (confirmAction?.type === 'activate') {
+            handleToggleUserStatus(confirmAction.userId, false);
+          } else if (confirmAction?.type === 'deactivate') {
+            handleToggleUserStatus(confirmAction.userId, true);
+          }
+        }}
+        title={
+          confirmAction?.type === 'makeAdmin' 
+            ? t('admin.makeAdmin')
+            : confirmAction?.type === 'activate' 
+              ? t('admin.activate')
+              : t('admin.deactivate')
+        }
+        message={
+          confirmAction?.type === 'makeAdmin'
+            ? t('admin.confirmMakeAdmin')
+            : confirmAction?.type === 'activate'
+              ? t('admin.confirmActivate')
+              : t('admin.confirmDeactivate')
+        }
+        variant={confirmAction?.type === 'deactivate' ? 'danger' : 'info'}
+        loading={actionLoading}
+      />
     </div>
   );
 }
