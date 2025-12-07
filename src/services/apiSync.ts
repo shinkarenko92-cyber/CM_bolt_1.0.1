@@ -1,5 +1,5 @@
 import { avitoApi, isAvitoConfigured, initializeAvito } from './avitoApi';
-import { supabase, Booking, Property } from '../lib/supabase';
+import { supabase, Booking, Property, PropertyIntegration } from '../lib/supabase';
 
 export type SyncResult = {
   platform: string;
@@ -7,6 +7,43 @@ export type SyncResult = {
   message: string;
   syncedItems?: number;
 };
+
+/**
+ * Calculate price with markup for aggregator
+ */
+export function calculatePriceWithMarkup(
+  basePrice: number,
+  integration: PropertyIntegration | null
+): number {
+  if (!integration || integration.markup_value === 0) {
+    return basePrice;
+  }
+  
+  if (integration.markup_type === 'percent') {
+    return Math.round(basePrice + (basePrice * integration.markup_value / 100));
+  } else {
+    return Math.round(basePrice + integration.markup_value);
+  }
+}
+
+/**
+ * Get integration settings for a property and platform from localStorage
+ */
+export function getPropertyIntegration(
+  propertyId: string,
+  platform: string
+): PropertyIntegration | null {
+  const key = `integration_${propertyId}_${platform}`;
+  const saved = localStorage.getItem(key);
+  
+  if (!saved) return null;
+  
+  try {
+    return JSON.parse(saved) as PropertyIntegration;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Sync all bookings to Avito calendar
@@ -51,7 +88,7 @@ async function syncBookingsToAvito(
 }
 
 /**
- * Sync property rates to Avito
+ * Sync property rates to Avito with markup applied
  */
 export async function syncRatesToAvito(
   avitoUserId: string,
@@ -60,6 +97,9 @@ export async function syncRatesToAvito(
   startDate: string,
   endDate: string
 ): Promise<void> {
+  // Get integration settings for markup
+  const integration = getPropertyIntegration(propertyId, 'avito');
+  
   // Get property rates from database
   const { data: rates } = await supabase
     .from('property_rates')
@@ -70,14 +110,16 @@ export async function syncRatesToAvito(
   
   if (!rates || rates.length === 0) return;
   
-  // Update Avito calendar with prices
+  // Update Avito calendar with prices (with markup applied)
   for (const rate of rates) {
+    const priceWithMarkup = calculatePriceWithMarkup(rate.daily_price, integration);
+    
     await avitoApi.updatePrices(
       avitoUserId,
       avitoItemId,
       rate.date,
       rate.date,
-      rate.daily_price,
+      priceWithMarkup,
       rate.min_stay
     );
   }
