@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Badge, Button, InputNumber, Modal, message } from 'antd';
-import { Property } from '../lib/supabase';
+import { Property, PropertyIntegration } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { AvitoConnectModal } from './AvitoConnectModal';
 
@@ -30,7 +30,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [avitoIntegration, setAvitoIntegration] = useState<any>(null);
+  const [avitoIntegration, setAvitoIntegration] = useState<PropertyIntegration | null>(null);
   const [isAvitoModalOpen, setIsAvitoModalOpen] = useState(false);
   const [isEditMarkupModalOpen, setIsEditMarkupModalOpen] = useState(false);
   const [newMarkup, setNewMarkup] = useState<number>(15);
