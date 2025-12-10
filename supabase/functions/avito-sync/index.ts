@@ -36,6 +36,14 @@ Deno.serve(async (req: Request) => {
       case "exchange-code": {
         const { code, redirect_uri } = params;
         
+        // Валидация параметров
+        if (!code) {
+          return new Response(
+            JSON.stringify({ error: "Missing authorization code" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
         // Используем переданный redirect_uri из фронтенда (должен совпадать с OAuth запросом)
         // Fallback на origin Edge Function только для обратной совместимости
         const redirectUri = redirect_uri || `${new URL(req.url).origin}/auth/avito-callback`;
@@ -56,8 +64,52 @@ Deno.serve(async (req: Request) => {
         });
 
         if (!response.ok) {
-          const error = await response.text();
-          throw new Error(`Token exchange failed: ${error}`);
+          // Пытаемся получить детальную информацию об ошибке от Avito
+          let errorMessage = `Token exchange failed (${response.status})`;
+          let errorDetails: any = null;
+          
+          try {
+            const errorData = await response.json();
+            errorDetails = errorData;
+            if (errorData.error) {
+              errorMessage = `Avito API error: ${errorData.error}`;
+              if (errorData.error_description) {
+                errorMessage += ` - ${errorData.error_description}`;
+              }
+            } else {
+              errorMessage = JSON.stringify(errorData);
+            }
+          } catch {
+            // Если не JSON, читаем как текст
+            try {
+              const errorText = await response.text();
+              errorMessage = errorText || errorMessage;
+            } catch {
+              // Игнорируем ошибки чтения
+            }
+          }
+          
+          // Логируем для отладки (без секретов)
+          console.error("Avito token exchange error:", {
+            status: response.status,
+            statusText: response.statusText,
+            redirect_uri: redirectUri,
+            client_id: avitoClientId,
+            has_code: !!code,
+            error_details: errorDetails,
+          });
+          
+          return new Response(
+            JSON.stringify({ 
+              error: errorMessage,
+              status: response.status,
+              details: errorDetails || "Check that redirect_uri matches exactly, client_id/secret are correct, and code is not expired"
+            }),
+            { 
+              status: response.status,
+              headers: { ...corsHeaders, "Content-Type": "application/json" } 
+            }
+          );
         }
 
         const tokenData = await response.json();
