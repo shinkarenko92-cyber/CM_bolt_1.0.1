@@ -110,8 +110,9 @@ export function AvitoConnectModal({
       }
 
       // Используем тот же redirect_uri, что и в OAuth URL
-      const redirectUri = `${window.location.origin}/auth/avito-callback`;
-
+      // Должен совпадать с настройками в Avito: https://app.roomi.pro/auth/avito-callback
+      const redirectUri = import.meta.env.VITE_AVITO_REDIRECT_URI || 'https://app.roomi.pro/auth/avito-callback';
+      
       // Exchange code for token
       const tokenResponse = await exchangeCodeForToken(code, redirectUri);
       setAccessToken(tokenResponse.access_token);

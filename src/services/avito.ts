@@ -33,7 +33,9 @@ export function generateOAuthUrl(propertyId: string): string {
     })
   );
 
-  const redirectUri = `${window.location.origin}/auth/avito-callback`;
+  // Используем фиксированный redirect_uri для консистентности
+  // Должен совпадать с настройками в Avito: https://app.roomi.pro/auth/avito-callback
+  const redirectUri = import.meta.env.VITE_AVITO_REDIRECT_URI || 'https://app.roomi.pro/auth/avito-callback';
   
   return `https://www.avito.ru/oauth?client_id=${clientId}&response_type=code&scope=user:read,short_term_rent:read,short_term_rent:write&state=${state}&redirect_uri=${encodeURIComponent(redirectUri)}`;
 }
