@@ -90,6 +90,15 @@ export type PropertyIntegration = {
   markup_value: number;
   is_enabled: boolean;
   last_sync_at: string | null;
+  // Avito-specific fields
+  avito_account_id?: string | null;
+  avito_item_id?: number | null;
+  avito_markup?: number | null;
+  access_token_encrypted?: string | null;
+  refresh_token_encrypted?: string | null;
+  token_expires_at?: string | null;
+  sync_interval_seconds?: number | null;
+  is_active?: boolean | null;
 };
 
 // All supported aggregator platforms

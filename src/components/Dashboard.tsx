@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Search, Bell, User } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
+import { message } from 'antd';
 import { Sidebar } from './Sidebar';
 import { Calendar } from './Calendar';
 import { AddReservationModal } from './AddReservationModal';
@@ -117,6 +118,46 @@ export function Dashboard() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Realtime subscription for new Avito bookings
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('avito_bookings')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'bookings',
+          filter: 'source=eq.avito',
+        },
+        () => {
+          // Toast notification
+          message.success('Лид с Avito!');
+          
+          // Optional: Play sound notification
+          try {
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUKzn8LZjHAY4kdfyzHksBSR3x/DdkEAKFF606euoVRQKRp/g8r5sIQUrgc7y2Yk2CBtpvfDknE4MDlCs5/C2YxwGOJHX8sx5LAUkd8fw3ZBAC');
+            audio.volume = 0.3;
+            audio.play().catch(() => {
+              // Ignore errors (user may have blocked audio)
+            });
+          } catch {
+            // Ignore audio errors
+          }
+          
+          // Refresh bookings
+          loadData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, loadData]);
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
