@@ -212,7 +212,11 @@ Deno.serve(async (req: Request) => {
         const priceWithMarkup = Math.round(basePrice * (1 + markup / 100));
 
         // Prepare blocked dates from bookings
-        const blockedDates = (bookings || []).map((b: any) => ({
+        interface BookingRecord {
+          check_in: string;
+          check_out: string;
+        }
+        const blockedDates = (bookings as BookingRecord[] || []).map((b) => ({
           date: b.check_in,
           available: false,
         }));
