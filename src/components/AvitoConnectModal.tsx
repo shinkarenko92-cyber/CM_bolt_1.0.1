@@ -135,7 +135,19 @@ export function AvitoConnectModal({
         setCurrentStep(1); // Go to account selection
       }
     } catch (error) {
-      message.error(error instanceof Error ? error.message : 'Ошибка при обработке авторизации');
+      const errorMessage = error instanceof Error ? error.message : 'Ошибка при обработке авторизации';
+      
+      // Проверяем, не является ли это ошибкой 404 (Edge Function не развернута)
+      if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
+        Modal.error({
+          title: 'Edge Function не найдена',
+          content: 'Функция avito-sync не развернута. Пожалуйста, разверните её в Supabase Dashboard → Edge Functions или обратитесь к администратору.',
+          okText: 'Понятно',
+          width: 500,
+        });
+      } else {
+        message.error(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -189,7 +201,19 @@ export function AvitoConnectModal({
       });
       setCurrentStep(3);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : 'Ошибка при проверке ID');
+      const errorMessage = error instanceof Error ? error.message : 'Ошибка при проверке ID';
+      
+      // Проверяем ошибку 404
+      if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
+        Modal.error({
+          title: 'Edge Function не найдена',
+          content: 'Функция avito-sync не развернута. Пожалуйста, разверните её в Supabase Dashboard → Edge Functions или обратитесь к администратору.',
+          okText: 'Понятно',
+          width: 500,
+        });
+      } else {
+        message.error(errorMessage);
+      }
     } finally {
       setValidatingItemId(false);
     }
@@ -235,7 +259,19 @@ export function AvitoConnectModal({
       onSuccess?.();
       onClose();
     } catch (error) {
-      message.error(error instanceof Error ? error.message : 'Ошибка при сохранении интеграции');
+      const errorMessage = error instanceof Error ? error.message : 'Ошибка при сохранении интеграции';
+      
+      // Проверяем ошибку 404
+      if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
+        Modal.error({
+          title: 'Edge Function не найдена',
+          content: 'Функция avito-sync не развернута. Пожалуйста, разверните её в Supabase Dashboard → Edge Functions или обратитесь к администратору.',
+          okText: 'Понятно',
+          width: 500,
+        });
+      } else {
+        message.error(errorMessage);
+      }
     } finally {
       setLoading(false);
     }

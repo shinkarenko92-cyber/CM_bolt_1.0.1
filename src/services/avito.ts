@@ -154,7 +154,14 @@ export async function exchangeCodeForToken(code: string, redirectUri: string): P
   });
 
   if (error) {
-    throw new Error(error.message || 'Failed to exchange code for token');
+    // Улучшенная обработка ошибок
+    const errorMessage = error.message || 'Failed to exchange code for token';
+    
+    if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
+      throw new Error('Edge Function avito-sync не развернута. Пожалуйста, разверните функцию в Supabase Dashboard.');
+    }
+    
+    throw new Error(errorMessage);
   }
 
   return data as AvitoTokenResponse;
@@ -172,7 +179,13 @@ export async function getUserAccounts(accessToken: string): Promise<AvitoAccount
   });
 
   if (error) {
-    throw new Error(error.message || 'Failed to get user accounts');
+    const errorMessage = error.message || 'Failed to get user accounts';
+    
+    if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
+      throw new Error('Edge Function avito-sync не развернута. Пожалуйста, разверните функцию в Supabase Dashboard.');
+    }
+    
+    throw new Error(errorMessage);
   }
 
   return data as AvitoAccount[];
@@ -197,16 +210,27 @@ export async function validateItemId(
   });
 
   if (error) {
+    const errorMessage = error.message || 'Ошибка при проверке ID';
+    
+    // Проверяем ошибку 404
+    if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
+      return {
+        available: false,
+        error: 'Edge Function avito-sync не развернута. Пожалуйста, разверните функцию в Supabase Dashboard.',
+      };
+    }
+    
     // Handle 409 conflict
-    if (error.status === 409 || error.message?.includes('409')) {
+    if (error.status === 409 || errorMessage.includes('409')) {
       return {
         available: false,
         error: 'Этот ID уже используется в другой интеграции. Выберите другой.',
       };
     }
+    
     return {
       available: false,
-      error: error.message || 'Ошибка при проверке ID',
+      error: errorMessage,
     };
   }
 
