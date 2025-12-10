@@ -10,15 +10,26 @@ export type SyncResult = {
 
 /**
  * Calculate price with markup for aggregator
+ * Supports both old format (markup_type/markup_value) and new Avito format (avito_markup)
  */
 export function calculatePriceWithMarkup(
   basePrice: number,
   integration: PropertyIntegration | null
 ): number {
-  if (!integration || integration.markup_value === 0) {
+  if (!integration) {
     return basePrice;
   }
-  
+
+  // Use Avito-specific markup if available
+  if (integration.platform === 'avito' && integration.avito_markup) {
+    return Math.round(basePrice * (1 + integration.avito_markup / 100));
+  }
+
+  // Fallback to old format
+  if (integration.markup_value === 0) {
+    return basePrice;
+  }
+
   if (integration.markup_type === 'percent') {
     return Math.round(basePrice + (basePrice * integration.markup_value / 100));
   } else {
@@ -27,21 +38,97 @@ export function calculatePriceWithMarkup(
 }
 
 /**
- * Get integration settings for a property and platform from localStorage
+ * Get integration settings for a property and platform from database
  */
-export function getPropertyIntegration(
+export async function getPropertyIntegration(
   propertyId: string,
   platform: string
-): PropertyIntegration | null {
-  const key = `integration_${propertyId}_${platform}`;
-  const saved = localStorage.getItem(key);
-  
-  if (!saved) return null;
-  
-  try {
-    return JSON.parse(saved) as PropertyIntegration;
-  } catch {
+): Promise<PropertyIntegration | null> {
+  const { data, error } = await supabase
+    .from('integrations')
+    .select('*')
+    .eq('property_id', propertyId)
+    .eq('platform', platform)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (error || !data) {
     return null;
+  }
+
+  return data as PropertyIntegration;
+}
+
+/**
+ * Sync Avito integration for a specific property
+ * Prepares data and calls Edge Function for actual sync
+ */
+export async function syncAvitoIntegration(propertyId: string): Promise<void> {
+  // Get integration from database
+  const integration = await getPropertyIntegration(propertyId, 'avito');
+  
+  if (!integration || !integration.is_active) {
+    throw new Error('Avito integration not found or inactive');
+  }
+
+  // Check token expiration
+  if (integration.token_expires_at && new Date(integration.token_expires_at) < new Date()) {
+    throw new Error('Token expired. Please reconnect Avito.');
+  }
+
+  // Call Edge Function for sync (it will fetch property and bookings internally)
+  const { error: syncError } = await supabase.functions.invoke('avito-sync', {
+    body: {
+      action: 'sync',
+      integration_id: integration.id,
+    },
+  });
+
+  if (syncError) {
+    throw new Error(syncError.message || 'Sync failed');
+  }
+}
+
+/**
+ * Handle incoming bookings from Avito
+ * Creates bookings in our database with source='avito'
+ */
+export async function handleIncomingAvitoBookings(
+  bookings: Array<{
+    id: string;
+    property_id: string;
+    guest_name: string;
+    guest_phone?: string;
+    check_in: string;
+    check_out: string;
+    total_price: number;
+    currency: string;
+  }>
+): Promise<void> {
+  for (const booking of bookings) {
+    // Check if booking already exists
+    const { data: existing } = await supabase
+      .from('bookings')
+      .select('id')
+      .eq('source', 'avito')
+      .eq('external_id', booking.id)
+      .maybeSingle();
+
+    if (!existing) {
+      // Create new booking
+      await supabase.from('bookings').insert({
+        property_id: booking.property_id,
+        guest_name: booking.guest_name,
+        guest_phone: booking.guest_phone,
+        check_in: booking.check_in,
+        check_out: booking.check_out,
+        total_price: booking.total_price,
+        currency: booking.currency,
+        status: 'confirmed',
+        source: 'avito',
+        external_id: booking.id,
+      });
+    }
   }
 }
 
@@ -98,7 +185,7 @@ export async function syncRatesToAvito(
   endDate: string
 ): Promise<void> {
   // Get integration settings for markup
-  const integration = getPropertyIntegration(propertyId, 'avito');
+  const integration = await getPropertyIntegration(propertyId, 'avito');
   
   // Get property rates from database
   const { data: rates } = await supabase

@@ -3,20 +3,11 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { 
   Download, 
-  Settings as SettingsIcon, 
   Globe, 
-  Key, 
-  Link2, 
-  RefreshCw,
   FileSpreadsheet,
   FileText
 } from 'lucide-react';
 import { Booking, Property } from '../lib/supabase';
-import { 
-  saveAvitoCredentials, 
-  clearAvitoCredentials, 
-  isAvitoConfigured 
-} from '../services/avitoApi';
 
 interface SettingsViewProps {
   bookings: Booking[];
@@ -25,35 +16,7 @@ interface SettingsViewProps {
 
 export function SettingsView({ bookings, properties }: SettingsViewProps) {
   const { t, i18n } = useTranslation();
-  const [avitoClientId, setAvitoClientId] = useState(localStorage.getItem('avito_client_id') || '');
-  const [avitoClientSecret, setAvitoClientSecret] = useState('');
-  const [avitoUserId, setAvitoUserId] = useState(localStorage.getItem('avito_user_id') || '');
-  const [isAvitoConnected, setIsAvitoConnected] = useState(isAvitoConfigured());
   const [exportDateRange, setExportDateRange] = useState('all');
-
-  const handleSaveAvitoCredentials = () => {
-    if (!avitoClientId || !avitoClientSecret) {
-      toast.error(t('errors.fillAllFields'));
-      return;
-    }
-    
-    saveAvitoCredentials(avitoClientId, avitoClientSecret);
-    if (avitoUserId) {
-      localStorage.setItem('avito_user_id', avitoUserId);
-    }
-    setIsAvitoConnected(true);
-    toast.success(t('success.saved'));
-  };
-
-  const handleDisconnectAvito = () => {
-    clearAvitoCredentials();
-    localStorage.removeItem('avito_user_id');
-    setAvitoClientId('');
-    setAvitoClientSecret('');
-    setAvitoUserId('');
-    setIsAvitoConnected(false);
-    toast.success('Avito отключён');
-  };
 
   const convertToRUB = (amount: number, currency: string) => {
     const rates: { [key: string]: number } = { RUB: 1, EUR: 100, USD: 92 };
@@ -323,123 +286,6 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
             </p>
           </div>
         </div>
-
-        {/* Avito Integration */}
-        <div className="bg-slate-800 rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-500/20 rounded-lg">
-                <Link2 className="w-5 h-5 text-purple-400" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-white">Avito API</h2>
-                <p className="text-sm text-slate-400">Синхронизация календаря с Avito</p>
-              </div>
-            </div>
-            {isAvitoConnected && (
-              <span className="px-3 py-1 bg-green-500/20 text-green-400 text-sm rounded-full">
-                Подключено
-              </span>
-            )}
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm text-slate-400 mb-2">
-                <Key className="w-4 h-4 inline mr-1" />
-                Client ID
-              </label>
-              <input
-                type="text"
-                value={avitoClientId}
-                onChange={(e) => setAvitoClientId(e.target.value)}
-                placeholder="Введите Client ID"
-                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm text-slate-400 mb-2">
-                <Key className="w-4 h-4 inline mr-1" />
-                Client Secret
-              </label>
-              <input
-                type="password"
-                value={avitoClientSecret}
-                onChange={(e) => setAvitoClientSecret(e.target.value)}
-                placeholder="Введите Client Secret"
-                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm text-slate-400 mb-2">
-                <SettingsIcon className="w-4 h-4 inline mr-1" />
-                User ID (для синхронизации)
-              </label>
-              <input
-                type="text"
-                value={avitoUserId}
-                onChange={(e) => setAvitoUserId(e.target.value)}
-                placeholder="Введите ваш User ID на Avito"
-                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400"
-              />
-            </div>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={handleSaveAvitoCredentials}
-                className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
-                {isAvitoConnected ? 'Обновить' : 'Подключить'}
-              </button>
-              
-              {isAvitoConnected && (
-                <button
-                  onClick={handleDisconnectAvito}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-                >
-                  Отключить
-                </button>
-              )}
-            </div>
-            
-            <div className="mt-4 p-4 bg-slate-700/50 rounded-lg">
-              <h4 className="text-sm font-medium text-white mb-2">Как подключить Avito?</h4>
-              <ol className="text-sm text-slate-400 space-y-2 list-decimal list-inside">
-                <li>Зайдите на <a href="https://avito.ru" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:underline">avito.ru</a> и авторизуйтесь</li>
-                <li>Откройте ваше объявление</li>
-                <li>Скопируйте ID из адресной строки</li>
-              </ol>
-              <div className="mt-3 p-2 bg-slate-800 rounded text-xs text-slate-300 font-mono">
-                avito.ru/moskva/kvartiry/<span className="text-teal-400 font-bold">123456789</span> → ID: <span className="text-teal-400 font-bold">123456789</span>
-              </div>
-              <p className="mt-3 text-xs text-slate-500">
-                После этого перейдите в <strong>Объекты → Редактировать → API интеграции</strong> и введите ID объявления для каждого объекта.
-              </p>
-              <details className="mt-3">
-                <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300">
-                  Расширенные настройки (API ключи)
-                </summary>
-                <p className="mt-2 text-xs text-slate-500">
-                  API ключи нужны для автоматической синхронизации цен и календаря.
-                  Получите их на <a href="https://developers.avito.ru" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:underline">developers.avito.ru</a>
-                </p>
-              </details>
-            </div>
-          </div>
-        </div>
-
-        {/* Note about property integrations */}
-        {isAvitoConnected && (
-          <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-            <p className="text-sm text-blue-300">
-              <strong>Совет:</strong> Настройка интеграций для каждого объекта теперь доступна в 
-              <span className="font-medium"> Объекты → Редактировать объект → API интеграции</span>
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );

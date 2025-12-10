@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { Badge, Button, InputNumber, Modal, message } from 'antd';
 import { Property } from '../lib/supabase';
-import { ApiIntegrationSettings } from './ApiIntegrationSettings';
+import { supabase } from '../lib/supabase';
+import { AvitoConnectModal } from './AvitoConnectModal';
 
 interface PropertyModalProps {
   isOpen: boolean;
@@ -28,6 +30,10 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [avitoIntegration, setAvitoIntegration] = useState<any>(null);
+  const [isAvitoModalOpen, setIsAvitoModalOpen] = useState(false);
+  const [isEditMarkupModalOpen, setIsEditMarkupModalOpen] = useState(false);
+  const [newMarkup, setNewMarkup] = useState<number>(15);
 
   useEffect(() => {
     if (property) {
@@ -59,7 +65,85 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     }
     setShowDeleteConfirm(false);
     setError(null);
+    loadAvitoIntegration();
   }, [property, isOpen]);
+
+  const loadAvitoIntegration = async () => {
+    if (!property) return;
+    
+    const { data } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('property_id', property.id)
+      .eq('platform', 'avito')
+      .maybeSingle();
+    
+    setAvitoIntegration(data);
+    if (data?.avito_markup) {
+      setNewMarkup(data.avito_markup);
+    }
+  };
+
+  const handleDisconnectAvito = () => {
+    Modal.confirm({
+      title: 'Отключить Avito?',
+      content: 'Синхронизация будет остановлена. Вы можете подключить заново позже.',
+      okText: 'Отключить',
+      cancelText: 'Отмена',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        if (!avitoIntegration) return;
+        
+        // Set is_active = false
+        await supabase
+          .from('integrations')
+          .update({ is_active: false })
+          .eq('id', avitoIntegration.id);
+        
+        // Remove from sync queue
+        await supabase
+          .from('avito_sync_queue')
+          .delete()
+          .eq('integration_id', avitoIntegration.id);
+        
+        message.success('Avito отключён');
+        loadAvitoIntegration();
+      },
+    });
+  };
+
+  const handleEditMarkup = () => {
+    setIsEditMarkupModalOpen(true);
+  };
+
+  const handleSaveMarkup = async () => {
+    if (!avitoIntegration) return;
+    
+    await supabase
+      .from('integrations')
+      .update({ avito_markup: newMarkup })
+      .eq('id', avitoIntegration.id);
+    
+    message.success('Наценка обновлена');
+    setIsEditMarkupModalOpen(false);
+    loadAvitoIntegration();
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Никогда';
+    return new Date(dateString).toLocaleString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const isTokenExpired = () => {
+    if (!avitoIntegration?.token_expires_at) return true;
+    return new Date(avitoIntegration.token_expires_at) < new Date();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -312,7 +396,42 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
             {/* API интеграции */}
             {property && (
               <div className="border-t border-slate-700 pt-6">
-                <ApiIntegrationSettings property={property} />
+                <h3 className="text-lg font-medium text-white mb-4">API интеграции</h3>
+                
+                {/* Avito Integration Section */}
+                <div className="bg-slate-700/50 rounded-lg p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <h4 className="text-white font-medium">Avito</h4>
+                      {avitoIntegration?.is_active && !isTokenExpired() ? (
+                        <Badge status="success" text="синхронизировано" />
+                      ) : (
+                        <Badge status="default" text="отключено" />
+                      )}
+                    </div>
+                  </div>
+
+                  {avitoIntegration?.is_active && !isTokenExpired() ? (
+                    <>
+                      <div className="text-sm text-slate-400">
+                        Последняя синхронизация: {formatDate(avitoIntegration.last_sync_at)}
+                      </div>
+                      <div className="text-sm text-slate-400">
+                        Наценка: {avitoIntegration.avito_markup || 15}%
+                      </div>
+                      <div className="flex gap-2">
+                        <Button onClick={handleEditMarkup}>Редактировать наценку</Button>
+                        <Button danger onClick={handleDisconnectAvito}>
+                          Отключить
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <Button type="primary" onClick={() => setIsAvitoModalOpen(true)}>
+                      {avitoIntegration ? 'Подключить заново' : 'Подключить Avito'}
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -357,6 +476,44 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
             </div>
           </form>
         )}
+
+        {/* Avito Connect Modal */}
+        {property && (
+          <AvitoConnectModal
+            isOpen={isAvitoModalOpen}
+            onClose={() => setIsAvitoModalOpen(false)}
+            property={property}
+            onSuccess={() => {
+              loadAvitoIntegration();
+            }}
+          />
+        )}
+
+        {/* Edit Markup Modal */}
+        <Modal
+          title="Редактировать наценку"
+          open={isEditMarkupModalOpen}
+          onOk={handleSaveMarkup}
+          onCancel={() => setIsEditMarkupModalOpen(false)}
+          okText="Сохранить"
+          cancelText="Отмена"
+        >
+          <div className="py-4">
+            <label className="block text-sm text-slate-300 mb-2">Наценка (%)</label>
+            <InputNumber
+              style={{ width: '100%' }}
+              min={0}
+              max={100}
+              value={newMarkup}
+              onChange={(value) => setNewMarkup(value || 15)}
+              formatter={(value) => `${value}%`}
+              parser={(value) => parseFloat(value?.replace('%', '') || '0')}
+            />
+            <p className="text-xs text-slate-500 mt-2">
+              Цена на Avito = базовая цена + {newMarkup}%
+            </p>
+          </div>
+        </Modal>
       </div>
     </div>
   );

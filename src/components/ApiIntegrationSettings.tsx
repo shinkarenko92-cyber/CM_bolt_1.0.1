@@ -344,13 +344,13 @@ export function ApiIntegrationSettings({ property, onIntegrationsChange }: ApiIn
         ) : (
           <>
             <ChevronDown className="w-4 h-4" />
-            Показать другие площадки ({AGGREGATOR_PLATFORMS.others.length})
+            Показать другие площадки ({AGGREGATOR_PLATFORMS.others?.length || 0})
           </>
         )}
       </button>
       
       {/* Other Platforms */}
-      {showOthers && (
+      {showOthers && AGGREGATOR_PLATFORMS.others && (
         <div className="space-y-2">
           {AGGREGATOR_PLATFORMS.others.map(renderPlatformCard)}
         </div>
