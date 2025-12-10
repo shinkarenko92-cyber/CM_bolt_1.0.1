@@ -109,8 +109,11 @@ export function AvitoConnectModal({
         throw new Error('Invalid state parameter');
       }
 
+      // Используем тот же redirect_uri, что и в OAuth URL
+      const redirectUri = `${window.location.origin}/auth/avito-callback`;
+
       // Exchange code for token
-      const tokenResponse = await exchangeCodeForToken(code);
+      const tokenResponse = await exchangeCodeForToken(code, redirectUri);
       setAccessToken(tokenResponse.access_token);
 
       // Get user accounts

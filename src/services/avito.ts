@@ -141,12 +141,15 @@ export function getOAuthSuccess(): AvitoOAuthSuccess | null {
 /**
  * Exchange OAuth code for access token via Edge Function
  * Client Secret is handled server-side in Edge Function
+ * @param code - OAuth authorization code
+ * @param redirectUri - Redirect URI that was used in OAuth request (must match exactly)
  */
-export async function exchangeCodeForToken(code: string): Promise<AvitoTokenResponse> {
+export async function exchangeCodeForToken(code: string, redirectUri: string): Promise<AvitoTokenResponse> {
   const { data, error } = await supabase.functions.invoke('avito-sync', {
     body: {
       action: 'exchange-code',
       code,
+      redirect_uri: redirectUri, // Передаём redirect_uri из фронтенда
     },
   });
 
