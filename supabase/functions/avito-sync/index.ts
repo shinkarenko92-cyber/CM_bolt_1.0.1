@@ -34,8 +34,11 @@ Deno.serve(async (req: Request) => {
 
     switch (action) {
       case "exchange-code": {
-        const { code } = params;
-        const redirectUri = `${new URL(req.url).origin}/auth/avito-callback`;
+        const { code, redirect_uri } = params;
+        
+        // Используем переданный redirect_uri из фронтенда (должен совпадать с OAuth запросом)
+        // Fallback на origin Edge Function только для обратной совместимости
+        const redirectUri = redirect_uri || `${new URL(req.url).origin}/auth/avito-callback`;
 
         // Exchange code for token
         const response = await fetch(`${AVITO_API_BASE}/token`, {
@@ -48,7 +51,7 @@ Deno.serve(async (req: Request) => {
             client_id: avitoClientId,
             client_secret: avitoClientSecret,
             code,
-            redirect_uri: redirectUri,
+            redirect_uri: redirectUri, // Используем переданный redirect_uri
           }),
         });
 
