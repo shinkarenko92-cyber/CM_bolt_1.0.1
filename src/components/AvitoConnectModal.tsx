@@ -3,7 +3,7 @@
  * Uses Ant Design v5 components
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Modal, Steps, Button, Input, InputNumber, Select, Spin, message } from 'antd';
 import { CheckCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import { Property } from '../lib/supabase';
@@ -46,62 +46,7 @@ export function AvitoConnectModal({
   const [accessToken, setAccessToken] = useState<string>('');
   const [validatingItemId, setValidatingItemId] = useState(false);
 
-  // Load progress on open
-  useEffect(() => {
-    if (isOpen) {
-      const progress = loadConnectionProgress(property.id);
-      if (progress && progress.step > 0) {
-        setCurrentStep(progress.step);
-        if (progress.data.accountId) setSelectedAccountId(progress.data.accountId);
-        if (progress.data.itemId) setItemId(progress.data.itemId);
-        if (progress.data.markup) setMarkup(progress.data.markup);
-        if (progress.data.accessToken) setAccessToken(progress.data.accessToken);
-      } else {
-        // Check for OAuth callback results
-        const oauthError = getOAuthError();
-        if (oauthError) {
-          Modal.error({
-            title: 'Ошибка авторизации',
-            content: oauthError.error_description || oauthError.error || 'Неизвестная ошибка',
-            okText: 'Попробовать снова',
-            onOk: () => {
-              clearConnectionProgress(property.id);
-              setCurrentStep(0);
-            },
-          });
-          return;
-        }
-
-        const oauthSuccess = getOAuthSuccess();
-        if (oauthSuccess) {
-          handleOAuthCallback(oauthSuccess.code, oauthSuccess.state);
-        } else {
-          setCurrentStep(0);
-        }
-      }
-    } else {
-      // Reset on close
-      setCurrentStep(0);
-      setOauthRedirecting(false);
-    }
-  }, [isOpen, property.id]);
-
-  // Check if user is returning from OAuth redirect
-  useEffect(() => {
-    if (isOpen && currentStep === 0) {
-      const checkInterval = setInterval(() => {
-        const oauthSuccess = getOAuthSuccess();
-        if (oauthSuccess) {
-          clearInterval(checkInterval);
-          handleOAuthCallback(oauthSuccess.code, oauthSuccess.state);
-        }
-      }, 500);
-
-      return () => clearInterval(checkInterval);
-    }
-  }, [isOpen, currentStep]);
-
-  const handleOAuthCallback = async (code: string, state: string) => {
+  const handleOAuthCallback = useCallback(async (code: string, state: string) => {
     setLoading(true);
     try {
       const stateData = parseOAuthState(state);
@@ -152,7 +97,62 @@ export function AvitoConnectModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [property.id]);
+
+  // Load progress on open
+  useEffect(() => {
+    if (isOpen) {
+      const progress = loadConnectionProgress(property.id);
+      if (progress && progress.step > 0) {
+        setCurrentStep(progress.step);
+        if (progress.data.accountId) setSelectedAccountId(progress.data.accountId);
+        if (progress.data.itemId) setItemId(progress.data.itemId);
+        if (progress.data.markup) setMarkup(progress.data.markup);
+        if (progress.data.accessToken) setAccessToken(progress.data.accessToken);
+      } else {
+        // Check for OAuth callback results
+        const oauthError = getOAuthError();
+        if (oauthError) {
+          Modal.error({
+            title: 'Ошибка авторизации',
+            content: oauthError.error_description || oauthError.error || 'Неизвестная ошибка',
+            okText: 'Попробовать снова',
+            onOk: () => {
+              clearConnectionProgress(property.id);
+              setCurrentStep(0);
+            },
+          });
+          return;
+        }
+
+        const oauthSuccess = getOAuthSuccess();
+        if (oauthSuccess) {
+          handleOAuthCallback(oauthSuccess.code, oauthSuccess.state);
+        } else {
+          setCurrentStep(0);
+        }
+      }
+    } else {
+      // Reset on close
+      setCurrentStep(0);
+      setOauthRedirecting(false);
+    }
+  }, [isOpen, property.id, handleOAuthCallback]);
+
+  // Check if user is returning from OAuth redirect
+  useEffect(() => {
+    if (isOpen && currentStep === 0) {
+      const checkInterval = setInterval(() => {
+        const oauthSuccess = getOAuthSuccess();
+        if (oauthSuccess) {
+          clearInterval(checkInterval);
+          handleOAuthCallback(oauthSuccess.code, oauthSuccess.state);
+        }
+      }, 500);
+
+      return () => clearInterval(checkInterval);
+    }
+  }, [isOpen, currentStep, handleOAuthCallback]);
 
   const handleConnectClick = () => {
     try {

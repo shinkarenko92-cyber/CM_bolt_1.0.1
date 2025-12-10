@@ -66,7 +66,7 @@ Deno.serve(async (req: Request) => {
         if (!response.ok) {
           // Пытаемся получить детальную информацию об ошибке от Avito
           let errorMessage = `Token exchange failed (${response.status})`;
-          let errorDetails: any = null;
+          let errorDetails: { error?: string; error_description?: string } | null = null;
           
           try {
             const errorData = await response.json();
