@@ -57,11 +57,16 @@ export function Dashboard() {
   const [prefilledDates, setPrefilledDates] = useState<{ propertyId: string; checkIn: string; checkOut: string } | null>(null);
 
   // Helper function for retry logic
+  type SupabaseQueryResult<T> = {
+    data: T | null;
+    error: { message: string; details?: string; hint?: string; code?: string } | null;
+  };
+
   const retrySupabaseQuery = async <T,>(
-    queryFn: () => Promise<{ data: T | null; error: any }>,
+    queryFn: () => Promise<SupabaseQueryResult<T>>,
     retries = 3,
     delay = 1000
-  ): Promise<{ data: T | null; error: any }> => {
+  ): Promise<SupabaseQueryResult<T>> => {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         const result = await queryFn();
@@ -77,10 +82,17 @@ export function Dashboard() {
         
         // Ждем перед повторной попыткой (экспоненциальная задержка)
         await new Promise(resolve => setTimeout(resolve, delay * attempt));
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Если это последняя попытка, возвращаем ошибку
         if (attempt === retries) {
-          return { data: null, error };
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          return { 
+            data: null, 
+            error: { 
+              message: errorMessage,
+              details: error instanceof Error ? error.stack : undefined
+            } 
+          };
         }
         
         // Ждем перед повторной попыткой
