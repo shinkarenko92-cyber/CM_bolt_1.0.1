@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Edit2, MapPin } from 'lucide-react';
 import { Property } from '../lib/supabase';
 import { PropertyModal } from './PropertyModal';
+import { getOAuthSuccess, getOAuthError, parseOAuthState } from '../services/avito';
 
 interface PropertiesViewProps {
   properties: Property[];
@@ -13,6 +14,34 @@ interface PropertiesViewProps {
 export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: PropertiesViewProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+
+  // Автоматически открываем PropertyModal для property, если есть OAuth callback
+  useEffect(() => {
+    const oauthSuccess = getOAuthSuccess();
+    const oauthError = getOAuthError();
+    
+    if (oauthSuccess || oauthError) {
+      try {
+        if (oauthSuccess) {
+          const stateData = parseOAuthState(oauthSuccess.state);
+          if (stateData) {
+            const property = properties.find(p => p.id === stateData.property_id);
+            if (property && !isModalOpen) {
+              console.log('OAuth callback detected, opening PropertyModal for property:', property.id);
+              setSelectedProperty(property);
+              setIsModalOpen(true);
+            }
+          }
+        } else if (oauthError) {
+          // Для ошибки тоже нужно найти property, но это сложнее
+          // Пока просто логируем
+          console.log('OAuth error detected, but cannot determine property');
+        }
+      } catch (error) {
+        console.error('Error handling OAuth callback:', error);
+      }
+    }
+  }, [properties, isModalOpen]);
 
   const handleAdd = () => {
     setSelectedProperty(null);

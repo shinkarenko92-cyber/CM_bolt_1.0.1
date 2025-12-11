@@ -87,9 +87,9 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
   // Автоматически открываем модальное окно Avito, если есть OAuth callback
   useEffect(() => {
-    if (!property || !isOpen) return;
+    if (!property) return;
 
-    // Проверяем, есть ли данные OAuth callback
+    // Проверяем, есть ли данные OAuth callback (даже если PropertyModal закрыт)
     const oauthSuccess = getOAuthSuccess();
     const oauthError = getOAuthError();
     
@@ -97,17 +97,28 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       // Проверяем, что state соответствует текущему property
       try {
         const stateData = parseOAuthState(oauthSuccess.state);
-        if (stateData && stateData.property_id === property.id && !isAvitoModalOpen) {
-          console.log('OAuth callback detected for property, opening Avito modal');
-          setIsAvitoModalOpen(true);
+        if (stateData && stateData.property_id === property.id) {
+          console.log('OAuth callback detected for property, opening modals');
+          // Если PropertyModal закрыт, нужно его открыть сначала
+          if (!isOpen) {
+            // Не можем открыть PropertyModal отсюда, нужно делать это на уровне выше
+            // Но можем открыть Avito modal, если PropertyModal уже открыт
+            return;
+          }
+          // Если PropertyModal открыт, открываем Avito modal
+          if (!isAvitoModalOpen) {
+            setIsAvitoModalOpen(true);
+          }
         }
       } catch (error) {
         console.error('Error parsing OAuth state:', error);
       }
-    } else if (oauthError && !isAvitoModalOpen) {
+    } else if (oauthError) {
       // Если есть ошибка OAuth, тоже открываем модальное окно, чтобы показать ошибку
-      console.log('OAuth error detected, opening Avito modal');
-      setIsAvitoModalOpen(true);
+      if (isOpen && !isAvitoModalOpen) {
+        console.log('OAuth error detected, opening Avito modal');
+        setIsAvitoModalOpen(true);
+      }
     }
   }, [property, isOpen, isAvitoModalOpen]);
 
