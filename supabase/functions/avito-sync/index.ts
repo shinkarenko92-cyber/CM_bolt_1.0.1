@@ -402,22 +402,79 @@ Deno.serve(async (req: Request) => {
           token_length: access_token.length,
         });
 
-        // Проверяем, существует ли объявление через endpoint bookings
-        // Этот endpoint точно работает для short_term_rent объявлений
-        // Если объявление существует и принадлежит аккаунту, вернется 200 (даже если bookings пустой)
-        // Если не существует или не принадлежит аккаунту, вернется 404
-        const response = await fetch(
-          `${AVITO_API_BASE}/short_term_rent/accounts/${account_id}/items/${item_id}/bookings`,
+        // Пробуем несколько endpoints для проверки объявления
+        // 1. Сначала пробуем short_term_rent bookings (для short_term_rent объявлений)
+        // 2. Если не работает, пробуем core/v1 items (для обычных объявлений)
+        const endpoints = [
           {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${access_token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+            url: `${AVITO_API_BASE}/short_term_rent/accounts/${account_id}/items/${item_id}/bookings`,
+            type: "short_term_rent",
+          },
+          {
+            url: `${AVITO_API_BASE}/core/v1/accounts/${account_id}/items/${item_id}`,
+            type: "core_v1",
+          },
+        ];
 
-        console.log("Item validation response:", {
+        let lastResponse: Response | null = null;
+        let lastError: string | null = null;
+
+        for (const endpoint of endpoints) {
+          try {
+            console.log(`Trying validation endpoint: ${endpoint.type}`, { url: endpoint.url });
+            const response = await fetch(endpoint.url, {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${access_token}`,
+                "Content-Type": "application/json",
+              },
+            });
+
+            console.log(`Validation response (${endpoint.type}):`, {
+              status: response.status,
+              statusText: response.statusText,
+            });
+
+            // Если успешно (200), объявление существует
+            if (response.ok) {
+              console.log(`Item validation successful via ${endpoint.type} endpoint`);
+              lastResponse = response;
+              break;
+            }
+
+            // Если 404, объявление не найдено
+            if (response.status === 404) {
+              lastResponse = response;
+              break;
+            }
+
+            // Для других ошибок продолжаем пробовать следующий endpoint
+            const errorBody = await response.text();
+            lastError = `${endpoint.type}: ${response.status} ${response.statusText} - ${errorBody}`;
+            console.log(`Validation failed for ${endpoint.type}:`, lastError);
+          } catch (error) {
+            lastError = `${endpoint.type}: ${error instanceof Error ? error.message : String(error)}`;
+            console.error(`Error validating via ${endpoint.type}:`, error);
+          }
+        }
+
+        // Используем последний ответ для обработки
+        if (!lastResponse) {
+          return new Response(
+            JSON.stringify({
+              available: false,
+              error: `Не удалось проверить объявление. Попробованы все доступные endpoints. ${lastError || "Неизвестная ошибка"}`,
+            }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
+        }
+
+        const response = lastResponse;
+
+        console.log("Item validation final response:", {
           status: response.status,
           statusText: response.statusText,
         });
