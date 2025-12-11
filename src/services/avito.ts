@@ -336,7 +336,13 @@ export async function validateItemId(
   itemId: string,
   accessToken: string
 ): Promise<{ available: boolean; error?: string }> {
-  const { error } = await supabase.functions.invoke('avito-sync', {
+  console.log('validateItemId: Validating item', {
+    accountId,
+    itemId,
+    tokenLength: accessToken.length,
+  });
+
+  const { data, error } = await supabase.functions.invoke('avito-sync', {
     body: {
       action: 'validate-item',
       account_id: accountId,
@@ -345,10 +351,33 @@ export async function validateItemId(
     },
   });
 
+  // Логируем ответ для диагностики
+  console.log('validateItemId: Edge Function response', {
+    hasData: !!data,
+    hasError: !!error,
+    data,
+    errorMessage: error?.message,
+    errorStatus: error?.status,
+  });
+
+  // Если есть data и там есть error, значит Edge Function вернул ошибку в формате { available: false, error: "..." }
+  if (data && typeof data === 'object' && 'available' in data && !data.available) {
+    return {
+      available: false,
+      error: (data as { error?: string }).error || 'Ошибка при проверке ID',
+    };
+  }
+
+  // Если есть data и available === true, значит все ок
+  if (data && typeof data === 'object' && 'available' in data && data.available) {
+    return { available: true };
+  }
+
+  // Если есть error от Supabase
   if (error) {
     const errorMessage = error.message || 'Ошибка при проверке ID';
     
-    // Проверяем ошибку 404
+    // Проверяем ошибку 404 (Edge Function не развернута)
     if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
       return {
         available: false,
