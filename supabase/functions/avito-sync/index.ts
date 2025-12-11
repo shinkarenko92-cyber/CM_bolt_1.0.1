@@ -448,18 +448,35 @@ Deno.serve(async (req: Request) => {
           // Проверяем в базе данных, не используется ли этот item_id в другой интеграции
           const { data: existingIntegration } = await supabase
             .from("integrations")
-            .select("id, property_id")
+            .select("id, property_id, is_active")
             .eq("platform", "avito")
             .eq("external_id", item_id)
             .maybeSingle();
 
           if (existingIntegration) {
-            console.log("Item already used in integration:", {
+            // Если property_id передан и совпадает с существующей интеграцией - разрешаем переподключение
+            if (property_id && existingIntegration.property_id === property_id) {
+              console.log("Item already used in same property, allowing reconnection:", {
+                integration_id: existingIntegration.id,
+                property_id: existingIntegration.property_id,
+              });
+              // Разрешаем переподключение к тому же property
+              return new Response(JSON.stringify({ available: true }), {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              });
+            }
+
+            // Если используется в другом property - блокируем
+            console.log("Item already used in different property:", {
               integration_id: existingIntegration.id,
-              property_id: existingIntegration.property_id,
+              existing_property_id: existingIntegration.property_id,
+              requested_property_id: property_id,
             });
             return new Response(
-              JSON.stringify({ available: false, error: "ID уже используется в другой интеграции" }),
+              JSON.stringify({ 
+                available: false, 
+                error: `ID уже используется в другом объекте (ID объекта: ${existingIntegration.property_id})` 
+              }),
               {
                 status: 409,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -334,7 +334,8 @@ export async function getUserAccounts(accessToken: string): Promise<AvitoAccount
 export async function validateItemId(
   accountId: string,
   itemId: string,
-  accessToken: string
+  accessToken: string,
+  propertyId?: string
 ): Promise<{ available: boolean; error?: string }> {
   console.log('validateItemId: Validating item', {
     accountId,
@@ -348,6 +349,7 @@ export async function validateItemId(
       account_id: accountId,
       item_id: itemId,
       access_token: accessToken,
+      property_id: propertyId, // Передаем property_id для проверки переподключения
     },
   });
 

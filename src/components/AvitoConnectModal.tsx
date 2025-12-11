@@ -332,7 +332,7 @@ export function AvitoConnectModal({
 
     setValidatingItemId(true);
     try {
-      const validation = await validateItemId(selectedAccountId, itemId, accessToken);
+      const validation = await validateItemId(selectedAccountId, itemId, accessToken, property.id);
       
       if (!validation.available) {
         Modal.error({
