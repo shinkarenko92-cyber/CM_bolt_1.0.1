@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Property, PropertyIntegration, AGGREGATOR_PLATFORMS } from '../lib/supabase';
 import { isAvitoConfigured } from '../services/avitoApi';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface ApiIntegrationSettingsProps {
   property: Property;
@@ -26,10 +27,22 @@ type Platform = {
 };
 
 export function ApiIntegrationSettings({ property, onIntegrationsChange }: ApiIntegrationSettingsProps) {
+  const { theme } = useTheme();
   const [showOthers, setShowOthers] = useState(false);
   const [integrations, setIntegrations] = useState<Record<string, PropertyIntegration>>({});
   const [expandedPlatform, setExpandedPlatform] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState<string | null>(null);
+  
+  // Theme-based class helpers
+  const cardBg = theme === 'light' ? 'bg-white' : 'bg-slate-700/50';
+  const cardBorder = theme === 'light' ? 'border-gray-200' : 'border-slate-600';
+  const cardHover = theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-slate-700/70';
+  const textPrimary = theme === 'light' ? 'text-gray-900' : 'text-white';
+  const textSecondary = theme === 'light' ? 'text-gray-600' : 'text-slate-400';
+  const textTertiary = theme === 'light' ? 'text-gray-500' : 'text-slate-500';
+  const inputBg = theme === 'light' ? 'bg-gray-50' : 'bg-slate-600';
+  const inputBorder = theme === 'light' ? 'border-gray-300' : 'border-slate-500';
+  const hintBg = theme === 'light' ? 'bg-gray-100' : 'bg-slate-800';
 
   // Load integrations from localStorage
   useEffect(() => {
@@ -106,32 +119,32 @@ export function ApiIntegrationSettings({ property, onIntegrationsChange }: ApiIn
     return (
       <div
         key={platform.id}
-        className={`bg-slate-700/50 rounded-lg overflow-hidden border ${
-          isEnabled && hasExternalId ? 'border-green-500/50' : 'border-slate-600'
+        className={`${cardBg} rounded-lg overflow-hidden border ${
+          isEnabled && hasExternalId ? 'border-green-500/50' : cardBorder
         }`}
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-700/70 transition-colors"
+          className={`flex items-center justify-between p-3 cursor-pointer ${cardHover} transition-colors`}
           onClick={() => setExpandedPlatform(isExpanded ? null : platform.id)}
         >
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-              isEnabled && hasExternalId ? 'bg-green-500/20' : 'bg-slate-600'
+              isEnabled && hasExternalId ? 'bg-green-500/20' : (theme === 'light' ? 'bg-gray-200' : 'bg-slate-600')
             }`}>
               <Link2 className={`w-5 h-5 ${
-                isEnabled && hasExternalId ? 'text-green-400' : 'text-slate-400'
+                isEnabled && hasExternalId ? 'text-green-400' : (theme === 'light' ? 'text-gray-500' : 'text-slate-400')
               }`} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-white font-medium">{platform.name}</span>
+                <span className={`${textPrimary} font-medium`}>{platform.name}</span>
                 {platform.hasApi && (
                   <span className="text-xs px-1.5 py-0.5 bg-teal-500/20 text-teal-400 rounded">API</span>
                 )}
               </div>
               {integration?.external_id && (
-                <p className="text-xs text-slate-400">ID: {integration.external_id}</p>
+                <p className={`text-xs ${textSecondary}`}>ID: {integration.external_id}</p>
               )}
             </div>
           </div>
@@ -141,19 +154,19 @@ export function ApiIntegrationSettings({ property, onIntegrationsChange }: ApiIn
               <Check className="w-4 h-4 text-green-400" />
             )}
             {isExpanded ? (
-              <ChevronUp className="w-5 h-5 text-slate-400" />
+              <ChevronUp className={`w-5 h-5 ${textSecondary}`} />
             ) : (
-              <ChevronDown className="w-5 h-5 text-slate-400" />
+              <ChevronDown className={`w-5 h-5 ${textSecondary}`} />
             )}
           </div>
         </div>
         
         {/* Expanded Content */}
         {isExpanded && (
-          <div className="p-4 border-t border-slate-600 space-y-4">
+          <div className={`p-4 border-t ${cardBorder} space-y-4`}>
             {/* External ID */}
             <div>
-              <label className="block text-sm text-slate-400 mb-1">
+              <label className={`block text-sm ${textSecondary} mb-1`}>
                 ID объявления на {platform.name}
               </label>
               <div className="flex gap-2">
@@ -162,49 +175,49 @@ export function ApiIntegrationSettings({ property, onIntegrationsChange }: ApiIn
                   value={integration?.external_id || ''}
                   onChange={(e) => saveIntegration(platform.id, { external_id: e.target.value })}
                   placeholder="Например: 123456789"
-                  className="flex-1 px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg text-white placeholder-slate-400 text-sm"
+                  className={`flex-1 px-3 py-2 ${inputBg} border ${inputBorder} rounded-lg ${textPrimary} ${theme === 'light' ? 'placeholder-gray-500' : 'placeholder-slate-400'} text-sm`}
                 />
                 <a
                   href={`https://${platform.id === 'avito' ? 'avito.ru' : platform.id === 'booking' ? 'booking.com' : platform.id === 'airbnb' ? 'airbnb.com' : 'cian.ru'}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 bg-slate-600 hover:bg-slate-500 rounded-lg transition-colors"
+                  className={`p-2 ${inputBg} ${theme === 'light' ? 'hover:bg-gray-200' : 'hover:bg-slate-500'} rounded-lg transition-colors`}
                   title="Открыть сайт"
                 >
-                  <ExternalLink className="w-5 h-5 text-slate-300" />
+                  <ExternalLink className={`w-5 h-5 ${textSecondary}`} />
                 </a>
               </div>
               
               {/* Helpful hint */}
               {platform.id === 'avito' && (
-                <div className="mt-2 p-2 bg-slate-800 rounded text-xs">
-                  <p className="text-slate-400 mb-1">Как найти ID:</p>
-                  <div className="text-slate-300 font-mono text-xs">
+                <div className={`mt-2 p-2 ${hintBg} rounded text-xs`}>
+                  <p className={`${textSecondary} mb-1`}>Как найти ID:</p>
+                  <div className={`${theme === 'light' ? 'text-gray-700' : 'text-slate-300'} font-mono text-xs`}>
                     avito.ru/moskva/kvartiry/<span className="text-teal-400 font-bold">123456789</span>
                   </div>
-                  <p className="text-slate-500 mt-1">ID — это число в конце ссылки</p>
+                  <p className={`${textTertiary} mt-1`}>ID — это число в конце ссылки</p>
                 </div>
               )}
               {platform.id === 'booking' && (
-                <div className="mt-2 p-2 bg-slate-800 rounded text-xs">
-                  <p className="text-slate-400 mb-1">Как найти ID:</p>
-                  <div className="text-slate-300 font-mono text-xs">
+                <div className={`mt-2 p-2 ${hintBg} rounded text-xs`}>
+                  <p className={`${textSecondary} mb-1`}>Как найти ID:</p>
+                  <div className={`${theme === 'light' ? 'text-gray-700' : 'text-slate-300'} font-mono text-xs`}>
                     booking.com/hotel/ru/<span className="text-teal-400 font-bold">hotel-name</span>.html
                   </div>
                 </div>
               )}
               {platform.id === 'airbnb' && (
-                <div className="mt-2 p-2 bg-slate-800 rounded text-xs">
-                  <p className="text-slate-400 mb-1">Как найти ID:</p>
-                  <div className="text-slate-300 font-mono text-xs">
+                <div className={`mt-2 p-2 ${hintBg} rounded text-xs`}>
+                  <p className={`${textSecondary} mb-1`}>Как найти ID:</p>
+                  <div className={`${theme === 'light' ? 'text-gray-700' : 'text-slate-300'} font-mono text-xs`}>
                     airbnb.ru/rooms/<span className="text-teal-400 font-bold">12345678</span>
                   </div>
                 </div>
               )}
               {platform.id === 'cian' && (
-                <div className="mt-2 p-2 bg-slate-800 rounded text-xs">
-                  <p className="text-slate-400 mb-1">Как найти ID:</p>
-                  <div className="text-slate-300 font-mono text-xs">
+                <div className={`mt-2 p-2 ${hintBg} rounded text-xs`}>
+                  <p className={`${textSecondary} mb-1`}>Как найти ID:</p>
+                  <div className={`${theme === 'light' ? 'text-gray-700' : 'text-slate-300'} font-mono text-xs`}>
                     cian.ru/rent/flat/<span className="text-teal-400 font-bold">123456789</span>
                   </div>
                 </div>
@@ -213,7 +226,7 @@ export function ApiIntegrationSettings({ property, onIntegrationsChange }: ApiIn
             
             {/* Markup */}
             <div>
-              <label className="block text-sm text-slate-400 mb-1">
+              <label className={`block text-sm ${textSecondary} mb-1`}>
                 Наценка для компенсации комиссии
               </label>
               <div className="flex gap-2">
@@ -223,15 +236,15 @@ export function ApiIntegrationSettings({ property, onIntegrationsChange }: ApiIn
                     value={integration?.markup_value || 0}
                     onChange={(e) => saveIntegration(platform.id, { markup_value: Number(e.target.value) })}
                     min="0"
-                    className="flex-1 px-3 py-2 bg-slate-600 border border-slate-500 rounded-l-lg text-white text-sm"
+                    className={`flex-1 px-3 py-2 ${inputBg} border ${inputBorder} rounded-l-lg ${textPrimary} text-sm`}
                   />
-                  <div className="flex border border-l-0 border-slate-500 rounded-r-lg overflow-hidden">
+                  <div className={`flex border border-l-0 ${inputBorder} rounded-r-lg overflow-hidden`}>
                     <button
                       onClick={() => saveIntegration(platform.id, { markup_type: 'percent' })}
                       className={`px-3 py-2 flex items-center justify-center transition-colors ${
                         (integration?.markup_type || 'percent') === 'percent'
                           ? 'bg-teal-600 text-white'
-                          : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
+                          : `${inputBg} ${textSecondary} ${theme === 'light' ? 'hover:bg-gray-200' : 'hover:bg-slate-500'}`
                       }`}
                       title="Процент"
                     >
@@ -242,7 +255,7 @@ export function ApiIntegrationSettings({ property, onIntegrationsChange }: ApiIn
                       className={`px-3 py-2 flex items-center justify-center transition-colors ${
                         integration?.markup_type === 'fixed'
                           ? 'bg-teal-600 text-white'
-                          : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
+                          : `${inputBg} ${textSecondary} ${theme === 'light' ? 'hover:bg-gray-200' : 'hover:bg-slate-500'}`
                       }`}
                       title="Фиксированная сумма"
                     >
@@ -251,7 +264,7 @@ export function ApiIntegrationSettings({ property, onIntegrationsChange }: ApiIn
                   </div>
                 </div>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className={`text-xs ${textTertiary} mt-1`}>
                 {(integration?.markup_type || 'percent') === 'percent'
                   ? `Цена на ${platform.name} = базовая цена + ${integration?.markup_value || 0}%`
                   : `Цена на ${platform.name} = базовая цена + ${integration?.markup_value || 0} ${property.currency}`
@@ -261,7 +274,7 @@ export function ApiIntegrationSettings({ property, onIntegrationsChange }: ApiIn
             
             {/* Enable/Disable */}
             <div className="flex items-center justify-between">
-              <label className="text-sm text-slate-300">Синхронизация включена</label>
+              <label className={`text-sm ${theme === 'light' ? 'text-gray-700' : 'text-slate-300'}`}>Синхронизация включена</label>
               <button
                 onClick={() => saveIntegration(platform.id, { is_enabled: !isEnabled })}
                 className={`relative w-12 h-6 rounded-full transition-colors ${
@@ -294,7 +307,7 @@ export function ApiIntegrationSettings({ property, onIntegrationsChange }: ApiIn
             
             {/* Last Sync */}
             {integration?.last_sync_at && (
-              <p className="text-xs text-slate-500 text-center">
+              <p className={`text-xs ${textTertiary} text-center`}>
                 Последняя синхронизация: {new Date(integration.last_sync_at).toLocaleString('ru-RU')}
               </p>
             )}
@@ -318,10 +331,10 @@ export function ApiIntegrationSettings({ property, onIntegrationsChange }: ApiIn
     <div className="space-y-4">
       <div className="flex items-center gap-2 mb-4">
         <Link2 className="w-5 h-5 text-teal-400" />
-        <h3 className="text-lg font-semibold text-white">API интеграции</h3>
+        <h3 className={`text-lg font-semibold ${textPrimary}`}>API интеграции</h3>
       </div>
       
-      <p className="text-sm text-slate-400 mb-4">
+      <p className={`text-sm ${textSecondary} mb-4`}>
         Настройте синхронизацию календаря с внешними площадками. 
         Для каждой площадки можно задать ID объявления и наценку.
       </p>
@@ -334,7 +347,7 @@ export function ApiIntegrationSettings({ property, onIntegrationsChange }: ApiIn
       {/* Show Others Button */}
       <button
         onClick={() => setShowOthers(!showOthers)}
-        className="w-full flex items-center justify-center gap-2 py-2 text-slate-400 hover:text-white transition-colors"
+        className={`w-full flex items-center justify-center gap-2 py-2 ${textSecondary} ${theme === 'light' ? 'hover:text-gray-900' : 'hover:text-white'} transition-colors`}
       >
         {showOthers ? (
           <>

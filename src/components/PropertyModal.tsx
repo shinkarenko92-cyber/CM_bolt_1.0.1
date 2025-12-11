@@ -112,6 +112,33 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     });
   };
 
+  const handleDeleteAvito = () => {
+    Modal.confirm({
+      title: 'Удалить интеграцию Avito?',
+      content: 'Интеграция будет полностью удалена из базы данных. Это действие нельзя отменить.',
+      okText: 'Удалить',
+      cancelText: 'Отмена',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        if (!avitoIntegration) return;
+        
+        // Delete from integrations (CASCADE will handle avito_items and avito_sync_queue)
+        const { error } = await supabase
+          .from('integrations')
+          .delete()
+          .eq('id', avitoIntegration.id);
+        
+        if (error) {
+          message.error('Ошибка при удалении: ' + error.message);
+          return;
+        }
+        
+        message.success('Интеграция Avito удалена');
+        loadAvitoIntegration();
+      },
+    });
+  };
+
   const handleEditMarkup = () => {
     setIsEditMarkupModalOpen(true);
   };
@@ -421,8 +448,11 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                       </div>
                       <div className="flex gap-2">
                         <Button onClick={handleEditMarkup}>Редактировать наценку</Button>
-                        <Button danger onClick={handleDisconnectAvito}>
+                        <Button onClick={handleDisconnectAvito}>
                           Отключить
+                        </Button>
+                        <Button danger onClick={handleDeleteAvito}>
+                          Удалить
                         </Button>
                       </div>
                     </>

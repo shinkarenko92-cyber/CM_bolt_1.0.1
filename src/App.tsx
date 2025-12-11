@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
-import { ConfigProvider } from 'antd';
+import { ConfigProvider, theme as antdTheme } from 'antd';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { ThemeProvider } from './contexts/ThemeContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { Auth } from './components/Auth';
 import { Dashboard } from './components/Dashboard';
 
 function AppContent() {
   const { user, loading } = useAuth();
+  const { theme } = useTheme();
 
   // Handle Avito OAuth callback
   useEffect(() => {
@@ -49,24 +50,34 @@ function AppContent() {
   return user ? <Dashboard /> : <Auth />;
 }
 
+function AppWithTheme() {
+  const { theme } = useTheme();
+  
+  const antdThemeConfig = {
+    token: {
+      colorPrimary: '#14b8a6', // teal-600
+      colorBgBase: theme === 'light' ? '#ffffff' : '#1e293b', // white for light, slate-800 for dark
+      colorText: theme === 'light' ? '#111827' : '#f1f5f9', // gray-900 for light, slate-100 for dark
+      colorBgContainer: theme === 'light' ? '#f8fafc' : '#1e293b', // slate-50 for light, slate-800 for dark
+      colorBorder: theme === 'light' ? '#e2e8f0' : '#475569', // gray-200 for light, slate-600 for dark
+    },
+    algorithm: theme === 'light' ? antdTheme.defaultAlgorithm : antdTheme.darkAlgorithm,
+  };
+
+  return (
+    <ConfigProvider theme={antdThemeConfig}>
+      <AppContent />
+    </ConfigProvider>
+  );
+}
+
 function App() {
   return (
-    <ConfigProvider
-      theme={{
-        token: {
-          colorPrimary: '#14b8a6', // teal-600
-          colorBgBase: '#1e293b', // slate-800
-          colorText: '#f1f5f9', // slate-100
-        },
-        algorithm: undefined, // Use default algorithm (dark mode handled by CSS)
-      }}
-    >
-      <AuthProvider>
-        <ThemeProvider>
-          <AppContent />
-        </ThemeProvider>
-      </AuthProvider>
-    </ConfigProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <AppWithTheme />
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
 

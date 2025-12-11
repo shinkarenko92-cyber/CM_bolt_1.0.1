@@ -197,6 +197,8 @@ Deno.serve(async (req: Request) => {
                 has_accounts: !!userData.accounts,
                 accounts_count: userData.accounts?.length || 0,
                 keys: Object.keys(userData),
+                has_id: !!userData.id,
+                has_user_id: !!userData.user_id,
               });
 
               // Avito API может возвращать аккаунты в разных форматах
@@ -217,11 +219,23 @@ Deno.serve(async (req: Request) => {
                 accounts = userData.items;
               }
 
+              // Если аккаунты не найдены, но есть данные пользователя в корне ответа,
+              // создаем аккаунт из данных пользователя
+              if (accounts.length === 0 && (userData.id || userData.user_id)) {
+                console.log("No accounts found in response, but user data exists. Creating account from user data.");
+                accounts = [{
+                  id: userData.id || userData.user_id,
+                  name: userData.name || userData.username || userData.display_name || userData.email || 'Мой аккаунт',
+                  is_primary: true,
+                  ...userData, // Сохраняем все остальные поля на случай, если они понадобятся
+                }];
+              }
+
               console.log("Extracted accounts:", {
                 count: accounts.length,
                 accounts: accounts.map((acc: any) => ({
                   id: acc.id || acc.account_id || acc.user_id,
-                  name: acc.name || acc.title || acc.username || 'Без названия',
+                  name: acc.name || acc.title || acc.username || acc.display_name || 'Без названия',
                   is_primary: acc.is_primary || acc.primary || false,
                 })),
               });
@@ -229,8 +243,8 @@ Deno.serve(async (req: Request) => {
               // Преобразуем в нужный формат
               const formattedAccounts = accounts.map((acc: any) => ({
                 id: acc.id || acc.account_id || acc.user_id || String(acc),
-                name: acc.name || acc.title || acc.username || acc.display_name || 'Без названия',
-                is_primary: acc.is_primary || acc.primary || false,
+                name: acc.name || acc.title || acc.username || acc.display_name || 'Мой аккаунт',
+                is_primary: acc.is_primary !== undefined ? acc.is_primary : (acc.primary !== undefined ? acc.primary : true),
               }));
 
               return new Response(JSON.stringify(formattedAccounts), {
