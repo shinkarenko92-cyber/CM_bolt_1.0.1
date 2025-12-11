@@ -7,7 +7,6 @@ import { Dashboard } from './components/Dashboard';
 
 function AppContent() {
   const { user, loading } = useAuth();
-  const { theme } = useTheme();
 
   // Handle Avito OAuth callback
   useEffect(() => {
