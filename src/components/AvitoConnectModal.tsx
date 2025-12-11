@@ -406,7 +406,14 @@ export function AvitoConnectModal({
       clearConnectionProgress(property.id);
 
       message.success('Avito подключён! Синхронизация запущена');
+      
+      // Вызываем onSuccess для обновления UI
       onSuccess?.();
+      
+      // Добавляем небольшую задержку перед закрытием, чтобы UI успел обновиться
+      // и база данных успела обновиться после initial-sync
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       onClose();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ошибка при сохранении интеграции';

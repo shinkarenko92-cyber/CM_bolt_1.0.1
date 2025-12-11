@@ -207,14 +207,24 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   const handleSaveMarkup = async () => {
     if (!avitoIntegration) return;
     
-    await supabase
-      .from('integrations')
-      .update({ avito_markup: newMarkup })
-      .eq('id', avitoIntegration.id);
-    
-    message.success('Наценка обновлена');
-    setIsEditMarkupModalOpen(false);
-    loadAvitoIntegration();
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('integrations')
+        .update({ avito_markup: newMarkup })
+        .eq('id', avitoIntegration.id);
+      
+      if (error) throw error;
+      
+      message.success('Наценка обновлена');
+      setIsEditMarkupModalOpen(false);
+      loadAvitoIntegration();
+    } catch (error) {
+      console.error('Failed to update markup:', error);
+      message.error('Ошибка при обновлении наценки: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatDate = (dateString: string | null) => {
