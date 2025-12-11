@@ -40,12 +40,24 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   const loadAvitoIntegration = useCallback(async () => {
     if (!property) return;
     
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('integrations')
       .select('*')
       .eq('property_id', property.id)
       .eq('platform', 'avito')
       .maybeSingle();
+    
+    console.log('PropertyModal: loadAvitoIntegration', {
+      property_id: property.id,
+      hasData: !!data,
+      error,
+      integration: data ? {
+        id: data.id,
+        is_active: data.is_active,
+        token_expires_at: data.token_expires_at,
+        last_sync_at: data.last_sync_at,
+      } : null,
+    });
     
     setAvitoIntegration(data);
     if (data?.avito_markup) {
@@ -239,8 +251,17 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   };
 
   const isTokenExpired = () => {
-    if (!avitoIntegration?.token_expires_at) return false; // If no expiration date, assume token is valid
-    return new Date(avitoIntegration.token_expires_at) < new Date();
+    if (!avitoIntegration?.token_expires_at) {
+      console.log('PropertyModal: isTokenExpired - no token_expires_at, assuming valid');
+      return false; // If no expiration date, assume token is valid
+    }
+    const expired = new Date(avitoIntegration.token_expires_at) < new Date();
+    console.log('PropertyModal: isTokenExpired', {
+      token_expires_at: avitoIntegration.token_expires_at,
+      now: new Date().toISOString(),
+      expired,
+    });
+    return expired;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
