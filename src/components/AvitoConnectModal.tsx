@@ -16,6 +16,8 @@ import {
   clearConnectionProgress,
   getOAuthError,
   getOAuthSuccess,
+  clearOAuthError,
+  clearOAuthSuccess,
   exchangeCodeForToken,
   getUserAccounts,
   validateItemId,
@@ -116,6 +118,10 @@ export function AvitoConnectModal({
         });
         setCurrentStep(1); // Go to account selection
       }
+
+      // Удаляем OAuth данные из localStorage после успешной обработки
+      console.log('AvitoConnectModal: OAuth callback processed successfully, clearing localStorage');
+      clearOAuthSuccess();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ошибка при обработке авторизации';
       console.error('AvitoConnectModal: Error in handleOAuthCallback', {
@@ -163,6 +169,8 @@ export function AvitoConnectModal({
         const oauthError = getOAuthError();
         if (oauthError) {
           console.log('AvitoConnectModal: OAuth error detected', oauthError);
+          // Удаляем OAuth error из localStorage после обработки
+          clearOAuthError();
           Modal.error({
             title: 'Ошибка авторизации',
             content: oauthError.error_description || oauthError.error || 'Неизвестная ошибка',

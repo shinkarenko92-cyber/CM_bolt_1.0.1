@@ -102,12 +102,13 @@ export function loadConnectionProgress(propertyId: string): ConnectionProgress |
  */
 export function clearConnectionProgress(propertyId: string): void {
   localStorage.removeItem(`avito_connect_${propertyId}`);
-  localStorage.removeItem('avito_oauth_error');
-  localStorage.removeItem('avito_oauth_success');
+  clearOAuthError();
+  clearOAuthSuccess();
 }
 
 /**
  * Get OAuth error from localStorage (set by callback handler)
+ * Does NOT remove from localStorage - call clearOAuthError() after handling
  */
 export function getOAuthError(): AvitoOAuthError | null {
   const saved = localStorage.getItem('avito_oauth_error');
@@ -115,7 +116,7 @@ export function getOAuthError(): AvitoOAuthError | null {
   
   try {
     const error: AvitoOAuthError = JSON.parse(saved);
-    localStorage.removeItem('avito_oauth_error');
+    // НЕ удаляем здесь - удалим после обработки
     return error;
   } catch {
     localStorage.removeItem('avito_oauth_error');
@@ -125,6 +126,7 @@ export function getOAuthError(): AvitoOAuthError | null {
 
 /**
  * Get OAuth success (code + state) from localStorage (set by callback handler)
+ * Does NOT remove from localStorage - call clearOAuthSuccess() after handling
  */
 export function getOAuthSuccess(): AvitoOAuthSuccess | null {
   const saved = localStorage.getItem('avito_oauth_success');
@@ -132,12 +134,26 @@ export function getOAuthSuccess(): AvitoOAuthSuccess | null {
   
   try {
     const success: AvitoOAuthSuccess = JSON.parse(saved);
-    localStorage.removeItem('avito_oauth_success');
+    // НЕ удаляем здесь - удалим после обработки
     return success;
   } catch {
     localStorage.removeItem('avito_oauth_success');
     return null;
   }
+}
+
+/**
+ * Clear OAuth error from localStorage (call after handling)
+ */
+export function clearOAuthError(): void {
+  localStorage.removeItem('avito_oauth_error');
+}
+
+/**
+ * Clear OAuth success from localStorage (call after handling)
+ */
+export function clearOAuthSuccess(): void {
+  localStorage.removeItem('avito_oauth_success');
 }
 
 /**
