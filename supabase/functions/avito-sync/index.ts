@@ -241,6 +241,12 @@ Deno.serve(async (req: Request) => {
         }
 
         // All endpoints failed - return error response instead of throwing
+        const errorMessage = lastResponse
+          ? `Failed to get user accounts: ${lastResponse.status} ${lastResponse.statusText}`
+          : lastErrorMessage
+          ? `Failed to get user accounts: ${lastErrorMessage}`
+          : "Failed to get user accounts: All endpoints returned errors";
+
         const statusCode = lastResponse?.status && lastResponse.status >= 400 && lastResponse.status < 600
           ? lastResponse.status
           : 500;
