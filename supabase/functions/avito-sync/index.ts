@@ -647,7 +647,7 @@ Deno.serve(async (req: Request) => {
 
         // Calculate prices with markup
         const basePrice = property?.base_price || 0;
-        const markup = integration.avito_markup || 15;
+        const markup = integration.avito_markup !== null && integration.avito_markup !== undefined ? integration.avito_markup : 15;
         const priceWithMarkup = Math.round(basePrice * (1 + markup / 100));
 
         // Prepare blocked dates from bookings
