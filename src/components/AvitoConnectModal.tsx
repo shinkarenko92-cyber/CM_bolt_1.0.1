@@ -139,7 +139,14 @@ export function AvitoConnectModal({
       const errorMessage = error instanceof Error ? error.message : 'Ошибка при обработке авторизации';
       
       // Извлекаем детали ошибки, если они есть
-      const errorDetails = (error as any)?.details;
+      interface ErrorWithDetails extends Error {
+        details?: {
+          error?: string;
+          error_description?: string;
+          details?: string;
+        } | null;
+      }
+      const errorDetails = (error as ErrorWithDetails)?.details;
       const hasInvalidGrant = errorMessage.includes('invalid_grant') || 
                              errorDetails?.error === 'invalid_grant' ||
                              errorMessage.toLowerCase().includes('invalid_grant');

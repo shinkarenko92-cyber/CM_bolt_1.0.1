@@ -21,7 +21,7 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
       propertiesCount: properties.length,
       properties: properties.map(p => ({ id: p.id, name: p.name }))
     });
-  }, []);
+  }, [properties]);
 
   // Автоматически открываем PropertyModal для property, если есть OAuth callback
   useEffect(() => {

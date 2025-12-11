@@ -14,6 +14,16 @@ import type {
 
 const PROGRESS_TTL = 3600000; // 1 hour in milliseconds
 
+// Тип для ошибки с деталями от Avito API
+interface ErrorWithDetails extends Error {
+  details?: {
+    error?: string;
+    error_description?: string;
+    details?: string;
+  } | null;
+  originalError?: unknown;
+}
+
 /**
  * Generate OAuth URL for Avito authorization
  * Uses VITE_AVITO_CLIENT_ID from environment (public, safe to expose)
@@ -216,9 +226,9 @@ export async function exchangeCodeForToken(code: string, redirectUri: string): P
     }
 
     // Сохраняем детали ошибки для специальной обработки invalid_grant
-    const errorWithDetails = new Error(errorMessage);
-    (errorWithDetails as any).details = errorDetails;
-    (errorWithDetails as any).originalError = error;
+    const errorWithDetails: ErrorWithDetails = new Error(errorMessage);
+    errorWithDetails.details = errorDetails;
+    errorWithDetails.originalError = error;
     throw errorWithDetails;
   }
 
