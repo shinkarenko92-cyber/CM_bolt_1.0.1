@@ -11,10 +11,8 @@ CREATE TABLE IF NOT EXISTS integrations (
   UNIQUE(property_id, platform)
 );
 
--- Add Vault extension for token encryption
-CREATE EXTENSION IF NOT EXISTS vault;
-
 -- Update integrations table with Avito-specific fields
+-- Note: Vault extension is not available in Supabase, tokens are stored as-is
 ALTER TABLE integrations 
 ADD COLUMN IF NOT EXISTS avito_account_id VARCHAR(255),
 ADD COLUMN IF NOT EXISTS avito_item_id BIGINT,
