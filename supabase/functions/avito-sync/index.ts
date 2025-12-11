@@ -240,20 +240,26 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        // All endpoints failed
-        const errorMessage = lastResponse
-          ? `Failed to get user accounts: ${lastResponse.status} ${lastResponse.statusText}`
-          : lastError
-          ? `Failed to get user accounts: ${lastError.message}`
-          : "Failed to get user accounts: All endpoints returned errors";
+        // All endpoints failed - return error response instead of throwing
+        const statusCode = lastResponse?.status && lastResponse.status >= 400 && lastResponse.status < 600
+          ? lastResponse.status
+          : 500;
 
-        console.error("All endpoints failed:", {
-          errorMessage,
-          last_status: lastResponse?.status,
-          last_statusText: lastResponse?.statusText,
-        });
-
-        throw new Error(errorMessage);
+        return new Response(
+          JSON.stringify({
+            error: errorMessage,
+            details: lastResponse
+              ? {
+                  status: lastResponse.status,
+                  statusText: lastResponse.statusText,
+                }
+              : undefined,
+          }),
+          {
+            status: statusCode,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
       }
 
       case "validate-item": {
