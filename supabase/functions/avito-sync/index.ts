@@ -220,13 +220,19 @@ Deno.serve(async (req: Request) => {
 
             if (response.ok) {
               const userData = await response.json();
+              
+              // Детальное логирование для диагностики
               console.log("Successfully retrieved user data:", {
-                full_response: userData,
+                full_response: JSON.stringify(userData, null, 2),
                 has_accounts: !!userData.accounts,
                 accounts_count: userData.accounts?.length || 0,
                 keys: Object.keys(userData),
                 has_id: !!userData.id,
                 has_user_id: !!userData.user_id,
+                userData_id: userData.id,
+                userData_user_id: userData.user_id,
+                userData_account_id: userData.account_id,
+                userData_client_id: userData.client_id,
               });
 
               // Avito API может возвращать аккаунты в разных форматах
@@ -250,14 +256,39 @@ Deno.serve(async (req: Request) => {
 
               // Если аккаунты не найдены, но есть данные пользователя в корне ответа,
               // создаем аккаунт из данных пользователя
-              if (accounts.length === 0 && (userDataTyped.id || userDataTyped.user_id)) {
-                console.log("No accounts found in response, but user data exists. Creating account from user data.");
-                accounts = [{
-                  id: userDataTyped.id || userDataTyped.user_id,
-                  name: userDataTyped.name || userDataTyped.username || userDataTyped.display_name || userDataTyped.email || 'Мой аккаунт',
-                  is_primary: true,
-                  ...userDataTyped, // Сохраняем все остальные поля на случай, если они понадобятся
-                }];
+              if (accounts.length === 0) {
+                // Проверяем все возможные поля для ID
+                const userId = userDataTyped.id || 
+                               userDataTyped.user_id || 
+                               userDataTyped.account_id ||
+                               userDataTyped.client_id;
+                
+                if (userId) {
+                  console.log("No accounts found in response, but user data exists. Creating account from user data.", {
+                    userId,
+                    userDataKeys: Object.keys(userDataTyped),
+                    userDataSample: JSON.stringify(userDataTyped).substring(0, 500),
+                  });
+                  
+                  const accountName = userDataTyped.name || 
+                                      userDataTyped.username || 
+                                      userDataTyped.display_name || 
+                                      userDataTyped.email || 
+                                      userDataTyped.title ||
+                                      'Мой аккаунт';
+                  
+                  accounts = [{
+                    id: String(userId),
+                    name: String(accountName),
+                    is_primary: true,
+                    ...userDataTyped, // Сохраняем все остальные поля на случай, если они понадобятся
+                  }];
+                } else {
+                  console.error("No accounts found and no user ID in response:", {
+                    userDataKeys: Object.keys(userDataTyped),
+                    userDataSample: JSON.stringify(userDataTyped).substring(0, 500),
+                  });
+                }
               }
 
               console.log("Extracted accounts:", {
@@ -271,7 +302,7 @@ Deno.serve(async (req: Request) => {
 
               // Преобразуем в нужный формат
               const formattedAccounts = accounts.map((acc: AvitoAccount) => ({
-                id: acc.id || acc.account_id || acc.user_id || String(acc),
+                id: String(acc.id || acc.account_id || acc.user_id || 'unknown'),
                 name: acc.name || acc.title || acc.username || acc.display_name || 'Мой аккаунт',
                 is_primary: acc.is_primary !== undefined ? acc.is_primary : (acc.primary !== undefined ? acc.primary : true),
               }));

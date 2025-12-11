@@ -4,6 +4,7 @@ import { Badge, Button, InputNumber, Modal, message } from 'antd';
 import { Property, PropertyIntegration } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { AvitoConnectModal } from './AvitoConnectModal';
+import { getOAuthSuccess, getOAuthError, parseOAuthState } from '../services/avito';
 
 interface PropertyModalProps {
   isOpen: boolean;
@@ -83,6 +84,32 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     setError(null);
     loadAvitoIntegration();
   }, [property, isOpen, loadAvitoIntegration]);
+
+  // Автоматически открываем модальное окно Avito, если есть OAuth callback
+  useEffect(() => {
+    if (!property || !isOpen) return;
+
+    // Проверяем, есть ли данные OAuth callback
+    const oauthSuccess = getOAuthSuccess();
+    const oauthError = getOAuthError();
+    
+    if (oauthSuccess) {
+      // Проверяем, что state соответствует текущему property
+      try {
+        const stateData = parseOAuthState(oauthSuccess.state);
+        if (stateData && stateData.property_id === property.id && !isAvitoModalOpen) {
+          console.log('OAuth callback detected for property, opening Avito modal');
+          setIsAvitoModalOpen(true);
+        }
+      } catch (error) {
+        console.error('Error parsing OAuth state:', error);
+      }
+    } else if (oauthError && !isAvitoModalOpen) {
+      // Если есть ошибка OAuth, тоже открываем модальное окно, чтобы показать ошибку
+      console.log('OAuth error detected, opening Avito modal');
+      setIsAvitoModalOpen(true);
+    }
+  }, [property, isOpen, isAvitoModalOpen]);
 
   const handleDisconnectAvito = () => {
     Modal.confirm({
