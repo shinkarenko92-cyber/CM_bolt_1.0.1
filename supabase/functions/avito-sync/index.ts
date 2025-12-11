@@ -381,7 +381,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case "validate-item": {
-        const { account_id, item_id, access_token } = params;
+        const { account_id, item_id, access_token, property_id } = params;
 
         // Валидация параметров
         if (!account_id || !item_id || !access_token) {
