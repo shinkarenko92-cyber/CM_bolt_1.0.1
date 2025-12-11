@@ -221,6 +221,9 @@ Deno.serve(async (req: Request) => {
             if (response.ok) {
               const userData = await response.json();
               
+              // Полное логирование ответа от Avito API для поддержки
+              console.log("Full Avito API response body:", JSON.stringify(userData, null, 2));
+              
               // Детальное логирование для диагностики
               console.log("Successfully retrieved user data:", {
                 full_response: JSON.stringify(userData, null, 2),
