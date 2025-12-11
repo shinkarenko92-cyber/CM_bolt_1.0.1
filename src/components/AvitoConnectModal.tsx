@@ -66,6 +66,11 @@ export function AvitoConnectModal({
       isProcessingOAuth
     });
 
+    // Удаляем OAuth данные из localStorage СРАЗУ после первого использования кода
+    // Это предотвратит повторное использование кода, даже если функция вызывается дважды
+    console.log('AvitoConnectModal: Clearing OAuth data from localStorage immediately to prevent code reuse');
+    clearOAuthSuccess();
+
     setIsProcessingOAuth(true);
     setLoading(true);
     try {
@@ -128,17 +133,42 @@ export function AvitoConnectModal({
         setCurrentStep(1); // Go to account selection
       }
 
-      // Удаляем OAuth данные из localStorage после успешной обработки
-      console.log('AvitoConnectModal: OAuth callback processed successfully, clearing localStorage');
-      clearOAuthSuccess();
+      // OAuth данные уже удалены в начале функции, просто логируем успех
+      console.log('AvitoConnectModal: OAuth callback processed successfully');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ошибка при обработке авторизации';
+      
+      // Извлекаем детали ошибки, если они есть
+      const errorDetails = (error as any)?.details;
+      const hasInvalidGrant = errorMessage.includes('invalid_grant') || 
+                             errorDetails?.error === 'invalid_grant' ||
+                             errorMessage.toLowerCase().includes('invalid_grant');
+      
       console.error('AvitoConnectModal: Error in handleOAuthCallback', {
         error,
         errorMessage,
         errorName: error instanceof Error ? error.name : 'Unknown',
-        errorStack: error instanceof Error ? error.stack : undefined
+        errorStack: error instanceof Error ? error.stack : undefined,
+        errorDetails,
+        hasInvalidGrant
       });
+      
+      // Специальная обработка ошибки invalid_grant
+      if (hasInvalidGrant) {
+        Modal.error({
+          title: 'Код авторизации недействителен',
+          content: 'Код авторизации уже использован или истек. Пожалуйста, начните процесс подключения Avito заново. Нажмите "Подключить Avito" еще раз.',
+          okText: 'Понятно',
+          width: 500,
+          onOk: () => {
+            // Сбрасываем состояние и возвращаемся к начальному шагу
+            clearConnectionProgress(property.id);
+            setCurrentStep(0);
+            setIsProcessingOAuth(false);
+          },
+        });
+        return;
+      }
       
       // Проверяем, не является ли это ошибкой 404 (Edge Function не развернута)
       if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
@@ -149,7 +179,11 @@ export function AvitoConnectModal({
           width: 500,
         });
       } else {
-        message.error(errorMessage);
+        // Показываем детальное сообщение об ошибке, если есть детали от Avito API
+        const displayMessage = errorDetails?.error_description || 
+                              errorDetails?.details || 
+                              errorMessage;
+        message.error(displayMessage);
       }
     } finally {
       setLoading(false);

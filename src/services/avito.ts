@@ -172,14 +172,54 @@ export async function exchangeCodeForToken(code: string, redirectUri: string): P
   });
 
   if (error) {
-    // Улучшенная обработка ошибок
-    const errorMessage = error.message || 'Failed to exchange code for token';
+    console.error('exchangeCodeForToken: Edge Function error', {
+      error,
+      message: error.message,
+      context: error.context,
+      status: error.status,
+      data: error.data
+    });
+
+    // Извлекаем детали ошибки из error.data
+    let errorMessage = error.message || 'Failed to exchange code for token';
+    let errorDetails: { error?: string; error_description?: string; details?: string } | null = null;
+
+    // Проверяем error.data для получения деталей от Avito API
+    if (error.data) {
+      try {
+        // error.data может быть строкой или объектом
+        if (typeof error.data === 'string') {
+          errorDetails = JSON.parse(error.data);
+        } else if (typeof error.data === 'object') {
+          errorDetails = error.data;
+        }
+
+        // Если есть детали от Avito API, используем их
+        if (errorDetails) {
+          if (errorDetails.error) {
+            errorMessage = `Avito API error: ${errorDetails.error}`;
+            if (errorDetails.error_description) {
+              errorMessage += ` - ${errorDetails.error_description}`;
+            }
+          } else if (errorDetails.details) {
+            errorMessage = `${errorMessage}: ${errorDetails.details}`;
+          }
+        }
+      } catch (parseError) {
+        console.warn('exchangeCodeForToken: Failed to parse error.data', parseError);
+        // Если не удалось распарсить, используем исходное сообщение
+      }
+    }
     
     if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
       throw new Error('Edge Function avito-sync не развернута. Пожалуйста, разверните функцию в Supabase Dashboard.');
     }
-    
-    throw new Error(errorMessage);
+
+    // Сохраняем детали ошибки для специальной обработки invalid_grant
+    const errorWithDetails = new Error(errorMessage);
+    (errorWithDetails as any).details = errorDetails;
+    (errorWithDetails as any).originalError = error;
+    throw errorWithDetails;
   }
 
   return data as AvitoTokenResponse;
