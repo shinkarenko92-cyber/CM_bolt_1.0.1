@@ -254,6 +254,18 @@ export async function getUserAccounts(accessToken: string): Promise<AvitoAccount
     },
   });
 
+  // Логируем ответ Edge Function для диагностики
+  console.log('getUserAccounts: Edge Function response', {
+    hasData: !!data,
+    hasError: !!error,
+    dataType: data ? typeof data : 'null',
+    dataIsArray: Array.isArray(data),
+    dataLength: Array.isArray(data) ? data.length : 'not array',
+    errorMessage: error?.message,
+    errorStatus: error?.status,
+    errorData: error?.data
+  });
+
   if (error) {
     console.error('getUserAccounts: Edge Function error', {
       error,
@@ -287,14 +299,30 @@ export async function getUserAccounts(accessToken: string): Promise<AvitoAccount
 
   // Проверяем, что data существует и является массивом
   if (!data) {
-    console.warn('getUserAccounts: No data returned from Edge Function, returning empty array');
+    console.warn('getUserAccounts: No data returned from Edge Function, returning empty array', {
+      error: error?.message,
+      errorData: error?.data
+    });
     return [];
   }
 
   if (!Array.isArray(data)) {
-    console.error('getUserAccounts: Data is not an array', { data });
-    throw new Error('Invalid response format from Edge Function');
+    console.error('getUserAccounts: Data is not an array', { 
+      data,
+      dataType: typeof data,
+      dataKeys: typeof data === 'object' ? Object.keys(data) : 'not object'
+    });
+    throw new Error('Invalid response format from Edge Function: expected array, got ' + typeof data);
   }
+
+  console.log('getUserAccounts: Successfully received accounts', {
+    count: data.length,
+    accounts: data.map(acc => ({
+      id: acc.id,
+      name: acc.name,
+      is_primary: acc.is_primary
+    }))
+  });
 
   return data as AvitoAccount[];
 }
