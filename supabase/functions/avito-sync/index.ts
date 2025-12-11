@@ -13,6 +13,34 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+// Types for Avito API responses
+interface AvitoAccount {
+  id?: string;
+  account_id?: string;
+  user_id?: string;
+  name?: string;
+  title?: string;
+  username?: string;
+  display_name?: string;
+  email?: string;
+  is_primary?: boolean;
+  primary?: boolean;
+  [key: string]: unknown; // Allow additional fields
+}
+
+interface AvitoUserData {
+  id?: string;
+  user_id?: string;
+  name?: string;
+  username?: string;
+  display_name?: string;
+  email?: string;
+  accounts?: AvitoAccount[];
+  data?: AvitoAccount[];
+  items?: AvitoAccount[];
+  [key: string]: unknown; // Allow additional fields
+}
+
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -203,37 +231,38 @@ Deno.serve(async (req: Request) => {
 
               // Avito API может возвращать аккаунты в разных форматах
               // Проверяем разные возможные варианты
-              let accounts: any[] = [];
+              let accounts: AvitoAccount[] = [];
+              const userDataTyped = userData as AvitoUserData;
               
               if (Array.isArray(userData)) {
                 // Если ответ - массив аккаунтов напрямую
-                accounts = userData;
-              } else if (userData.accounts && Array.isArray(userData.accounts)) {
+                accounts = userData as AvitoAccount[];
+              } else if (userDataTyped.accounts && Array.isArray(userDataTyped.accounts)) {
                 // Если аккаунты в поле accounts
-                accounts = userData.accounts;
-              } else if (userData.data && Array.isArray(userData.data)) {
+                accounts = userDataTyped.accounts;
+              } else if (userDataTyped.data && Array.isArray(userDataTyped.data)) {
                 // Если аккаунты в поле data
-                accounts = userData.data;
-              } else if (userData.items && Array.isArray(userData.items)) {
+                accounts = userDataTyped.data;
+              } else if (userDataTyped.items && Array.isArray(userDataTyped.items)) {
                 // Если аккаунты в поле items
-                accounts = userData.items;
+                accounts = userDataTyped.items;
               }
 
               // Если аккаунты не найдены, но есть данные пользователя в корне ответа,
               // создаем аккаунт из данных пользователя
-              if (accounts.length === 0 && (userData.id || userData.user_id)) {
+              if (accounts.length === 0 && (userDataTyped.id || userDataTyped.user_id)) {
                 console.log("No accounts found in response, but user data exists. Creating account from user data.");
                 accounts = [{
-                  id: userData.id || userData.user_id,
-                  name: userData.name || userData.username || userData.display_name || userData.email || 'Мой аккаунт',
+                  id: userDataTyped.id || userDataTyped.user_id,
+                  name: userDataTyped.name || userDataTyped.username || userDataTyped.display_name || userDataTyped.email || 'Мой аккаунт',
                   is_primary: true,
-                  ...userData, // Сохраняем все остальные поля на случай, если они понадобятся
+                  ...userDataTyped, // Сохраняем все остальные поля на случай, если они понадобятся
                 }];
               }
 
               console.log("Extracted accounts:", {
                 count: accounts.length,
-                accounts: accounts.map((acc: any) => ({
+                accounts: accounts.map((acc: AvitoAccount) => ({
                   id: acc.id || acc.account_id || acc.user_id,
                   name: acc.name || acc.title || acc.username || acc.display_name || 'Без названия',
                   is_primary: acc.is_primary || acc.primary || false,
@@ -241,7 +270,7 @@ Deno.serve(async (req: Request) => {
               });
 
               // Преобразуем в нужный формат
-              const formattedAccounts = accounts.map((acc: any) => ({
+              const formattedAccounts = accounts.map((acc: AvitoAccount) => ({
                 id: acc.id || acc.account_id || acc.user_id || String(acc),
                 name: acc.name || acc.title || acc.username || acc.display_name || 'Мой аккаунт',
                 is_primary: acc.is_primary !== undefined ? acc.is_primary : (acc.primary !== undefined ? acc.primary : true),
