@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS integrations (
 -- Update integrations table with Avito-specific fields
 -- Note: Vault extension is not available in Supabase, tokens are stored as-is
 ALTER TABLE integrations 
+ADD COLUMN IF NOT EXISTS external_id VARCHAR(255),
+ADD COLUMN IF NOT EXISTS is_enabled BOOLEAN DEFAULT true,
+ADD COLUMN IF NOT EXISTS markup_type VARCHAR(20) DEFAULT 'percent',
+ADD COLUMN IF NOT EXISTS markup_value DECIMAL(5,2),
 ADD COLUMN IF NOT EXISTS avito_account_id VARCHAR(255),
 ADD COLUMN IF NOT EXISTS avito_item_id BIGINT,
 ADD COLUMN IF NOT EXISTS avito_markup DECIMAL(5,2) DEFAULT 15.00,
