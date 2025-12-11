@@ -87,26 +87,59 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
   // Автоматически открываем модальное окно Avito, если есть OAuth callback
   useEffect(() => {
-    if (!property || !isOpen) return;
+    if (!property || !isOpen) {
+      console.log('PropertyModal: Skipping OAuth check', { hasProperty: !!property, isOpen });
+      return;
+    }
+
+    console.log('PropertyModal: Checking for OAuth callback', {
+      propertyId: property.id,
+      propertyName: property.name,
+      isAvitoModalOpen
+    });
 
     // Проверяем, есть ли данные OAuth callback
     const oauthSuccess = getOAuthSuccess();
     const oauthError = getOAuthError();
     
+    console.log('PropertyModal: OAuth callback check result', {
+      hasSuccess: !!oauthSuccess,
+      hasError: !!oauthError
+    });
+    
     if (oauthSuccess) {
       // Проверяем, что state соответствует текущему property
       try {
         const stateData = parseOAuthState(oauthSuccess.state);
+        console.log('PropertyModal: Parsed OAuth state', {
+          stateData,
+          propertyId: property.id,
+          matches: stateData?.property_id === property.id
+        });
+        
         if (stateData && stateData.property_id === property.id && !isAvitoModalOpen) {
-          console.log('OAuth callback detected for property, opening Avito modal');
+          console.log('PropertyModal: OAuth callback detected for property, opening Avito modal', {
+            propertyId: property.id,
+            propertyName: property.name
+          });
           setIsAvitoModalOpen(true);
+        } else if (stateData && stateData.property_id !== property.id) {
+          console.log('PropertyModal: OAuth callback is for different property', {
+            callbackPropertyId: stateData.property_id,
+            currentPropertyId: property.id
+          });
+        } else if (isAvitoModalOpen) {
+          console.log('PropertyModal: Avito modal already open, skipping');
         }
       } catch (error) {
-        console.error('Error parsing OAuth state:', error);
+        console.error('PropertyModal: Error parsing OAuth state:', error);
       }
     } else if (oauthError && !isAvitoModalOpen) {
       // Если есть ошибка OAuth, тоже открываем модальное окно, чтобы показать ошибку
-      console.log('OAuth error detected, opening Avito modal');
+      console.log('PropertyModal: OAuth error detected, opening Avito modal', {
+        error: oauthError.error,
+        errorDescription: oauthError.error_description
+      });
       setIsAvitoModalOpen(true);
     }
   }, [property, isOpen, isAvitoModalOpen]);

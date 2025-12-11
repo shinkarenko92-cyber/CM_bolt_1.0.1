@@ -47,35 +47,62 @@ export function AvitoConnectModal({
   const [validatingItemId, setValidatingItemId] = useState(false);
 
   const handleOAuthCallback = useCallback(async (code: string, state: string) => {
+    console.log('AvitoConnectModal: handleOAuthCallback called', {
+      hasCode: !!code,
+      hasState: !!state,
+      codeLength: code.length,
+      stateLength: state.length,
+      propertyId: property.id,
+      isOpen
+    });
+
     setLoading(true);
     try {
       const stateData = parseOAuthState(state);
+      console.log('AvitoConnectModal: Parsed OAuth state', { stateData });
+      
       if (!stateData || stateData.property_id !== property.id) {
+        console.error('AvitoConnectModal: Invalid state parameter', {
+          stateData,
+          propertyId: property.id
+        });
         throw new Error('Invalid state parameter');
       }
 
       // Используем тот же redirect_uri, что и в OAuth URL
       // Должен совпадать с настройками в Avito: https://app.roomi.pro/auth/avito-callback
       const redirectUri = import.meta.env.VITE_AVITO_REDIRECT_URI || 'https://app.roomi.pro/auth/avito-callback';
+      console.log('AvitoConnectModal: Exchanging code for token', { redirectUri });
       
       // Exchange code for token
       const tokenResponse = await exchangeCodeForToken(code, redirectUri);
+      console.log('AvitoConnectModal: Token exchange response', {
+        hasResponse: !!tokenResponse,
+        hasAccessToken: !!tokenResponse?.access_token,
+        tokenLength: tokenResponse?.access_token?.length
+      });
       
       // Валидация токена
       if (!tokenResponse || !tokenResponse.access_token) {
-        console.error('Token response is invalid:', tokenResponse);
+        console.error('AvitoConnectModal: Token response is invalid:', tokenResponse);
         throw new Error('Не удалось получить access token от Avito');
       }
       
-      console.log('Token received successfully, length:', tokenResponse.access_token.length);
+      console.log('AvitoConnectModal: Token received successfully, length:', tokenResponse.access_token.length);
       setAccessToken(tokenResponse.access_token);
 
       // Get user accounts
+      console.log('AvitoConnectModal: Fetching user accounts from Edge Function');
       const userAccounts = await getUserAccounts(tokenResponse.access_token);
+      console.log('AvitoConnectModal: User accounts received', {
+        count: userAccounts.length,
+        accounts: userAccounts.map(a => ({ id: a.id, name: a.name }))
+      });
       setAccounts(userAccounts);
 
       // Auto-select if only one account
       if (userAccounts.length === 1) {
+        console.log('AvitoConnectModal: Auto-selecting single account', userAccounts[0].id);
         setSelectedAccountId(userAccounts[0].id);
         saveConnectionProgress(property.id, 2, {
           accountId: userAccounts[0].id,
@@ -83,6 +110,7 @@ export function AvitoConnectModal({
         });
         setCurrentStep(2); // Skip to Item ID step
       } else {
+        console.log('AvitoConnectModal: Multiple accounts, going to selection step');
         saveConnectionProgress(property.id, 1, {
           accessToken: tokenResponse.access_token,
         });
@@ -90,6 +118,12 @@ export function AvitoConnectModal({
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ошибка при обработке авторизации';
+      console.error('AvitoConnectModal: Error in handleOAuthCallback', {
+        error,
+        errorMessage,
+        errorName: error instanceof Error ? error.name : 'Unknown',
+        errorStack: error instanceof Error ? error.stack : undefined
+      });
       
       // Проверяем, не является ли это ошибкой 404 (Edge Function не развернута)
       if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
@@ -105,13 +139,18 @@ export function AvitoConnectModal({
     } finally {
       setLoading(false);
     }
-  }, [property.id]);
+  }, [property.id, isOpen]);
 
   // Load progress on open
   useEffect(() => {
     if (isOpen) {
+      console.log('AvitoConnectModal: Modal opened, loading progress', { propertyId: property.id });
+      
       const progress = loadConnectionProgress(property.id);
+      console.log('AvitoConnectModal: Loaded progress', { progress });
+      
       if (progress && progress.step > 0) {
+        console.log('AvitoConnectModal: Resuming from saved progress', { step: progress.step });
         setCurrentStep(progress.step);
         if (progress.data.accountId) setSelectedAccountId(progress.data.accountId);
         if (progress.data.itemId) setItemId(progress.data.itemId);
@@ -119,8 +158,11 @@ export function AvitoConnectModal({
         if (progress.data.accessToken) setAccessToken(progress.data.accessToken);
       } else {
         // Check for OAuth callback results
+        console.log('AvitoConnectModal: No saved progress, checking for OAuth callback');
+        
         const oauthError = getOAuthError();
         if (oauthError) {
+          console.log('AvitoConnectModal: OAuth error detected', oauthError);
           Modal.error({
             title: 'Ошибка авторизации',
             content: oauthError.error_description || oauthError.error || 'Неизвестная ошибка',
@@ -135,32 +177,65 @@ export function AvitoConnectModal({
 
         const oauthSuccess = getOAuthSuccess();
         if (oauthSuccess) {
+          console.log('AvitoConnectModal: OAuth success detected, calling handleOAuthCallback', {
+            hasCode: !!oauthSuccess.code,
+            hasState: !!oauthSuccess.state
+          });
           handleOAuthCallback(oauthSuccess.code, oauthSuccess.state);
         } else {
+          console.log('AvitoConnectModal: No OAuth callback, starting from step 0');
           setCurrentStep(0);
         }
       }
     } else {
       // Reset on close
+      console.log('AvitoConnectModal: Modal closed, resetting state');
       setCurrentStep(0);
       setOauthRedirecting(false);
     }
   }, [isOpen, property.id, handleOAuthCallback]);
 
   // Check if user is returning from OAuth redirect
+  // This handles the case when the modal is already open but OAuth callback hasn't been processed yet
   useEffect(() => {
     if (isOpen && currentStep === 0) {
+      console.log('AvitoConnectModal: Setting up interval to check for OAuth callback');
       const checkInterval = setInterval(() => {
         const oauthSuccess = getOAuthSuccess();
         if (oauthSuccess) {
+          console.log('AvitoConnectModal: OAuth success detected in interval, calling handleOAuthCallback');
           clearInterval(checkInterval);
           handleOAuthCallback(oauthSuccess.code, oauthSuccess.state);
         }
       }, 500);
 
-      return () => clearInterval(checkInterval);
+      return () => {
+        console.log('AvitoConnectModal: Clearing OAuth callback check interval');
+        clearInterval(checkInterval);
+      };
     }
   }, [isOpen, currentStep, handleOAuthCallback]);
+
+  // Also check for OAuth callback when component mounts, even if modal is closed
+  // This ensures we process the callback even if the user navigated away
+  useEffect(() => {
+    if (!isOpen) {
+      const oauthSuccess = getOAuthSuccess();
+      if (oauthSuccess) {
+        try {
+          const stateData = parseOAuthState(oauthSuccess.state);
+          if (stateData && stateData.property_id === property.id) {
+            console.log('AvitoConnectModal: OAuth callback detected while modal is closed, will process when modal opens', {
+              propertyId: property.id
+            });
+            // Don't process here, just log - it will be processed when modal opens
+          }
+        } catch (error) {
+          console.error('AvitoConnectModal: Error parsing OAuth state while modal is closed', error);
+        }
+      }
+    }
+  }, [isOpen, property.id]);
 
   const handleConnectClick = () => {
     try {

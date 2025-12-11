@@ -17,28 +17,61 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
 
   // Автоматически открываем PropertyModal для property, если есть OAuth callback
   useEffect(() => {
+    // Ждем, пока properties загрузятся
+    if (properties.length === 0) {
+      console.log('PropertiesView: Waiting for properties to load before checking OAuth callback');
+      return;
+    }
+
     const oauthSuccess = getOAuthSuccess();
     const oauthError = getOAuthError();
     
     if (oauthSuccess || oauthError) {
+      console.log('PropertiesView: OAuth callback detected', {
+        hasSuccess: !!oauthSuccess,
+        hasError: !!oauthError,
+        propertiesCount: properties.length,
+        isModalOpen
+      });
+
       try {
         if (oauthSuccess) {
           const stateData = parseOAuthState(oauthSuccess.state);
+          console.log('PropertiesView: Parsed OAuth state', { stateData });
+          
           if (stateData) {
             const property = properties.find(p => p.id === stateData.property_id);
+            console.log('PropertiesView: Looking for property', {
+              propertyId: stateData.property_id,
+              found: !!property,
+              propertyName: property?.name
+            });
+            
             if (property && !isModalOpen) {
-              console.log('OAuth callback detected, opening PropertyModal for property:', property.id);
+              console.log('PropertiesView: Opening PropertyModal for property:', property.id, property.name);
               setSelectedProperty(property);
               setIsModalOpen(true);
+            } else if (!property) {
+              console.warn('PropertiesView: Property not found for OAuth callback', {
+                propertyId: stateData.property_id,
+                availableProperties: properties.map(p => ({ id: p.id, name: p.name }))
+              });
+            } else if (isModalOpen) {
+              console.log('PropertiesView: Modal already open, skipping');
             }
+          } else {
+            console.error('PropertiesView: Failed to parse OAuth state', { state: oauthSuccess.state });
           }
         } else if (oauthError) {
+          console.log('PropertiesView: OAuth error detected', {
+            error: oauthError.error,
+            errorDescription: oauthError.error_description
+          });
           // Для ошибки тоже нужно найти property, но это сложнее
           // Пока просто логируем
-          console.log('OAuth error detected, but cannot determine property');
         }
       } catch (error) {
-        console.error('Error handling OAuth callback:', error);
+        console.error('PropertiesView: Error handling OAuth callback:', error);
       }
     }
   }, [properties, isModalOpen]);

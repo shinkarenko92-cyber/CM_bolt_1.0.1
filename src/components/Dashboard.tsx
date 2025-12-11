@@ -18,6 +18,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { SkeletonCalendar } from './Skeleton';
 import { supabase, Property, Booking, Profile } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { getOAuthSuccess, getOAuthError } from '../services/avito';
 import { syncWithExternalAPIs } from '../services/apiSync';
 
 type NewReservation = {
@@ -228,6 +229,26 @@ export function Dashboard() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Проверяем OAuth callback и автоматически переключаемся на Properties
+  useEffect(() => {
+    const oauthSuccess = getOAuthSuccess();
+    const oauthError = getOAuthError();
+    
+    if (oauthSuccess || oauthError) {
+      console.log('Dashboard: OAuth callback detected, switching to Properties view', {
+        hasSuccess: !!oauthSuccess,
+        hasError: !!oauthError,
+        currentView
+      });
+      
+      // Переключаемся на вкладку Properties, чтобы PropertiesView мог обработать callback
+      if (currentView !== 'properties') {
+        console.log('Dashboard: Switching to Properties view to handle OAuth callback');
+        setCurrentView('properties');
+      }
+    }
+  }, [currentView]);
 
   // Realtime subscription for new Avito bookings
   useEffect(() => {

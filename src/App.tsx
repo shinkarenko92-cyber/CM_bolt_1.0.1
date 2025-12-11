@@ -14,26 +14,49 @@ function AppContent() {
     const path = window.location.pathname;
 
     if (path === '/auth/avito-callback') {
+      console.log('App: OAuth callback detected', { path, search: window.location.search });
+      
       const error = params.get('error');
       const errorDescription = params.get('error_description');
       const code = params.get('code');
       const state = params.get('state');
 
+      console.log('App: OAuth callback parameters', {
+        hasError: !!error,
+        hasCode: !!code,
+        hasState: !!state,
+        error,
+        errorDescription
+      });
+
       if (error) {
         // Store error for modal to display
-        localStorage.setItem(
-          'avito_oauth_error',
-          JSON.stringify({
-            error,
-            error_description: errorDescription || 'Неизвестная ошибка',
-          })
-        );
+        const errorData = {
+          error,
+          error_description: errorDescription || 'Неизвестная ошибка',
+        };
+        console.log('App: Storing OAuth error in localStorage', errorData);
+        localStorage.setItem('avito_oauth_error', JSON.stringify(errorData));
       } else if (code && state) {
         // Store success for modal to process
-        localStorage.setItem('avito_oauth_success', JSON.stringify({ code, state }));
+        const successData = { code, state };
+        console.log('App: Storing OAuth success in localStorage', {
+          hasCode: !!code,
+          hasState: !!state,
+          codeLength: code.length,
+          stateLength: state.length
+        });
+        localStorage.setItem('avito_oauth_success', JSON.stringify(successData));
+      } else {
+        console.warn('App: OAuth callback missing required parameters', {
+          hasCode: !!code,
+          hasState: !!state,
+          hasError: !!error
+        });
       }
 
       // Clean URL and redirect to home
+      console.log('App: Cleaning URL and redirecting to home');
       window.history.replaceState({}, '', '/');
     }
   }, []);
