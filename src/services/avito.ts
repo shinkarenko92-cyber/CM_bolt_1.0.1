@@ -173,6 +173,14 @@ export async function exchangeCodeForToken(code: string, redirectUri: string): P
  * Get user accounts from Avito API via Edge Function
  */
 export async function getUserAccounts(accessToken: string): Promise<AvitoAccount[]> {
+  // Валидация токена
+  if (!accessToken || accessToken.trim() === '') {
+    console.error('getUserAccounts called with empty or invalid accessToken');
+    throw new Error('Access token is required');
+  }
+  
+  console.log('Calling getUserAccounts with token length:', accessToken.length);
+  
   const { data, error } = await supabase.functions.invoke('avito-sync', {
     body: {
       action: 'get-accounts',

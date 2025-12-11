@@ -60,6 +60,14 @@ export function AvitoConnectModal({
       
       // Exchange code for token
       const tokenResponse = await exchangeCodeForToken(code, redirectUri);
+      
+      // Валидация токена
+      if (!tokenResponse || !tokenResponse.access_token) {
+        console.error('Token response is invalid:', tokenResponse);
+        throw new Error('Не удалось получить access token от Avito');
+      }
+      
+      console.log('Token received successfully, length:', tokenResponse.access_token.length);
       setAccessToken(tokenResponse.access_token);
 
       // Get user accounts
