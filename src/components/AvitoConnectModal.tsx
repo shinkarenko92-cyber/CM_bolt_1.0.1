@@ -654,7 +654,7 @@ export function AvitoConnectModal({
               min={0}
               max={100}
               value={markup}
-              onChange={(value) => setMarkup(value || 15)}
+              onChange={(value) => setMarkup(value !== null && value !== undefined ? value : 15)}
               formatter={(value) => `${value}%`}
               parser={(value) => parseFloat(value?.replace('%', '') || '0')}
             />

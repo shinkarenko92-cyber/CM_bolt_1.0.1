@@ -620,7 +620,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
               min={0}
               max={100}
               value={newMarkup}
-              onChange={(value) => setNewMarkup(value || 15)}
+              onChange={(value) => setNewMarkup(value !== null && value !== undefined ? value : 15)}
               formatter={(value) => `${value}%`}
               parser={(value) => parseFloat(value?.replace('%', '') || '0')}
             />
