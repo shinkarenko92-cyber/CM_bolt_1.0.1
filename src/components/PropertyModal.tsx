@@ -536,11 +536,22 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <h4 className="text-white font-medium">Avito</h4>
-                      {avitoIntegration?.is_active && !isTokenExpired() ? (
-                        <Badge status="success" text="синхронизировано" />
-                      ) : (
-                        <Badge status="default" text="отключено" />
-                      )}
+                      {(() => {
+                        const isActive = avitoIntegration?.is_active;
+                        const tokenValid = !isTokenExpired();
+                        const showActive = isActive && tokenValid;
+                        console.log('PropertyModal: Status check', {
+                          hasIntegration: !!avitoIntegration,
+                          is_active: isActive,
+                          tokenValid,
+                          showActive,
+                        });
+                        return showActive ? (
+                          <Badge status="success" text="синхронизировано" />
+                        ) : (
+                          <Badge status="default" text="отключено" />
+                        );
+                      })()}
                     </div>
                   </div>
 
