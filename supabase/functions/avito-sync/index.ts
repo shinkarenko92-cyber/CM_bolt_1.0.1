@@ -492,15 +492,23 @@ Deno.serve(async (req: Request) => {
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     const errorStack = error instanceof Error ? error.stack : undefined;
-    
+    const errorName = error instanceof Error ? error.name : "Error";
+
+    // Log full error details for debugging
     console.error("Edge Function error:", {
+      name: errorName,
       message: errorMessage,
       stack: errorStack,
+      timestamp: new Date().toISOString(),
     });
 
     return new Response(
       JSON.stringify({
         error: errorMessage,
+        // Include stack trace in development mode (if needed)
+        ...(process.env.DENO_ENV === "development" && errorStack
+          ? { stack: errorStack }
+          : {}),
       }),
       {
         status: 500,
