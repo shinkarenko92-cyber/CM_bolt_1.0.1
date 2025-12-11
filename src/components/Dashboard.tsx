@@ -56,6 +56,40 @@ export function Dashboard() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [prefilledDates, setPrefilledDates] = useState<{ propertyId: string; checkIn: string; checkOut: string } | null>(null);
 
+  // Helper function for retry logic
+  const retrySupabaseQuery = async <T,>(
+    queryFn: () => Promise<{ data: T | null; error: any }>,
+    retries = 3,
+    delay = 1000
+  ): Promise<{ data: T | null; error: any }> => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const result = await queryFn();
+        // Если нет ошибки или ошибка не связана с сетью, возвращаем результат
+        if (!result.error || (result.error.message && !result.error.message.includes('Failed to fetch'))) {
+          return result;
+        }
+        
+        // Если это последняя попытка, возвращаем результат с ошибкой
+        if (attempt === retries) {
+          return result;
+        }
+        
+        // Ждем перед повторной попыткой (экспоненциальная задержка)
+        await new Promise(resolve => setTimeout(resolve, delay * attempt));
+      } catch (error: any) {
+        // Если это последняя попытка, возвращаем ошибку
+        if (attempt === retries) {
+          return { data: null, error };
+        }
+        
+        // Ждем перед повторной попыткой
+        await new Promise(resolve => setTimeout(resolve, delay * attempt));
+      }
+    }
+    return { data: null, error: { message: 'Max retries exceeded' } };
+  };
+
   const loadData = useCallback(async () => {
     if (!user) {
       setLoading(false);
@@ -68,10 +102,13 @@ export function Dashboard() {
       const session = await supabase.auth.getSession();
       console.log('Session user ID:', session.data.session?.user?.id);
 
-      const { data: propertiesData, error: propsError } = await supabase
-        .from('properties')
-        .select('*')
-        .eq('owner_id', user.id);
+      // Retry для properties
+      const { data: propertiesData, error: propsError } = await retrySupabaseQuery(
+        () => supabase
+          .from('properties')
+          .select('*')
+          .eq('owner_id', user.id)
+      );
 
       console.log('Properties error:', propsError);
       console.log('Properties data:', propertiesData);
@@ -83,11 +120,14 @@ export function Dashboard() {
         console.log('Property IDs:', propertyIds);
 
         if (propertyIds.length > 0) {
-          const { data: bookingsData, error: bookingsError } = await supabase
-            .from('bookings')
-            .select('*')
-            .in('property_id', propertyIds)
-            .order('check_in');
+          // Retry для bookings
+          const { data: bookingsData, error: bookingsError } = await retrySupabaseQuery(
+            () => supabase
+              .from('bookings')
+              .select('*')
+              .in('property_id', propertyIds)
+              .order('check_in')
+          );
 
           console.log('Bookings error:', bookingsError);
           console.log('Bookings data:', bookingsData);
@@ -99,11 +139,14 @@ export function Dashboard() {
         }
       }
 
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
+      // Retry для profile
+      const { data: profileData } = await retrySupabaseQuery(
+        () => supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle()
+      );
 
       if (profileData) {
         setUserProfile(profileData);

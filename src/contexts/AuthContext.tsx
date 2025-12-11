@@ -20,24 +20,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+  const fetchProfile = async (userId: string, retries = 3): Promise<Profile | null> => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
-        return null;
+        if (error) {
+          // Если это последняя попытка, логируем ошибку
+          if (attempt === retries) {
+            console.error('Error fetching profile:', error);
+            return null;
+          }
+          // Иначе ждем и повторяем
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          continue;
+        }
+
+        return data;
+      } catch (error) {
+        // Если это последняя попытка, логируем ошибку
+        if (attempt === retries) {
+          console.error('Error in fetchProfile:', error);
+          return null;
+        }
+        // Иначе ждем и повторяем
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
       }
-
-      return data;
-    } catch (error) {
-      console.error('Error in fetchProfile:', error);
-      return null;
     }
+    return null;
   };
 
   const refreshProfile = async () => {
