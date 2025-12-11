@@ -439,19 +439,23 @@ Deno.serve(async (req: Request) => {
             if (response.ok) {
               console.log(`Item validation successful via ${endpoint.type} endpoint`);
               lastResponse = response;
-              break;
+              break; // Успешно найдено, прекращаем попытки
             }
 
-            // Если 404, объявление не найдено
+            // Если 404, это может означать, что это другой тип объявления
+            // Продолжаем пробовать следующий endpoint
             if (response.status === 404) {
-              lastResponse = response;
-              break;
+              console.log(`Item not found via ${endpoint.type} endpoint, trying next endpoint`);
+              lastResponse = response; // Сохраняем для случая, если все endpoints вернут 404
+              lastError = `${endpoint.type}: 404 Not Found`;
+              continue; // Пробуем следующий endpoint
             }
 
-            // Для других ошибок продолжаем пробовать следующий endpoint
+            // Для других ошибок (403, 401 и т.д.) продолжаем пробовать следующий endpoint
             const errorBody = await response.text();
             lastError = `${endpoint.type}: ${response.status} ${response.statusText} - ${errorBody}`;
             console.log(`Validation failed for ${endpoint.type}:`, lastError);
+            // Продолжаем пробовать следующий endpoint
           } catch (error) {
             lastError = `${endpoint.type}: ${error instanceof Error ? error.message : String(error)}`;
             console.error(`Error validating via ${endpoint.type}:`, error);
@@ -459,6 +463,9 @@ Deno.serve(async (req: Request) => {
         }
 
         // Используем последний ответ для обработки
+        // Если lastResponse есть и это 404, значит все endpoints вернули 404
+        // Если lastResponse есть и это 200, значит один из endpoints сработал
+        // Если lastResponse нет, значит были только ошибки (403, 401 и т.д.)
         if (!lastResponse) {
           return new Response(
             JSON.stringify({
@@ -473,6 +480,11 @@ Deno.serve(async (req: Request) => {
         }
 
         const response = lastResponse;
+        
+        // Если все endpoints вернули 404, объявление не найдено
+        if (response.status === 404) {
+          console.log("All endpoints returned 404 - item not found");
+        }
 
         console.log("Item validation final response:", {
           status: response.status,
