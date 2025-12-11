@@ -532,6 +532,32 @@ Deno.serve(async (req: Request) => {
           access_token,
         } = params;
 
+        // Валидация обязательных параметров
+        if (!property_id || !avito_account_id || !avito_item_id || !access_token) {
+          console.error("Missing required parameters for save-integration", {
+            has_property_id: !!property_id,
+            has_avito_account_id: !!avito_account_id,
+            has_avito_item_id: !!avito_item_id,
+            has_access_token: !!access_token,
+          });
+          return new Response(
+            JSON.stringify({ 
+              error: "Отсутствуют обязательные параметры: property_id, avito_account_id, avito_item_id, access_token" 
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Валидация типов
+        const parsedItemId = parseInt(avito_item_id, 10);
+        if (isNaN(parsedItemId)) {
+          console.error("Invalid avito_item_id type", { avito_item_id, type: typeof avito_item_id });
+          return new Response(
+            JSON.stringify({ error: "avito_item_id должен быть числом" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
         // Calculate token expiration (default 1 hour, but Avito tokens may have different expiry)
         const tokenExpiresAt = new Date(Date.now() + 3600 * 1000); // 1 hour default
 
@@ -545,7 +571,7 @@ Deno.serve(async (req: Request) => {
             platform: "avito",
             external_id: avito_item_id.toString(),
             avito_account_id,
-            avito_item_id: parseInt(avito_item_id, 10),
+            avito_item_id: parsedItemId,
             avito_markup: parseFloat(avito_markup) || 15.0,
             // Token will be encrypted by Vault trigger (create trigger in migration)
             access_token_encrypted: access_token,
@@ -554,11 +580,28 @@ Deno.serve(async (req: Request) => {
             is_enabled: true,
             markup_type: "percent",
             markup_value: parseFloat(avito_markup) || 15.0,
+          }, {
+            onConflict: 'property_id,platform' // Указываем поля для разрешения конфликта
           })
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error("Error saving integration:", {
+            errorCode: error.code,
+            errorMessage: error.message,
+            errorDetails: error.details,
+            errorHint: error.hint,
+            params: {
+              property_id,
+              avito_account_id,
+              avito_item_id: parsedItemId,
+              has_avito_markup: !!avito_markup,
+              has_access_token: !!access_token,
+            }
+          });
+          throw error;
+        }
 
         return new Response(JSON.stringify(integration), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
