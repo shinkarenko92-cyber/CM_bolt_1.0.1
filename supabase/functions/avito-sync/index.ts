@@ -402,89 +402,32 @@ Deno.serve(async (req: Request) => {
           token_length: access_token.length,
         });
 
-        // Пробуем несколько endpoints для проверки объявления
-        // 1. Сначала пробуем short_term_rent bookings (для short_term_rent объявлений)
-        // 2. Если не работает, пробуем core/v1 items (для обычных объявлений)
-        const endpoints = [
-          {
-            url: `${AVITO_API_BASE}/short_term_rent/accounts/${account_id}/items/${item_id}/bookings`,
-            type: "short_term_rent",
-          },
-          {
-            url: `${AVITO_API_BASE}/core/v1/accounts/${account_id}/items/${item_id}`,
-            type: "core_v1",
-          },
-        ];
-
-        let lastResponse: Response | null = null;
-        let lastError: string | null = null;
-
-        for (const endpoint of endpoints) {
-          try {
-            console.log(`Trying validation endpoint: ${endpoint.type}`, { url: endpoint.url });
-            const response = await fetch(endpoint.url, {
-              method: "GET",
-              headers: {
-                Authorization: `Bearer ${access_token}`,
-                "Content-Type": "application/json",
-              },
-            });
-
-            console.log(`Validation response (${endpoint.type}):`, {
-              status: response.status,
-              statusText: response.statusText,
-            });
-
-            // Если успешно (200), объявление существует
-            if (response.ok) {
-              console.log(`Item validation successful via ${endpoint.type} endpoint`);
-              lastResponse = response;
-              break; // Успешно найдено, прекращаем попытки
-            }
-
-            // Если 404, это может означать, что это другой тип объявления
-            // Продолжаем пробовать следующий endpoint
-            if (response.status === 404) {
-              console.log(`Item not found via ${endpoint.type} endpoint, trying next endpoint`);
-              lastResponse = response; // Сохраняем для случая, если все endpoints вернут 404
-              lastError = `${endpoint.type}: 404 Not Found`;
-              continue; // Пробуем следующий endpoint
-            }
-
-            // Для других ошибок (403, 401 и т.д.) продолжаем пробовать следующий endpoint
-            const errorBody = await response.text();
-            lastError = `${endpoint.type}: ${response.status} ${response.statusText} - ${errorBody}`;
-            console.log(`Validation failed for ${endpoint.type}:`, lastError);
-            // Продолжаем пробовать следующий endpoint
-          } catch (error) {
-            lastError = `${endpoint.type}: ${error instanceof Error ? error.message : String(error)}`;
-            console.error(`Error validating via ${endpoint.type}:`, error);
-          }
-        }
-
-        // Используем последний ответ для обработки
-        // Если lastResponse есть и это 404, значит все endpoints вернули 404
-        // Если lastResponse есть и это 200, значит один из endpoints сработал
-        // Если lastResponse нет, значит были только ошибки (403, 401 и т.д.)
-        if (!lastResponse) {
-          return new Response(
-            JSON.stringify({
-              available: false,
-              error: `Не удалось проверить объявление. Попробованы все доступные endpoints. ${lastError || "Неизвестная ошибка"}`,
-            }),
-            {
-              status: 500,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
-          );
-        }
-
-        const response = lastResponse;
+        // Используем правильный endpoint из OpenAPI спецификации
+        // /realty/v1/accounts/{user_id}/items/{item_id}/bookings требует обязательные query параметры date_start и date_end
+        // Вычисляем даты: сегодня и завтра (для минимального диапазона)
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
         
-        // Если все endpoints вернули 404, объявление не найдено
-        if (response.status === 404) {
-          console.log("All endpoints returned 404 - item not found");
-        }
+        const dateStart = today.toISOString().split('T')[0]; // YYYY-MM-DD
+        const dateEnd = tomorrow.toISOString().split('T')[0]; // YYYY-MM-DD
+
+        console.log("Using realty/v1 endpoint with required date parameters", {
+          date_start: dateStart,
+          date_end: dateEnd,
+        });
+
+        // Используем endpoint из OpenAPI спецификации с обязательными параметрами
+        const response = await fetch(
+          `${AVITO_API_BASE}/realty/v1/accounts/${account_id}/items/${item_id}/bookings?date_start=${dateStart}&date_end=${dateEnd}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${access_token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
 
         console.log("Item validation final response:", {
           status: response.status,
