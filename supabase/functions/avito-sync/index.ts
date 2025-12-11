@@ -441,7 +441,11 @@ Deno.serve(async (req: Request) => {
             .eq("external_id", item_id)
             .maybeSingle();
 
-          if (existingIntegration && existingIntegration.property_id !== params.property_id) {
+          if (existingIntegration) {
+            console.log("Item already used in integration:", {
+              integration_id: existingIntegration.id,
+              property_id: existingIntegration.property_id,
+            });
             return new Response(
               JSON.stringify({ available: false, error: "ID уже используется в другой интеграции" }),
               {
@@ -452,6 +456,7 @@ Deno.serve(async (req: Request) => {
           }
 
           // Объявление существует и доступно
+          console.log("Item validation successful - item exists and is available");
           return new Response(JSON.stringify({ available: true }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
