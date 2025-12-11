@@ -205,13 +205,45 @@ export async function getUserAccounts(accessToken: string): Promise<AvitoAccount
   });
 
   if (error) {
+    console.error('getUserAccounts: Edge Function error', {
+      error,
+      message: error.message,
+      context: error.context,
+      status: error.status,
+      data: error.data
+    });
+
     const errorMessage = error.message || 'Failed to get user accounts';
     
     if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
       throw new Error('Edge Function avito-sync не развернута. Пожалуйста, разверните функцию в Supabase Dashboard.');
     }
+
+    // Если есть детали ошибки в data, добавляем их к сообщению
+    let detailedMessage = errorMessage;
+    if (error.data) {
+      try {
+        const errorData = typeof error.data === 'string' ? JSON.parse(error.data) : error.data;
+        if (errorData.error || errorData.message) {
+          detailedMessage = `${errorMessage}: ${errorData.error || errorData.message}`;
+        }
+      } catch {
+        // Если не удалось распарсить, используем исходное сообщение
+      }
+    }
     
-    throw new Error(errorMessage);
+    throw new Error(detailedMessage);
+  }
+
+  // Проверяем, что data существует и является массивом
+  if (!data) {
+    console.warn('getUserAccounts: No data returned from Edge Function, returning empty array');
+    return [];
+  }
+
+  if (!Array.isArray(data)) {
+    console.error('getUserAccounts: Data is not an array', { data });
+    throw new Error('Invalid response format from Edge Function');
   }
 
   return data as AvitoAccount[];

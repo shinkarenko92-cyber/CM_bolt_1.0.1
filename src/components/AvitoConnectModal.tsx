@@ -47,17 +47,26 @@ export function AvitoConnectModal({
   const [markup, setMarkup] = useState<number>(15);
   const [accessToken, setAccessToken] = useState<string>('');
   const [validatingItemId, setValidatingItemId] = useState(false);
+  const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
 
   const handleOAuthCallback = useCallback(async (code: string, state: string) => {
+    // Предотвращаем двойной вызов
+    if (isProcessingOAuth) {
+      console.log('AvitoConnectModal: OAuth callback already processing, skipping');
+      return;
+    }
+
     console.log('AvitoConnectModal: handleOAuthCallback called', {
       hasCode: !!code,
       hasState: !!state,
       codeLength: code.length,
       stateLength: state.length,
       propertyId: property.id,
-      isOpen
+      isOpen,
+      isProcessingOAuth
     });
 
+    setIsProcessingOAuth(true);
     setLoading(true);
     try {
       const stateData = parseOAuthState(state);
@@ -144,8 +153,9 @@ export function AvitoConnectModal({
       }
     } finally {
       setLoading(false);
+      setIsProcessingOAuth(false);
     }
-  }, [property.id, isOpen]);
+  }, [property.id, isOpen, isProcessingOAuth]);
 
   // Load progress on open
   useEffect(() => {
@@ -200,15 +210,22 @@ export function AvitoConnectModal({
       console.log('AvitoConnectModal: Modal closed, resetting state');
       setCurrentStep(0);
       setOauthRedirecting(false);
+      setIsProcessingOAuth(false);
     }
   }, [isOpen, property.id, handleOAuthCallback]);
 
   // Check if user is returning from OAuth redirect
   // This handles the case when the modal is already open but OAuth callback hasn't been processed yet
   useEffect(() => {
-    if (isOpen && currentStep === 0) {
+    if (isOpen && currentStep === 0 && !isProcessingOAuth) {
       console.log('AvitoConnectModal: Setting up interval to check for OAuth callback');
       const checkInterval = setInterval(() => {
+        // Проверяем, не обрабатывается ли уже OAuth callback
+        if (isProcessingOAuth) {
+          console.log('AvitoConnectModal: OAuth callback already processing, skipping interval check');
+          return;
+        }
+
         const oauthSuccess = getOAuthSuccess();
         if (oauthSuccess) {
           console.log('AvitoConnectModal: OAuth success detected in interval, calling handleOAuthCallback');
@@ -222,7 +239,7 @@ export function AvitoConnectModal({
         clearInterval(checkInterval);
       };
     }
-  }, [isOpen, currentStep, handleOAuthCallback]);
+  }, [isOpen, currentStep, handleOAuthCallback, isProcessingOAuth]);
 
   // Also check for OAuth callback when component mounts, even if modal is closed
   // This ensures we process the callback even if the user navigated away
