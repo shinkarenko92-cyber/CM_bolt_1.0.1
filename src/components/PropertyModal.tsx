@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X } from 'lucide-react';
 import { Badge, Button, InputNumber, Modal, message } from 'antd';
 import { Property, PropertyIntegration } from '../lib/supabase';
@@ -35,6 +35,22 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   const [isEditMarkupModalOpen, setIsEditMarkupModalOpen] = useState(false);
   const [newMarkup, setNewMarkup] = useState<number>(15);
 
+  const loadAvitoIntegration = useCallback(async () => {
+    if (!property) return;
+    
+    const { data } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('property_id', property.id)
+      .eq('platform', 'avito')
+      .maybeSingle();
+    
+    setAvitoIntegration(data);
+    if (data?.avito_markup) {
+      setNewMarkup(data.avito_markup);
+    }
+  }, [property]);
+
   useEffect(() => {
     if (property) {
       setFormData({
@@ -66,23 +82,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     setShowDeleteConfirm(false);
     setError(null);
     loadAvitoIntegration();
-  }, [property, isOpen]);
-
-  const loadAvitoIntegration = async () => {
-    if (!property) return;
-    
-    const { data } = await supabase
-      .from('integrations')
-      .select('*')
-      .eq('property_id', property.id)
-      .eq('platform', 'avito')
-      .maybeSingle();
-    
-    setAvitoIntegration(data);
-    if (data?.avito_markup) {
-      setNewMarkup(data.avito_markup);
-    }
-  };
+  }, [property, isOpen, loadAvitoIntegration]);
 
   const handleDisconnectAvito = () => {
     Modal.confirm({
