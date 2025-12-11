@@ -62,7 +62,7 @@ export function Dashboard() {
     error: { message: string; details?: string; hint?: string; code?: string } | null;
   };
 
-  const retrySupabaseQuery = async <T,>(
+  const retrySupabaseQuery = useCallback(async <T,>(
     queryFn: () => Promise<SupabaseQueryResult<T>>,
     retries = 3,
     delay = 1000
@@ -100,7 +100,7 @@ export function Dashboard() {
       }
     }
     return { data: null, error: { message: 'Max retries exceeded' } };
-  };
+  }, []);
 
   const loadData = useCallback(async () => {
     if (!user) {
@@ -115,12 +115,24 @@ export function Dashboard() {
       console.log('Session user ID:', session.data.session?.user?.id);
 
       // Retry для properties
-      const { data: propertiesData, error: propsError } = await retrySupabaseQuery(
-        () => supabase
-          .from('properties')
-          .select('*')
-          .eq('owner_id', user.id)
+      const propertiesResult = await retrySupabaseQuery<Property[]>(
+        async () => {
+          const result = await supabase
+            .from('properties')
+            .select('*')
+            .eq('owner_id', user.id);
+          return {
+            data: result.data,
+            error: result.error ? {
+              message: result.error.message,
+              details: result.error.details,
+              hint: result.error.hint,
+              code: result.error.code
+            } : null
+          };
+        }
       );
+      const { data: propertiesData, error: propsError } = propertiesResult;
 
       console.log('Properties error:', propsError);
       console.log('Properties data:', propertiesData);
@@ -128,18 +140,30 @@ export function Dashboard() {
       if (propertiesData) {
         setProperties(propertiesData);
 
-        const propertyIds = propertiesData.map(p => p.id);
+        const propertyIds = propertiesData.map((p: Property) => p.id);
         console.log('Property IDs:', propertyIds);
 
         if (propertyIds.length > 0) {
           // Retry для bookings
-          const { data: bookingsData, error: bookingsError } = await retrySupabaseQuery(
-            () => supabase
-              .from('bookings')
-              .select('*')
-              .in('property_id', propertyIds)
-              .order('check_in')
+          const bookingsResult = await retrySupabaseQuery<Booking[]>(
+            async () => {
+              const result = await supabase
+                .from('bookings')
+                .select('*')
+                .in('property_id', propertyIds)
+                .order('check_in');
+              return {
+                data: result.data,
+                error: result.error ? {
+                  message: result.error.message,
+                  details: result.error.details,
+                  hint: result.error.hint,
+                  code: result.error.code
+                } : null
+              };
+            }
           );
+          const { data: bookingsData, error: bookingsError } = bookingsResult;
 
           console.log('Bookings error:', bookingsError);
           console.log('Bookings data:', bookingsData);
@@ -152,13 +176,25 @@ export function Dashboard() {
       }
 
       // Retry для profile
-      const { data: profileData } = await retrySupabaseQuery(
-        () => supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle()
+      const profileResult = await retrySupabaseQuery<Profile>(
+        async () => {
+          const result = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .maybeSingle();
+          return {
+            data: result.data,
+            error: result.error ? {
+              message: result.error.message,
+              details: result.error.details,
+              hint: result.error.hint,
+              code: result.error.code
+            } : null
+          };
+        }
       );
+      const { data: profileData } = profileResult;
 
       if (profileData) {
         setUserProfile(profileData);
@@ -168,7 +204,7 @@ export function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, retrySupabaseQuery]);
 
   useEffect(() => {
     loadData();
