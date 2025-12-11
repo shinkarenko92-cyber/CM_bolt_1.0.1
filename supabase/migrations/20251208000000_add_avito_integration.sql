@@ -61,6 +61,7 @@ WHERE status = 'pending';
 ALTER TABLE integrations ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policy for integrations (users can only access their own integrations)
+DROP POLICY IF EXISTS "Users own integrations" ON integrations;
 CREATE POLICY "Users own integrations" ON integrations FOR ALL
   USING (property_id IN (SELECT id FROM properties WHERE owner_id = auth.uid()));
 
@@ -68,6 +69,7 @@ CREATE POLICY "Users own integrations" ON integrations FOR ALL
 ALTER TABLE avito_items ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policy for avito_items
+DROP POLICY IF EXISTS "Users own avito_items" ON avito_items;
 CREATE POLICY "Users own avito_items" ON avito_items FOR ALL
   USING (property_id IN (SELECT id FROM properties WHERE owner_id = auth.uid()));
 
@@ -75,6 +77,7 @@ CREATE POLICY "Users own avito_items" ON avito_items FOR ALL
 ALTER TABLE avito_sync_queue ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policy for avito_sync_queue
+DROP POLICY IF EXISTS "Users own sync_queue" ON avito_sync_queue;
 CREATE POLICY "Users own sync_queue" ON avito_sync_queue FOR ALL
   USING (property_id IN (SELECT id FROM properties WHERE owner_id = auth.uid()));
 
