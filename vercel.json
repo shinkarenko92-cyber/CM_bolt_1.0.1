@@ -9,7 +9,11 @@
       "destination": "/"
     },
     {
-      "source": "/((?!app$).*)",
+      "source": "/auth/avito-callback",
+      "destination": "/"
+    },
+    {
+      "source": "/((?!app$|auth).*)",
       "destination": "https://roomi-landing.vercel.app/$1"
     },
     {
