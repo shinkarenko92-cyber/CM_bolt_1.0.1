@@ -403,11 +403,11 @@ Deno.serve(async (req: Request) => {
         });
 
         // Проверяем, существует ли объявление, пытаясь получить информацию о нем
-        // Используем GET запрос к endpoint объявления
+        // Используем GET запрос к endpoint объявления из core API
         // Если объявление существует и принадлежит аккаунту, вернется 200
         // Если не существует или не принадлежит аккаунту, вернется 404
         const response = await fetch(
-          `${AVITO_API_BASE}/short_term_rent/accounts/${account_id}/items/${item_id}`,
+          `${AVITO_API_BASE}/core/v1/accounts/${account_id}/items/${item_id}`,
           {
             method: "GET",
             headers: {
