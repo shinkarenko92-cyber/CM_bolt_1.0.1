@@ -175,8 +175,8 @@ Deno.serve(async (req: Request) => {
           `${AVITO_API_BASE}/user`,
         ];
 
-        let lastError: Error | null = null;
         let lastResponse: Response | null = null;
+        let lastErrorMessage: string | null = null;
 
         for (const endpoint of endpoints) {
           try {
@@ -224,7 +224,7 @@ Deno.serve(async (req: Request) => {
             }
 
             lastResponse = response;
-            lastError = new Error(`Endpoint ${endpoint} returned ${response.status}: ${response.statusText}`);
+            lastErrorMessage = `Endpoint ${endpoint} returned ${response.status}: ${response.statusText}`;
 
             // If 404, try next endpoint
             if (response.status === 404) {
@@ -235,7 +235,7 @@ Deno.serve(async (req: Request) => {
             break;
           } catch (error) {
             console.error(`Error fetching from ${endpoint}:`, error);
-            lastError = error instanceof Error ? error : new Error(String(error));
+            lastErrorMessage = error instanceof Error ? error.message : String(error);
             continue;
           }
         }
