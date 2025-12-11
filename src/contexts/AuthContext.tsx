@@ -32,20 +32,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error) {
           // Если это последняя попытка, логируем ошибку
           if (attempt === retries) {
-            console.error('Error fetching profile:', error);
+            console.error('Error fetching profile after all retries:', error);
             return null;
+          }
+          // Логируем только первую попытку, чтобы не засорять консоль
+          if (attempt === 1 && error.message?.includes('Failed to fetch')) {
+            console.log('Profile fetch failed, retrying... (attempt 1/3)');
           }
           // Иначе ждем и повторяем
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
           continue;
         }
 
+        // Если была ошибка, но retry успешен, не логируем ошибку
+        if (attempt > 1) {
+          console.log(`Profile fetched successfully after ${attempt} attempts`);
+        }
+
         return data;
       } catch (error) {
         // Если это последняя попытка, логируем ошибку
         if (attempt === retries) {
-          console.error('Error in fetchProfile:', error);
+          console.error('Error in fetchProfile after all retries:', error);
           return null;
+        }
+        // Логируем только первую попытку
+        if (attempt === 1) {
+          console.log('Profile fetch error, retrying... (attempt 1/3)');
         }
         // Иначе ждем и повторяем
         await new Promise(resolve => setTimeout(resolve, 1000 * attempt));

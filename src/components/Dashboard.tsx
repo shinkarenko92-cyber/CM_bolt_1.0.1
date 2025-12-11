@@ -72,12 +72,22 @@ export function Dashboard() {
         const result = await queryFn();
         // Если нет ошибки или ошибка не связана с сетью, возвращаем результат
         if (!result.error || (result.error.message && !result.error.message.includes('Failed to fetch'))) {
+          // Если была ошибка, но retry успешен, не логируем ошибку
+          if (result.error && attempt > 1) {
+            console.log(`Query succeeded after ${attempt} attempts`);
+          }
           return result;
         }
         
         // Если это последняя попытка, возвращаем результат с ошибкой
         if (attempt === retries) {
+          console.error(`Query failed after ${retries} attempts:`, result.error);
           return result;
+        }
+        
+        // Логируем только первую попытку, чтобы не засорять консоль
+        if (attempt === 1 && result.error.message?.includes('Failed to fetch')) {
+          console.log(`Query failed, retrying... (attempt ${attempt}/${retries})`);
         }
         
         // Ждем перед повторной попыткой (экспоненциальная задержка)
@@ -86,6 +96,7 @@ export function Dashboard() {
         // Если это последняя попытка, возвращаем ошибку
         if (attempt === retries) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.error(`Query failed after ${retries} attempts:`, errorMessage);
           return { 
             data: null, 
             error: { 
@@ -93,6 +104,14 @@ export function Dashboard() {
               details: error instanceof Error ? error.stack : undefined
             } 
           };
+        }
+        
+        // Логируем только первую попытку
+        if (attempt === 1) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          if (errorMessage.includes('Failed to fetch')) {
+            console.log(`Query error, retrying... (attempt ${attempt}/${retries})`);
+          }
         }
         
         // Ждем перед повторной попыткой
