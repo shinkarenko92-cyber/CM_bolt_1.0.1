@@ -1,6 +1,16 @@
 -- Add Avito Integration Support
 -- This migration adds tables and columns for Avito OAuth integration
 
+-- Create integrations table if it doesn't exist
+CREATE TABLE IF NOT EXISTS integrations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  platform VARCHAR(50) NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(property_id, platform)
+);
+
 -- Add Vault extension for token encryption
 CREATE EXTENSION IF NOT EXISTS vault;
 
