@@ -153,22 +153,107 @@ Deno.serve(async (req: Request) => {
       case "get-accounts": {
         const { access_token } = params;
 
-        const response = await fetch(`${AVITO_API_BASE}/user`, {
-          headers: {
-            Authorization: `Bearer ${access_token}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to get user accounts: ${response.statusText}`);
+        // Validate access_token
+        if (!access_token) {
+          console.error("Missing access_token in get-accounts request");
+          return new Response(
+            JSON.stringify({ error: "Missing access_token parameter" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
 
-        const userData = await response.json();
-        const accounts = userData.accounts || [];
-
-        return new Response(JSON.stringify(accounts), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        // Log token info for debugging (without exposing full token)
+        console.log("Getting user accounts", {
+          token_length: access_token.length,
+          token_preview: `${access_token.substring(0, 10)}...${access_token.substring(access_token.length - 5)}`,
         });
+
+        // Try different endpoints - Avito API might use different paths
+        const endpoints = [
+          `${AVITO_API_BASE}/core/v1/accounts/self`,
+          `${AVITO_API_BASE}/v1/user`,
+          `${AVITO_API_BASE}/user`,
+        ];
+
+        let lastError: Error | null = null;
+        let lastResponse: Response | null = null;
+
+        for (const endpoint of endpoints) {
+          try {
+            console.log(`Trying endpoint: ${endpoint}`);
+            const response = await fetch(endpoint, {
+              headers: {
+                Authorization: `Bearer ${access_token}`,
+                "Content-Type": "application/json",
+              },
+            });
+
+            console.log(`Response status: ${response.status} ${response.statusText}`);
+
+            if (response.ok) {
+              const userData = await response.json();
+              console.log("Successfully retrieved user data:", {
+                has_accounts: !!userData.accounts,
+                accounts_count: userData.accounts?.length || 0,
+              });
+
+              const accounts = userData.accounts || [];
+              return new Response(JSON.stringify(accounts), {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              });
+            }
+
+            // If not OK, try to get error details
+            let errorBody = "";
+            try {
+              errorBody = await response.text();
+              const errorJson = JSON.parse(errorBody);
+              console.error("Avito API error response:", {
+                endpoint,
+                status: response.status,
+                statusText: response.statusText,
+                error: errorJson,
+              });
+            } catch {
+              console.error("Avito API error response (non-JSON):", {
+                endpoint,
+                status: response.status,
+                statusText: response.statusText,
+                body: errorBody.substring(0, 200),
+              });
+            }
+
+            lastResponse = response;
+            lastError = new Error(`Endpoint ${endpoint} returned ${response.status}: ${response.statusText}`);
+
+            // If 404, try next endpoint
+            if (response.status === 404) {
+              continue;
+            }
+
+            // For other errors, stop trying
+            break;
+          } catch (error) {
+            console.error(`Error fetching from ${endpoint}:`, error);
+            lastError = error instanceof Error ? error : new Error(String(error));
+            continue;
+          }
+        }
+
+        // All endpoints failed
+        const errorMessage = lastResponse
+          ? `Failed to get user accounts: ${lastResponse.status} ${lastResponse.statusText}`
+          : lastError
+          ? `Failed to get user accounts: ${lastError.message}`
+          : "Failed to get user accounts: All endpoints returned errors";
+
+        console.error("All endpoints failed:", {
+          errorMessage,
+          last_status: lastResponse?.status,
+          last_statusText: lastResponse?.statusText,
+        });
+
+        throw new Error(errorMessage);
       }
 
       case "validate-item": {
