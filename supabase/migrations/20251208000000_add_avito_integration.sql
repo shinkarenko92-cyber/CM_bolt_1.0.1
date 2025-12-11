@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS avito_sync_queue (
 
 -- Create index for efficient queue queries
 -- Note: Cannot use NOW() in index predicate (not IMMUTABLE)
--- Instead, create a partial index on status and next_sync_at
+-- Filter by next_sync_at <= NOW() in queries instead
 CREATE INDEX IF NOT EXISTS idx_avito_sync_queue_next 
 ON avito_sync_queue(next_sync_at) 
 WHERE status = 'pending';
