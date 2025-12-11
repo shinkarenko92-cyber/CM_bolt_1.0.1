@@ -15,16 +15,44 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
 
+  // Логируем при монтировании компонента
+  useEffect(() => {
+    console.log('PropertiesView: Component mounted/updated', {
+      propertiesCount: properties.length,
+      properties: properties.map(p => ({ id: p.id, name: p.name }))
+    });
+  }, []);
+
   // Автоматически открываем PropertyModal для property, если есть OAuth callback
   useEffect(() => {
+    console.log('PropertiesView: OAuth callback check useEffect triggered', {
+      propertiesCount: properties.length,
+      isModalOpen,
+      properties: properties.map(p => ({ id: p.id, name: p.name }))
+    });
+
+    // Сначала проверяем, есть ли OAuth callback в localStorage
+    const oauthSuccess = getOAuthSuccess();
+    const oauthError = getOAuthError();
+    
+    console.log('PropertiesView: OAuth callback check result', {
+      hasSuccess: !!oauthSuccess,
+      hasError: !!oauthError,
+      oauthSuccess: oauthSuccess ? { hasCode: !!oauthSuccess.code, hasState: !!oauthSuccess.state } : null,
+      oauthError: oauthError ? { error: oauthError.error } : null
+    });
+
+    // Если нет OAuth callback, выходим
+    if (!oauthSuccess && !oauthError) {
+      console.log('PropertiesView: No OAuth callback found in localStorage');
+      return;
+    }
+
     // Ждем, пока properties загрузятся
     if (properties.length === 0) {
       console.log('PropertiesView: Waiting for properties to load before checking OAuth callback');
       return;
     }
-
-    const oauthSuccess = getOAuthSuccess();
-    const oauthError = getOAuthError();
     
     if (oauthSuccess || oauthError) {
       console.log('PropertiesView: OAuth callback detected', {
