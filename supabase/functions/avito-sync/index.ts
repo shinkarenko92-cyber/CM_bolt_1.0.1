@@ -633,20 +633,55 @@ Deno.serve(async (req: Request) => {
           }
         );
 
-        // Update availability (block dates)
-        await fetch(
-          `${AVITO_API_BASE}/short_term_rent/accounts/${accountId}/items/${itemId}/availability`,
-          {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              dates: blockedDates,
-            }),
+        // Sync property_rates (calendar prices) and availability to Avito
+        const { data: propertyRates } = await supabase
+          .from("property_rates")
+          .select("*")
+          .eq("property_id", integration.property_id)
+          .gte("date", new Date().toISOString().split('T')[0]); // Only future dates
+
+        // Prepare calendar dates: combine property_rates with blocked dates from bookings
+        // Use format compatible with Avito API: { date, status: 'available'|'booked'|'blocked', price?, minStay? }
+        const calendarDatesMap = new Map<string, { date: string; status: 'available' | 'booked' | 'blocked'; price?: number; minStay?: number }>();
+
+        // Add property_rates with prices
+        if (propertyRates && propertyRates.length > 0) {
+          for (const rate of propertyRates) {
+            calendarDatesMap.set(rate.date, {
+              date: rate.date,
+              status: 'available',
+              price: Math.round(rate.daily_price * (1 + markup / 100)), // Apply markup
+              minStay: rate.min_stay || property?.minimum_booking_days || 1,
+            });
           }
-        );
+        }
+
+        // Override with blocked dates from bookings (bookings take priority)
+        for (const blocked of blockedDates) {
+          calendarDatesMap.set(blocked.date, {
+            date: blocked.date,
+            status: 'blocked', // Use 'blocked' status for unavailable dates
+          });
+        }
+
+        // Convert map to array and update Avito calendar
+        const calendarDates = Array.from(calendarDatesMap.values());
+        
+        if (calendarDates.length > 0) {
+          await fetch(
+            `${AVITO_API_BASE}/short_term_rent/accounts/${accountId}/items/${itemId}/availability`,
+            {
+              method: "PUT",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                dates: calendarDates,
+              }),
+            }
+          );
+        }
 
         // Pull bookings from Avito
         const bookingsResponse = await fetch(
@@ -687,10 +722,13 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        // Update last_sync_at
+        // Update last_sync_at and ensure is_active is true
         await supabase
           .from("integrations")
-          .update({ last_sync_at: new Date().toISOString() })
+          .update({ 
+            last_sync_at: new Date().toISOString(),
+            is_active: true 
+          })
           .eq("id", integration_id);
 
         return new Response(

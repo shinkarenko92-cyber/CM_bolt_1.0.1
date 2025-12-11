@@ -5,6 +5,7 @@ import { Property, PropertyIntegration } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { AvitoConnectModal } from './AvitoConnectModal';
 import { getOAuthSuccess, getOAuthError, parseOAuthState } from '../services/avito';
+import { syncAvitoIntegration } from '../services/apiSync';
 
 interface PropertyModalProps {
   isOpen: boolean;
@@ -228,7 +229,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   };
 
   const isTokenExpired = () => {
-    if (!avitoIntegration?.token_expires_at) return true;
+    if (!avitoIntegration?.token_expires_at) return false; // If no expiration date, assume token is valid
     return new Date(avitoIntegration.token_expires_at) < new Date();
   };
 
@@ -243,6 +244,9 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
         return;
       }
 
+      const oldBasePrice = property?.base_price;
+      const newBasePrice = parseFloat(formData.base_price) || 0;
+
       await onSave({
         name: formData.name,
         type: formData.type,
@@ -250,11 +254,22 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
         description: formData.description || '',
         max_guests: parseInt(formData.max_guests) || 2,
         bedrooms: parseInt(formData.bedrooms) || 1,
-        base_price: parseFloat(formData.base_price) || 0,
+        base_price: newBasePrice,
         currency: formData.currency,
         minimum_booking_days: parseInt(formData.minimum_booking_days) || 1,
         status: formData.status,
       });
+
+      // Auto-sync to Avito if base_price changed and integration is active
+      if (property && avitoIntegration?.is_active && !isTokenExpired() && oldBasePrice !== newBasePrice) {
+        try {
+          await syncAvitoIntegration(property.id);
+          message.success('Цены синхронизированы с Avito');
+        } catch (error) {
+          console.error('Failed to sync prices to Avito:', error);
+          // Don't show error to user, just log it
+        }
+      }
 
       onClose();
     } catch (err) {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { supabase, Property } from '../lib/supabase';
+import { syncAvitoIntegration } from '../services/apiSync';
 
 interface ChangeConditionsModalProps {
   isOpen: boolean;
@@ -115,6 +116,26 @@ export function ChangeConditionsModal({
         });
 
       if (upsertError) throw upsertError;
+
+      // Auto-sync to Avito if integration is active
+      const { data: integration } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('property_id', formData.selectedPropertyId)
+        .eq('platform', 'avito')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (integration && integration.token_expires_at && new Date(integration.token_expires_at) > new Date()) {
+        // Trigger sync
+        try {
+          await syncAvitoIntegration(formData.selectedPropertyId);
+          // Sync completed successfully (onSuccess will be called to refresh UI)
+        } catch (error) {
+          console.error('Failed to sync prices to Avito:', error);
+          // Don't show error to user, just log it
+        }
+      }
 
       onClose();
       onSuccess?.();
