@@ -193,12 +193,47 @@ Deno.serve(async (req: Request) => {
             if (response.ok) {
               const userData = await response.json();
               console.log("Successfully retrieved user data:", {
+                full_response: userData,
                 has_accounts: !!userData.accounts,
                 accounts_count: userData.accounts?.length || 0,
+                keys: Object.keys(userData),
               });
 
-              const accounts = userData.accounts || [];
-              return new Response(JSON.stringify(accounts), {
+              // Avito API может возвращать аккаунты в разных форматах
+              // Проверяем разные возможные варианты
+              let accounts: any[] = [];
+              
+              if (Array.isArray(userData)) {
+                // Если ответ - массив аккаунтов напрямую
+                accounts = userData;
+              } else if (userData.accounts && Array.isArray(userData.accounts)) {
+                // Если аккаунты в поле accounts
+                accounts = userData.accounts;
+              } else if (userData.data && Array.isArray(userData.data)) {
+                // Если аккаунты в поле data
+                accounts = userData.data;
+              } else if (userData.items && Array.isArray(userData.items)) {
+                // Если аккаунты в поле items
+                accounts = userData.items;
+              }
+
+              console.log("Extracted accounts:", {
+                count: accounts.length,
+                accounts: accounts.map((acc: any) => ({
+                  id: acc.id || acc.account_id || acc.user_id,
+                  name: acc.name || acc.title || acc.username || 'Без названия',
+                  is_primary: acc.is_primary || acc.primary || false,
+                })),
+              });
+
+              // Преобразуем в нужный формат
+              const formattedAccounts = accounts.map((acc: any) => ({
+                id: acc.id || acc.account_id || acc.user_id || String(acc),
+                name: acc.name || acc.title || acc.username || acc.display_name || 'Без названия',
+                is_primary: acc.is_primary || acc.primary || false,
+              }));
+
+              return new Response(JSON.stringify(formattedAccounts), {
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
               });
             }

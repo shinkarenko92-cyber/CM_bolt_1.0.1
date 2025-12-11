@@ -237,3 +237,40 @@
   border: 6px solid transparent;
   border-top-color: #1e293b;
 }
+
+/* Avito Account Select Styles */
+.avito-account-select .ant-select-selector {
+  background-color: #1e293b !important;
+  border-color: #475569 !important;
+  color: #f8fafc !important;
+}
+
+.avito-account-select .ant-select-selection-placeholder {
+  color: #94a3b8 !important;
+}
+
+.avito-account-select .ant-select-selection-item {
+  color: #f8fafc !important;
+}
+
+.avito-account-select-dropdown {
+  background-color: #1e293b !important;
+}
+
+.avito-account-select-dropdown .ant-select-item {
+  color: #f8fafc !important;
+  background-color: #1e293b !important;
+}
+
+.avito-account-select-dropdown .ant-select-item:hover {
+  background-color: #334155 !important;
+}
+
+.avito-account-select-dropdown .ant-select-item-option-selected {
+  background-color: #334155 !important;
+  color: #14b8a6 !important;
+}
+
+.avito-account-select-dropdown .ant-select-item-option-active {
+  background-color: #334155 !important;
+}

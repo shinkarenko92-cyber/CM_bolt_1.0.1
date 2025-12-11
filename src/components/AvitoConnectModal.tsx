@@ -327,7 +327,7 @@ export function AvitoConnectModal({
     >
       {showResumePrompt && (
         <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded">
-          <p className="text-sm text-blue-300 mb-2">
+          <p className="text-sm text-blue-200 mb-2 font-medium">
             Обнаружен сохранённый прогресс подключения
           </p>
           <Button type="primary" onClick={handleResume}>
@@ -354,13 +354,13 @@ export function AvitoConnectModal({
             {oauthRedirecting ? (
               <div>
                 <Spin indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />} />
-                <p className="mt-4 text-slate-400">
+                <p className="mt-4 text-slate-200">
                   Ждём, пока вы подтвердите доступ в Avito… Это займёт 10 секунд
                 </p>
               </div>
             ) : (
               <div>
-                <p className="text-slate-300 mb-6">
+                <p className="text-white mb-6 text-base">
                   Нажмите кнопку ниже, чтобы авторизоваться в Avito и предоставить доступ к вашему
                   аккаунту
                 </p>
@@ -375,28 +375,50 @@ export function AvitoConnectModal({
         {/* Step 1: Account Selection */}
         {currentStep === 1 && (
           <div>
-            <p className="text-slate-300 mb-4">Выберите аккаунт Avito:</p>
-            <Select
-              style={{ width: '100%' }}
-              placeholder="Выберите аккаунт"
-              value={selectedAccountId || undefined}
-              onChange={handleAccountSelect}
-              loading={loading}
-            >
-              {accounts.map((account) => (
-                <Select.Option key={account.id} value={account.id}>
-                  {account.name} {account.is_primary && '(Основной)'}
-                </Select.Option>
-              ))}
-            </Select>
+            <p className="text-white mb-4 font-medium">Выберите аккаунт Avito:</p>
+            {loading && accounts.length === 0 ? (
+              <div className="flex items-center justify-center py-8">
+                <Spin indicator={<LoadingOutlined style={{ fontSize: 24, color: '#14b8a6' }} spin />} />
+                <span className="ml-3 text-white">Загрузка аккаунтов...</span>
+              </div>
+            ) : accounts.length === 0 ? (
+              <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
+                <p className="text-white mb-2 font-medium">Аккаунты не найдены</p>
+                <p className="text-sm text-slate-300">
+                  Убедитесь, что у вас есть доступ к аккаунтам Avito через API.
+                </p>
+              </div>
+            ) : (
+              <Select
+                style={{ width: '100%' }}
+                placeholder="Выберите аккаунт"
+                value={selectedAccountId || undefined}
+                onChange={handleAccountSelect}
+                loading={loading}
+                className="avito-account-select"
+                popupClassName="avito-account-select-dropdown"
+                size="large"
+              >
+                {accounts.map((account) => (
+                  <Select.Option key={account.id} value={account.id} className="text-white">
+                    <span className="text-white font-medium">{account.name}</span>
+                    {account.is_primary && (
+                      <span className="ml-2 text-xs text-teal-400 bg-teal-400/20 px-2 py-0.5 rounded">
+                        Основной
+                      </span>
+                    )}
+                  </Select.Option>
+                ))}
+              </Select>
+            )}
           </div>
         )}
 
         {/* Step 2: Item ID Input */}
         {currentStep === 2 && (
           <div>
-            <p className="text-slate-300 mb-2">Введите ID объявления на Avito:</p>
-            <p className="text-xs text-slate-500 mb-4">
+            <p className="text-white mb-2 font-medium">Введите ID объявления на Avito:</p>
+            <p className="text-sm text-slate-300 mb-4">
               ID можно найти в URL объявления: avito.ru/moskva/kvartiry/
               <span className="text-teal-400 font-bold">123456789</span>
             </p>
@@ -421,8 +443,8 @@ export function AvitoConnectModal({
         {/* Step 3: Markup Configuration */}
         {currentStep === 3 && (
           <div>
-            <p className="text-slate-300 mb-2">Наценка для компенсации комиссии:</p>
-            <p className="text-xs text-slate-500 mb-4">
+            <p className="text-white mb-2 font-medium">Наценка для компенсации комиссии:</p>
+            <p className="text-sm text-slate-300 mb-4">
               Цена на Avito = базовая цена + наценка (%)
             </p>
             <InputNumber
