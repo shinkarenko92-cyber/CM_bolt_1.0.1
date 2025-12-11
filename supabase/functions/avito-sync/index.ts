@@ -402,11 +402,14 @@ Deno.serve(async (req: Request) => {
           token_length: access_token.length,
         });
 
-        // Check if item ID is already connected (via check_connection endpoint)
+        // Проверяем, существует ли объявление, пытаясь получить информацию о нем
+        // Используем GET запрос к endpoint объявления
+        // Если объявление существует и принадлежит аккаунту, вернется 200
+        // Если не существует или не принадлежит аккаунту, вернется 404
         const response = await fetch(
-          `${AVITO_API_BASE}/short_term_rent/accounts/${account_id}/items/${item_id}/check_connection`,
+          `${AVITO_API_BASE}/short_term_rent/accounts/${account_id}/items/${item_id}`,
           {
-            method: "POST",
+            method: "GET",
             headers: {
               Authorization: `Bearer ${access_token}`,
               "Content-Type": "application/json",
@@ -428,14 +431,30 @@ Deno.serve(async (req: Request) => {
           // Игнорируем ошибки чтения
         }
 
-        if (response.status === 409) {
-          return new Response(
-            JSON.stringify({ available: false, error: "ID уже используется" }),
-            {
-              status: 409,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
-          );
+        // Если объявление найдено (200 OK), проверяем, не используется ли оно уже в другой интеграции
+        if (response.status === 200) {
+          // Проверяем в базе данных, не используется ли этот item_id в другой интеграции
+          const { data: existingIntegration } = await supabase
+            .from("integrations")
+            .select("id, property_id")
+            .eq("platform", "avito")
+            .eq("external_id", item_id)
+            .maybeSingle();
+
+          if (existingIntegration && existingIntegration.property_id !== params.property_id) {
+            return new Response(
+              JSON.stringify({ available: false, error: "ID уже используется в другой интеграции" }),
+              {
+                status: 409,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              }
+            );
+          }
+
+          // Объявление существует и доступно
+          return new Response(JSON.stringify({ available: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
 
         if (response.status === 404) {
@@ -451,28 +470,23 @@ Deno.serve(async (req: Request) => {
           );
         }
 
-        if (!response.ok) {
-          const errorMessage = responseBody || response.statusText;
-          console.error("Item validation failed:", {
-            status: response.status,
-            statusText: response.statusText,
-            body: responseBody,
-          });
-          return new Response(
-            JSON.stringify({ 
-              available: false, 
-              error: `Ошибка при проверке ID: ${response.status} ${errorMessage}` 
-            }),
-            {
-              status: response.status,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
-          );
-        }
-
-        return new Response(JSON.stringify({ available: true }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        // Обработка других ошибок
+        const errorMessage = responseBody || response.statusText;
+        console.error("Item validation failed:", {
+          status: response.status,
+          statusText: response.statusText,
+          body: responseBody,
         });
+        return new Response(
+          JSON.stringify({ 
+            available: false, 
+            error: `Ошибка при проверке ID: ${response.status} ${errorMessage}` 
+          }),
+          {
+            status: response.status,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
       }
 
       case "save-integration": {
