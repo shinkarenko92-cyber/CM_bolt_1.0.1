@@ -383,6 +383,25 @@ Deno.serve(async (req: Request) => {
       case "validate-item": {
         const { account_id, item_id, access_token } = params;
 
+        // Валидация параметров
+        if (!account_id || !item_id || !access_token) {
+          console.error("Missing required parameters for validate-item", {
+            has_account_id: !!account_id,
+            has_item_id: !!item_id,
+            has_access_token: !!access_token,
+          });
+          return new Response(
+            JSON.stringify({ available: false, error: "Отсутствуют обязательные параметры" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        console.log("Validating item:", {
+          account_id,
+          item_id,
+          token_length: access_token.length,
+        });
+
         // Check if item ID is already connected (via check_connection endpoint)
         const response = await fetch(
           `${AVITO_API_BASE}/short_term_rent/accounts/${account_id}/items/${item_id}/check_connection`,
@@ -395,6 +414,20 @@ Deno.serve(async (req: Request) => {
           }
         );
 
+        console.log("Item validation response:", {
+          status: response.status,
+          statusText: response.statusText,
+        });
+
+        // Получаем тело ответа для детальной информации
+        let responseBody = "";
+        try {
+          responseBody = await response.text();
+          console.log("Item validation response body:", responseBody);
+        } catch {
+          // Игнорируем ошибки чтения
+        }
+
         if (response.status === 409) {
           return new Response(
             JSON.stringify({ available: false, error: "ID уже используется" }),
@@ -405,8 +438,36 @@ Deno.serve(async (req: Request) => {
           );
         }
 
+        if (response.status === 404) {
+          return new Response(
+            JSON.stringify({ 
+              available: false, 
+              error: "Объявление с таким ID не найдено или не принадлежит выбранному аккаунту. Проверьте правильность ID и выбранный аккаунт." 
+            }),
+            {
+              status: 404,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
+        }
+
         if (!response.ok) {
-          throw new Error(`Item validation failed: ${response.statusText}`);
+          const errorMessage = responseBody || response.statusText;
+          console.error("Item validation failed:", {
+            status: response.status,
+            statusText: response.statusText,
+            body: responseBody,
+          });
+          return new Response(
+            JSON.stringify({ 
+              available: false, 
+              error: `Ошибка при проверке ID: ${response.status} ${errorMessage}` 
+            }),
+            {
+              status: response.status,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
         }
 
         return new Response(JSON.stringify({ available: true }), {
