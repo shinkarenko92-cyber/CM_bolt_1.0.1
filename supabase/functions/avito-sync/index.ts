@@ -30,7 +30,30 @@ Deno.serve(async (req: Request) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-    const { action, ...params } = await req.json();
+    
+    // Parse request body with error handling
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (jsonError) {
+      console.error("Failed to parse JSON:", jsonError);
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON in request body" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { action, ...params } = requestBody;
+
+    if (!action) {
+      console.error("Missing action in request");
+      return new Response(
+        JSON.stringify({ error: "Missing 'action' parameter" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Processing action: ${action}`);
 
     switch (action) {
       case "exchange-code": {
@@ -378,12 +401,21 @@ Deno.serve(async (req: Request) => {
       }
 
       default:
+        console.error(`Unknown action: ${action}`);
         throw new Error(`Unknown action: ${action}`);
     }
   } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error("Edge Function error:", {
+      message: errorMessage,
+      stack: errorStack,
+    });
+
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage,
       }),
       {
         status: 500,
