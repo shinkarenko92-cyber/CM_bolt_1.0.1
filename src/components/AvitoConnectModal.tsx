@@ -312,18 +312,71 @@ export function AvitoConnectModal({
     }
   };
 
+  const handleBack = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
   // Show resume prompt if progress exists (check dynamically)
   const checkProgress = loadConnectionProgress(property.id);
   const showResumePrompt = checkProgress && checkProgress.step > 0 && currentStep === 0;
+
+  // Render custom footer with navigation buttons
+  const renderFooter = () => {
+    // On last step, show "Завершить подключение" button instead of "Назад"
+    if (currentStep === 3) {
+      return (
+        <div className="flex justify-between items-center">
+          <div>
+            <Button onClick={handleBack} disabled={loading || oauthRedirecting}>
+              Назад
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={handleCancel} disabled={loading && !oauthRedirecting}>
+              Отмена
+            </Button>
+            <Button
+              type="primary"
+              onClick={handleSubmit}
+              loading={loading}
+              icon={<CheckCircleOutlined />}
+            >
+              Завершить подключение
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex justify-between items-center">
+        <div>
+          {currentStep > 0 && (
+            <Button onClick={handleBack} disabled={loading || oauthRedirecting}>
+              Назад
+            </Button>
+          )}
+        </div>
+        <div>
+          <Button onClick={handleCancel} disabled={loading && !oauthRedirecting}>
+            Отмена
+          </Button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <Modal
       title="Подключение Avito"
       open={isOpen}
       onCancel={handleCancel}
-      footer={null}
+      footer={renderFooter()}
       width={600}
       destroyOnClose
+      closable={!oauthRedirecting}
     >
       {showResumePrompt && (
         <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded">
@@ -429,14 +482,15 @@ export function AvitoConnectModal({
               onPressEnter={handleItemIdValidate}
               disabled={validatingItemId}
             />
-            <Button
-              type="primary"
-              className="mt-4"
-              onClick={handleItemIdValidate}
-              loading={validatingItemId}
-            >
-              Проверить ID
-            </Button>
+            <div className="flex gap-2 mt-4">
+              <Button
+                type="primary"
+                onClick={handleItemIdValidate}
+                loading={validatingItemId}
+              >
+                Проверить ID
+              </Button>
+            </div>
           </div>
         )}
 
@@ -456,15 +510,6 @@ export function AvitoConnectModal({
               formatter={(value) => `${value}%`}
               parser={(value) => parseFloat(value?.replace('%', '') || '0')}
             />
-            <Button
-              type="primary"
-              className="mt-6 w-full"
-              onClick={handleSubmit}
-              loading={loading}
-              icon={<CheckCircleOutlined />}
-            >
-              Завершить подключение
-            </Button>
           </div>
         )}
       </div>
