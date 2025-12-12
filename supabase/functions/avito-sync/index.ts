@@ -689,49 +689,16 @@ Deno.serve(async (req: Request) => {
         const accountId = integration.avito_account_id;
         const itemId = integration.avito_item_id;
 
-        // Update prices
-        console.log("Updating base price in Avito", {
-          accountId,
-          itemId,
-          basePrice,
-          markup,
-          priceWithMarkup,
-          minStay: property?.minimum_booking_days || 1,
-        });
-
-        const pricesResponse = await fetch(
-          `${AVITO_API_BASE}/short_term_rent/accounts/${accountId}/items/${itemId}/prices`,
-          {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              price: priceWithMarkup,
-              min_stay: property?.minimum_booking_days || 1,
-            }),
-          }
-        );
-
-        if (!pricesResponse.ok) {
-          const errorText = await pricesResponse.text();
-          console.error("Failed to update Avito prices", {
-            status: pricesResponse.status,
-            statusText: pricesResponse.statusText,
-            error: errorText,
-          });
-          throw new Error(`Failed to update Avito prices: ${pricesResponse.status} ${pricesResponse.statusText} - ${errorText}`);
-        } else {
-          console.log("Avito prices updated successfully");
-        }
-
         // Sync property_rates (calendar prices) and availability to Avito
+        // Note: Avito API doesn't have a separate /prices endpoint
+        // Prices are updated through the /availability endpoint along with calendar dates
         console.log("Syncing property_rates to Avito", {
           property_id: integration.property_id,
           accountId,
           itemId,
           markup,
+          basePrice,
+          priceWithMarkup,
         });
 
         const { data: propertyRates } = await supabase
@@ -764,6 +731,33 @@ Deno.serve(async (req: Request) => {
               minStay: rate.min_stay || property?.minimum_booking_days || 1,
             });
           }
+        } else {
+          // If no property_rates exist, we still need to set base price for upcoming dates
+          // Set base price for next 90 days to ensure Avito has pricing information
+          const today = new Date();
+          const endDate = new Date();
+          endDate.setDate(today.getDate() + 90);
+          
+          const current = new Date(today);
+          while (current <= endDate) {
+            const dateStr = current.toISOString().split('T')[0];
+            // Only add if not already in map (from bookings)
+            if (!calendarDatesMap.has(dateStr)) {
+              calendarDatesMap.set(dateStr, {
+                date: dateStr,
+                status: 'available',
+                price: priceWithMarkup, // Use base price with markup
+                minStay: property?.minimum_booking_days || 1,
+              });
+            }
+            current.setDate(current.getDate() + 1);
+          }
+          
+          console.log("No property_rates found, setting base price for next 90 days", {
+            basePrice,
+            priceWithMarkup,
+            datesCount: calendarDatesMap.size,
+          });
         }
 
         // Override with blocked dates from bookings (bookings take priority)
