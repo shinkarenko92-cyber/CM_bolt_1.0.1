@@ -821,6 +821,12 @@ Deno.serve(async (req: Request) => {
         }
 
         // Pull bookings from Avito
+        console.log("Pulling bookings from Avito", {
+          accountId,
+          itemId,
+          property_id: integration.property_id,
+        });
+
         const bookingsResponse = await fetch(
           `${AVITO_API_BASE}/short_term_rent/accounts/${accountId}/items/${itemId}/bookings`,
           {
@@ -832,31 +838,109 @@ Deno.serve(async (req: Request) => {
 
         if (bookingsResponse.ok) {
           const avitoBookings = await bookingsResponse.json();
+          
+          console.log("Received bookings from Avito", {
+            bookingsCount: Array.isArray(avitoBookings) ? avitoBookings.length : 0,
+            bookings: Array.isArray(avitoBookings) ? avitoBookings : null,
+            responseType: typeof avitoBookings,
+          });
+
+          let createdCount = 0;
+          let skippedCount = 0;
+          let errorCount = 0;
 
           // Create bookings in our DB
-          for (const booking of avitoBookings || []) {
-            const { data: existing } = await supabase
-              .from("bookings")
-              .select("id")
-              .eq("source", "avito")
-              .eq("external_id", booking.id)
-              .maybeSingle();
+          if (Array.isArray(avitoBookings)) {
+            for (const booking of avitoBookings) {
+              try {
+                // Validate booking data
+                if (!booking.id || !booking.check_in || !booking.check_out) {
+                  console.warn("Skipping invalid booking from Avito", {
+                    booking,
+                    missingFields: {
+                      id: !booking.id,
+                      check_in: !booking.check_in,
+                      check_out: !booking.check_out,
+                    },
+                  });
+                  skippedCount++;
+                  continue;
+                }
 
-            if (!existing) {
-              await supabase.from("bookings").insert({
-                property_id: integration.property_id,
-                guest_name: booking.guest_name,
-                guest_phone: booking.guest_phone,
-                check_in: booking.check_in,
-                check_out: booking.check_out,
-                total_price: booking.total_price,
-                currency: booking.currency,
-                status: "confirmed",
-                source: "avito",
-                external_id: booking.id,
-              });
+                const { data: existing } = await supabase
+                  .from("bookings")
+                  .select("id")
+                  .eq("source", "avito")
+                  .eq("external_id", booking.id.toString())
+                  .maybeSingle();
+
+                if (!existing) {
+                  const { error: insertError } = await supabase.from("bookings").insert({
+                    property_id: integration.property_id,
+                    guest_name: booking.guest_name || booking.guest?.name || "Гость с Avito",
+                    guest_email: booking.guest_email || booking.guest?.email || null,
+                    guest_phone: booking.guest_phone || booking.guest?.phone || null,
+                    check_in: booking.check_in,
+                    check_out: booking.check_out,
+                    total_price: booking.total_price || booking.price || 0,
+                    currency: booking.currency || "RUB",
+                    status: "confirmed",
+                    source: "avito",
+                    external_id: booking.id.toString(),
+                    guests_count: booking.guests_count || booking.guests || 1,
+                  });
+
+                  if (insertError) {
+                    console.error("Failed to insert booking from Avito", {
+                      booking,
+                      error: insertError,
+                    });
+                    errorCount++;
+                  } else {
+                    console.log("Created booking from Avito", {
+                      external_id: booking.id,
+                      check_in: booking.check_in,
+                      check_out: booking.check_out,
+                    });
+                    createdCount++;
+                  }
+                } else {
+                  console.log("Booking already exists, skipping", {
+                    external_id: booking.id,
+                    existing_id: existing.id,
+                  });
+                  skippedCount++;
+                }
+              } catch (error) {
+                console.error("Error processing booking from Avito", {
+                  booking,
+                  error: error instanceof Error ? error.message : String(error),
+                });
+                errorCount++;
+              }
             }
+          } else {
+            console.warn("Avito bookings response is not an array", {
+              response: avitoBookings,
+              type: typeof avitoBookings,
+            });
           }
+
+          console.log("Bookings sync summary", {
+            total: Array.isArray(avitoBookings) ? avitoBookings.length : 0,
+            created: createdCount,
+            skipped: skippedCount,
+            errors: errorCount,
+          });
+        } else {
+          const errorText = await bookingsResponse.text();
+          console.error("Failed to fetch bookings from Avito", {
+            status: bookingsResponse.status,
+            statusText: bookingsResponse.statusText,
+            error: errorText,
+          });
+          // Don't throw error - bookings pull is not critical for sync
+          console.warn("Continuing sync despite bookings fetch failure");
         }
 
         // Update last_sync_at and ensure is_active is true
