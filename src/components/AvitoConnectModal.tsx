@@ -531,6 +531,7 @@ export function AvitoConnectModal({
       width={600}
       destroyOnClose
       closable={!oauthRedirecting}
+      maskClosable={false}
     >
       {showResumePrompt && (
         <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded">

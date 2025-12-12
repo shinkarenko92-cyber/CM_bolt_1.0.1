@@ -344,7 +344,23 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onMouseDown={(e) => {
+        // Сохраняем, что mousedown произошел на backdrop
+        if (e.target === e.currentTarget) {
+          (e.currentTarget as HTMLElement).dataset.mouseDown = 'true';
+        }
+      }}
+      onMouseUp={(e) => {
+        // Закрываем только если mousedown и mouseup произошли на backdrop
+        const backdrop = e.currentTarget as HTMLElement;
+        if (e.target === backdrop && backdrop.dataset.mouseDown === 'true') {
+          onClose();
+        }
+        delete backdrop.dataset.mouseDown;
+      }}
+    >
       <div
         className="bg-slate-800 rounded-lg shadow-lg w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
