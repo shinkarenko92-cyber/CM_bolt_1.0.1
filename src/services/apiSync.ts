@@ -72,8 +72,19 @@ export async function syncAvitoIntegration(propertyId: string): Promise<void> {
   }
 
   // Check token expiration
-  if (integration.token_expires_at && new Date(integration.token_expires_at) < new Date()) {
-    throw new Error('Token expired. Please reconnect Avito.');
+  // Используем ту же логику, что и в PropertyModal - добавляем 'Z' если его нет
+  if (integration.token_expires_at) {
+    let expiresAtString = integration.token_expires_at;
+    if (!expiresAtString.endsWith('Z') && !expiresAtString.includes('+') && !expiresAtString.includes('-', 10)) {
+      expiresAtString = expiresAtString + 'Z';
+    }
+    
+    const expiresAt = new Date(expiresAtString);
+    const now = new Date();
+    
+    if (expiresAt.getTime() <= now.getTime()) {
+      throw new Error('Token expired. Please reconnect Avito.');
+    }
   }
 
   // Call Edge Function for sync (it will fetch property and bookings internally)
