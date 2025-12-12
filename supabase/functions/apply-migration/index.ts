@@ -19,19 +19,8 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-
-    if (!supabaseUrl || !supabaseServiceRoleKey) {
-      return new Response(
-        JSON.stringify({ error: "Missing Supabase credentials" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-
-    // Note: Column check removed - migration uses IF NOT EXISTS so it's safe to run multiple times
+    // Note: This function returns SQL for manual execution
+    // Migration uses IF NOT EXISTS so it's safe to run multiple times
 
     // Apply migration using raw SQL
     const migrationSQL = `
