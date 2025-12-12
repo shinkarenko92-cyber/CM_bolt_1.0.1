@@ -2,7 +2,7 @@
 -- This allows properties to be "deleted" without actually removing them from the database
 
 ALTER TABLE properties 
-ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL;
+ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE NULL;
 
 -- Add index for efficient filtering of non-deleted properties
 CREATE INDEX IF NOT EXISTS idx_properties_deleted_at 

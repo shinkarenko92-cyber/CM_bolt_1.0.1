@@ -711,14 +711,27 @@ export function Dashboard() {
         }
       }
 
-      // Hard delete объекта (временно, пока не применена миграция deleted_at)
-      // TODO: После применения миграции вернуть soft delete:
-      // .update({ deleted_at: new Date().toISOString() })
-      const { error: deleteError } = await supabase
+      // Soft delete объекта
+      // Try soft delete first, fallback to hard delete if column doesn't exist
+      let deleteError: any = null;
+      const { error: softDeleteError } = await supabase
         .from('properties')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', propertyId)
-        .eq('owner_id', user.id); // Дополнительная проверка безопасности
+        .eq('owner_id', user.id);
+      
+      if (softDeleteError && softDeleteError.code === 'PGRST204') {
+        // Column doesn't exist, use hard delete
+        console.warn('deleted_at column not found, using hard delete');
+        const { error: hardDeleteError } = await supabase
+          .from('properties')
+          .delete()
+          .eq('id', propertyId)
+          .eq('owner_id', user.id);
+        deleteError = hardDeleteError;
+      } else {
+        deleteError = softDeleteError;
+      }
 
       if (deleteError) {
         throw deleteError;
