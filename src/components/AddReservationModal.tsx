@@ -121,14 +121,12 @@ export function AddReservationModal({
       // Вычисляем среднюю цену за ночь и максимальный минимальный срок
       let totalPrice = 0;
       let maxMinStay = property.minimum_booking_days || 1;
-      let ratesCount = 0;
 
       for (const date of dates) {
         const rate = rates?.find(r => r.date === date);
         if (rate) {
           totalPrice += rate.daily_price;
           maxMinStay = Math.max(maxMinStay, rate.min_stay || 1);
-          ratesCount++;
         } else {
           totalPrice += property.base_price || 0;
         }
