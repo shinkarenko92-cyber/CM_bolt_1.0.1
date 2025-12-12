@@ -78,10 +78,20 @@ export function AddReservationModal({
   // Обновляем текущие условия при изменении дат или property
   useEffect(() => {
     if (formData.property_id && formData.check_in && formData.check_out) {
-      getCurrentConditions(formData.property_id, formData.check_in, formData.check_out).then((conditions) => {
-        setCurrentDailyPrice(conditions.dailyPrice);
-        setCurrentMinStay(conditions.minStay);
-      });
+      getCurrentConditions(formData.property_id, formData.check_in, formData.check_out)
+        .then((conditions) => {
+          setCurrentDailyPrice(conditions.dailyPrice);
+          setCurrentMinStay(conditions.minStay);
+        })
+        .catch((error) => {
+          console.error('Error loading property rates:', error);
+          // В случае ошибки используем базовые значения из property
+          const property = properties.find(p => p.id === formData.property_id);
+          if (property) {
+            setCurrentDailyPrice(property.base_price || 0);
+            setCurrentMinStay(property.minimum_booking_days || 1);
+          }
+        });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.property_id, formData.check_in, formData.check_out]);
@@ -114,20 +124,34 @@ export function AddReservationModal({
         };
       }
 
-      const { data: rates } = await supabase
+      // Получаем property_rates для выбранных дат
+      // Используем подход с получением всех rates для property и фильтрацией на клиенте
+      // Это более надежно, чем .in() при большом количестве дат
+      const { data: rates, error: ratesError } = await supabase
         .from('property_rates')
         .select('*')
-        .eq('property_id', propertyId)
-        .in('date', dates);
+        .eq('property_id', propertyId);
+
+      if (ratesError) {
+        console.error('Error loading property rates:', ratesError);
+        // В случае ошибки возвращаем базовые значения
+        return {
+          dailyPrice: property.base_price || 0,
+          minStay: property.minimum_booking_days || 1,
+        };
+      }
 
       // Вычисляем среднюю цену за ночь и максимальный минимальный срок
       let totalPrice = 0;
       let maxMinStay = property.minimum_booking_days || 1;
 
+      // Фильтруем rates только для нужных дат
+      const filteredRates = rates?.filter(r => dates.includes(r.date)) || [];
+
       for (const date of dates) {
-        const rate = rates?.find(r => r.date === date);
+        const rate = filteredRates.find(r => r.date === date);
         if (rate) {
-          totalPrice += rate.daily_price;
+          totalPrice += Number(rate.daily_price) || 0;
           maxMinStay = Math.max(maxMinStay, rate.min_stay || 1);
         } else {
           totalPrice += property.base_price || 0;
