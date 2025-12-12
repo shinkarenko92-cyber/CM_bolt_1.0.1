@@ -713,7 +713,7 @@ export function Dashboard() {
 
       // Soft delete объекта
       // Try soft delete first, fallback to hard delete if column doesn't exist
-      let deleteError: any = null;
+      let deleteError: { code?: string; message?: string; details?: string; hint?: string } | null = null;
       const { error: softDeleteError } = await supabase
         .from('properties')
         .update({ deleted_at: new Date().toISOString() })

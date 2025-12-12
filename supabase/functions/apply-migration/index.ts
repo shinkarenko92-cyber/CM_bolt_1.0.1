@@ -31,14 +31,7 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    // Check if column already exists
-    const { data: existingColumn, error: checkError } = await supabase.rpc('exec_sql', {
-      sql: `
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'properties' AND column_name = 'deleted_at';
-      `
-    }).catch(() => ({ data: null, error: null }));
+    // Note: Column check removed - migration uses IF NOT EXISTS so it's safe to run multiple times
 
     // Apply migration using raw SQL
     const migrationSQL = `
