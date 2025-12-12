@@ -720,9 +720,15 @@ export function Dashboard() {
         .eq('id', propertyId)
         .eq('owner_id', user.id);
       
-      if (softDeleteError && softDeleteError.code === 'PGRST204') {
+      // Check if error is due to missing deleted_at column
+      const isColumnMissing = softDeleteError && (
+        softDeleteError.code === 'PGRST204' ||
+        (softDeleteError.message && softDeleteError.message.includes("deleted_at"))
+      );
+      
+      if (isColumnMissing) {
         // Column doesn't exist, use hard delete
-        console.warn('deleted_at column not found, using hard delete');
+        console.warn('deleted_at column not found, using hard delete', { error: softDeleteError });
         const { error: hardDeleteError } = await supabase
           .from('properties')
           .delete()
