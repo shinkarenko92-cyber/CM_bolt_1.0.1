@@ -103,11 +103,25 @@ export async function syncAvitoIntegration(propertyId: string): Promise<void> {
   }
 
   // Call Edge Function for sync (it will fetch property and bookings internally)
+  console.log('syncAvitoIntegration: Calling Edge Function', {
+    integration_id: integration.id,
+    property_id: integration.property_id,
+    avito_account_id: integration.avito_account_id,
+    avito_item_id: integration.avito_item_id,
+  });
+
   const { data, error: syncError } = await supabase.functions.invoke('avito-sync', {
     body: {
       action: 'sync',
       integration_id: integration.id,
     },
+  });
+
+  console.log('syncAvitoIntegration: Edge Function response received', {
+    hasData: !!data,
+    hasError: !!syncError,
+    dataType: data ? typeof data : 'null',
+    errorMessage: syncError?.message,
   });
 
   if (syncError) {
