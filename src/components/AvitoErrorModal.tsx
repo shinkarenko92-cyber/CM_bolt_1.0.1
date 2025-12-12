@@ -71,25 +71,30 @@ export function AvitoErrorModal({
             <strong>{t('avito.errors.errorCode', { defaultValue: 'Код ошибки' })}:</strong> {error.errorCode}
           </div>
         )}
-        {error.details && (
-          <div style={{ marginBottom: 12 }}>
-            <strong>{t('avito.errors.details', { defaultValue: 'Детали ошибки' })}:</strong>
-            <pre
-              style={{
-                background: '#1e293b',
-                color: '#f1f5f9',
-                padding: '8px',
-                borderRadius: '4px',
-                fontSize: '12px',
-                maxHeight: '200px',
-                overflow: 'auto',
-                marginTop: '4px',
-              }}
-            >
-              {JSON.stringify(error.details, null, 2)}
-            </pre>
-          </div>
-        )}
+        {error.details ? (() => {
+          const detailsString: string = typeof error.details === 'string' 
+            ? error.details 
+            : JSON.stringify(error.details, null, 2);
+          return (
+            <div style={{ marginBottom: 12 }}>
+              <strong>{t('avito.errors.details', { defaultValue: 'Детали ошибки' })}:</strong>
+              <pre
+                style={{
+                  background: '#1e293b',
+                  color: '#f1f5f9',
+                  padding: '8px',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  maxHeight: '200px',
+                  overflow: 'auto',
+                  marginTop: '4px',
+                }}
+              >
+                {detailsString}
+              </pre>
+            </div>
+          );
+        })() : null}
         {recommendations.length > 0 && (
           <div style={{ marginTop: 16 }}>
             <strong>{t('avito.errors.recommendations', { defaultValue: 'Рекомендации' })}:</strong>
