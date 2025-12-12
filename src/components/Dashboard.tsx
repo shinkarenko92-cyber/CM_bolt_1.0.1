@@ -748,8 +748,6 @@ export function Dashboard() {
       
       const avitoMessage = avitoSynced ? ', Avito синхронизирован' : '';
       toast.success(`Объект "${property.name}" удалён, ${processedBookingsCount} брони обработаны${avitoMessage}`);
-        defaultValue: `Объект удалён, ${processedBookingsCount} брони обработаны${avitoMessage}`,
-      }));
     } catch (error) {
       toast.dismiss(loadingToast);
       console.error('Error performing property deletion:', error);
