@@ -168,6 +168,14 @@ export async function syncAvitoIntegration(propertyId: string): Promise<void> {
       );
     }
   }
+
+  console.log('syncAvitoIntegration: Avito sync completed successfully', { 
+    integration_id: integration.id,
+    property_id: integration.property_id,
+    success: data && typeof data === 'object' ? (data as Record<string, unknown>).success : undefined,
+    synced: data && typeof data === 'object' ? (data as Record<string, unknown>).synced : undefined,
+    hasErrors: data && typeof data === 'object' && 'errors' in data ? Array.isArray((data as Record<string, unknown>).errors) && ((data as Record<string, unknown>).errors as unknown[]).length > 0 : false,
+  });
 }
 
 /**
