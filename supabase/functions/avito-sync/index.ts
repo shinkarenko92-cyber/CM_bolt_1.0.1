@@ -663,14 +663,16 @@ Deno.serve(async (req: Request) => {
         const priceWithMarkup = Math.round(basePrice * (1 + markup / 100));
 
         // Prepare blocked dates from bookings
+        // Используем реальные check_in и check_out для создания бронирований
         interface BookingRecord {
           check_in: string;
           check_out: string;
         }
-        const blockedDates = (bookings as BookingRecord[] || []).map((b) => ({
-          date: b.check_in,
-          available: false,
-        }));
+        const bookingsForAvito = (bookings as BookingRecord[] || []).filter((b) => {
+          // Только будущие бронирования
+          const checkIn = new Date(b.check_in);
+          return checkIn >= new Date(new Date().toISOString().split('T')[0]);
+        });
 
         // Push availability and prices to Avito
         // Decrypt token using RPC function (or use directly if not encrypted yet)
@@ -716,116 +718,237 @@ Deno.serve(async (req: Request) => {
           } : null,
         });
 
-        // Prepare calendar dates: combine property_rates with blocked dates from bookings
-        // Use format compatible with Avito API: { date, status: 'available'|'booked'|'blocked', price?, minStay? }
-        const calendarDatesMap = new Map<string, { date: string; status: 'available' | 'booked' | 'blocked'; price?: number; minStay?: number }>();
+        // 1. Обновление цен через POST /realty/v1/accounts/{account_id}/items/{item_id}/prices
+        // Формат: { prices: [{ date_from, date_to, night_price, minimal_duration, extra_guest_fee? }] }
+        const pricesToUpdate: Array<{
+          date_from: string;
+          date_to: string;
+          night_price: number;
+          minimal_duration: number;
+        }> = [];
 
-        // Add property_rates with prices
+        // Группируем property_rates по периодам с одинаковой ценой и минимальным сроком
         if (propertyRates && propertyRates.length > 0) {
-          for (const rate of propertyRates) {
+          // Сортируем по дате
+          const sortedRates = [...propertyRates].sort((a, b) => a.date.localeCompare(b.date));
+          
+          let currentPeriod: {
+            date_from: string;
+            date_to: string;
+            night_price: number;
+            minimal_duration: number;
+          } | null = null;
+
+          for (const rate of sortedRates) {
             const priceWithMarkup = Math.round(rate.daily_price * (1 + markup / 100));
-            calendarDatesMap.set(rate.date, {
-              date: rate.date,
-              status: 'available',
-              price: priceWithMarkup, // Apply markup
-              minStay: rate.min_stay || property?.minimum_booking_days || 1,
-            });
+            const minStay = rate.min_stay || property?.minimum_booking_days || 1;
+
+            if (!currentPeriod || 
+                currentPeriod.night_price !== priceWithMarkup || 
+                currentPeriod.minimal_duration !== minStay) {
+              // Сохраняем предыдущий период, если он есть
+              if (currentPeriod) {
+                pricesToUpdate.push(currentPeriod);
+              }
+              // Начинаем новый период
+              currentPeriod = {
+                date_from: rate.date,
+                date_to: rate.date,
+                night_price: priceWithMarkup,
+                minimal_duration: minStay,
+              };
+            } else {
+              // Продолжаем текущий период
+              currentPeriod.date_to = rate.date;
+            }
+          }
+          
+          // Добавляем последний период
+          if (currentPeriod) {
+            pricesToUpdate.push(currentPeriod);
           }
         } else {
-          // If no property_rates exist, we still need to set base price for upcoming dates
-          // Set base price for next 90 days to ensure Avito has pricing information
+          // Если нет property_rates, используем базовую цену на 90 дней вперед
           const today = new Date();
           const endDate = new Date();
           endDate.setDate(today.getDate() + 90);
           
-          const current = new Date(today);
-          while (current <= endDate) {
-            const dateStr = current.toISOString().split('T')[0];
-            // Only add if not already in map (from bookings)
-            if (!calendarDatesMap.has(dateStr)) {
-              calendarDatesMap.set(dateStr, {
-                date: dateStr,
-                status: 'available',
-                price: priceWithMarkup, // Use base price with markup
-                minStay: property?.minimum_booking_days || 1,
-              });
-            }
-            current.setDate(current.getDate() + 1);
-          }
-          
-          console.log("No property_rates found, setting base price for next 90 days", {
-            basePrice,
-            priceWithMarkup,
-            datesCount: calendarDatesMap.size,
+          pricesToUpdate.push({
+            date_from: today.toISOString().split('T')[0],
+            date_to: endDate.toISOString().split('T')[0],
+            night_price: priceWithMarkup,
+            minimal_duration: property?.minimum_booking_days || 1,
           });
         }
 
-        // Override with blocked dates from bookings (bookings take priority)
-        for (const blocked of blockedDates) {
-          calendarDatesMap.set(blocked.date, {
-            date: blocked.date,
-            status: 'blocked', // Use 'blocked' status for unavailable dates
-          });
-        }
-
-        // Convert map to array and update Avito calendar
-        const calendarDates = Array.from(calendarDatesMap.values());
-        
-        console.log("Prepared calendar dates for Avito", {
-          datesCount: calendarDates.length,
-          sampleDate: calendarDates.length > 0 ? calendarDates[0] : null,
-          blockedDatesCount: blockedDates.length,
-        });
-        
-        if (calendarDates.length > 0) {
-          console.log("Sending calendar update to Avito", {
-            endpoint: `${AVITO_API_BASE}/short_term_rent/accounts/${accountId}/items/${itemId}/availability`,
-            datesCount: calendarDates.length,
+        // Отправляем обновление цен
+        if (pricesToUpdate.length > 0) {
+          console.log("Sending price update to Avito", {
+            endpoint: `${AVITO_API_BASE}/realty/v1/accounts/${accountId}/items/${itemId}/prices`,
+            periodsCount: pricesToUpdate.length,
           });
 
-          const calendarResponse = await fetch(
-            `${AVITO_API_BASE}/short_term_rent/accounts/${accountId}/items/${itemId}/availability`,
+          const pricesResponse = await fetch(
+            `${AVITO_API_BASE}/realty/v1/accounts/${accountId}/items/${itemId}/prices`,
             {
-              method: "PUT",
+              method: "POST",
               headers: {
                 Authorization: `Bearer ${accessToken}`,
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                dates: calendarDates,
+                prices: pricesToUpdate,
               }),
             }
           );
 
-          if (!calendarResponse.ok) {
-            const errorText = await calendarResponse.text();
-            console.error("Failed to update Avito calendar", {
-              status: calendarResponse.status,
-              statusText: calendarResponse.statusText,
+          if (!pricesResponse.ok) {
+            const errorText = await pricesResponse.text();
+            console.error("Failed to update Avito prices", {
+              status: pricesResponse.status,
+              statusText: pricesResponse.statusText,
               error: errorText,
             });
-            throw new Error(`Failed to update Avito calendar: ${calendarResponse.status} ${calendarResponse.statusText} - ${errorText}`);
+            // Не бросаем ошибку, продолжаем синхронизацию
+            console.warn("Price update failed, but continuing with bookings sync");
           } else {
-            console.log("Avito calendar updated successfully", {
-              datesCount: calendarDates.length,
+            console.log("Avito prices updated successfully", {
+              periodsCount: pricesToUpdate.length,
+            });
+          }
+        }
+
+        // 2. Обновление базовых параметров через POST /realty/v1/items/{item_id}/base
+        // Формат: { base_price, minimal_duration }
+        console.log("Updating base parameters in Avito", {
+          endpoint: `${AVITO_API_BASE}/realty/v1/items/${itemId}/base`,
+          base_price: priceWithMarkup,
+          minimal_duration: property?.minimum_booking_days || 1,
+        });
+
+        const baseParamsResponse = await fetch(
+          `${AVITO_API_BASE}/realty/v1/items/${itemId}/base`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              base_price: priceWithMarkup,
+              minimal_duration: property?.minimum_booking_days || 1,
+            }),
+          }
+        );
+
+        if (!baseParamsResponse.ok) {
+          const errorText = await baseParamsResponse.text();
+          console.error("Failed to update Avito base parameters", {
+            status: baseParamsResponse.status,
+            statusText: baseParamsResponse.statusText,
+            error: errorText,
+          });
+          // Не бросаем ошибку, продолжаем синхронизацию
+          console.warn("Base parameters update failed, but continuing with bookings sync");
+        } else {
+          console.log("Avito base parameters updated successfully");
+        }
+
+        // 3. Отправка бронирований через POST /core/v1/accounts/{account_id}/items/{item_id}/bookings (putBookingsInfo)
+        // Формат: { bookings: [{ date_start, date_end, type?, comment? }], source? }
+        // Отправляем реальные бронирования из нашей системы
+        const bookingsToSend: Array<{
+          date_start: string;
+          date_end: string;
+          type?: string;
+          comment?: string;
+        }> = [];
+
+        // Преобразуем бронирования в формат Avito API
+        for (const booking of bookingsForAvito) {
+          bookingsToSend.push({
+            date_start: booking.check_in,
+            date_end: booking.check_out,
+            type: "booking", // Тип бронирования
+            comment: "Бронирование из Roomi Pro",
+          });
+        }
+
+        // Отправляем бронирования через putBookingsInfo
+        if (bookingsToSend.length > 0) {
+          console.log("Sending bookings to Avito via putBookingsInfo", {
+            endpoint: `${AVITO_API_BASE}/core/v1/accounts/${accountId}/items/${itemId}/bookings`,
+            bookingsCount: bookingsToSend.length,
+          });
+
+          const bookingsUpdateResponse = await fetch(
+            `${AVITO_API_BASE}/core/v1/accounts/${accountId}/items/${itemId}/bookings`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                bookings: bookingsToSend,
+                source: "Roomi Pro", // Название PMS системы
+              }),
+            }
+          );
+
+          if (!bookingsUpdateResponse.ok) {
+            const errorText = await bookingsUpdateResponse.text();
+            const errorStatus = bookingsUpdateResponse.status;
+            
+            // Специальная обработка ошибки 409 (конфликт с оплаченными бронями)
+            if (errorStatus === 409) {
+              console.warn("Some bookings conflict with paid bookings in Avito (409)", {
+                error: errorText,
+                bookingsCount: bookingsToSend.length,
+              });
+              // Не бросаем ошибку для 409, это нормальная ситуация
+            } else {
+              console.error("Failed to update Avito bookings", {
+                status: errorStatus,
+                statusText: bookingsUpdateResponse.statusText,
+                error: errorText,
+              });
+              // Не бросаем ошибку, продолжаем синхронизацию
+              console.warn("Bookings update failed, but continuing with sync");
+            }
+          } else {
+            console.log("Avito bookings updated successfully via putBookingsInfo", {
+              bookingsCount: bookingsToSend.length,
             });
           }
         } else {
-          console.log("No calendar dates to sync (all dates are in the past or no rates found)");
+          console.log("No bookings to send to Avito (no blocked dates)");
         }
 
         // Pull bookings from Avito
+        // Используем правильный endpoint из документации: GET /realty/v1/accounts/{user_id}/items/{item_id}/bookings
+        // С обязательными параметрами date_start и date_end (диапазон на год вперед)
+        const today = new Date();
+        const oneYearLater = new Date(today);
+        oneYearLater.setFullYear(today.getFullYear() + 1);
+        
+        const dateStart = today.toISOString().split('T')[0]; // YYYY-MM-DD
+        const dateEnd = oneYearLater.toISOString().split('T')[0]; // YYYY-MM-DD
+
         console.log("Pulling bookings from Avito", {
           accountId,
           itemId,
           property_id: integration.property_id,
+          date_start: dateStart,
+          date_end: dateEnd,
         });
 
         const bookingsResponse = await fetch(
-          `${AVITO_API_BASE}/short_term_rent/accounts/${accountId}/items/${itemId}/bookings`,
+          `${AVITO_API_BASE}/realty/v1/accounts/${accountId}/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}`,
           {
             headers: {
               Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
             },
           }
         );
