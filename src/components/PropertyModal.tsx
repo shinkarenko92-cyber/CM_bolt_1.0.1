@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { Badge, Button, InputNumber, Modal, message } from 'antd';
 import { useTranslation } from 'react-i18next';
@@ -105,23 +105,26 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   // Автоматически открываем модальное окно Avito, если есть OAuth callback
   useEffect(() => {
     if (!property || !isOpen) {
-      console.log('PropertyModal: Skipping OAuth check', { hasProperty: !!property, isOpen });
       return;
     }
 
+    // Check localStorage FIRST before any work
+    const oauthSuccess = getOAuthSuccess();
+    const oauthError = getOAuthError();
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PropertyModal.tsx:106',message:'OAuth useEffect triggered',data:{hasProperty:!!property,isOpen,hasOAuth:!!(oauthSuccess||oauthError),propertyId:property?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+
+    // Early exit if no OAuth callback
+    if (!oauthSuccess && !oauthError) {
+      return;
+    }
+    
     console.log('PropertyModal: Checking for OAuth callback', {
       propertyId: property.id,
       propertyName: property.name,
       isAvitoModalOpen
-    });
-
-    // Проверяем, есть ли данные OAuth callback
-    const oauthSuccess = getOAuthSuccess();
-    const oauthError = getOAuthError();
-    
-    console.log('PropertyModal: OAuth callback check result', {
-      hasSuccess: !!oauthSuccess,
-      hasError: !!oauthError
     });
     
     if (oauthSuccess) {
@@ -159,7 +162,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       });
       setIsAvitoModalOpen(true);
     }
-  }, [property, isOpen, isAvitoModalOpen]);
+  }, [property, isOpen]); // Removed isAvitoModalOpen from dependencies - only check when property or isOpen changes
 
   const handleDisconnectAvito = () => {
     Modal.confirm({
@@ -254,9 +257,12 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     });
   };
 
-  const isTokenExpired = () => {
+  // Memoize token expiration check to avoid recalculating on every render
+  const isTokenExpired = useMemo(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PropertyModal.tsx:257',message:'isTokenExpired calculated',data:{hasIntegration:!!avitoIntegration,hasExpiresAt:!!avitoIntegration?.token_expires_at},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     if (!avitoIntegration?.token_expires_at) {
-      console.log('PropertyModal: isTokenExpired - no token_expires_at, assuming valid');
       return false; // If no expiration date, assume token is valid
     }
     
@@ -281,7 +287,30 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     });
     
     return expired;
-  };
+  }, [avitoIntegration?.token_expires_at]);
+
+  // Memoize status badge to avoid recalculating on every render
+  const avitoStatusBadge = useMemo(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PropertyModal.tsx:285',message:'Status badge calculated',data:{hasIntegration:!!avitoIntegration,isActive:!!avitoIntegration?.is_active,tokenExpired:isTokenExpired},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+    const isActive = avitoIntegration?.is_active;
+    const tokenValid = !isTokenExpired;
+    const showActive = isActive && tokenValid;
+    
+    console.log('PropertyModal: Status check', {
+      hasIntegration: !!avitoIntegration,
+      is_active: isActive,
+      tokenValid,
+      showActive,
+    });
+    
+    return showActive ? (
+      <Badge status="success" text="синхронизировано" />
+    ) : (
+      <Badge status="default" text="отключено" />
+    );
+  }, [avitoIntegration?.is_active, isTokenExpired]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -311,7 +340,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       });
 
       // Auto-sync to Avito if base_price changed and integration is active
-      if (property && avitoIntegration?.is_active && !isTokenExpired() && oldBasePrice !== newBasePrice) {
+      if (property && avitoIntegration?.is_active && !isTokenExpired && oldBasePrice !== newBasePrice) {
         try {
           await syncAvitoIntegration(property.id);
           // Показываем успешное уведомление
@@ -367,6 +396,10 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       setLoading(false);
     }
   };
+
+  // #region agent log
+  if (isOpen) fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PropertyModal.tsx:371',message:'PropertyModal render',data:{isOpen,hasProperty:!!property,propertyId:property?.id,hasIntegration:!!avitoIntegration,isAvitoModalOpen},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  // #endregion
 
   if (!isOpen) return null;
 
@@ -594,26 +627,11 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <h4 className="text-white font-medium">Avito</h4>
-                      {(() => {
-                        const isActive = avitoIntegration?.is_active;
-                        const tokenValid = !isTokenExpired();
-                        const showActive = isActive && tokenValid;
-                        console.log('PropertyModal: Status check', {
-                          hasIntegration: !!avitoIntegration,
-                          is_active: isActive,
-                          tokenValid,
-                          showActive,
-                        });
-                        return showActive ? (
-                          <Badge status="success" text="синхронизировано" />
-                        ) : (
-                          <Badge status="default" text="отключено" />
-                        );
-                      })()}
+                      {avitoStatusBadge}
                     </div>
                   </div>
 
-                  {avitoIntegration?.is_active && !isTokenExpired() ? (
+                  {avitoIntegration?.is_active && !isTokenExpired ? (
                     <>
                       <div className="text-sm text-slate-400">
                         Последняя синхронизация: {formatDate(avitoIntegration.last_sync_at)}

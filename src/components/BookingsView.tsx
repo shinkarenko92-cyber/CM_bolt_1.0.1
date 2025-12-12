@@ -261,9 +261,22 @@ export function BookingsView({ bookings, properties, onEdit }: BookingsViewProps
                             </div>
                           )}
                           {booking.guest_phone && (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-2">
                               <Phone size={14} />
                               <span>{booking.guest_phone}</span>
+                              <a
+                                href={`https://wa.me/${booking.guest_phone.replace(/\D/g, '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-green-600/20 transition-colors"
+                                title="Открыть в WhatsApp"
+                              >
+                                <img 
+                                  src="/whatsapp-icon.svg" 
+                                  alt="WhatsApp" 
+                                  className="w-5 h-5"
+                                />
+                              </a>
                             </div>
                           )}
                         </div>

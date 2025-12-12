@@ -56,6 +56,22 @@ export function BookingBlock({
     return new Date(dateString).toLocaleDateString('ru-RU');
   };
 
+  // Функция форматирования отображения гостя в календаре
+  const formatGuestDisplay = (name: string, phone: string | null): string => {
+    if (phone && phone.length >= 4) {
+      const last4 = phone.slice(-4);
+      return `${name} (****${last4})`;
+    }
+    return name;
+  };
+
+  // Функция форматирования номера для WhatsApp (только цифры, без +)
+  const formatPhoneForWhatsApp = (phone: string | null): string | null => {
+    if (!phone) return null;
+    // Убираем все нецифровые символы, включая +
+    return phone.replace(/\D/g, '');
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button === 0) {
       onDragStart(booking);
@@ -101,7 +117,9 @@ export function BookingBlock({
       data-testid={`booking-block-${booking.id}`}
     >
       <div className="flex items-center justify-center h-full px-2 overflow-hidden">
-        <div className="truncate text-white font-medium text-[11px]">{booking.guest_name}</div>
+        <div className="truncate text-white font-medium text-[11px]">
+          {formatGuestDisplay(booking.guest_name, booking.guest_phone)}
+        </div>
       </div>
 
       <div 
@@ -124,9 +142,23 @@ export function BookingBlock({
             {booking.total_price} {booking.currency}
           </div>
           {booking.guest_phone && (
-            <div>
-              <span className="text-slate-400">Телефон:</span>{' '}
-              {booking.guest_phone}
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">Телефон:</span>
+              <span>{booking.guest_phone}</span>
+              <a
+                href={`https://wa.me/${formatPhoneForWhatsApp(booking.guest_phone)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center w-5 h-5 rounded hover:bg-green-600/20 transition-colors"
+                onClick={(e) => e.stopPropagation()}
+                title="Открыть в WhatsApp"
+              >
+                <img 
+                  src="/whatsapp-icon.svg" 
+                  alt="WhatsApp" 
+                  className="w-4 h-4"
+                />
+              </a>
             </div>
           )}
           {booking.guest_email && (

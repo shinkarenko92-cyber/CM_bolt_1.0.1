@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Edit2, MapPin } from 'lucide-react';
 import { Property } from '../lib/supabase';
 import { PropertyModal } from './PropertyModal';
@@ -14,6 +14,7 @@ interface PropertiesViewProps {
 export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: PropertiesViewProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const oauthProcessedRef = useRef(false);
 
   // Логируем при монтировании компонента
   useEffect(() => {
@@ -25,84 +26,80 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
 
   // Автоматически открываем PropertyModal для property, если есть OAuth callback
   useEffect(() => {
-    console.log('PropertiesView: OAuth callback check useEffect triggered', {
-      propertiesCount: properties.length,
-      isModalOpen,
-      properties: properties.map(p => ({ id: p.id, name: p.name }))
-    });
-
-    // Сначала проверяем, есть ли OAuth callback в localStorage
+    // Early exit: Check localStorage FIRST before any work
     const oauthSuccess = getOAuthSuccess();
     const oauthError = getOAuthError();
     
-    console.log('PropertiesView: OAuth callback check result', {
-      hasSuccess: !!oauthSuccess,
-      hasError: !!oauthError,
-      oauthSuccess: oauthSuccess ? { hasCode: !!oauthSuccess.code, hasState: !!oauthSuccess.state } : null,
-      oauthError: oauthError ? { error: oauthError.error } : null
-    });
-
-    // Если нет OAuth callback, выходим
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PropertiesView.tsx:27',message:'OAuth callback useEffect triggered',data:{propertiesCount:properties.length,hasOAuth:!!(oauthSuccess||oauthError),alreadyProcessed:oauthProcessedRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
+    // If no OAuth callback, exit immediately (no logging needed)
     if (!oauthSuccess && !oauthError) {
-      console.log('PropertiesView: No OAuth callback found in localStorage');
       return;
     }
 
-    // Ждем, пока properties загрузятся
+    // If already processed, don't process again
+    if (oauthProcessedRef.current) {
+      return;
+    }
+
+    // Wait for properties to load
     if (properties.length === 0) {
-      console.log('PropertiesView: Waiting for properties to load before checking OAuth callback');
       return;
     }
     
-    if (oauthSuccess || oauthError) {
-      console.log('PropertiesView: OAuth callback detected', {
-        hasSuccess: !!oauthSuccess,
-        hasError: !!oauthError,
-        propertiesCount: properties.length,
-        isModalOpen
-      });
+    console.log('PropertiesView: OAuth callback detected', {
+      hasSuccess: !!oauthSuccess,
+      hasError: !!oauthError,
+      propertiesCount: properties.length,
+      isModalOpen
+    });
 
-      try {
-        if (oauthSuccess) {
-          const stateData = parseOAuthState(oauthSuccess.state);
-          console.log('PropertiesView: Parsed OAuth state', { stateData });
-          
-          if (stateData) {
-            const property = properties.find(p => p.id === stateData.property_id);
-            console.log('PropertiesView: Looking for property', {
-              propertyId: stateData.property_id,
-              found: !!property,
-              propertyName: property?.name
-            });
-            
-            if (property && !isModalOpen) {
-              console.log('PropertiesView: Opening PropertyModal for property:', property.id, property.name);
-              setSelectedProperty(property);
-              setIsModalOpen(true);
-            } else if (!property) {
-              console.warn('PropertiesView: Property not found for OAuth callback', {
-                propertyId: stateData.property_id,
-                availableProperties: properties.map(p => ({ id: p.id, name: p.name }))
-              });
-            } else if (isModalOpen) {
-              console.log('PropertiesView: Modal already open, skipping');
-            }
-          } else {
-            console.error('PropertiesView: Failed to parse OAuth state', { state: oauthSuccess.state });
-          }
-        } else if (oauthError) {
-          console.log('PropertiesView: OAuth error detected', {
-            error: oauthError.error,
-            errorDescription: oauthError.error_description
+    try {
+      if (oauthSuccess) {
+        const stateData = parseOAuthState(oauthSuccess.state);
+        console.log('PropertiesView: Parsed OAuth state', { stateData });
+        
+        if (stateData) {
+          const property = properties.find(p => p.id === stateData.property_id);
+          console.log('PropertiesView: Looking for property', {
+            propertyId: stateData.property_id,
+            found: !!property,
+            propertyName: property?.name
           });
-          // Для ошибки тоже нужно найти property, но это сложнее
-          // Пока просто логируем
+          
+          if (property && !isModalOpen) {
+            console.log('PropertiesView: Opening PropertyModal for property:', property.id, property.name);
+            oauthProcessedRef.current = true;
+            setSelectedProperty(property);
+            setIsModalOpen(true);
+          } else if (!property) {
+            console.warn('PropertiesView: Property not found for OAuth callback', {
+              propertyId: stateData.property_id,
+              availableProperties: properties.map(p => ({ id: p.id, name: p.name }))
+            });
+            oauthProcessedRef.current = true; // Mark as processed even if property not found
+          } else if (isModalOpen) {
+            console.log('PropertiesView: Modal already open, skipping');
+            oauthProcessedRef.current = true;
+          }
+        } else {
+          console.error('PropertiesView: Failed to parse OAuth state', { state: oauthSuccess.state });
+          oauthProcessedRef.current = true;
         }
-      } catch (error) {
-        console.error('PropertiesView: Error handling OAuth callback:', error);
+      } else if (oauthError) {
+        console.log('PropertiesView: OAuth error detected', {
+          error: oauthError.error,
+          errorDescription: oauthError.error_description
+        });
+        oauthProcessedRef.current = true;
       }
+    } catch (error) {
+      console.error('PropertiesView: Error handling OAuth callback:', error);
+      oauthProcessedRef.current = true;
     }
-  }, [properties, isModalOpen]);
+  }, [properties]); // Removed isModalOpen from dependencies - only check when properties change
 
   const handleAdd = () => {
     setSelectedProperty(null);

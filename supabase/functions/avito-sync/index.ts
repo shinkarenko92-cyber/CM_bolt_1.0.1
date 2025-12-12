@@ -1175,7 +1175,19 @@ Deno.serve(async (req: Request) => {
                 // contact обязателен (name и email), но может быть fallback на старые поля
                 const contactName = booking.contact?.name || booking.guest_name || booking.guest?.name || "Гость с Avito";
                 const contactEmail = booking.contact?.email || booking.guest_email || booking.guest?.email || null;
-                const contactPhone = booking.contact?.phone || booking.guest_phone || booking.guest?.phone || null;
+                
+                // Функция очистки номера телефона от лишних символов
+                // Оставляем только цифры и знак + для международного формата
+                const cleanPhoneNumber = (phone: string | null | undefined): string | null => {
+                  if (!phone) return null;
+                  // Оставляем только цифры и знак +
+                  const cleaned = phone.replace(/[^\d+]/g, '');
+                  return cleaned || null;
+                };
+                
+                const contactPhone = cleanPhoneNumber(
+                  booking.contact?.phone || booking.guest_phone || booking.guest?.phone
+                );
                 
                 // base_price - основное поле согласно документации
                 const basePrice = booking.base_price || booking.total_price || booking.price || 0;
