@@ -118,7 +118,7 @@ export function ChangeConditionsModal({
       if (upsertError) throw upsertError;
 
       // Auto-sync to Avito if integration is active
-      const { data: integration } = await supabase
+      const { data: integration, error: integrationError } = await supabase
         .from('integrations')
         .select('*')
         .eq('property_id', formData.selectedPropertyId)
@@ -126,15 +126,49 @@ export function ChangeConditionsModal({
         .eq('is_active', true)
         .maybeSingle();
 
-      if (integration && integration.token_expires_at && new Date(integration.token_expires_at) > new Date()) {
-        // Trigger sync
-        try {
-          await syncAvitoIntegration(formData.selectedPropertyId);
-          // Sync completed successfully (onSuccess will be called to refresh UI)
-        } catch (error) {
-          console.error('Failed to sync prices to Avito:', error);
-          // Don't show error to user, just log it
+      console.log('ChangeConditionsModal: Checking for Avito integration', {
+        property_id: formData.selectedPropertyId,
+        hasIntegration: !!integration,
+        is_active: integration?.is_active,
+        token_expires_at: integration?.token_expires_at,
+        integrationError,
+      });
+
+      if (integration && integration.token_expires_at) {
+        const expiresAt = new Date(integration.token_expires_at);
+        const now = new Date();
+        const tokenValid = expiresAt > now;
+        
+        if (tokenValid) {
+          console.log('ChangeConditionsModal: Triggering Avito sync', {
+            property_id: formData.selectedPropertyId,
+            datesCount: dates.length,
+            startDate: formData.startDate,
+            endDate: formData.endDate,
+          });
+          try {
+            await syncAvitoIntegration(formData.selectedPropertyId);
+            console.log('ChangeConditionsModal: Avito sync completed successfully');
+          } catch (error) {
+            console.error('ChangeConditionsModal: Failed to sync prices to Avito:', error);
+            // Показываем предупреждение пользователю, но не блокируем сохранение цен
+            const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+            console.warn('ChangeConditionsModal: Sync failed, but prices saved', { error: errorMessage });
+            // Note: We don't have access to message component here, so we'll just log
+            // The user will see the prices are saved, but sync might have failed
+          }
+        } else {
+          console.log('ChangeConditionsModal: Token expired, skipping sync', {
+            expiresAt: expiresAt.toISOString(),
+            now: now.toISOString(),
+            timeDiff: expiresAt.getTime() - now.getTime(),
+          });
         }
+      } else {
+        console.log('ChangeConditionsModal: No active Avito integration, skipping sync', {
+          hasIntegration: !!integration,
+          hasTokenExpiresAt: !!integration?.token_expires_at,
+        });
       }
 
       onClose();

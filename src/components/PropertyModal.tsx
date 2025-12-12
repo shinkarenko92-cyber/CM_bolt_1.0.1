@@ -255,12 +255,20 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       console.log('PropertyModal: isTokenExpired - no token_expires_at, assuming valid');
       return false; // If no expiration date, assume token is valid
     }
-    const expired = new Date(avitoIntegration.token_expires_at) < new Date();
+    
+    // Правильное сравнение дат с учетом часовых поясов
+    const expiresAt = new Date(avitoIntegration.token_expires_at);
+    const now = new Date();
+    const expired = expiresAt <= now; // Токен истек, если expiresAt <= now
+    
     console.log('PropertyModal: isTokenExpired', {
       token_expires_at: avitoIntegration.token_expires_at,
-      now: new Date().toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      now: now.toISOString(),
       expired,
+      timeDiff: expiresAt.getTime() - now.getTime(), // Разница в миллисекундах
     });
+    
     return expired;
   };
 

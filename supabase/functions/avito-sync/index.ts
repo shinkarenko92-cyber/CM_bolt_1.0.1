@@ -678,7 +678,16 @@ Deno.serve(async (req: Request) => {
         const itemId = integration.avito_item_id;
 
         // Update prices
-        await fetch(
+        console.log("Updating base price in Avito", {
+          accountId,
+          itemId,
+          basePrice,
+          markup,
+          priceWithMarkup,
+          minStay: property?.minimum_booking_days || 1,
+        });
+
+        const pricesResponse = await fetch(
           `${AVITO_API_BASE}/short_term_rent/accounts/${accountId}/items/${itemId}/prices`,
           {
             method: "PUT",
@@ -693,12 +702,40 @@ Deno.serve(async (req: Request) => {
           }
         );
 
+        if (!pricesResponse.ok) {
+          const errorText = await pricesResponse.text();
+          console.error("Failed to update Avito prices", {
+            status: pricesResponse.status,
+            statusText: pricesResponse.statusText,
+            error: errorText,
+          });
+          throw new Error(`Failed to update Avito prices: ${pricesResponse.status} ${pricesResponse.statusText} - ${errorText}`);
+        } else {
+          console.log("Avito prices updated successfully");
+        }
+
         // Sync property_rates (calendar prices) and availability to Avito
+        console.log("Syncing property_rates to Avito", {
+          property_id: integration.property_id,
+          accountId,
+          itemId,
+          markup,
+        });
+
         const { data: propertyRates } = await supabase
           .from("property_rates")
           .select("*")
           .eq("property_id", integration.property_id)
           .gte("date", new Date().toISOString().split('T')[0]); // Only future dates
+
+        console.log("Retrieved property_rates", {
+          ratesCount: propertyRates?.length || 0,
+          sampleRate: propertyRates && propertyRates.length > 0 ? {
+            date: propertyRates[0].date,
+            daily_price: propertyRates[0].daily_price,
+            min_stay: propertyRates[0].min_stay,
+          } : null,
+        });
 
         // Prepare calendar dates: combine property_rates with blocked dates from bookings
         // Use format compatible with Avito API: { date, status: 'available'|'booked'|'blocked', price?, minStay? }
@@ -707,10 +744,11 @@ Deno.serve(async (req: Request) => {
         // Add property_rates with prices
         if (propertyRates && propertyRates.length > 0) {
           for (const rate of propertyRates) {
+            const priceWithMarkup = Math.round(rate.daily_price * (1 + markup / 100));
             calendarDatesMap.set(rate.date, {
               date: rate.date,
               status: 'available',
-              price: Math.round(rate.daily_price * (1 + markup / 100)), // Apply markup
+              price: priceWithMarkup, // Apply markup
               minStay: rate.min_stay || property?.minimum_booking_days || 1,
             });
           }
@@ -727,8 +765,19 @@ Deno.serve(async (req: Request) => {
         // Convert map to array and update Avito calendar
         const calendarDates = Array.from(calendarDatesMap.values());
         
+        console.log("Prepared calendar dates for Avito", {
+          datesCount: calendarDates.length,
+          sampleDate: calendarDates.length > 0 ? calendarDates[0] : null,
+          blockedDatesCount: blockedDates.length,
+        });
+        
         if (calendarDates.length > 0) {
-          await fetch(
+          console.log("Sending calendar update to Avito", {
+            endpoint: `${AVITO_API_BASE}/short_term_rent/accounts/${accountId}/items/${itemId}/availability`,
+            datesCount: calendarDates.length,
+          });
+
+          const calendarResponse = await fetch(
             `${AVITO_API_BASE}/short_term_rent/accounts/${accountId}/items/${itemId}/availability`,
             {
               method: "PUT",
@@ -741,6 +790,22 @@ Deno.serve(async (req: Request) => {
               }),
             }
           );
+
+          if (!calendarResponse.ok) {
+            const errorText = await calendarResponse.text();
+            console.error("Failed to update Avito calendar", {
+              status: calendarResponse.status,
+              statusText: calendarResponse.statusText,
+              error: errorText,
+            });
+            throw new Error(`Failed to update Avito calendar: ${calendarResponse.status} ${calendarResponse.statusText} - ${errorText}`);
+          } else {
+            console.log("Avito calendar updated successfully", {
+              datesCount: calendarDates.length,
+            });
+          }
+        } else {
+          console.log("No calendar dates to sync (all dates are in the past or no rates found)");
         }
 
         // Pull bookings from Avito
