@@ -601,7 +601,7 @@ export function Dashboard() {
       }
 
       // Если нет бронирований, сразу удаляем
-      await performPropertyDeletion(id, property, 'force_delete', []);
+      await performPropertyDeletion(id, 'force_delete', []);
     } catch (error) {
       console.error('Error in handleDeleteProperty:', error);
       toast.error(t('errors.somethingWentWrong'));
@@ -617,7 +617,7 @@ export function Dashboard() {
     }
 
     try {
-      await performPropertyDeletion(propertyToDelete.id, propertyToDelete, action, bookingsForDelete);
+      await performPropertyDeletion(propertyToDelete.id, action, bookingsForDelete);
       setIsDeletePropertyModalOpen(false);
       setPropertyToDelete(null);
       setBookingsForDelete([]);
@@ -629,7 +629,6 @@ export function Dashboard() {
 
   const performPropertyDeletion = async (
     propertyId: string,
-    property: Property,
     action: 'cancel_unpaid' | 'force_delete',
     bookings: Booking[]
   ) => {
