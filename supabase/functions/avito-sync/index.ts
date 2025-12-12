@@ -418,8 +418,9 @@ Deno.serve(async (req: Request) => {
         });
 
         // Используем endpoint из OpenAPI спецификации с обязательными параметрами
+        // Параметр skip_error=true позволяет получать 200 статус вместо ошибок при проблемах с items
         const response = await fetch(
-          `${AVITO_API_BASE}/realty/v1/accounts/${account_id}/items/${item_id}/bookings?date_start=${dateStart}&date_end=${dateEnd}`,
+          `${AVITO_API_BASE}/realty/v1/accounts/${account_id}/items/${item_id}/bookings?date_start=${dateStart}&date_end=${dateEnd}&skip_error=true`,
           {
             method: "GET",
             headers: {
@@ -975,24 +976,39 @@ Deno.serve(async (req: Request) => {
           
           // Avito API может возвращать массив напрямую или объект с массивом внутри
           // Обрабатываем оба варианта
+          // Структура согласно документации RealtyBooking
           interface AvitoBookingResponse {
-            id: string | number;
-            check_in: string;
-            check_out: string;
-            guest_name?: string;
-            guest_email?: string;
-            guest_phone?: string;
+            avito_booking_id?: number; // Идентификатор бронирования на Авито (основное поле)
+            id?: string | number; // Fallback для обратной совместимости
+            check_in: string; // Дата заезда гостей
+            check_out: string; // Дата выезда гостей
+            base_price?: number; // Стоимость проживания на весь срок бронирования (основное поле)
+            total_price?: number; // Fallback для обратной совместимости
+            price?: number; // Fallback для обратной совместимости
+            contact?: {
+              name: string; // Имя гостя (обязательное)
+              email: string; // Email гостя (обязательное)
+              phone?: string; // Номер телефона в 10-ти значном формате
+            };
+            guest_name?: string; // Fallback для обратной совместимости
+            guest_email?: string; // Fallback для обратной совместимости
+            guest_phone?: string; // Fallback для обратной совместимости
             guest?: {
               name?: string;
               email?: string;
               phone?: string;
             };
-            total_price?: number;
-            price?: number;
+            guest_count?: number; // Количество гостей (основное поле)
+            guests_count?: number; // Fallback для обратной совместимости
+            guests?: number; // Fallback для обратной совместимости
+            status?: "active" | "canceled" | "pending"; // Статус брони
+            nights?: number; // Количество ночей
+            safe_deposit?: {
+              total_amount?: number; // Фактическая сумма предоплаты
+              owner_amount?: number; // Сумма, которую получит владелец объекта
+              tax?: number; // Комиссия Авито
+            };
             currency?: string;
-            guests_count?: number;
-            guests?: number;
-            status?: string;
           }
           
           let avitoBookings: AvitoBookingResponse[] = [];
@@ -1025,11 +1041,14 @@ Deno.serve(async (req: Request) => {
           if (avitoBookings.length > 0) {
             for (const booking of avitoBookings) {
               try {
-                // Validate booking data
-                if (!booking.id || !booking.check_in || !booking.check_out) {
+                // Validate booking data согласно документации RealtyBooking
+                // Используем avito_booking_id как основное поле, fallback на id для обратной совместимости
+                const bookingId = booking.avito_booking_id || booking.id;
+                if (!bookingId || !booking.check_in || !booking.check_out) {
                   console.warn("Skipping invalid booking from Avito", {
                     booking,
                     missingFields: {
+                      avito_booking_id: !booking.avito_booking_id,
                       id: !booking.id,
                       check_in: !booking.check_in,
                       check_out: !booking.check_out,
@@ -1039,27 +1058,55 @@ Deno.serve(async (req: Request) => {
                   continue;
                 }
 
+                // Получаем данные согласно документации RealtyBooking
+                // contact обязателен (name и email), но может быть fallback на старые поля
+                const contactName = booking.contact?.name || booking.guest_name || booking.guest?.name || "Гость с Avito";
+                const contactEmail = booking.contact?.email || booking.guest_email || booking.guest?.email || null;
+                const contactPhone = booking.contact?.phone || booking.guest_phone || booking.guest?.phone || null;
+                
+                // base_price - основное поле согласно документации
+                const basePrice = booking.base_price || booking.total_price || booking.price || 0;
+                
+                // guest_count - основное поле согласно документации
+                const guestCount = booking.guest_count || booking.guests_count || booking.guests || 1;
+                
+                // Статус согласно документации: "active" | "canceled" | "pending"
+                // Маппим на наш статус: "active" -> "confirmed", "canceled" -> "cancelled", "pending" -> "pending"
+                let bookingStatus = "confirmed"; // По умолчанию
+                if (booking.status === "active") {
+                  bookingStatus = "confirmed";
+                } else if (booking.status === "canceled") {
+                  bookingStatus = "cancelled";
+                } else if (booking.status === "pending") {
+                  bookingStatus = "pending";
+                }
+
                 const { data: existing } = await supabase
                   .from("bookings")
                   .select("id")
                   .eq("source", "avito")
-                  .eq("external_id", booking.id.toString())
+                  .eq("external_id", bookingId.toString())
                   .maybeSingle();
 
                 if (!existing) {
                   const { error: insertError } = await supabase.from("bookings").insert({
                     property_id: integration.property_id,
-                    guest_name: booking.guest_name || booking.guest?.name || "Гость с Avito",
-                    guest_email: booking.guest_email || booking.guest?.email || null,
-                    guest_phone: booking.guest_phone || booking.guest?.phone || null,
+                    guest_name: contactName,
+                    guest_email: contactEmail,
+                    guest_phone: contactPhone,
                     check_in: booking.check_in,
                     check_out: booking.check_out,
-                    total_price: booking.total_price || booking.price || 0,
+                    total_price: basePrice,
                     currency: booking.currency || "RUB",
-                    status: "confirmed",
+                    status: bookingStatus,
                     source: "avito",
-                    external_id: booking.id.toString(),
-                    guests_count: booking.guests_count || booking.guests || 1,
+                    external_id: bookingId.toString(),
+                    guests_count: guestCount,
+                    // TODO: Добавить поля для nights и safe_deposit когда они будут в схеме БД
+                    // nights: booking.nights,
+                    // safe_deposit_total: booking.safe_deposit?.total_amount,
+                    // safe_deposit_owner: booking.safe_deposit?.owner_amount,
+                    // safe_deposit_tax: booking.safe_deposit?.tax,
                   });
 
                   if (insertError) {
@@ -1070,15 +1117,21 @@ Deno.serve(async (req: Request) => {
                     errorCount++;
                   } else {
                     console.log("Created booking from Avito", {
-                      external_id: booking.id,
+                      external_id: bookingId,
+                      avito_booking_id: booking.avito_booking_id,
                       check_in: booking.check_in,
                       check_out: booking.check_out,
+                      status: bookingStatus,
+                      base_price: basePrice,
+                      guest_count: guestCount,
+                      nights: booking.nights,
                     });
                     createdCount++;
                   }
                 } else {
                   console.log("Booking already exists, skipping", {
-                    external_id: booking.id,
+                    external_id: bookingId,
+                    avito_booking_id: booking.avito_booking_id,
                     existing_id: existing.id,
                   });
                   skippedCount++;
