@@ -352,7 +352,17 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       await onDelete(property.id);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Произошла ошибка');
+      // Проверяем, является ли это ошибкой foreign key constraint
+      if (err && typeof err === 'object' && 'code' in err && err.code === '23503') {
+        const errorMessage = t('errors.cannotDeletePropertyWithBookings', { 
+          defaultValue: 'Невозможно удалить объект, так как у него есть связанные бронирования. Сначала удалите все бронирования для этого объекта.' 
+        });
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } else {
+        const errorMessage = err instanceof Error ? err.message : 'Произошла ошибка';
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
