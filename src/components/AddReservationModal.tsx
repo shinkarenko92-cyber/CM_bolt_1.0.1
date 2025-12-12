@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Property, supabase } from '../lib/supabase';
+import { ChangeConditionsModal } from './ChangeConditionsModal';
 
 interface AddReservationModalProps {
   isOpen: boolean;
@@ -48,6 +49,9 @@ export function AddReservationModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [calculatingPrice, setCalculatingPrice] = useState(false);
+  const [showConditionsModal, setShowConditionsModal] = useState(false);
+  const [currentDailyPrice, setCurrentDailyPrice] = useState<number>(0);
+  const [currentMinStay, setCurrentMinStay] = useState<number>(1);
 
   useEffect(() => {
     if (prefilledDates) {
@@ -68,6 +72,82 @@ export function AddReservationModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.property_id, formData.check_in, formData.check_out]);
+
+  // Обновляем текущие условия при изменении дат или property
+  useEffect(() => {
+    if (formData.property_id && formData.check_in && formData.check_out) {
+      getCurrentConditions(formData.property_id, formData.check_in, formData.check_out).then((conditions) => {
+        setCurrentDailyPrice(conditions.dailyPrice);
+        setCurrentMinStay(conditions.minStay);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.property_id, formData.check_in, formData.check_out]);
+
+  const getCurrentConditions = async (propertyId: string, checkIn: string, checkOut: string) => {
+    if (!propertyId || !checkIn || !checkOut) {
+      return { dailyPrice: 0, minStay: 1 };
+    }
+
+    const property = properties.find(p => p.id === propertyId);
+    if (!property) {
+      return { dailyPrice: 0, minStay: 1 };
+    }
+
+    try {
+      // Получаем property_rates для выбранных дат
+      const start = new Date(checkIn);
+      const end = new Date(checkOut);
+      const dates: string[] = [];
+      
+      // Генерируем массив дат (check-out обычно не включается, но для условий берем все даты периода)
+      for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+        dates.push(d.toISOString().split('T')[0]);
+      }
+
+      if (dates.length === 0) {
+        return {
+          dailyPrice: property.base_price || 0,
+          minStay: property.minimum_booking_days || 1,
+        };
+      }
+
+      const { data: rates } = await supabase
+        .from('property_rates')
+        .select('*')
+        .eq('property_id', propertyId)
+        .in('date', dates);
+
+      // Вычисляем среднюю цену за ночь и максимальный минимальный срок
+      let totalPrice = 0;
+      let maxMinStay = property.minimum_booking_days || 1;
+      let ratesCount = 0;
+
+      for (const date of dates) {
+        const rate = rates?.find(r => r.date === date);
+        if (rate) {
+          totalPrice += rate.daily_price;
+          maxMinStay = Math.max(maxMinStay, rate.min_stay || 1);
+          ratesCount++;
+        } else {
+          totalPrice += property.base_price || 0;
+        }
+      }
+
+      const averageDailyPrice = dates.length > 0 ? totalPrice / dates.length : property.base_price || 0;
+
+      return {
+        dailyPrice: averageDailyPrice,
+        minStay: maxMinStay,
+      };
+    } catch (err) {
+      console.error('Error getting current conditions:', err);
+      return {
+        dailyPrice: property.base_price || 0,
+        minStay: property.minimum_booking_days || 1,
+      };
+    }
+  };
 
   const calculatePrice = async (propertyId: string, checkIn: string, checkOut: string) => {
     if (!propertyId || !checkIn || !checkOut) return;
@@ -95,6 +175,11 @@ export function AddReservationModal({
           currency: property?.currency || 'RUB',
         }));
       }
+
+      // Обновляем текущие условия при пересчете цены
+      const conditions = await getCurrentConditions(propertyId, checkIn, checkOut);
+      setCurrentDailyPrice(conditions.dailyPrice);
+      setCurrentMinStay(conditions.minStay);
     } catch (err) {
       console.error('Error calculating price:', err);
     } finally {
@@ -297,9 +382,30 @@ export function AddReservationModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Total Price {calculatingPrice && '(calculating...)'}
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-slate-300">
+                  Total Price {calculatingPrice && '(calculating...)'}
+                </label>
+                {formData.property_id && formData.check_in && formData.check_out && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const conditions = await getCurrentConditions(
+                        formData.property_id,
+                        formData.check_in,
+                        formData.check_out
+                      );
+                      setCurrentDailyPrice(conditions.dailyPrice);
+                      setCurrentMinStay(conditions.minStay);
+                      setShowConditionsModal(true);
+                    }}
+                    className="text-xs text-teal-400 hover:text-teal-300 transition underline"
+                    disabled={calculatingPrice}
+                  >
+                    Изменить условия
+                  </button>
+                )}
+              </div>
               <input
                 type="number"
                 step="0.01"
@@ -382,6 +488,33 @@ export function AddReservationModal({
           </div>
         </form>
       </div>
+
+      {showConditionsModal && formData.property_id && formData.check_in && formData.check_out && (() => {
+        // check_out - это дата выезда, которая не включается в бронирование
+        // Для условий нужно передать последний день включительно (check_out - 1 день)
+        const checkOutDate = new Date(formData.check_out);
+        checkOutDate.setDate(checkOutDate.getDate() - 1);
+        const endDateForConditions = checkOutDate.toISOString().split('T')[0];
+        
+        return (
+          <ChangeConditionsModal
+            isOpen={showConditionsModal}
+            onClose={() => setShowConditionsModal(false)}
+            onSuccess={async () => {
+              // Пересчитываем цену после изменения условий
+              await calculatePrice(formData.property_id, formData.check_in, formData.check_out);
+              setShowConditionsModal(false);
+            }}
+            propertyId={formData.property_id}
+            startDate={formData.check_in}
+            endDate={endDateForConditions}
+            currentPrice={currentDailyPrice}
+            currentMinStay={currentMinStay}
+            currency={formData.currency}
+            properties={properties}
+          />
+        );
+      })()}
     </div>
   );
 }
