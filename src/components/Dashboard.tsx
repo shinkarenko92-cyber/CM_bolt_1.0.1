@@ -572,7 +572,8 @@ export function Dashboard() {
           bookingsCount: count,
         });
         toast.error(t('errors.cannotDeletePropertyWithBookings', { 
-          defaultValue: 'Невозможно удалить объект, так как у него есть связанные бронирования. Сначала удалите все бронирования для этого объекта.' 
+          count,
+          defaultValue: `Невозможно удалить объект, так как у него есть ${count} связанных бронирований. Сначала удалите все бронирования для этого объекта.` 
         }));
         return;
       }
@@ -599,7 +600,8 @@ export function Dashboard() {
           bookingsCount: bookingsData.length,
         });
         toast.error(t('errors.cannotDeletePropertyWithBookings', { 
-          defaultValue: 'Невозможно удалить объект, так как у него есть связанные бронирования. Сначала удалите все бронирования для этого объекта.' 
+          count: bookingsData.length,
+          defaultValue: `Невозможно удалить объект, так как у него есть ${bookingsData.length} связанных бронирований. Сначала удалите все бронирования для этого объекта.` 
         }));
         return;
       }
@@ -618,8 +620,15 @@ export function Dashboard() {
 
         // Проверяем, является ли это ошибкой foreign key constraint
         if (error.code === '23503' || error.message?.includes('foreign key') || error.message?.includes('bookings') || error.details?.includes('bookings')) {
+          // Пытаемся получить количество бронирований для более информативного сообщения
+          const { count: errorCount } = await supabase
+            .from('bookings')
+            .select('*', { count: 'exact', head: true })
+            .eq('property_id', id);
+          
           toast.error(t('errors.cannotDeletePropertyWithBookings', { 
-            defaultValue: 'Невозможно удалить объект, так как у него есть связанные бронирования. Сначала удалите все бронирования для этого объекта.' 
+            count: errorCount || 0,
+            defaultValue: `Невозможно удалить объект, так как у него есть ${errorCount || 0} связанных бронирований. Сначала удалите все бронирования для этого объекта.` 
           }));
           return;
         }
