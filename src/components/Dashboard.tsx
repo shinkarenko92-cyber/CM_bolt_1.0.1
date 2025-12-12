@@ -33,6 +33,7 @@ type NewReservation = {
   status: string;
   source: string;
   guests_count: number;
+  notes?: string | null;
 };
 
 export function Dashboard() {
@@ -353,6 +354,7 @@ export function Dashboard() {
     status: string;
     source: string;
     guests_count: number;
+    notes?: string | null;
   }) => {
     const overlaps = checkDateOverlap(reservation.property_id, reservation.check_in, reservation.check_out);
 

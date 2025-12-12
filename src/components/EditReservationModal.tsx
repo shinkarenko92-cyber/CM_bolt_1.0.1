@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Booking, Property, supabase } from '../lib/supabase';
 import { PriceRecalculationModal } from './PriceRecalculationModal';
 
@@ -20,6 +21,7 @@ export function EditReservationModal({
   onUpdate,
   onDelete,
 }: EditReservationModalProps) {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     property_id: '',
     guest_name: '',
@@ -27,17 +29,34 @@ export function EditReservationModal({
     guest_phone: '',
     check_in: '',
     check_out: '',
+    price_per_night: '',
     total_price: '',
     currency: 'RUB',
     status: 'confirmed',
     guests_count: '1',
+    notes: '',
   });
   const [originalPropertyId, setOriginalPropertyId] = useState('');
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [calculatedPrice, setCalculatedPrice] = useState(0);
 
+  // Вычисление количества ночей
+  const calculateNights = (checkIn: string, checkOut: string): number => {
+    if (!checkIn || !checkOut) return 0;
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    if (checkOutDate <= checkInDate) return 0;
+    const diffTime = checkOutDate.getTime() - checkInDate.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
   useEffect(() => {
     if (booking) {
+      const nights = calculateNights(booking.check_in || '', booking.check_out || '');
+      const pricePerNight = nights > 0 && booking.total_price 
+        ? (booking.total_price / nights).toFixed(2) 
+        : '';
+      
       setFormData({
         property_id: booking.property_id || '',
         guest_name: booking.guest_name || '',
@@ -45,10 +64,12 @@ export function EditReservationModal({
         guest_phone: booking.guest_phone || '',
         check_in: booking.check_in || '',
         check_out: booking.check_out || '',
+        price_per_night: pricePerNight,
         total_price: booking.total_price?.toString() || '',
         currency: booking.currency || 'RUB',
         status: booking.status || 'confirmed',
         guests_count: booking.guests_count?.toString() || '1',
+        notes: booking.notes || '',
       });
       setOriginalPropertyId(booking.property_id);
     }
@@ -101,13 +122,32 @@ export function EditReservationModal({
 
   const handleRecalculatePrice = () => {
     const newProperty = properties.find(p => p.id === formData.property_id);
+    const nights = calculateNights(formData.check_in, formData.check_out);
+    const pricePerNight = nights > 0 ? (calculatedPrice / nights).toFixed(2) : '';
     setFormData({
       ...formData,
       total_price: calculatedPrice.toString(),
+      price_per_night: pricePerNight,
       currency: newProperty?.currency || formData.currency,
     });
     setShowPriceModal(false);
   };
+
+  // Пересчет total_price при изменении price_per_night
+  useEffect(() => {
+    if (formData.price_per_night && formData.check_in && formData.check_out) {
+      const nights = calculateNights(formData.check_in, formData.check_out);
+      if (nights > 0) {
+        const pricePerNight = parseFloat(formData.price_per_night) || 0;
+        const newTotalPrice = (pricePerNight * nights).toFixed(2);
+        setFormData(prev => ({
+          ...prev,
+          total_price: newTotalPrice,
+        }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.price_per_night, formData.check_in, formData.check_out]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,6 +168,7 @@ export function EditReservationModal({
         guest_name: formData.guest_name,
         guest_email: formData.guest_email,
         guest_phone: formData.guest_phone,
+        notes: formData.notes || null,
         check_in: formData.check_in,
         check_out: formData.check_out,
         total_price: parseFloat(formData.total_price) || 0,
@@ -334,6 +375,27 @@ export function EditReservationModal({
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
+                  {t('modals.pricePerNight', { defaultValue: 'Price per Night' })}
+                  {formData.check_in && formData.check_out && (
+                    <span className="text-slate-400 text-xs ml-2">
+                      ({calculateNights(formData.check_in, formData.check_out)} {t('common.nights', { defaultValue: 'nights' })})
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.price_per_night}
+                  onChange={(e) =>
+                    setFormData({ ...formData, price_per_night: e.target.value })
+                  }
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
                   Total Price
                 </label>
                 <input
@@ -379,6 +441,20 @@ export function EditReservationModal({
                   <option value="pending">Pending</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
+              </div>
+
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  {t('modals.notes', { defaultValue: 'Notes' })}
+                </label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) =>
+                    setFormData({ ...formData, notes: e.target.value })
+                  }
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white min-h-[100px] resize-y"
+                  placeholder={t('modals.notesPlaceholder', { defaultValue: 'Add any additional notes...' })}
+                />
               </div>
             </div>
 

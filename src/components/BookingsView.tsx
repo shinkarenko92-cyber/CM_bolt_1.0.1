@@ -268,6 +268,19 @@ export function BookingsView({ bookings, properties, onEdit }: BookingsViewProps
                           )}
                         </div>
                       )}
+
+                      {booking.notes && (
+                        <div className="mt-3 pt-3 border-t border-slate-700">
+                          <div className="text-xs font-medium text-slate-400 mb-1">
+                            Notes:
+                          </div>
+                          <div className="text-sm text-slate-300 whitespace-pre-wrap break-words">
+                            {booking.notes.length > 150 
+                              ? `${booking.notes.substring(0, 150)}...` 
+                              : booking.notes}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="text-right">

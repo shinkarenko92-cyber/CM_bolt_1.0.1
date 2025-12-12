@@ -161,7 +161,10 @@
     "overlapWarning": "Booking Overlap",
     "overlapMessage": "Selected dates overlap with an existing booking. Continue?",
     "continue": "Continue",
-    "goBack": "Go Back"
+    "goBack": "Go Back",
+    "pricePerNight": "Price per Night",
+    "notes": "Notes",
+    "notesPlaceholder": "Add any additional notes..."
   },
   "settings": {
     "title": "Settings",
