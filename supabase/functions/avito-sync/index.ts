@@ -862,10 +862,19 @@ Deno.serve(async (req: Request) => {
             // Не бросаем ошибку, продолжаем синхронизацию
             console.warn("Price update failed, but continuing with bookings sync");
           } else {
+            const responseData = await pricesResponse.json().catch(() => null);
             console.log("Avito prices updated successfully", {
               periodsCount: pricesToUpdate.length,
+              response: responseData,
             });
           }
+        } else {
+          console.log("No prices to update (pricesToUpdate is empty)", {
+            hasPropertyRates: !!propertyRates,
+            propertyRatesCount: propertyRates?.length || 0,
+            basePrice: property?.base_price,
+            priceWithMarkup,
+          });
         }
 
         // 2. Обновление базовых параметров через POST /realty/v1/items/{item_id}/base
@@ -925,7 +934,16 @@ Deno.serve(async (req: Request) => {
           // Не бросаем ошибку, продолжаем синхронизацию
           console.warn("Base parameters update failed, but continuing with bookings sync");
         } else {
-          console.log("Avito base parameters updated successfully");
+          try {
+            const responseData = await baseParamsResponse.json().catch(() => null);
+            console.log("Avito base parameters updated successfully", {
+              response: responseData,
+            });
+          } catch {
+            console.log("Avito base parameters updated successfully", {
+              status: baseParamsResponse.status,
+            });
+          }
         }
 
         // 3. Отправка бронирований через POST /core/v1/accounts/{account_id}/items/{item_id}/bookings (putBookingsInfo)
@@ -1015,12 +1033,24 @@ Deno.serve(async (req: Request) => {
               console.warn("Bookings update failed, but continuing with sync");
             }
           } else {
-            console.log("Avito bookings updated successfully via putBookingsInfo", {
-              bookingsCount: bookingsToSend.length,
-            });
+            try {
+              const responseData = await bookingsUpdateResponse.json().catch(() => null);
+              console.log("Avito bookings updated successfully via putBookingsInfo", {
+                bookingsCount: bookingsToSend.length,
+                response: responseData,
+              });
+            } catch {
+              console.log("Avito bookings updated successfully via putBookingsInfo", {
+                bookingsCount: bookingsToSend.length,
+                status: bookingsUpdateResponse.status,
+              });
+            }
           }
         } else {
-          console.log("No bookings to send to Avito (no blocked dates)");
+          console.log("No bookings to send to Avito (no blocked dates)", {
+            bookingsForAvitoCount: bookingsForAvito.length,
+            today: new Date().toISOString().split('T')[0],
+          });
         }
 
         // Pull bookings from Avito

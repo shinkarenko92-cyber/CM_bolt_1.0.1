@@ -19,7 +19,8 @@ import { SkeletonCalendar } from './Skeleton';
 import { supabase, Property, Booking, Profile } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { getOAuthSuccess, getOAuthError } from '../services/avito';
-import { syncWithExternalAPIs } from '../services/apiSync';
+import { syncWithExternalAPIs, syncAvitoIntegration, AvitoSyncError } from '../services/apiSync';
+import { showAvitoErrors } from '../services/avitoErrors';
 
 type NewReservation = {
   property_id: string;
@@ -381,6 +382,25 @@ export function Dashboard() {
       setIsAddModalOpen(false);
       setPrefilledDates(null);
       toast.success(t('success.bookingCreated'));
+
+      // Sync to Avito after successful booking creation
+      try {
+        await syncAvitoIntegration(reservation.property_id);
+        console.log('Dashboard: Avito sync completed after booking creation');
+      } catch (error) {
+        console.error('Dashboard: Failed to sync to Avito after booking creation:', error);
+        
+        // Если это AvitoSyncError с массивом ошибок, показываем их
+        if (error instanceof AvitoSyncError && error.errors.length > 0) {
+          showAvitoErrors(error.errors, t).catch((err) => {
+            console.error('Error showing Avito error modals:', err);
+          });
+        } else {
+          // Для других ошибок просто логируем, не показываем toast чтобы не мешать
+          const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+          console.warn('Dashboard: Avito sync failed after booking creation', { error: errorMessage });
+        }
+      }
     } catch (error) {
       console.error('Error saving reservation:', error);
       toast.error(t('errors.somethingWentWrong'));
@@ -418,6 +438,28 @@ export function Dashboard() {
       setBookings(updatedBookings);
       setFilteredBookings(updatedBookings);
       toast.success(t('success.bookingUpdated'));
+
+      // Sync to Avito after successful booking update
+      const booking = bookings.find(b => b.id === id);
+      if (booking?.property_id) {
+        try {
+          await syncAvitoIntegration(booking.property_id);
+          console.log('Dashboard: Avito sync completed after booking update');
+        } catch (error) {
+          console.error('Dashboard: Failed to sync to Avito after booking update:', error);
+          
+          // Если это AvitoSyncError с массивом ошибок, показываем их
+          if (error instanceof AvitoSyncError && error.errors.length > 0) {
+            showAvitoErrors(error.errors, t).catch((err) => {
+              console.error('Error showing Avito error modals:', err);
+            });
+          } else {
+            // Для других ошибок просто логируем
+            const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+            console.warn('Dashboard: Avito sync failed after booking update', { error: errorMessage });
+          }
+        }
+      }
     } catch (error) {
       console.error('Error updating reservation:', error);
       toast.error(t('errors.somethingWentWrong'));
@@ -427,6 +469,10 @@ export function Dashboard() {
 
   const handleDeleteReservation = async (id: string) => {
     try {
+      // Сохраняем property_id перед удалением для синхронизации
+      const booking = bookings.find(b => b.id === id);
+      const propertyId = booking?.property_id;
+
       const { error } = await supabase.from('bookings').delete().eq('id', id);
 
       if (error) throw error;
@@ -435,6 +481,27 @@ export function Dashboard() {
       setBookings(updatedBookings);
       setFilteredBookings(updatedBookings);
       toast.success(t('success.bookingDeleted'));
+
+      // Sync to Avito after successful booking deletion
+      if (propertyId) {
+        try {
+          await syncAvitoIntegration(propertyId);
+          console.log('Dashboard: Avito sync completed after booking deletion');
+        } catch (error) {
+          console.error('Dashboard: Failed to sync to Avito after booking deletion:', error);
+          
+          // Если это AvitoSyncError с массивом ошибок, показываем их
+          if (error instanceof AvitoSyncError && error.errors.length > 0) {
+            showAvitoErrors(error.errors, t).catch((err) => {
+              console.error('Error showing Avito error modals:', err);
+            });
+          } else {
+            // Для других ошибок просто логируем
+            const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+            console.warn('Dashboard: Avito sync failed after booking deletion', { error: errorMessage });
+          }
+        }
+      }
     } catch (error) {
       console.error('Error deleting reservation:', error);
       toast.error(t('errors.somethingWentWrong'));
