@@ -702,8 +702,10 @@ Deno.serve(async (req: Request) => {
         const itemId = integration.avito_item_id;
 
         // Sync property_rates (calendar prices) and availability to Avito
-        // Note: Avito API doesn't have a separate /prices endpoint
-        // Prices are updated through the /availability endpoint along with calendar dates
+        // Используем правильные эндпоинты согласно документации:
+        // 1. POST /realty/v1/accounts/{user_id}/items/{item_id}/prices - для обновления цен
+        // 2. POST /realty/v1/items/{item_id}/base - для базовых параметров
+        // 3. POST /core/v1/accounts/{user_id}/items/{item_id}/bookings - для отправки бронирований
         console.log("Syncing property_rates to Avito", {
           property_id: integration.property_id,
           accountId,
