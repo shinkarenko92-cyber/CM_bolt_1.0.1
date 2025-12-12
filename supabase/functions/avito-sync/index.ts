@@ -837,12 +837,27 @@ Deno.serve(async (req: Request) => {
         );
 
         if (bookingsResponse.ok) {
-          const avitoBookings = await bookingsResponse.json();
+          const responseData = await bookingsResponse.json();
+          
+          // Avito API может возвращать массив напрямую или объект с массивом внутри
+          // Обрабатываем оба варианта
+          let avitoBookings: any[] = [];
+          if (Array.isArray(responseData)) {
+            avitoBookings = responseData;
+          } else if (responseData && Array.isArray(responseData.bookings)) {
+            avitoBookings = responseData.bookings;
+          } else if (responseData && Array.isArray(responseData.data)) {
+            avitoBookings = responseData.data;
+          } else if (responseData && responseData.items && Array.isArray(responseData.items)) {
+            avitoBookings = responseData.items;
+          }
           
           console.log("Received bookings from Avito", {
-            bookingsCount: Array.isArray(avitoBookings) ? avitoBookings.length : 0,
-            bookings: Array.isArray(avitoBookings) ? avitoBookings : null,
-            responseType: typeof avitoBookings,
+            rawResponseType: typeof responseData,
+            rawResponseKeys: responseData && typeof responseData === 'object' ? Object.keys(responseData) : null,
+            bookingsCount: avitoBookings.length,
+            sampleBooking: avitoBookings.length > 0 ? avitoBookings[0] : null,
+            fullResponse: responseData, // Логируем полный ответ для диагностики
           });
 
           let createdCount = 0;
@@ -850,7 +865,7 @@ Deno.serve(async (req: Request) => {
           let errorCount = 0;
 
           // Create bookings in our DB
-          if (Array.isArray(avitoBookings)) {
+          if (avitoBookings.length > 0) {
             for (const booking of avitoBookings) {
               try {
                 // Validate booking data
@@ -920,14 +935,14 @@ Deno.serve(async (req: Request) => {
               }
             }
           } else {
-            console.warn("Avito bookings response is not an array", {
-              response: avitoBookings,
-              type: typeof avitoBookings,
+            console.log("No bookings found in Avito response", {
+              responseData,
+              extractedBookings: avitoBookings,
             });
           }
 
           console.log("Bookings sync summary", {
-            total: Array.isArray(avitoBookings) ? avitoBookings.length : 0,
+            total: avitoBookings.length,
             created: createdCount,
             skipped: skippedCount,
             errors: errorCount,
