@@ -530,6 +530,7 @@ Deno.serve(async (req: Request) => {
           avito_item_id,
           avito_markup,
           access_token,
+          expires_in,
         } = params;
 
         // Валидация обязательных параметров
@@ -558,8 +559,19 @@ Deno.serve(async (req: Request) => {
           );
         }
 
-        // Calculate token expiration (default 1 hour, but Avito tokens may have different expiry)
-        const tokenExpiresAt = new Date(Date.now() + 3600 * 1000); // 1 hour default
+        // Calculate token expiration using real expires_in from Avito API
+        // expires_in is in seconds, convert to milliseconds
+        const expiresInSeconds = expires_in && typeof expires_in === 'number' && expires_in > 0 
+          ? expires_in 
+          : 3600; // Fallback to 1 hour (3600 seconds) if not provided or invalid
+        const tokenExpiresAt = new Date(Date.now() + expiresInSeconds * 1000);
+        
+        console.log("Calculating token expiration", {
+          expires_in,
+          expiresInSeconds,
+          tokenExpiresAt: tokenExpiresAt.toISOString(),
+          now: new Date().toISOString(),
+        });
 
         // Store token - Vault encryption will be handled by database trigger or RPC function
         // Note: For production, create a database trigger that encrypts access_token_encrypted

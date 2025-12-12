@@ -46,6 +46,7 @@ export function AvitoConnectModal({
   const [itemId, setItemId] = useState<string>('');
   const [markup, setMarkup] = useState<number>(15);
   const [accessToken, setAccessToken] = useState<string>('');
+  const [expiresIn, setExpiresIn] = useState<number | null>(null);
   const [validatingItemId, setValidatingItemId] = useState(false);
   const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
 
@@ -104,8 +105,12 @@ export function AvitoConnectModal({
         throw new Error('Не удалось получить access token от Avito');
       }
       
-      console.log('AvitoConnectModal: Token received successfully, length:', tokenResponse.access_token.length);
+      console.log('AvitoConnectModal: Token received successfully', {
+        tokenLength: tokenResponse.access_token.length,
+        expiresIn: tokenResponse.expires_in
+      });
       setAccessToken(tokenResponse.access_token);
+      setExpiresIn(tokenResponse.expires_in); // Сохранить expires_in для правильного расчета времени истечения
 
       // Get user accounts
       console.log('AvitoConnectModal: Fetching user accounts from Edge Function');
@@ -386,6 +391,7 @@ export function AvitoConnectModal({
           avito_item_id: parseInt(itemId, 10),
           avito_markup: markup,
           access_token: accessToken,
+          expires_in: expiresIn, // Передать реальное время истечения из ответа Avito API
         },
       });
 

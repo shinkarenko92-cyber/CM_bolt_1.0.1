@@ -256,13 +256,20 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       return false; // If no expiration date, assume token is valid
     }
     
-    // Правильное сравнение дат с учетом часовых поясов
-    const expiresAt = new Date(avitoIntegration.token_expires_at);
+    // Если строка без 'Z' или часового пояса, добавляем 'Z' чтобы явно указать UTC
+    // Это важно, так как Supabase может сохранять timestamp без 'Z', и браузер интерпретирует его как локальное время
+    let expiresAtString = avitoIntegration.token_expires_at;
+    if (!expiresAtString.endsWith('Z') && !expiresAtString.includes('+') && !expiresAtString.includes('-', 10)) {
+      expiresAtString = expiresAtString + 'Z';
+    }
+    
+    const expiresAt = new Date(expiresAtString);
     const now = new Date();
-    const expired = expiresAt <= now; // Токен истек, если expiresAt <= now
+    const expired = expiresAt.getTime() <= now.getTime();
     
     console.log('PropertyModal: isTokenExpired', {
       token_expires_at: avitoIntegration.token_expires_at,
+      expiresAtString,
       expiresAt: expiresAt.toISOString(),
       now: now.toISOString(),
       expired,
