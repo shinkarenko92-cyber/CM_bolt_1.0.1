@@ -20,7 +20,7 @@ interface CloseAvailabilityRequest {
 }
 
 interface AvitoIntervalsResponse {
-  success?: boolean;
+  result?: string; // "success" on success
   error?: {
     code?: number;
     message?: string;
@@ -87,9 +87,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    if (!integration.avito_account_id || !integration.avito_item_id) {
+    if (!integration.avito_item_id) {
       return new Response(
-        JSON.stringify({ error: "Missing avito_account_id or avito_item_id in integration" }),
+        JSON.stringify({ error: "Missing avito_item_id in integration" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -193,30 +193,11 @@ Deno.serve(async (req: Request) => {
         body: JSON.stringify({
           item_id: itemId,
           intervals: [], // Empty array closes full calendar (year ahead by default)
+          source: "roomi_pms", // PMS source identifier
         }),
       });
 
-      if (response.ok) {
-        const responseData = await response.json().catch(() => ({}));
-        console.log("Avito availability closed successfully", { responseData });
-
-        // Log success to avito_logs
-        await supabase.from("avito_logs").insert({
-          integration_id,
-          property_id,
-          action: "close_availability",
-          status: "success",
-          details: { item_id: itemId, response: responseData },
-        });
-
-        return new Response(
-          JSON.stringify({ success: true }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Handle 409 Conflict (paid bookings)
-      if (response.status === 409) {
+      if (!response.ok) {
         const errorText = await response.text();
         let errorDetails: unknown = errorText;
         try {
@@ -225,66 +206,92 @@ Deno.serve(async (req: Request) => {
           // Keep as text if not JSON
         }
 
-        console.error("Avito API returned 409 Conflict (paid bookings)", {
+        // Handle 409 Conflict (paid bookings)
+        if (response.status === 409) {
+          console.error("Avito API returned 409 Conflict (paid bookings)", {
+            status: response.status,
+            error: errorDetails,
+          });
+
+          // Log error to avito_logs
+          await supabase.from("avito_logs").insert({
+            integration_id,
+            property_id,
+            action: "close_availability",
+            status: "error",
+            error: "409 Conflict: Paid bookings exist",
+            details: { item_id: itemId, error: errorDetails },
+          });
+
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "paid_conflict",
+              message: "Есть оплаченные брони — верните деньги вручную",
+              details: errorDetails,
+            }),
+            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Handle 429 Rate Limit - retry
+        if (response.status === 429) {
+          lastError = {
+            status: 429,
+            message: "Rate limit exceeded",
+            details: errorDetails,
+          };
+          console.warn(`Rate limit hit (attempt ${attempt + 1}/${maxRetries})`, { errorDetails });
+          continue; // Retry
+        }
+
+        // Handle other errors - don't retry
+        lastError = {
           status: response.status,
+          message: `Avito API error: ${response.status} ${response.statusText}`,
+          details: errorDetails,
+        };
+
+        console.error("Avito API error", {
+          status: response.status,
+          statusText: response.statusText,
           error: errorDetails,
         });
 
-        // Log error to avito_logs
-        await supabase.from("avito_logs").insert({
-          integration_id,
-          property_id,
-          action: "close_availability",
-          status: "error",
-          error: "409 Conflict: Paid bookings exist",
-          details: { item_id: itemId, error: errorDetails },
-        });
-
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: "paid_conflict",
-            details: errorDetails,
-          }),
-          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        break; // Don't retry for non-429 errors
       }
 
-      // Handle 429 Rate Limit - retry
-      if (response.status === 429) {
-        const errorText = await response.text();
-        lastError = {
-          status: 429,
-          message: "Rate limit exceeded",
-          details: errorText,
-        };
-        console.warn(`Rate limit hit (attempt ${attempt + 1}/${maxRetries})`, { errorText });
-        continue; // Retry
-      }
-
-      // Handle other errors
-      const errorText = await response.text();
-      let errorDetails: unknown = errorText;
+      // Success response - parse and type it
+      let responseData: AvitoIntervalsResponse;
       try {
-        errorDetails = JSON.parse(errorText);
-      } catch {
-        // Keep as text if not JSON
+        responseData = await response.json() as AvitoIntervalsResponse;
+      } catch (jsonError) {
+        // If response is not JSON, treat as success if status is 200
+        console.warn("Avito API returned non-JSON response, treating as success", {
+          status: response.status,
+          error: jsonError,
+        });
+        responseData = { result: "success" };
       }
 
-      lastError = {
-        status: response.status,
-        message: `Avito API error: ${response.status} ${response.statusText}`,
-        details: errorDetails,
-      };
-
-      console.error("Avito API error", {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorDetails,
+      console.log("Avito availability closed successfully", {
+        result: responseData.result,
+        response: responseData,
       });
 
-      // Don't retry for non-429 errors
-      break;
+      // Log success to avito_logs
+      await supabase.from("avito_logs").insert({
+        integration_id,
+        property_id,
+        action: "close_availability",
+        status: "success",
+        details: { item_id: itemId, response: responseData },
+      });
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // If we get here, all retries failed or non-retryable error occurred
@@ -335,4 +342,3 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
-
