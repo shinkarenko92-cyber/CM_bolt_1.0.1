@@ -550,15 +550,47 @@ export function Dashboard() {
 
   const handleDeleteProperty = async (id: string) => {
     try {
+      // Проверяем, есть ли бронирования для этого объекта
+      const { data: bookingsData, error: bookingsError } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('property_id', id)
+        .limit(1);
+
+      if (bookingsError) {
+        console.error('Error checking bookings:', bookingsError);
+        throw bookingsError;
+      }
+
+      if (bookingsData && bookingsData.length > 0) {
+        toast.error(t('errors.cannotDeletePropertyWithBookings', { 
+          defaultValue: 'Невозможно удалить объект, так как у него есть связанные бронирования. Сначала удалите все бронирования для этого объекта.' 
+        }));
+        return;
+      }
+
       const { error } = await supabase.from('properties').delete().eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        // Проверяем, является ли это ошибкой foreign key constraint
+        if (error.code === '23503' || error.message?.includes('foreign key') || error.message?.includes('bookings')) {
+          toast.error(t('errors.cannotDeletePropertyWithBookings', { 
+            defaultValue: 'Невозможно удалить объект, так как у него есть связанные бронирования. Сначала удалите все бронирования для этого объекта.' 
+          }));
+          return;
+        }
+        throw error;
+      }
 
       setProperties(properties.filter((p) => p.id !== id));
       toast.success(t('success.propertyDeleted'));
     } catch (error) {
       console.error('Error deleting property:', error);
-      toast.error(t('errors.somethingWentWrong'));
+      
+      // Если это не ошибка foreign key, показываем общее сообщение
+      if (error && typeof error === 'object' && 'code' in error && error.code !== '23503') {
+        toast.error(t('errors.somethingWentWrong'));
+      }
       throw error;
     }
   };

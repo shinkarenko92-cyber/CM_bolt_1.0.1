@@ -189,6 +189,7 @@
     "invalidDate": "Invalid date",
     "checkOutBeforeCheckIn": "Check-out date must be after check-in date",
     "somethingWentWrong": "Something went wrong",
+    "cannotDeletePropertyWithBookings": "Cannot delete property because it has associated bookings. Please delete all bookings for this property first.",
     "fillAllFields": "Please fill all required fields"
   },
   "success": {
