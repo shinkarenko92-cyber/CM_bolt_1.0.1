@@ -837,19 +837,42 @@ Deno.serve(async (req: Request) => {
         );
 
         if (bookingsResponse.ok) {
-          const responseData = await bookingsResponse.json();
+          const responseData: unknown = await bookingsResponse.json();
           
           // Avito API может возвращать массив напрямую или объект с массивом внутри
           // Обрабатываем оба варианта
-          let avitoBookings: any[] = [];
+          interface AvitoBookingResponse {
+            id: string | number;
+            check_in: string;
+            check_out: string;
+            guest_name?: string;
+            guest_email?: string;
+            guest_phone?: string;
+            guest?: {
+              name?: string;
+              email?: string;
+              phone?: string;
+            };
+            total_price?: number;
+            price?: number;
+            currency?: string;
+            guests_count?: number;
+            guests?: number;
+            status?: string;
+          }
+          
+          let avitoBookings: AvitoBookingResponse[] = [];
           if (Array.isArray(responseData)) {
-            avitoBookings = responseData;
-          } else if (responseData && Array.isArray(responseData.bookings)) {
-            avitoBookings = responseData.bookings;
-          } else if (responseData && Array.isArray(responseData.data)) {
-            avitoBookings = responseData.data;
-          } else if (responseData && responseData.items && Array.isArray(responseData.items)) {
-            avitoBookings = responseData.items;
+            avitoBookings = responseData as AvitoBookingResponse[];
+          } else if (responseData && typeof responseData === 'object' && responseData !== null) {
+            const data = responseData as Record<string, unknown>;
+            if (Array.isArray(data.bookings)) {
+              avitoBookings = data.bookings as AvitoBookingResponse[];
+            } else if (Array.isArray(data.data)) {
+              avitoBookings = data.data as AvitoBookingResponse[];
+            } else if (Array.isArray(data.items)) {
+              avitoBookings = data.items as AvitoBookingResponse[];
+            }
           }
           
           console.log("Received bookings from Avito", {
