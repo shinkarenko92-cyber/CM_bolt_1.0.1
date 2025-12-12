@@ -52,7 +52,7 @@ export function AdminView() {
         supabase
           .from('properties')
           .select('*')
-          .is('deleted_at', null) // Filter out soft-deleted properties
+          // Note: deleted_at filter temporarily removed
           .order('created_at', { ascending: false }),
         supabase.from('bookings').select('*').order('created_at', { ascending: false }),
       ]);

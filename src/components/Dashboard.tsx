@@ -146,8 +146,8 @@ export function Dashboard() {
           const result = await supabase
             .from('properties')
             .select('*')
-            .eq('owner_id', user.id)
-            .is('deleted_at', null); // Filter out soft-deleted properties
+            .eq('owner_id', user.id);
+          // Note: deleted_at filter temporarily removed - will be re-enabled after migration verification
           return {
             data: result.data,
             error: result.error ? {
@@ -543,8 +543,8 @@ export function Dashboard() {
       const { error } = await supabase
         .from('properties')
         .update(property)
-        .eq('id', id)
-        .is('deleted_at', null); // Only update non-deleted properties
+        .eq('id', id);
+      // Note: deleted_at filter temporarily removed
 
       if (error) throw error;
 
