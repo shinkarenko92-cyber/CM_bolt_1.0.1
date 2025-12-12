@@ -711,10 +711,12 @@ export function Dashboard() {
         }
       }
 
-      // Soft delete объекта
+      // Hard delete объекта (временно, пока не применена миграция deleted_at)
+      // TODO: После применения миграции вернуть soft delete:
+      // .update({ deleted_at: new Date().toISOString() })
       const { error: deleteError } = await supabase
         .from('properties')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', propertyId)
         .eq('owner_id', user.id); // Дополнительная проверка безопасности
 
