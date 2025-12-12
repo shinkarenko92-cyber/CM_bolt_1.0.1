@@ -135,9 +135,15 @@ export function ChangeConditionsModal({
       });
 
       if (integration && integration.token_expires_at) {
-        const expiresAt = new Date(integration.token_expires_at);
+        // Добавляем 'Z' если его нет для правильной интерпретации как UTC
+        let expiresAtString = integration.token_expires_at;
+        if (!expiresAtString.endsWith('Z') && !expiresAtString.includes('+') && !expiresAtString.includes('-', 10)) {
+          expiresAtString = expiresAtString + 'Z';
+        }
+        
+        const expiresAt = new Date(expiresAtString);
         const now = new Date();
-        const tokenValid = expiresAt > now;
+        const tokenValid = expiresAt.getTime() > now.getTime();
         
         if (tokenValid) {
           console.log('ChangeConditionsModal: Triggering Avito sync', {
