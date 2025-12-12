@@ -638,11 +638,20 @@ Deno.serve(async (req: Request) => {
         }
 
         // Check token expiration
-        if (
-          integration.token_expires_at &&
-          new Date(integration.token_expires_at) < new Date()
-        ) {
-          throw new Error("Token expired. Please reconnect.");
+        // Используем ту же логику, что и в других местах - добавляем 'Z' если его нет
+        if (integration.token_expires_at) {
+          // Добавляем 'Z' если его нет для правильной интерпретации как UTC
+          let expiresAtString = integration.token_expires_at;
+          if (!expiresAtString.endsWith('Z') && !expiresAtString.includes('+') && !expiresAtString.includes('-', 10)) {
+            expiresAtString = expiresAtString + 'Z';
+          }
+          
+          const expiresAt = new Date(expiresAtString);
+          const now = new Date();
+          
+          if (expiresAt.getTime() <= now.getTime()) {
+            throw new Error("Token expired. Please reconnect.");
+          }
         }
 
         // Get property and bookings
