@@ -49,7 +49,11 @@ export function AdminView() {
     try {
       const [usersData, propertiesData, bookingsData] = await Promise.all([
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-        supabase.from('properties').select('*').order('created_at', { ascending: false }),
+        supabase
+          .from('properties')
+          .select('*')
+          .is('deleted_at', null) // Filter out soft-deleted properties
+          .order('created_at', { ascending: false }),
         supabase.from('bookings').select('*').order('created_at', { ascending: false }),
       ]);
 

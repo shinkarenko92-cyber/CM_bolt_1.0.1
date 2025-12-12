@@ -22,6 +22,7 @@ export type Property = {
   currency: string;
   status: string;
   minimum_booking_days: number;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 };

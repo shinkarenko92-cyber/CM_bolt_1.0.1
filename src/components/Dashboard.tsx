@@ -21,6 +21,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getOAuthSuccess, getOAuthError } from '../services/avito';
 import { syncWithExternalAPIs, syncAvitoIntegration, AvitoSyncError } from '../services/apiSync';
 import { showAvitoErrors } from '../services/avitoErrors';
+import { DeletePropertyModal } from './DeletePropertyModal';
 
 type NewReservation = {
   property_id: string;
@@ -58,6 +59,9 @@ export function Dashboard() {
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [prefilledDates, setPrefilledDates] = useState<{ propertyId: string; checkIn: string; checkOut: string } | null>(null);
+  const [isDeletePropertyModalOpen, setIsDeletePropertyModalOpen] = useState(false);
+  const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
+  const [bookingsForDelete, setBookingsForDelete] = useState<Booking[]>([]);
 
   // Helper function for retry logic
   type SupabaseQueryResult<T> = {
@@ -142,7 +146,8 @@ export function Dashboard() {
           const result = await supabase
             .from('properties')
             .select('*')
-            .eq('owner_id', user.id);
+            .eq('owner_id', user.id)
+            .is('deleted_at', null); // Filter out soft-deleted properties
           return {
             data: result.data,
             error: result.error ? {
@@ -535,7 +540,11 @@ export function Dashboard() {
 
   const handleUpdateProperty = async (id: string, property: Partial<Property>) => {
     try {
-      const { error } = await supabase.from('properties').update(property).eq('id', id);
+      const { error } = await supabase
+        .from('properties')
+        .update(property)
+        .eq('id', id)
+        .is('deleted_at', null); // Only update non-deleted properties
 
       if (error) throw error;
 
@@ -549,103 +558,203 @@ export function Dashboard() {
   };
 
   const handleDeleteProperty = async (id: string) => {
+    if (!user) {
+      toast.error(t('errors.somethingWentWrong'));
+      return;
+    }
+
     try {
-      // Проверяем, есть ли бронирования для этого объекта
-      // Используем count для более надежной проверки
-      const { count, error: countError } = await supabase
-        .from('bookings')
-        .select('*', { count: 'exact', head: true })
-        .eq('property_id', id);
+      // Проверка владения объектом
+      const { data: property, error: propertyError } = await supabase
+        .from('properties')
+        .select('*')
+        .eq('id', id)
+        .eq('owner_id', user.id)
+        .single();
 
-      console.log('handleDeleteProperty: Checking bookings', {
-        property_id: id,
-        bookingsCount: count,
-        countError,
-      });
-
-      if (countError) {
-        console.error('Error checking bookings count:', countError);
-        // Если не можем проверить, все равно пытаемся удалить и обработаем ошибку
-      } else if (count !== null && count > 0) {
-        console.warn('handleDeleteProperty: Property has bookings, preventing deletion', {
-          property_id: id,
-          bookingsCount: count,
-        });
-        toast.error(t('errors.cannotDeletePropertyWithBookings', { 
-          count,
-          defaultValue: `Невозможно удалить объект, так как у него есть ${count} связанных бронирований. Сначала удалите все бронирования для этого объекта.` 
-        }));
+      if (propertyError || !property) {
+        console.error('Property not found or access denied', { propertyError, id, userId: user.id });
+        toast.error(t('errors.somethingWentWrong'));
         return;
       }
 
-      // Дополнительная проверка через select для совместимости
+      // Fetch bookings details
       const { data: bookingsData, error: bookingsError } = await supabase
         .from('bookings')
-        .select('id')
-        .eq('property_id', id)
-        .limit(1);
-
-      console.log('handleDeleteProperty: Additional check', {
-        property_id: id,
-        bookingsData,
-        bookingsError,
-      });
+        .select('*')
+        .eq('property_id', id);
 
       if (bookingsError) {
-        console.error('Error checking bookings:', bookingsError);
-        // Продолжаем, так как count уже проверил
-      } else if (bookingsData && bookingsData.length > 0) {
-        console.warn('handleDeleteProperty: Found bookings in additional check', {
-          property_id: id,
-          bookingsCount: bookingsData.length,
-        });
-        toast.error(t('errors.cannotDeletePropertyWithBookings', { 
-          count: bookingsData.length,
-          defaultValue: `Невозможно удалить объект, так как у него есть ${bookingsData.length} связанных бронирований. Сначала удалите все бронирования для этого объекта.` 
-        }));
+        console.error('Error fetching bookings:', bookingsError);
+        toast.error(t('errors.somethingWentWrong'));
         return;
       }
 
-      console.log('handleDeleteProperty: Attempting to delete property', { property_id: id });
+      const propertyBookings = bookingsData || [];
 
-      const { error } = await supabase.from('properties').delete().eq('id', id);
-
-      if (error) {
-        console.error('handleDeleteProperty: Delete error', {
-          property_id: id,
-          errorCode: error.code,
-          errorMessage: error.message,
-          errorDetails: error.details,
-        });
-
-        // Проверяем, является ли это ошибкой foreign key constraint
-        if (error.code === '23503' || error.message?.includes('foreign key') || error.message?.includes('bookings') || error.details?.includes('bookings')) {
-          // Пытаемся получить количество бронирований для более информативного сообщения
-          const { count: errorCount } = await supabase
-            .from('bookings')
-            .select('*', { count: 'exact', head: true })
-            .eq('property_id', id);
-          
-          toast.error(t('errors.cannotDeletePropertyWithBookings', { 
-            count: errorCount || 0,
-            defaultValue: `Невозможно удалить объект, так как у него есть ${errorCount || 0} связанных бронирований. Сначала удалите все бронирования для этого объекта.` 
-          }));
-          return;
-        }
-        throw error;
+      // Если есть бронирования, показываем модальное окно
+      if (propertyBookings.length > 0) {
+        setPropertyToDelete(property);
+        setBookingsForDelete(propertyBookings);
+        setIsDeletePropertyModalOpen(true);
+        return;
       }
 
-      console.log('handleDeleteProperty: Property deleted successfully', { property_id: id });
-
-      setProperties(properties.filter((p) => p.id !== id));
-      toast.success(t('success.propertyDeleted'));
+      // Если нет бронирований, сразу удаляем
+      await performPropertyDeletion(id, property, 'force_delete', []);
     } catch (error) {
-      console.error('Error deleting property:', error);
-      
-      // Если это не ошибка foreign key, показываем общее сообщение
-      if (error && typeof error === 'object' && 'code' in error && error.code !== '23503') {
-        toast.error(t('errors.somethingWentWrong'));
+      console.error('Error in handleDeleteProperty:', error);
+      toast.error(t('errors.somethingWentWrong'));
+    }
+  };
+
+  const handleDeletePropertyConfirm = async (action: 'cancel_unpaid' | 'force_delete' | 'abort') => {
+    if (!propertyToDelete || action === 'abort') {
+      setIsDeletePropertyModalOpen(false);
+      setPropertyToDelete(null);
+      setBookingsForDelete([]);
+      return;
+    }
+
+    try {
+      await performPropertyDeletion(propertyToDelete.id, propertyToDelete, action, bookingsForDelete);
+      setIsDeletePropertyModalOpen(false);
+      setPropertyToDelete(null);
+      setBookingsForDelete([]);
+    } catch (error) {
+      console.error('Error in handleDeletePropertyConfirm:', error);
+      // Модальное окно остается открытым для повторной попытки
+    }
+  };
+
+  const performPropertyDeletion = async (
+    propertyId: string,
+    property: Property,
+    action: 'cancel_unpaid' | 'force_delete',
+    bookings: Booking[]
+  ) => {
+    if (!user) {
+      toast.error(t('errors.somethingWentWrong'));
+      return;
+    }
+
+    const loadingToast = toast.loading(t('common.loading', { defaultValue: 'Загрузка...' }));
+
+    try {
+      let processedBookingsCount = 0;
+
+      // Обработка бронирований в зависимости от действия
+      if (action === 'cancel_unpaid') {
+        // Отменяем неоплаченные бронирования (status != 'confirmed')
+        const unpaidBookings = bookings.filter(b => b.status !== 'confirmed');
+        if (unpaidBookings.length > 0) {
+          const { error: updateError } = await supabase
+            .from('bookings')
+            .update({ status: 'cancelled' })
+            .eq('property_id', propertyId)
+            .neq('status', 'confirmed'); // Обновляем только неоплаченные
+
+          if (updateError) {
+            throw updateError;
+          }
+          processedBookingsCount = unpaidBookings.length;
+        }
+      } else if (action === 'force_delete') {
+        // Удаляем все бронирования
+        const { error: deleteError } = await supabase
+          .from('bookings')
+          .delete()
+          .eq('property_id', propertyId);
+
+        if (deleteError) {
+          throw deleteError;
+        }
+        processedBookingsCount = bookings.length;
       }
+
+      // Проверяем наличие активной Avito интеграции
+      const { data: integration, error: integrationError } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('property_id', propertyId)
+        .eq('platform', 'avito')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      let avitoSynced = false;
+      if (!integrationError && integration) {
+        try {
+          // Вызываем Edge Function для закрытия дат в Avito
+          const { data: closeData, error: closeError } = await supabase.functions.invoke('avito-close-availability', {
+            body: {
+              integration_id: integration.id,
+              property_id: propertyId,
+            },
+          });
+
+          if (closeError) {
+            console.error('Avito close availability error:', closeError);
+            // Не блокируем удаление, но показываем предупреждение
+            toast.error(t('avito.errors.syncFailed', { defaultValue: 'Ошибка синхронизации с Avito' }));
+          } else if (closeData && closeData.error === 'paid_conflict') {
+            // 409 Conflict - есть оплаченные бронирования
+            toast.error(t('properties.avitoPaidBookingsError', {
+              defaultValue: 'Avito: Есть оплаченные брони — верните деньги вручную',
+            }));
+            // Продолжаем удаление, но предупреждаем пользователя
+          } else if (closeData && closeData.success) {
+            avitoSynced = true;
+          }
+        } catch (avitoError) {
+          console.error('Error calling Avito close availability:', avitoError);
+          // Не блокируем удаление при ошибке Avito
+        }
+      }
+
+      // Soft delete объекта
+      const { error: deleteError } = await supabase
+        .from('properties')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', propertyId)
+        .eq('owner_id', user.id); // Дополнительная проверка безопасности
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      // Обновляем локальное состояние (удаляем объект из списка)
+      setProperties(prev => prev.filter((p) => p.id !== propertyId));
+
+      // Обновляем бронирования (удаляем или обновляем статусы)
+      if (action === 'force_delete') {
+        // Удаляем все бронирования из локального состояния
+        setBookings(prev => prev.filter((b) => b.property_id !== propertyId));
+        setFilteredBookings(prev => prev.filter((b) => b.property_id !== propertyId));
+      } else if (action === 'cancel_unpaid') {
+        // Обновляем статусы отмененных бронирований в локальном состоянии
+        setBookings(prev => prev.map(b => 
+          b.property_id === propertyId && b.status !== 'confirmed' 
+            ? { ...b, status: 'cancelled' as const }
+            : b
+        ));
+        setFilteredBookings(prev => prev.map(b => 
+          b.property_id === propertyId && b.status !== 'confirmed' 
+            ? { ...b, status: 'cancelled' as const }
+            : b
+        ));
+      }
+
+      toast.dismiss(loadingToast);
+      
+      const avitoMessage = avitoSynced ? ', Avito синхронизирован' : '';
+      toast.success(t('properties.propertyDeletedSuccess', {
+        count: processedBookingsCount,
+        defaultValue: `Объект удалён, ${processedBookingsCount} брони обработаны${avitoMessage}`,
+      }));
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      console.error('Error performing property deletion:', error);
+      toast.error(t('errors.somethingWentWrong'));
       throw error;
     }
   };
@@ -830,6 +939,21 @@ export function Dashboard() {
               </button>
             </div>
           </div>
+        )}
+
+        {/* Delete Property Modal */}
+        {propertyToDelete && (
+          <DeletePropertyModal
+            isOpen={isDeletePropertyModalOpen}
+            onClose={() => {
+              setIsDeletePropertyModalOpen(false);
+              setPropertyToDelete(null);
+              setBookingsForDelete([]);
+            }}
+            property={propertyToDelete}
+            bookings={bookingsForDelete}
+            onConfirm={handleDeletePropertyConfirm}
+          />
         )}
       </div>
     </div>

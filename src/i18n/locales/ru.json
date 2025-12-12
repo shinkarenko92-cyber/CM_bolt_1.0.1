@@ -190,6 +190,13 @@
     "checkOutBeforeCheckIn": "Дата выезда должна быть позже даты заезда",
     "somethingWentWrong": "Что-то пошло не так",
     "cannotDeletePropertyWithBookings": "Невозможно удалить объект, так как у него есть {{count}} связанных бронирований. Сначала удалите все бронирования для этого объекта.",
+    "deleteProperty": "Удаление объекта",
+    "deletePropertyWarning": "У объекта \"{propertyName}\" есть {count} бронирований. Выберите действие:",
+    "paidBookingsWarning": "Внимание: {count} бронирований оплачены. При удалении потребуется вернуть деньги вручную.",
+    "cancelUnpaid": "Отменить неоплаченные ({count})",
+    "forceDeleteAll": "Форсированно удалить всё ({count})",
+    "propertyDeletedSuccess": "Объект удалён, {count} брони обработаны, Avito синхронизирован",
+    "avitoPaidBookingsError": "Avito: Есть оплаченные брони — верните деньги вручную",
     "fillAllFields": "Заполните все обязательные поля"
   },
   "success": {

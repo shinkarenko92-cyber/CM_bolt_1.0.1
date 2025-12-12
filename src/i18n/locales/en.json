@@ -190,6 +190,13 @@
     "checkOutBeforeCheckIn": "Check-out date must be after check-in date",
     "somethingWentWrong": "Something went wrong",
     "cannotDeletePropertyWithBookings": "Cannot delete property because it has {{count}} associated bookings. Please delete all bookings for this property first.",
+    "deleteProperty": "Delete Property",
+    "deletePropertyWarning": "Property \"{propertyName}\" has {count} bookings. Choose an action:",
+    "paidBookingsWarning": "Warning: {count} bookings are paid. You will need to refund manually when deleting.",
+    "cancelUnpaid": "Cancel Unpaid ({count})",
+    "forceDeleteAll": "Force Delete All ({count})",
+    "propertyDeletedSuccess": "Property deleted, {count} bookings processed, Avito synced",
+    "avitoPaidBookingsError": "Avito: There are paid bookings — refund manually",
     "fillAllFields": "Please fill all required fields"
   },
   "success": {
