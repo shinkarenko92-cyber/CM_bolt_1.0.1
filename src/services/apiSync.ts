@@ -123,6 +123,7 @@ export async function syncAvitoIntegration(propertyId: string): Promise<void> {
     dataType: data ? typeof data : 'null',
     errorMessage: syncError?.message,
     dataKeys: data && typeof data === 'object' ? Object.keys(data) : [],
+    data: data, // Полный ответ для диагностики
   });
 
   if (syncError) {
