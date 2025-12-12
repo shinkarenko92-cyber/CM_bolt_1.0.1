@@ -122,6 +122,7 @@ export async function syncAvitoIntegration(propertyId: string): Promise<void> {
     hasError: !!syncError,
     dataType: data ? typeof data : 'null',
     errorMessage: syncError?.message,
+    dataKeys: data && typeof data === 'object' ? Object.keys(data) : [],
   });
 
   if (syncError) {
