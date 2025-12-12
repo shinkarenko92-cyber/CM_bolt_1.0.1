@@ -720,11 +720,13 @@ Deno.serve(async (req: Request) => {
 
         // 1. Обновление цен через POST /realty/v1/accounts/{account_id}/items/{item_id}/prices
         // Формат: { prices: [{ date_from, date_to, night_price, minimal_duration, extra_guest_fee? }] }
+        // extra_guest_fee - опциональная доплата за гостя (рубли)
         const pricesToUpdate: Array<{
           date_from: string;
           date_to: string;
           night_price: number;
           minimal_duration: number;
+          extra_guest_fee?: number; // TODO: Добавить поддержку когда поле будет в property_rates или property
         }> = [];
 
         // Группируем property_rates по периодам с одинаковой ценой и минимальным сроком
@@ -737,11 +739,14 @@ Deno.serve(async (req: Request) => {
             date_to: string;
             night_price: number;
             minimal_duration: number;
+            extra_guest_fee?: number;
           } | null = null;
 
           for (const rate of sortedRates) {
             const priceWithMarkup = Math.round(rate.daily_price * (1 + markup / 100));
             const minStay = rate.min_stay || property?.minimum_booking_days || 1;
+            // TODO: Добавить extra_guest_fee когда поле будет доступно в rate или property
+            // const extraGuestFee = rate.extra_guest_fee || property?.extra_guest_fee;
 
             if (!currentPeriod || 
                 currentPeriod.night_price !== priceWithMarkup || 
@@ -756,6 +761,7 @@ Deno.serve(async (req: Request) => {
                 date_to: rate.date,
                 night_price: priceWithMarkup,
                 minimal_duration: minStay,
+                // extra_guest_fee: extraGuestFee, // Раскомментировать когда поле будет доступно
               };
             } else {
               // Продолжаем текущий период
@@ -778,6 +784,8 @@ Deno.serve(async (req: Request) => {
             date_to: endDate.toISOString().split('T')[0],
             night_price: priceWithMarkup,
             minimal_duration: property?.minimum_booking_days || 1,
+            // TODO: Добавить extra_guest_fee когда поле будет доступно в property
+            // extra_guest_fee: property?.extra_guest_fee,
           });
         }
 
@@ -789,7 +797,7 @@ Deno.serve(async (req: Request) => {
           });
 
           const pricesResponse = await fetch(
-            `${AVITO_API_BASE}/realty/v1/accounts/${accountId}/items/${itemId}/prices`,
+            `${AVITO_API_BASE}/realty/v1/accounts/${accountId}/items/${itemId}/prices?skip_error=true`,
             {
               method: "POST",
               headers: {
@@ -819,10 +827,10 @@ Deno.serve(async (req: Request) => {
         }
 
         // 2. Обновление базовых параметров через POST /realty/v1/items/{item_id}/base
-        // Формат: { base_price, minimal_duration }
+        // Формат: { night_price, minimal_duration, extra_guest_fee?, extra_guest_threshold?, instant?, refund?, discount? }
         console.log("Updating base parameters in Avito", {
           endpoint: `${AVITO_API_BASE}/realty/v1/items/${itemId}/base`,
-          base_price: priceWithMarkup,
+          night_price: priceWithMarkup,
           minimal_duration: property?.minimum_booking_days || 1,
         });
 
@@ -835,8 +843,11 @@ Deno.serve(async (req: Request) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              base_price: priceWithMarkup,
+              night_price: priceWithMarkup,
               minimal_duration: property?.minimum_booking_days || 1,
+              // TODO: Добавить поддержку extra_guest_fee и extra_guest_threshold когда поля будут в БД
+              // extra_guest_fee: property?.extra_guest_fee,
+              // extra_guest_threshold: property?.extra_guest_threshold,
             }),
           }
         );
@@ -856,6 +867,9 @@ Deno.serve(async (req: Request) => {
 
         // 3. Отправка бронирований через POST /core/v1/accounts/{account_id}/items/{item_id}/bookings (putBookingsInfo)
         // Формат: { bookings: [{ date_start, date_end, type?, comment? }], source? }
+        // type: "manual" | "booking" - тип бронирования (manual - закрыто вручную, booking - бронирование)
+        // comment: дополнительная информация (опционально)
+        // source: название PMS системы (опционально)
         // Отправляем реальные бронирования из нашей системы
         const bookingsToSend: Array<{
           date_start: string;
@@ -928,6 +942,7 @@ Deno.serve(async (req: Request) => {
         // Pull bookings from Avito
         // Используем правильный endpoint из документации: GET /realty/v1/accounts/{user_id}/items/{item_id}/bookings
         // С обязательными параметрами date_start и date_end (диапазон на год вперед)
+        // Параметр with_unpaid=true позволяет получать неоплаченные бронирования (в статусе pending)
         const today = new Date();
         const oneYearLater = new Date(today);
         oneYearLater.setFullYear(today.getFullYear() + 1);
@@ -941,10 +956,12 @@ Deno.serve(async (req: Request) => {
           property_id: integration.property_id,
           date_start: dateStart,
           date_end: dateEnd,
+          with_unpaid: true, // Получаем неоплаченные бронирования (в статусе pending)
+          skip_error: true, // Получаем 200 статус вместо ошибок при проблемах с items
         });
 
         const bookingsResponse = await fetch(
-          `${AVITO_API_BASE}/realty/v1/accounts/${accountId}/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}`,
+          `${AVITO_API_BASE}/realty/v1/accounts/${accountId}/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}&with_unpaid=true&skip_error=true`,
           {
             headers: {
               Authorization: `Bearer ${accessToken}`,
