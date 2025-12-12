@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Settings } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Property, supabase } from '../lib/supabase';
 import { ChangeConditionsModal } from './ChangeConditionsModal';
 
@@ -32,6 +33,7 @@ export function AddReservationModal({
   selectedProperties = [],
   prefilledDates = null,
 }: AddReservationModalProps) {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     property_id: selectedProperties[0] || '',
     guest_name: '',
@@ -265,7 +267,29 @@ export function AddReservationModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
-          <h2 className="text-xl font-semibold text-white">Add Reservation</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-white">{t('modals.addReservation')}</h2>
+            <button
+              type="button"
+              onClick={async () => {
+                if (formData.property_id && formData.check_in && formData.check_out) {
+                  const conditions = await getCurrentConditions(
+                    formData.property_id,
+                    formData.check_in,
+                    formData.check_out
+                  );
+                  setCurrentDailyPrice(conditions.dailyPrice);
+                  setCurrentMinStay(conditions.minStay);
+                  setShowConditionsModal(true);
+                }
+              }}
+              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!formData.property_id || !formData.check_in || !formData.check_out || calculatingPrice}
+            >
+              <Settings className="w-4 h-4" />
+              {t('modals.changeConditions')}
+            </button>
+          </div>
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-white transition"
@@ -380,30 +404,9 @@ export function AddReservationModal({
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-slate-300">
-                  Total Price {calculatingPrice && '(calculating...)'}
-                </label>
-                {formData.property_id && formData.check_in && formData.check_out && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const conditions = await getCurrentConditions(
-                        formData.property_id,
-                        formData.check_in,
-                        formData.check_out
-                      );
-                      setCurrentDailyPrice(conditions.dailyPrice);
-                      setCurrentMinStay(conditions.minStay);
-                      setShowConditionsModal(true);
-                    }}
-                    className="text-xs text-teal-400 hover:text-teal-300 transition underline"
-                    disabled={calculatingPrice}
-                  >
-                    Изменить условия
-                  </button>
-                )}
-              </div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Total Price {calculatingPrice && '(calculating...)'}
+              </label>
               <input
                 type="number"
                 step="0.01"
