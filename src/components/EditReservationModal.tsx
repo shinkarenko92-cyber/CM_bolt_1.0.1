@@ -79,6 +79,22 @@ export function EditReservationModal({
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Пересчет total_price при изменении price_per_night
+  useEffect(() => {
+    if (formData.price_per_night && formData.check_in && formData.check_out) {
+      const nights = calculateNights(formData.check_in, formData.check_out);
+      if (nights > 0) {
+        const pricePerNight = parseFloat(formData.price_per_night) || 0;
+        const newTotalPrice = (pricePerNight * nights).toFixed(2);
+        setFormData(prev => ({
+          ...prev,
+          total_price: newTotalPrice,
+        }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.price_per_night, formData.check_in, formData.check_out]);
+
   if (!booking) return null;
 
   const calculateNewPrice = async (propertyId: string, checkIn: string, checkOut: string): Promise<number> => {
@@ -132,22 +148,6 @@ export function EditReservationModal({
     });
     setShowPriceModal(false);
   };
-
-  // Пересчет total_price при изменении price_per_night
-  useEffect(() => {
-    if (formData.price_per_night && formData.check_in && formData.check_out) {
-      const nights = calculateNights(formData.check_in, formData.check_out);
-      if (nights > 0) {
-        const pricePerNight = parseFloat(formData.price_per_night) || 0;
-        const newTotalPrice = (pricePerNight * nights).toFixed(2);
-        setFormData(prev => ({
-          ...prev,
-          total_price: newTotalPrice,
-        }));
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.price_per_night, formData.check_in, formData.check_out]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
