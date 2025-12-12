@@ -378,7 +378,11 @@ export function Calendar({
         .select('*')
         .in('property_id', propertyIds);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading property rates:', error);
+        // Не бросаем ошибку, просто логируем - календарь может работать без rates
+        return;
+      }
 
       const ratesMap = new Map<string, PropertyRate[]>();
       data?.forEach((rate) => {
@@ -389,6 +393,7 @@ export function Calendar({
       setPropertyRates(ratesMap);
     } catch (error) {
       console.error('Error loading property rates:', error);
+      // Не бросаем ошибку дальше - календарь может работать без rates
     }
   };
 

@@ -20,7 +20,8 @@
     "guest": "гость",
     "perNight": "/ночь",
     "unknown": "Неизвестно",
-    "underDevelopment": "Этот раздел находится в разработке"
+    "underDevelopment": "Этот раздел находится в разработке",
+    "retry": "Повторить"
   },
   "auth": {
     "signIn": "Войти",
@@ -196,6 +197,47 @@
     "propertyCreated": "Объект создан",
     "propertyUpdated": "Объект обновлён",
     "propertyDeleted": "Объект удалён"
+  },
+  "avito": {
+    "errors": {
+      "syncFailed": "Ошибка синхронизации с Avito",
+      "priceUpdateFailed": "Не удалось обновить цены",
+      "calendarUpdateFailed": "Не удалось обновить календарь",
+      "baseParamsUpdateFailed": "Не удалось обновить базовые параметры",
+      "bookingsUpdateFailed": "Не удалось обновить бронирования",
+      "validationError": "Ошибка валидации",
+      "priceTooLow": "Цена слишком низкая",
+      "priceTooHigh": "Цена слишком высокая",
+      "invalidDateRange": "Некорректный диапазон дат",
+      "tokenExpired": "Токен истёк",
+      "unauthorized": "Ошибка авторизации",
+      "networkError": "Сетевая ошибка",
+      "unknownError": "Неизвестная ошибка",
+      "details": "Детали ошибки",
+      "recommendations": "Рекомендации",
+      "operation": "Операция",
+      "statusCode": "Код статуса",
+      "errorCode": "Код ошибки",
+      "message": "Сообщение",
+      "price_update": "Обновление цен",
+      "calendar_update": "Обновление календаря",
+      "base_params_update": "Обновление базовых параметров",
+      "bookings_update": "Обновление бронирований",
+      "sync": "Синхронизация",
+      "unknown_operation": "Неизвестная операция",
+      "recommendations": {
+        "priceTooLow": "Убедитесь, что цена соответствует минимальным требованиям Avito",
+        "priceTooHigh": "Убедитесь, что цена не превышает максимально допустимую",
+        "invalidDateRange": "Проверьте корректность диапазона дат",
+        "reconnect": "Попробуйте переподключить интеграцию с Avito",
+        "tokenExpired": "Токен доступа истёк. Переподключите интеграцию",
+        "networkError": "Проверьте подключение к интернету и попробуйте снова",
+        "contactSupport": "Если проблема повторяется, обратитесь в поддержку"
+      }
+    },
+    "success": {
+      "syncCompleted": "Синхронизация с Avito завершена успешно"
+    }
   }
 }
 

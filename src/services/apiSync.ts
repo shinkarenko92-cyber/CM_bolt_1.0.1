@@ -1,5 +1,6 @@
 import { avitoApi, isAvitoConfigured, initializeAvito } from './avitoApi';
 import { supabase, Booking, Property, PropertyIntegration } from '../lib/supabase';
+import type { AvitoErrorInfo } from './avitoErrors';
 
 export type SyncResult = {
   platform: string;
@@ -60,8 +61,22 @@ export async function getPropertyIntegration(
 }
 
 /**
+ * Custom error class for Avito sync errors with multiple errors
+ */
+export class AvitoSyncError extends Error {
+  errors: AvitoErrorInfo[];
+
+  constructor(message: string, errors: AvitoErrorInfo[] = []) {
+    super(message);
+    this.name = 'AvitoSyncError';
+    this.errors = errors;
+  }
+}
+
+/**
  * Sync Avito integration for a specific property
  * Prepares data and calls Edge Function for actual sync
+ * Throws AvitoSyncError if there are errors from Avito API
  */
 export async function syncAvitoIntegration(propertyId: string): Promise<void> {
   // Get integration from database
@@ -88,7 +103,7 @@ export async function syncAvitoIntegration(propertyId: string): Promise<void> {
   }
 
   // Call Edge Function for sync (it will fetch property and bookings internally)
-  const { error: syncError } = await supabase.functions.invoke('avito-sync', {
+  const { data, error: syncError } = await supabase.functions.invoke('avito-sync', {
     body: {
       action: 'sync',
       integration_id: integration.id,
@@ -96,7 +111,46 @@ export async function syncAvitoIntegration(propertyId: string): Promise<void> {
   });
 
   if (syncError) {
+    // Try to parse errors from response
+    let errors: AvitoErrorInfo[] = [];
+    try {
+      if (syncError.context && typeof syncError.context === 'object') {
+        const context = syncError.context as Record<string, unknown>;
+        if (context.data && typeof context.data === 'object') {
+          const responseData = context.data as Record<string, unknown>;
+          if (responseData.errors && Array.isArray(responseData.errors)) {
+            errors = responseData.errors as AvitoErrorInfo[];
+          }
+        }
+      }
+    } catch {
+      // Ignore parsing errors
+    }
+
+    if (errors.length > 0) {
+      throw new AvitoSyncError('Avito synchronization completed with errors', errors);
+    }
     throw new Error(syncError.message || 'Sync failed');
+  }
+
+  // Check response data for errors
+  if (data && typeof data === 'object') {
+    const responseData = data as Record<string, unknown>;
+    
+    // Check if there are errors in the response
+    if (responseData.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
+      const errors = responseData.errors as AvitoErrorInfo[];
+      throw new AvitoSyncError('Avito synchronization completed with errors', errors);
+    }
+
+    // Check if success is false
+    if (responseData.success === false) {
+      const errors = (responseData.errors as AvitoErrorInfo[]) || [];
+      throw new AvitoSyncError(
+        (responseData.message as string) || 'Avito synchronization failed',
+        errors
+      );
+    }
   }
 }
 

@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { supabase, Property } from '../lib/supabase';
-import { syncAvitoIntegration } from '../services/apiSync';
+import { syncAvitoIntegration, AvitoSyncError } from '../services/apiSync';
+import { showAvitoErrors } from '../services/avitoErrors';
 
 interface ChangeConditionsModalProps {
   isOpen: boolean;
@@ -28,6 +31,7 @@ export function ChangeConditionsModal({
   currency,
   properties = [],
 }: ChangeConditionsModalProps) {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     selectedPropertyId: propertyId,
     startDate: startDate,
@@ -155,13 +159,26 @@ export function ChangeConditionsModal({
           try {
             await syncAvitoIntegration(formData.selectedPropertyId);
             console.log('ChangeConditionsModal: Avito sync completed successfully');
+            // Показываем успешное уведомление ДО закрытия модального окна
+            toast.success(t('avito.success.syncCompleted', { defaultValue: 'Синхронизация с Avito завершена успешно' }));
           } catch (error) {
             console.error('ChangeConditionsModal: Failed to sync prices to Avito:', error);
-            // Показываем предупреждение пользователю, но не блокируем сохранение цен
-            const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
-            console.warn('ChangeConditionsModal: Sync failed, but prices saved', { error: errorMessage });
-            // Note: We don't have access to message component here, so we'll just log
-            // The user will see the prices are saved, but sync might have failed
+            
+            // Если это AvitoSyncError с массивом ошибок, показываем их
+            if (error instanceof AvitoSyncError && error.errors.length > 0) {
+              // Показываем модальные окна с ошибками последовательно
+              // Не ждем завершения, чтобы не блокировать закрытие модального окна
+              showAvitoErrors(error.errors, t).catch((err) => {
+                console.error('Error showing Avito error modals:', err);
+              });
+            } else {
+              // Для других ошибок показываем простое сообщение
+              const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+              console.warn('ChangeConditionsModal: Sync failed, but prices saved', { error: errorMessage });
+              // Показываем toast с ошибкой ДО закрытия модального окна
+              toast.error(t('avito.errors.syncFailed', { defaultValue: 'Ошибка синхронизации с Avito' }) + ': ' + errorMessage);
+            }
+            // Не блокируем сохранение цен - они уже сохранены
           }
         } else {
           console.log('ChangeConditionsModal: Token expired, skipping sync', {
@@ -177,8 +194,12 @@ export function ChangeConditionsModal({
         });
       }
 
-      onClose();
-      onSuccess?.();
+      // Закрываем модальное окно после показа всех уведомлений
+      // Добавляем небольшую задержку, чтобы toast успел показаться
+      setTimeout(() => {
+        onClose();
+        onSuccess?.();
+      }, 100);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Произошла ошибка');
     } finally {

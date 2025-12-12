@@ -715,6 +715,15 @@ Deno.serve(async (req: Request) => {
           priceWithMarkup,
         });
 
+        // Массив для сбора всех ошибок во время синхронизации
+        const syncErrors: Array<{
+          operation: string;
+          statusCode?: number;
+          errorCode?: string;
+          message: string;
+          details?: unknown;
+        }> = [];
+
         const { data: propertyRates } = await supabase
           .from("property_rates")
           .select("*")
@@ -824,6 +833,27 @@ Deno.serve(async (req: Request) => {
 
           if (!pricesResponse.ok) {
             const errorText = await pricesResponse.text();
+            let errorDetails: unknown = errorText;
+            let errorCode: string | undefined;
+            let errorMessage = `Failed to update prices: ${pricesResponse.status} ${pricesResponse.statusText}`;
+
+            try {
+              const errorJson = JSON.parse(errorText);
+              errorDetails = errorJson;
+              errorMessage = errorJson.message || errorJson.error?.message || errorMessage;
+              errorCode = errorJson.error?.code || errorJson.code;
+            } catch {
+              // Если не JSON, используем текст как есть
+            }
+
+            syncErrors.push({
+              operation: 'price_update',
+              statusCode: pricesResponse.status,
+              errorCode,
+              message: errorMessage,
+              details: errorDetails,
+            });
+
             console.error("Failed to update Avito prices", {
               status: pricesResponse.status,
               statusText: pricesResponse.statusText,
@@ -866,6 +896,27 @@ Deno.serve(async (req: Request) => {
 
         if (!baseParamsResponse.ok) {
           const errorText = await baseParamsResponse.text();
+          let errorDetails: unknown = errorText;
+          let errorCode: string | undefined;
+          let errorMessage = `Failed to update base parameters: ${baseParamsResponse.status} ${baseParamsResponse.statusText}`;
+
+          try {
+            const errorJson = JSON.parse(errorText);
+            errorDetails = errorJson;
+            errorMessage = errorJson.message || errorJson.error?.message || errorMessage;
+            errorCode = errorJson.error?.code || errorJson.code;
+          } catch {
+            // Если не JSON, используем текст как есть
+          }
+
+          syncErrors.push({
+            operation: 'base_params_update',
+            statusCode: baseParamsResponse.status,
+            errorCode,
+            message: errorMessage,
+            details: errorDetails,
+          });
+
           console.error("Failed to update Avito base parameters", {
             status: baseParamsResponse.status,
             statusText: baseParamsResponse.statusText,
@@ -932,8 +983,29 @@ Deno.serve(async (req: Request) => {
                 error: errorText,
                 bookingsCount: bookingsToSend.length,
               });
-              // Не бросаем ошибку для 409, это нормальная ситуация
+              // Не добавляем 409 в ошибки, это нормальная ситуация
             } else {
+              let errorDetails: unknown = errorText;
+              let errorCode: string | undefined;
+              let errorMessage = `Failed to update bookings: ${errorStatus} ${bookingsUpdateResponse.statusText}`;
+
+              try {
+                const errorJson = JSON.parse(errorText);
+                errorDetails = errorJson;
+                errorMessage = errorJson.message || errorJson.error?.message || errorMessage;
+                errorCode = errorJson.error?.code || errorJson.code;
+              } catch {
+                // Если не JSON, используем текст как есть
+              }
+
+              syncErrors.push({
+                operation: 'bookings_update',
+                statusCode: errorStatus,
+                errorCode,
+                message: errorMessage,
+                details: errorDetails,
+              });
+
               console.error("Failed to update Avito bookings", {
                 status: errorStatus,
                 statusText: bookingsUpdateResponse.statusText,
@@ -1170,6 +1242,27 @@ Deno.serve(async (req: Request) => {
           });
         } else {
           const errorText = await bookingsResponse.text();
+          let errorDetails: unknown = errorText;
+          let errorCode: string | undefined;
+          let errorMessage = `Failed to fetch bookings: ${bookingsResponse.status} ${bookingsResponse.statusText}`;
+
+          try {
+            const errorJson = JSON.parse(errorText);
+            errorDetails = errorJson;
+            errorMessage = errorJson.message || errorJson.error?.message || errorMessage;
+            errorCode = errorJson.error?.code || errorJson.code;
+          } catch {
+            // Если не JSON, используем текст как есть
+          }
+
+          syncErrors.push({
+            operation: 'bookings_fetch',
+            statusCode: bookingsResponse.status,
+            errorCode,
+            message: errorMessage,
+            details: errorDetails,
+          });
+
           console.error("Failed to fetch bookings from Avito", {
             status: bookingsResponse.status,
             statusText: bookingsResponse.statusText,
@@ -1188,8 +1281,13 @@ Deno.serve(async (req: Request) => {
           })
           .eq("id", integration_id);
 
+        // Return structured response with errors if any
         return new Response(
-          JSON.stringify({ success: true, synced: true }),
+          JSON.stringify({ 
+            success: syncErrors.length === 0,
+            synced: true,
+            errors: syncErrors.length > 0 ? syncErrors : undefined,
+          }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           }

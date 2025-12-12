@@ -20,7 +20,8 @@
     "guest": "guest",
     "perNight": "/night",
     "unknown": "Unknown",
-    "underDevelopment": "This section is under development"
+    "underDevelopment": "This section is under development",
+    "retry": "Retry"
   },
   "auth": {
     "signIn": "Sign In",
@@ -196,6 +197,47 @@
     "propertyCreated": "Property created",
     "propertyUpdated": "Property updated",
     "propertyDeleted": "Property deleted"
+  },
+  "avito": {
+    "errors": {
+      "syncFailed": "Avito synchronization error",
+      "priceUpdateFailed": "Failed to update prices",
+      "calendarUpdateFailed": "Failed to update calendar",
+      "baseParamsUpdateFailed": "Failed to update base parameters",
+      "bookingsUpdateFailed": "Failed to update bookings",
+      "validationError": "Validation error",
+      "priceTooLow": "Price too low",
+      "priceTooHigh": "Price too high",
+      "invalidDateRange": "Invalid date range",
+      "tokenExpired": "Token expired",
+      "unauthorized": "Authorization error",
+      "networkError": "Network error",
+      "unknownError": "Unknown error",
+      "details": "Error details",
+      "recommendations": "Recommendations",
+      "operation": "Operation",
+      "statusCode": "Status code",
+      "errorCode": "Error code",
+      "message": "Message",
+      "price_update": "Price update",
+      "calendar_update": "Calendar update",
+      "base_params_update": "Base parameters update",
+      "bookings_update": "Bookings update",
+      "sync": "Synchronization",
+      "unknown_operation": "Unknown operation",
+      "recommendations": {
+        "priceTooLow": "Make sure the price meets Avito's minimum requirements",
+        "priceTooHigh": "Make sure the price does not exceed the maximum allowed",
+        "invalidDateRange": "Check the date range is correct",
+        "reconnect": "Try reconnecting the Avito integration",
+        "tokenExpired": "Access token expired. Reconnect the integration",
+        "networkError": "Check your internet connection and try again",
+        "contactSupport": "If the problem persists, contact support"
+      }
+    },
+    "success": {
+      "syncCompleted": "Avito synchronization completed successfully"
+    }
   }
 }
 

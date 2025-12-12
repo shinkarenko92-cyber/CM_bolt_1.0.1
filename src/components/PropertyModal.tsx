@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { X } from 'lucide-react';
 import { Badge, Button, InputNumber, Modal, message } from 'antd';
+import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { Property, PropertyIntegration } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { AvitoConnectModal } from './AvitoConnectModal';
 import { getOAuthSuccess, getOAuthError, parseOAuthState } from '../services/avito';
-import { syncAvitoIntegration } from '../services/apiSync';
+import { syncAvitoIntegration, AvitoSyncError } from '../services/apiSync';
+import { showAvitoErrors } from '../services/avitoErrors';
 
 interface PropertyModalProps {
   isOpen: boolean;
@@ -16,6 +19,7 @@ interface PropertyModalProps {
 }
 
 export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: PropertyModalProps) {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     name: '',
     type: 'apartment',
@@ -310,10 +314,23 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       if (property && avitoIntegration?.is_active && !isTokenExpired() && oldBasePrice !== newBasePrice) {
         try {
           await syncAvitoIntegration(property.id);
-          message.success('Цены синхронизированы с Avito');
+          // Показываем успешное уведомление
+          toast.success(t('avito.success.syncCompleted', { defaultValue: 'Синхронизация с Avito завершена успешно' }));
         } catch (error) {
           console.error('Failed to sync prices to Avito:', error);
-          // Don't show error to user, just log it
+          
+          // Если это AvitoSyncError с массивом ошибок, показываем их
+          if (error instanceof AvitoSyncError && error.errors.length > 0) {
+            // Показываем модальные окна с ошибками последовательно
+            showAvitoErrors(error.errors, t).catch((err) => {
+              console.error('Error showing Avito error modals:', err);
+            });
+          } else {
+            // Для других ошибок показываем простое сообщение
+            const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+            // Показываем toast с ошибкой
+            toast.error(t('avito.errors.syncFailed', { defaultValue: 'Ошибка синхронизации с Avito' }) + ': ' + errorMessage);
+          }
         }
       }
 
