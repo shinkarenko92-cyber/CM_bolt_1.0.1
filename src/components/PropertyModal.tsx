@@ -116,6 +116,11 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     if (!oauthSuccess && !oauthError) {
       return;
     }
+
+    // Early exit if Avito modal is already open (avoid unnecessary processing)
+    if (isAvitoModalOpen) {
+      return;
+    }
     
     console.log('PropertyModal: Checking for OAuth callback', {
       propertyId: property.id,
@@ -133,7 +138,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
           matches: stateData?.property_id === property.id
         });
         
-        if (stateData && stateData.property_id === property.id && !isAvitoModalOpen) {
+        if (stateData && stateData.property_id === property.id) {
           console.log('PropertyModal: OAuth callback detected for property, opening Avito modal', {
             propertyId: property.id,
             propertyName: property.name
@@ -144,13 +149,11 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
             callbackPropertyId: stateData.property_id,
             currentPropertyId: property.id
           });
-        } else if (isAvitoModalOpen) {
-          console.log('PropertyModal: Avito modal already open, skipping');
         }
       } catch (error) {
         console.error('PropertyModal: Error parsing OAuth state:', error);
       }
-    } else if (oauthError && !isAvitoModalOpen) {
+    } else if (oauthError) {
       // Если есть ошибка OAuth, тоже открываем модальное окно, чтобы показать ошибку
       console.log('PropertyModal: OAuth error detected, opening Avito modal', {
         error: oauthError.error,
@@ -158,7 +161,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       });
       setIsAvitoModalOpen(true);
     }
-  }, [property, isOpen]); // Removed isAvitoModalOpen from dependencies - only check when property or isOpen changes
+  }, [property, isOpen, isAvitoModalOpen]); // Include isAvitoModalOpen with early exit to prevent unnecessary processing
 
   const handleDisconnectAvito = () => {
     Modal.confirm({
@@ -300,7 +303,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     ) : (
       <Badge status="default" text="отключено" />
     );
-  }, [avitoIntegration?.is_active, isTokenExpired]);
+  }, [avitoIntegration, isTokenExpired]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

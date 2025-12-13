@@ -1226,7 +1226,7 @@ Deno.serve(async (req: Request) => {
                     || booking.guest_name 
                     || booking.guest?.name
                     || booking.user?.name
-                    || (booking as any).name;
+                    || (typeof booking.name === 'string' ? booking.name : undefined);
                   
                   if (name && name.trim() && name !== "Гость с Avito") {
                     return name.trim();
@@ -1252,7 +1252,7 @@ Deno.serve(async (req: Request) => {
                     || booking.guest_phone 
                     || booking.guest?.phone
                     || booking.user?.phone
-                    || (booking as any).phone;
+                    || (typeof booking.phone === 'string' ? booking.phone : undefined);
                   
                   return cleanPhoneNumber(phone);
                 };
@@ -1264,7 +1264,7 @@ Deno.serve(async (req: Request) => {
                   || booking.guest_email 
                   || booking.guest?.email
                   || booking.user?.email
-                  || (booking as any).email
+                  || (typeof booking.email === 'string' ? booking.email : null)
                   || null;
                 const contactPhone = extractGuestPhone(booking);
 
