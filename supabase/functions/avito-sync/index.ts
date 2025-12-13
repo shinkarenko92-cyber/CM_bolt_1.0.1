@@ -1103,6 +1103,16 @@ Deno.serve(async (req: Request) => {
               email: string; // Email гостя (обязательное)
               phone?: string; // Номер телефона в 10-ти значном формате
             };
+            customer?: {  // Возможный вариант структуры данных
+              name?: string;
+              email?: string;
+              phone?: string;
+            };
+            user?: {  // Возможный вариант структуры данных
+              name?: string;
+              email?: string;
+              phone?: string;
+            };
             guest_name?: string; // Fallback для обратной совместимости
             guest_email?: string; // Fallback для обратной совместимости
             guest_phone?: string; // Fallback для обратной совместимости
@@ -1122,6 +1132,7 @@ Deno.serve(async (req: Request) => {
               tax?: number; // Комиссия Авито
             };
             currency?: string;
+            [key: string]: unknown; // Для дополнительных полей
           }
           
           let avitoBookings: AvitoBookingResponse[] = [];
@@ -1145,6 +1156,33 @@ Deno.serve(async (req: Request) => {
             sampleBooking: avitoBookings.length > 0 ? avitoBookings[0] : null,
             fullResponse: responseData, // Логируем полный ответ для диагностики
           });
+
+          // Детальное логирование структуры первого бронирования для диагностики
+          if (avitoBookings.length > 0) {
+            const sample = avitoBookings[0];
+            console.log("Sample booking structure for diagnostics", {
+              bookingId: sample.avito_booking_id || sample.id,
+              hasContact: !!sample.contact,
+              contactFields: sample.contact ? Object.keys(sample.contact) : null,
+              hasCustomer: !!sample.customer,
+              customerFields: sample.customer ? Object.keys(sample.customer) : null,
+              hasUser: !!sample.user,
+              userFields: sample.user ? Object.keys(sample.user) : null,
+              hasGuest: !!sample.guest,
+              guestFields: sample.guest ? Object.keys(sample.guest) : null,
+              allFields: Object.keys(sample),
+              contactName: sample.contact?.name,
+              customerName: sample.customer?.name,
+              userName: sample.user?.name,
+              guestName: sample.guest?.name,
+              guest_name: sample.guest_name,
+              contactPhone: sample.contact?.phone,
+              customerPhone: sample.customer?.phone,
+              userPhone: sample.user?.phone,
+              guestPhone: sample.guest?.phone,
+              guest_phone: sample.guest_phone,
+            });
+          }
 
           let createdCount = 0;
           let skippedCount = 0;
@@ -1171,11 +1209,6 @@ Deno.serve(async (req: Request) => {
                   continue;
                 }
 
-                // Получаем данные согласно документации RealtyBooking
-                // contact обязателен (name и email), но может быть fallback на старые поля
-                const contactName = booking.contact?.name || booking.guest_name || booking.guest?.name || "Гость с Avito";
-                const contactEmail = booking.contact?.email || booking.guest_email || booking.guest?.email || null;
-                
                 // Функция очистки номера телефона от лишних символов
                 // Оставляем только цифры и знак + для международного формата
                 const cleanPhoneNumber = (phone: string | null | undefined): string | null => {
@@ -1184,10 +1217,82 @@ Deno.serve(async (req: Request) => {
                   const cleaned = phone.replace(/[^\d+]/g, '');
                   return cleaned || null;
                 };
-                
-                const contactPhone = cleanPhoneNumber(
-                  booking.contact?.phone || booking.guest_phone || booking.guest?.phone
-                );
+
+                // Расширенная функция извлечения имени с проверкой всех возможных полей
+                const extractGuestName = (booking: AvitoBookingResponse): string => {
+                  // Проверяем все возможные варианты полей согласно документации Avito
+                  const name = booking.contact?.name 
+                    || booking.customer?.name 
+                    || booking.guest_name 
+                    || booking.guest?.name
+                    || booking.user?.name
+                    || (booking as any).name;
+                  
+                  if (name && name.trim() && name !== "Гость с Avito") {
+                    return name.trim();
+                  }
+                  
+                  // Логируем для диагностики, если имя не найдено
+                  console.warn("Guest name not found in booking", {
+                    bookingId: booking.avito_booking_id || booking.id,
+                    availableFields: Object.keys(booking),
+                    contact: booking.contact,
+                    customer: booking.customer,
+                    guest: booking.guest,
+                    user: booking.user,
+                  });
+                  
+                  return "Гость с Avito"; // Fallback только если действительно нет имени
+                };
+
+                // Расширенная функция извлечения телефона
+                const extractGuestPhone = (booking: AvitoBookingResponse): string | null => {
+                  const phone = booking.contact?.phone 
+                    || booking.customer?.phone
+                    || booking.guest_phone 
+                    || booking.guest?.phone
+                    || booking.user?.phone
+                    || (booking as any).phone;
+                  
+                  return cleanPhoneNumber(phone);
+                };
+
+                // Извлекаем данные гостя используя расширенные функции
+                const contactName = extractGuestName(booking);
+                const contactEmail = booking.contact?.email 
+                  || booking.customer?.email
+                  || booking.guest_email 
+                  || booking.guest?.email
+                  || booking.user?.email
+                  || (booking as any).email
+                  || null;
+                const contactPhone = extractGuestPhone(booking);
+
+                // Логируем, какие поля были найдены для диагностики
+                console.log("Extracted guest data from booking", {
+                  bookingId: booking.avito_booking_id || booking.id,
+                  guestName: contactName,
+                  nameSource: booking.contact?.name ? 'contact.name' 
+                    : booking.customer?.name ? 'customer.name'
+                    : booking.guest_name ? 'guest_name'
+                    : booking.guest?.name ? 'guest.name'
+                    : booking.user?.name ? 'user.name'
+                    : 'fallback',
+                  hasEmail: !!contactEmail,
+                  emailSource: booking.contact?.email ? 'contact.email'
+                    : booking.customer?.email ? 'customer.email'
+                    : booking.guest_email ? 'guest_email'
+                    : booking.guest?.email ? 'guest.email'
+                    : booking.user?.email ? 'user.email'
+                    : 'none',
+                  hasPhone: !!contactPhone,
+                  phoneSource: booking.contact?.phone ? 'contact.phone'
+                    : booking.customer?.phone ? 'customer.phone'
+                    : booking.guest_phone ? 'guest_phone'
+                    : booking.guest?.phone ? 'guest.phone'
+                    : booking.user?.phone ? 'user.phone'
+                    : 'none',
+                });
                 
                 // base_price - основное поле согласно документации
                 const basePrice = booking.base_price || booking.total_price || booking.price || 0;
@@ -1208,7 +1313,7 @@ Deno.serve(async (req: Request) => {
 
                 const { data: existing } = await supabase
                   .from("bookings")
-                  .select("id")
+                  .select("id, guest_name")
                   .eq("source", "avito")
                   .eq("external_id", bookingId.toString())
                   .maybeSingle();
@@ -1249,17 +1354,51 @@ Deno.serve(async (req: Request) => {
                       status: bookingStatus,
                       base_price: basePrice,
                       guest_count: guestCount,
+                      guest_name: contactName,
+                      has_phone: !!contactPhone,
                       nights: booking.nights,
                     });
                     createdCount++;
                   }
                 } else {
-                  console.log("Booking already exists, skipping", {
-                    external_id: bookingId,
-                    avito_booking_id: booking.avito_booking_id,
-                    existing_id: existing.id,
-                  });
-                  skippedCount++;
+                  // Если существующее бронирование имеет fallback имя, обновляем его
+                  const shouldUpdate = existing.guest_name === "Гость с Avito" && contactName !== "Гость с Avito";
+                  
+                  if (shouldUpdate) {
+                    const { error: updateError } = await supabase
+                      .from("bookings")
+                      .update({
+                        guest_name: contactName,
+                        guest_email: contactEmail,
+                        guest_phone: contactPhone,
+                      })
+                      .eq("id", existing.id);
+                    
+                    if (updateError) {
+                      console.error("Failed to update existing booking with guest data", {
+                        booking_id: existing.id,
+                        error: updateError,
+                      });
+                      errorCount++;
+                    } else {
+                      console.log("Updated existing booking with real guest name", {
+                        booking_id: existing.id,
+                        old_name: "Гость с Avito",
+                        new_name: contactName,
+                        has_phone: !!contactPhone,
+                        has_email: !!contactEmail,
+                      });
+                      skippedCount++;
+                    }
+                  } else {
+                    console.log("Booking already exists, skipping", {
+                      external_id: bookingId,
+                      avito_booking_id: booking.avito_booking_id,
+                      existing_id: existing.id,
+                      current_guest_name: existing.guest_name,
+                    });
+                    skippedCount++;
+                  }
                 }
               } catch (error) {
                 console.error("Error processing booking from Avito", {

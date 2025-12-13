@@ -111,10 +111,6 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     // Check localStorage FIRST before any work
     const oauthSuccess = getOAuthSuccess();
     const oauthError = getOAuthError();
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PropertyModal.tsx:106',message:'OAuth useEffect triggered',data:{hasProperty:!!property,isOpen,hasOAuth:!!(oauthSuccess||oauthError),propertyId:property?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
 
     // Early exit if no OAuth callback
     if (!oauthSuccess && !oauthError) {
@@ -259,9 +255,6 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
   // Memoize token expiration check to avoid recalculating on every render
   const isTokenExpired = useMemo(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PropertyModal.tsx:257',message:'isTokenExpired calculated',data:{hasIntegration:!!avitoIntegration,hasExpiresAt:!!avitoIntegration?.token_expires_at},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
     if (!avitoIntegration?.token_expires_at) {
       return false; // If no expiration date, assume token is valid
     }
@@ -291,9 +284,6 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
   // Memoize status badge to avoid recalculating on every render
   const avitoStatusBadge = useMemo(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PropertyModal.tsx:285',message:'Status badge calculated',data:{hasIntegration:!!avitoIntegration,isActive:!!avitoIntegration?.is_active,tokenExpired:isTokenExpired},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     const isActive = avitoIntegration?.is_active;
     const tokenValid = !isTokenExpired;
     const showActive = isActive && tokenValid;
@@ -325,22 +315,34 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
       const oldBasePrice = property?.base_price;
       const newBasePrice = parseFloat(formData.base_price) || 0;
+      const newMaxGuests = parseInt(formData.max_guests) || 2;
+      const newBedrooms = parseInt(formData.bedrooms) || 1;
+      const newMinimumBookingDays = parseInt(formData.minimum_booking_days) || 1;
 
       await onSave({
         name: formData.name,
         type: formData.type,
         address: formData.address || '',
         description: formData.description || '',
-        max_guests: parseInt(formData.max_guests) || 2,
-        bedrooms: parseInt(formData.bedrooms) || 1,
+        max_guests: newMaxGuests,
+        bedrooms: newBedrooms,
         base_price: newBasePrice,
         currency: formData.currency,
-        minimum_booking_days: parseInt(formData.minimum_booking_days) || 1,
+        minimum_booking_days: newMinimumBookingDays,
         status: formData.status,
       });
 
-      // Auto-sync to Avito if base_price changed and integration is active
-      if (property && avitoIntegration?.is_active && !isTokenExpired && oldBasePrice !== newBasePrice) {
+      // Auto-sync to Avito if any relevant field changed and integration is active
+      const hasRelevantChanges = 
+        oldBasePrice !== newBasePrice ||
+        property?.name !== formData.name ||
+        property?.description !== formData.description ||
+        property?.address !== formData.address ||
+        property?.max_guests !== newMaxGuests ||
+        property?.bedrooms !== newBedrooms ||
+        property?.minimum_booking_days !== newMinimumBookingDays;
+
+      if (property && avitoIntegration?.is_active && !isTokenExpired && hasRelevantChanges) {
         try {
           await syncAvitoIntegration(property.id);
           // Показываем успешное уведомление
@@ -396,10 +398,6 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       setLoading(false);
     }
   };
-
-  // #region agent log
-  if (isOpen) fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PropertyModal.tsx:371',message:'PropertyModal render',data:{isOpen,hasProperty:!!property,propertyId:property?.id,hasIntegration:!!avitoIntegration,isAvitoModalOpen},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-  // #endregion
 
   if (!isOpen) return null;
 
