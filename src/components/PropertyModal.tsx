@@ -303,7 +303,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     ) : (
       <Badge status="default" text="отключено" />
     );
-  }, [avitoIntegration, isTokenExpired]);
+  }, [avitoIntegration?.is_active, isTokenExpired]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

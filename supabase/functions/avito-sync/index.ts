@@ -1221,12 +1221,13 @@ Deno.serve(async (req: Request) => {
                 // Расширенная функция извлечения имени с проверкой всех возможных полей
                 const extractGuestName = (booking: AvitoBookingResponse): string => {
                   // Проверяем все возможные варианты полей согласно документации Avito
+                  const nameFromIndex = 'name' in booking && typeof booking.name === 'string' ? booking.name : undefined;
                   const name = booking.contact?.name 
                     || booking.customer?.name 
                     || booking.guest_name 
                     || booking.guest?.name
                     || booking.user?.name
-                    || (typeof booking.name === 'string' ? booking.name : undefined);
+                    || nameFromIndex;
                   
                   if (name && name.trim() && name !== "Гость с Avito") {
                     return name.trim();
@@ -1247,24 +1248,26 @@ Deno.serve(async (req: Request) => {
 
                 // Расширенная функция извлечения телефона
                 const extractGuestPhone = (booking: AvitoBookingResponse): string | null => {
+                  const phoneFromIndex = 'phone' in booking && typeof booking.phone === 'string' ? booking.phone : undefined;
                   const phone = booking.contact?.phone 
                     || booking.customer?.phone
                     || booking.guest_phone 
                     || booking.guest?.phone
                     || booking.user?.phone
-                    || (typeof booking.phone === 'string' ? booking.phone : undefined);
+                    || phoneFromIndex;
                   
                   return cleanPhoneNumber(phone);
                 };
 
                 // Извлекаем данные гостя используя расширенные функции
                 const contactName = extractGuestName(booking);
+                const emailFromIndex = 'email' in booking && typeof booking.email === 'string' ? booking.email : null;
                 const contactEmail = booking.contact?.email 
                   || booking.customer?.email
                   || booking.guest_email 
                   || booking.guest?.email
                   || booking.user?.email
-                  || (typeof booking.email === 'string' ? booking.email : null)
+                  || emailFromIndex
                   || null;
                 const contactPhone = extractGuestPhone(booking);
 
