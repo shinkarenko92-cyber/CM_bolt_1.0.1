@@ -9,6 +9,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+export type PropertyGroup = {
+  id: string;
+  name: string;
+  user_id: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Property = {
   id: string;
   owner_id: string;
@@ -23,6 +32,8 @@ export type Property = {
   status: string;
   minimum_booking_days: number;
   deleted_at: string | null;
+  group_id: string | null;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 };

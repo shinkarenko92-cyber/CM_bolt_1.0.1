@@ -1061,11 +1061,9 @@ Deno.serve(async (req: Request) => {
                 details: { item_id: itemId },
               });
               console.error("Avito item not found (404)", { item_id: itemId });
-              // Continue with other operations
-              continue;
-            }
-
-            const errorText = await pricesResponse.text();
+              // Continue with other operations - skip rest of error handling
+            } else {
+              const errorText = await pricesResponse.text();
             let errorDetails: unknown = errorText;
             let errorCode: string | undefined;
             let errorMessage = `Failed to update prices: ${pricesResponse.status} ${pricesResponse.statusText}`;
@@ -1079,21 +1077,22 @@ Deno.serve(async (req: Request) => {
               // Если не JSON, используем текст как есть
             }
 
-            syncErrors.push({
-              operation: 'price_update',
-              statusCode: pricesResponse.status,
-              errorCode,
-              message: errorMessage,
-              details: errorDetails,
-            });
+              syncErrors.push({
+                operation: 'price_update',
+                statusCode: pricesResponse.status,
+                errorCode,
+                message: errorMessage,
+                details: errorDetails,
+              });
 
-            console.error("Failed to update Avito prices", {
-              status: pricesResponse.status,
-              statusText: pricesResponse.statusText,
-              error: errorText,
-            });
-            // Не бросаем ошибку, продолжаем синхронизацию
-            console.warn("Price update failed, but continuing with bookings sync");
+              console.error("Failed to update Avito prices", {
+                status: pricesResponse.status,
+                statusText: pricesResponse.statusText,
+                error: errorText,
+              });
+              // Не бросаем ошибку, продолжаем синхронизацию
+              console.warn("Price update failed, but continuing with bookings sync");
+            }
           } else {
             const responseData = await pricesResponse.json().catch(() => null);
             console.log("Avito prices updated successfully", {
@@ -1163,21 +1162,22 @@ Deno.serve(async (req: Request) => {
               // Если не JSON, используем текст как есть
             }
 
-          syncErrors.push({
-            operation: 'base_params_update',
-            statusCode: baseParamsResponse.status,
-            errorCode,
-            message: errorMessage,
-            details: errorDetails,
-          });
+            syncErrors.push({
+              operation: 'base_params_update',
+              statusCode: baseParamsResponse.status,
+              errorCode,
+              message: errorMessage,
+              details: errorDetails,
+            });
 
-          console.error("Failed to update Avito base parameters", {
-            status: baseParamsResponse.status,
-            statusText: baseParamsResponse.statusText,
-            error: errorText,
-          });
-          // Не бросаем ошибку, продолжаем синхронизацию
-          console.warn("Base parameters update failed, but continuing with bookings sync");
+            console.error("Failed to update Avito base parameters", {
+              status: baseParamsResponse.status,
+              statusText: baseParamsResponse.statusText,
+              error: errorText,
+            });
+            // Не бросаем ошибку, продолжаем синхронизацию
+            console.warn("Base parameters update failed, but continuing with bookings sync");
+          }
         } else {
           try {
             const responseData = await baseParamsResponse.json().catch(() => null);
