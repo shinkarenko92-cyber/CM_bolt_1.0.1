@@ -768,7 +768,8 @@ Deno.serve(async (req: Request) => {
         // Используем правильные эндпоинты согласно документации:
         // 1. POST /realty/v1/accounts/{user_id}/items/{item_id}/prices - для обновления цен
         // 2. POST /realty/v1/items/{item_id}/base - для базовых параметров
-        // 3. PUT /core/v1/accounts/{user_id}/items/{item_id}/bookings - для отправки бронирований (putBookingsInfo)
+        // 3. POST /core/v1/accounts/{user_id}/items/{item_id}/bookings - для отправки бронирований (putBookingsInfo)
+        // Примечание: несмотря на название метода putBookingsInfo, API использует POST метод
         console.log("Syncing property_rates to Avito", {
           property_id: integration.property_id,
           accountId,
@@ -1009,7 +1010,8 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        // 3. Отправка бронирований через PUT /core/v1/accounts/{account_id}/items/{item_id}/bookings (putBookingsInfo)
+        // 3. Отправка бронирований через POST /core/v1/accounts/{account_id}/items/{item_id}/bookings (putBookingsInfo)
+        // Примечание: несмотря на название метода putBookingsInfo, API использует POST метод
         // Формат: { bookings: [{ date_start, date_end, type?, comment?, contact? }], source? }
         // type: "manual" | "booking" - тип бронирования (manual - закрыто вручную, booking - бронирование)
         // comment: дополнительная информация (опционально)
@@ -1076,13 +1078,13 @@ Deno.serve(async (req: Request) => {
           console.log("Sending bookings to Avito via putBookingsInfo", {
             endpoint: `${AVITO_API_BASE}/core/v1/accounts/${accountId}/items/${itemId}/bookings`,
             bookingsCount: bookingsToSend.length,
-            method: "PUT",
+            method: "POST",
           });
 
           const bookingsUpdateResponse = await fetch(
             `${AVITO_API_BASE}/core/v1/accounts/${accountId}/items/${itemId}/bookings`,
             {
-              method: "PUT",
+              method: "POST",
               headers: {
                 Authorization: `Bearer ${accessToken}`,
                 "Content-Type": "application/json",
