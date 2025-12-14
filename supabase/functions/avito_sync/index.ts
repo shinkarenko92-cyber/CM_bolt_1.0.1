@@ -965,13 +965,9 @@ Deno.serve(async (req: Request) => {
 
         // Get item_id - ONLY use avito_item_id, NEVER use avito_account_id in /items/{id}/ paths
         // CRITICAL: avito_item_id can be number, string, or null - always convert to string safely
-        let itemId: string | null = null;
-        
-        // Get itemId from avito_item_id, always converting to string
-        if (integration.avito_item_id != null) {
-          // Convert to string safely - handles number, string, or null
-          itemId = String(integration.avito_item_id).trim();
-        }
+        // GUARD: Validate itemId before any API calls
+        const itemIdRaw = integration?.avito_item_id;
+        const itemId = itemIdRaw != null ? String(itemIdRaw).trim() : null;
 
         // CRITICAL DEBUG: Log all integration fields to diagnose 404 errors
         console.log("Integration item_id extraction", {
@@ -984,7 +980,7 @@ Deno.serve(async (req: Request) => {
           extracted_itemId_length: itemId?.length,
         });
 
-        // Validate item_id - must be non-empty string after trim
+        // GUARD: Validate item_id - must be non-empty string, 10-11 digits
         if (!itemId || itemId.length === 0) {
           console.error("CRITICAL: itemId is empty or null", {
             integration_id: integration.id,
@@ -994,7 +990,27 @@ Deno.serve(async (req: Request) => {
           return new Response(
             JSON.stringify({ 
               success: false,
-              error: "ID объявления Avito не настроен или неверный формат. Проверь настройки интеграции — должен быть длинный номер вроде 2336174775" 
+              error: "Неверный ID объявления Avito. Должен быть 10–11 цифр." 
+            }),
+            { 
+              status: 400, 
+              headers: { ...corsHeaders, "Content-Type": "application/json" } 
+            }
+          );
+        }
+
+        // GUARD: Validate format - must be 10-11 digits only
+        if (itemId.length < 10 || itemId.length > 11 || !/^\d+$/.test(itemId)) {
+          console.error("CRITICAL: itemId has invalid format", {
+            integration_id: integration.id,
+            itemId: itemId,
+            itemIdLength: itemId.length,
+            isValidFormat: /^\d+$/.test(itemId),
+          });
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              error: "Неверный ID объявления Avito. Должен быть 10–11 цифр." 
             }),
             { 
               status: 400, 

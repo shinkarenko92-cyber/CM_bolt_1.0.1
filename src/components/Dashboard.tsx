@@ -496,6 +496,37 @@ export function Dashboard() {
       // For Avito bookings: cancel booking + open dates
       if (propertyId) {
         try {
+          // Check if Avito integration has valid item_id before syncing
+          const { data: integration } = await supabase
+            .from('integrations')
+            .select('avito_item_id, is_active')
+            .eq('property_id', propertyId)
+            .eq('platform', 'avito')
+            .eq('is_active', true)
+            .maybeSingle();
+
+          if (!integration || !integration.avito_item_id) {
+            toast.warning('Настрой ID объявления в интеграции Avito');
+            console.warn('Dashboard: Avito integration missing item_id', {
+              propertyId,
+              hasIntegration: !!integration,
+              hasItemId: !!integration?.avito_item_id,
+            });
+            return; // Skip sync if no valid item_id
+          }
+
+          // Validate item_id format (10-11 digits)
+          const itemIdStr = String(integration.avito_item_id).trim();
+          if (itemIdStr.length < 10 || itemIdStr.length > 11 || !/^\d+$/.test(itemIdStr)) {
+            toast.warning('Неверный ID объявления Avito. Должен быть 10–11 цифр.');
+            console.warn('Dashboard: Invalid Avito item_id format', {
+              propertyId,
+              itemId: integration.avito_item_id,
+              itemIdLength: itemIdStr.length,
+            });
+            return; // Skip sync if invalid format
+          }
+
           // If manual booking, exclude it from sync to open dates in Avito
           // If Avito booking, full sync will handle cancellation
           await syncAvitoIntegration(propertyId, isAvitoBooking ? undefined : id);
@@ -511,6 +542,14 @@ export function Dashboard() {
           });
         } catch (error) {
           console.error('Dashboard: Failed to sync to Avito after booking deletion:', error);
+          
+          // Extract error message from response
+          let errorMessage = 'Ошибка синхронизации с Avito';
+          if (error && typeof error === 'object' && 'error' in error) {
+            errorMessage = (error as { error?: string }).error || errorMessage;
+          } else if (error instanceof Error) {
+            errorMessage = error.message;
+          }
           
           // Если это AvitoSyncError с массивом ошибок, показываем их
           if (error instanceof AvitoSyncError && error.errors.length > 0) {
@@ -530,12 +569,9 @@ export function Dashboard() {
               console.error('Error showing Avito error modals:', err);
             });
           } else {
-            // Для других ошибок просто логируем
-            const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+            // Для других ошибок показываем понятное сообщение
+            toast.error(errorMessage);
             console.warn('Dashboard: Avito sync failed after booking deletion', { error: errorMessage });
-            if (!isAvitoBooking) {
-              toast.error('Бронь удалена, но не удалось открыть даты в Avito');
-            }
           }
         }
       }
