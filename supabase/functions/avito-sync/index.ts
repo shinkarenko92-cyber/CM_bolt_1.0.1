@@ -1261,6 +1261,14 @@ Deno.serve(async (req: Request) => {
             sampleBooking: avitoBookings.length > 0 ? avitoBookings[0] : null,
             fullResponse: responseData, // Логируем полный ответ для диагностики
           });
+          
+          // Детальное логирование структуры ответа в JSON формате для диагностики
+          if (avitoBookings.length > 0) {
+            console.log("Full booking response structure (JSON)", {
+              firstBookingJSON: JSON.stringify(avitoBookings[0], null, 2),
+              fullResponseJSON: JSON.stringify(responseData, null, 2),
+            });
+          }
 
           // Детальное логирование структуры первого бронирования для диагностики
           if (avitoBookings.length > 0) {
@@ -1469,32 +1477,55 @@ Deno.serve(async (req: Request) => {
                     createdCount++;
                   }
                 } else {
-                  // Если существующее бронирование имеет fallback имя, обновляем его
-                  const shouldUpdate = existing.guest_name === "Гость с Avito" && contactName !== "Гость с Avito";
+                  // Обновляем существующее бронирование, если найдены реальные данные гостя
+                  // Обновляем если:
+                  // 1. Найдено реальное имя (не "Гость с Avito") и текущее имя - fallback или пустое
+                  // 2. ИЛИ найден телефон (которого раньше не было)
+                  // 3. ИЛИ найден email (которого раньше не было)
+                  const hasRealName = contactName && contactName !== "Гость с Avito";
+                  const hasNewPhone = contactPhone && (!existing.guest_phone || existing.guest_phone.trim() === '');
+                  const hasNewEmail = contactEmail && (!existing.guest_email || existing.guest_email.trim() === '');
+                  const hasNewName = hasRealName && (existing.guest_name === "Гость с Avito" || !existing.guest_name || existing.guest_name.trim() === '');
+                  
+                  const shouldUpdate = hasNewName || hasNewPhone || hasNewEmail;
                   
                   if (shouldUpdate) {
+                    const updateData: {
+                      guest_name?: string;
+                      guest_email?: string | null;
+                      guest_phone?: string | null;
+                    } = {};
+                    
+                    if (hasNewName) {
+                      updateData.guest_name = contactName;
+                    }
+                    if (hasNewPhone) {
+                      updateData.guest_phone = contactPhone;
+                    }
+                    if (hasNewEmail) {
+                      updateData.guest_email = contactEmail;
+                    }
+                    
                     const { error: updateError } = await supabase
                       .from("bookings")
-                      .update({
-                        guest_name: contactName,
-                        guest_email: contactEmail,
-                        guest_phone: contactPhone,
-                      })
+                      .update(updateData)
                       .eq("id", existing.id);
                     
                     if (updateError) {
                       console.error("Failed to update existing booking with guest data", {
                         booking_id: existing.id,
                         error: updateError,
+                        updateData,
                       });
                       errorCount++;
                     } else {
-                      console.log("Updated existing booking with real guest name", {
+                      console.log("Updated existing booking with guest data", {
                         booking_id: existing.id,
-                        old_name: "Гость с Avito",
+                        old_name: existing.guest_name,
                         new_name: contactName,
                         has_phone: !!contactPhone,
                         has_email: !!contactEmail,
+                        updateData,
                       });
                       skippedCount++;
                     }
@@ -1503,7 +1534,10 @@ Deno.serve(async (req: Request) => {
                       external_id: bookingId,
                       avito_booking_id: booking.avito_booking_id,
                       existing_id: existing.id,
-                      current_guest_name: existing.guest_name,
+                      existing_name: existing.guest_name,
+                      extracted_name: contactName,
+                      has_extracted_phone: !!contactPhone,
+                      has_extracted_email: !!contactEmail,
                     });
                     skippedCount++;
                   }
