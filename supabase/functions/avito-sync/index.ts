@@ -705,7 +705,7 @@ Deno.serve(async (req: Request) => {
             external_id: avito_item_id.toString(),
             avito_account_id,
             avito_item_id: avito_item_id.toString(), // Store as TEXT for API calls (primary field)
-            avito_item_id_text: avito_item_id.toString(), // Keep for backward compatibility
+            avito_item_id_text: avito_item_id.toString(), // Keep for backward compatibility (legacy)
             avito_markup: avito_markup !== null && avito_markup !== undefined ? parseFloat(avito_markup) : 15.0,
             // Token will be encrypted by Vault trigger (create trigger in migration)
             access_token_encrypted: access_token,
@@ -2028,8 +2028,11 @@ Deno.serve(async (req: Request) => {
         throw new Error(`Unknown action: ${action}`);
     }
   } catch (error: unknown) {
+    // Improved error handling
     let errorMessage: string;
-    if (typeof error === 'object' && error !== null) {
+    if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error && typeof error === 'object' && error !== null) {
       errorMessage = (error as { message?: string }).message || JSON.stringify(error);
     } else {
       errorMessage = error instanceof Error ? error.message : String(error);
