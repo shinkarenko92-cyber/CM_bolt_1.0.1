@@ -44,8 +44,8 @@ Or apply manually via Supabase Dashboard → SQL Editor:
 Deploy the Avito sync functions:
 
 ```bash
-# Deploy avito-sync function
-supabase functions deploy avito-sync
+# Deploy avito_sync function
+supabase functions deploy avito_sync
 
 # Deploy avito-poller function
 supabase functions deploy avito-poller

@@ -186,7 +186,7 @@ export function AvitoConnectModal({
       if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
         Modal.error({
           title: 'Edge Function не найдена',
-          content: 'Функция avito-sync не развернута. Пожалуйста, разверните её в Supabase Dashboard → Edge Functions или обратитесь к администратору.',
+          content: 'Функция avito_sync не развернута. Пожалуйста, разверните её в Supabase Dashboard → Edge Functions или обратитесь к администратору.',
           okText: 'Понятно',
           width: 500,
         });
@@ -377,7 +377,7 @@ export function AvitoConnectModal({
         if (errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
           Modal.error({
             title: 'Edge Function не найдена',
-            content: 'Функция avito-sync не развернута. Пожалуйста, разверните её в Supabase Dashboard → Edge Functions или обратитесь к администратору.',
+            content: 'Функция avito_sync не развернута. Пожалуйста, разверните её в Supabase Dashboard → Edge Functions или обратитесь к администратору.',
             okText: 'Понятно',
             width: 500,
           });
@@ -405,7 +405,7 @@ export function AvitoConnectModal({
     setLoading(true);
     try {
       // Encrypt tokens via Edge Function (Vault encryption)
-      const { data: integration, error } = await supabase.functions.invoke('avito-sync', {
+      const { data: integration, error } = await supabase.functions.invoke('avito_sync', {
         body: {
           action: 'save-integration',
           property_id: property.id,
@@ -450,7 +450,7 @@ export function AvitoConnectModal({
       if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
         Modal.error({
           title: 'Edge Function не найдена',
-          content: 'Функция avito-sync не развернута. Пожалуйста, разверните её в Supabase Dashboard → Edge Functions или обратитесь к администратору.',
+          content: 'Функция avito_sync не развернута. Пожалуйста, разверните её в Supabase Dashboard → Edge Functions или обратитесь к администратору.',
           okText: 'Понятно',
           width: 500,
         });

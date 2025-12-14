@@ -7,7 +7,7 @@
 1. Откройте [Supabase Dashboard](https://app.supabase.com)
 2. Выберите ваш проект
 3. В левом меню найдите раздел **"Edge Functions"** (или **"Functions"**)
-4. Нажмите на функцию **"avito-sync"**
+4. Нажмите на функцию **"avito_sync"**
 5. Перейдите на вкладку **"Logs"** или **"Invocations"**
 6. Вы увидите список всех вызовов функции с логами
 
@@ -72,7 +72,7 @@ Successfully retrieved user data: {
 Вы также можете использовать Supabase CLI для просмотра логов в реальном времени:
 
 ```bash
-supabase functions logs avito-sync --follow
+supabase functions logs avito_sync --follow
 ```
 
 Но для этого нужно установить Supabase CLI и быть авторизованным.

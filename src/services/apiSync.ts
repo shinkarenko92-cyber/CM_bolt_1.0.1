@@ -117,7 +117,7 @@ export async function syncAvitoIntegration(
     exclude_booking_id: excludeBookingId,
   });
 
-  const { data, error: syncError } = await supabase.functions.invoke('avito-sync', {
+  const { data, error: syncError } = await supabase.functions.invoke('avito_sync', {
     body: {
       action: 'sync',
       integration_id: integration.id,

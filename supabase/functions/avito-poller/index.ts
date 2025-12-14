@@ -48,8 +48,8 @@ Deno.serve(async (req: Request) => {
     // Process each integration
     for (const item of queueItems) {
       try {
-        // Call avito-sync function
-        const { error: syncError } = await supabase.functions.invoke("avito-sync", {
+        // Call avito_sync function
+        const { error: syncError } = await supabase.functions.invoke("avito_sync", {
           body: {
             action: "sync",
             integration_id: item.integration_id,

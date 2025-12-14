@@ -173,7 +173,7 @@ export function clearOAuthSuccess(): void {
  * @param redirectUri - Redirect URI that was used in OAuth request (must match exactly)
  */
 export async function exchangeCodeForToken(code: string, redirectUri: string): Promise<AvitoTokenResponse> {
-  const { data, error } = await supabase.functions.invoke('avito-sync', {
+  const { data, error } = await supabase.functions.invoke('avito_sync', {
     body: {
       action: 'exchange-code',
       code,
@@ -222,7 +222,7 @@ export async function exchangeCodeForToken(code: string, redirectUri: string): P
     }
     
     if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
-      throw new Error('Edge Function avito-sync не развернута. Пожалуйста, разверните функцию в Supabase Dashboard.');
+      throw new Error('Edge Function avito_sync не развернута. Пожалуйста, разверните функцию в Supabase Dashboard.');
     }
 
     // Сохраняем детали ошибки для специальной обработки invalid_grant
@@ -247,7 +247,7 @@ export async function getUserAccounts(accessToken: string): Promise<AvitoAccount
   
   console.log('Calling getUserAccounts with token length:', accessToken.length);
   
-  const { data, error } = await supabase.functions.invoke('avito-sync', {
+  const { data, error } = await supabase.functions.invoke('avito_sync', {
     body: {
       action: 'get-accounts',
       access_token: accessToken,
@@ -278,7 +278,7 @@ export async function getUserAccounts(accessToken: string): Promise<AvitoAccount
     const errorMessage = error.message || 'Failed to get user accounts';
     
     if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
-      throw new Error('Edge Function avito-sync не развернута. Пожалуйста, разверните функцию в Supabase Dashboard.');
+      throw new Error('Edge Function avito_sync не развернута. Пожалуйста, разверните функцию в Supabase Dashboard.');
     }
 
     // Если есть детали ошибки в data, добавляем их к сообщению
@@ -343,7 +343,7 @@ export async function validateItemId(
     tokenLength: accessToken.length,
   });
 
-  const { data, error } = await supabase.functions.invoke('avito-sync', {
+  const { data, error } = await supabase.functions.invoke('avito_sync', {
     body: {
       action: 'validate-item',
       account_id: accountId,
@@ -383,7 +383,7 @@ export async function validateItemId(
     if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
       return {
         available: false,
-        error: 'Edge Function avito-sync не развернута. Пожалуйста, разверните функцию в Supabase Dashboard.',
+        error: 'Edge Function avito_sync не развернута. Пожалуйста, разверните функцию в Supabase Dashboard.',
       };
     }
     
@@ -408,7 +408,7 @@ export async function validateItemId(
  * Perform initial sync after connection
  */
 export async function performInitialSync(integrationId: string): Promise<void> {
-  const { error } = await supabase.functions.invoke('avito-sync', {
+  const { error } = await supabase.functions.invoke('avito_sync', {
     body: {
       action: 'initial-sync',
       integration_id: integrationId,
