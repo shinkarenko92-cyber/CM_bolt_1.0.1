@@ -87,10 +87,10 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Get item_id - use avito_item_id (TEXT) - primary field, fallback to avito_item_id_text or BIGINT conversion
-    const itemIdText = (integration as { avito_item_id?: string | null }).avito_item_id
-      || (integration as { avito_item_id_text?: string | null }).avito_item_id_text
-      || (integration.avito_item_id ? String(integration.avito_item_id) : null);
+    // Get item_id - use avito_item_id (TEXT) - convert to string safely
+    const itemIdText = integration.avito_item_id != null
+      ? String(integration.avito_item_id).trim()
+      : null;
 
     // Validate item_id - must be non-empty string
     // CRITICAL: NEVER use avito_account_id in /items/{id}/ paths - ONLY use avito_item_id

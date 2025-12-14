@@ -719,8 +719,7 @@ Deno.serve(async (req: Request) => {
             platform: "avito",
             external_id: itemIdString,
             avito_account_id,
-            avito_item_id: itemIdString, // Store as TEXT for API calls (primary field)
-            avito_item_id_text: itemIdString, // Keep for backward compatibility (legacy)
+            avito_item_id: itemIdString, // Store as TEXT for API calls
             avito_markup: avito_markup !== null && avito_markup !== undefined ? parseFloat(avito_markup) : 15.0,
             // Token will be encrypted by Vault trigger (create trigger in migration)
             access_token_encrypted: access_token,
@@ -966,15 +965,12 @@ Deno.serve(async (req: Request) => {
 
         // Get item_id - ONLY use avito_item_id, NEVER use avito_account_id in /items/{id}/ paths
         // CRITICAL: avito_item_id can be number, string, or null - always convert to string safely
-        // Use avito_item_id (TEXT) - primary field, fallback to avito_item_id_text or BIGINT conversion
         let itemId: string | null = null;
         
-        // Try to get itemId from various possible fields, always converting to string
+        // Get itemId from avito_item_id, always converting to string
         if (integration.avito_item_id != null) {
           // Convert to string safely - handles number, string, or null
           itemId = String(integration.avito_item_id).trim();
-        } else if ((integration as { avito_item_id_text?: string | number | null }).avito_item_id_text != null) {
-          itemId = String((integration as { avito_item_id_text?: string | number | null }).avito_item_id_text).trim();
         }
 
         // CRITICAL DEBUG: Log all integration fields to diagnose 404 errors
@@ -982,7 +978,6 @@ Deno.serve(async (req: Request) => {
           integration_id: integration.id,
           avito_item_id: integration.avito_item_id,
           avito_item_id_type: typeof integration.avito_item_id,
-          avito_item_id_text: (integration as { avito_item_id_text?: string | number | null }).avito_item_id_text,
           avito_account_id: integration.avito_account_id,
           extracted_itemId: itemId,
           extracted_itemId_type: typeof itemId,
@@ -994,7 +989,6 @@ Deno.serve(async (req: Request) => {
           console.error("CRITICAL: itemId is empty or null", {
             integration_id: integration.id,
             avito_item_id: integration.avito_item_id,
-            avito_item_id_text: (integration as { avito_item_id_text?: string | number | null }).avito_item_id_text,
             avito_account_id: integration.avito_account_id,
           });
           return new Response(

@@ -71,7 +71,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     }
     
     // Show warning if old integration (missing avito_item_id)
-    if (data && data.is_active && !data.avito_item_id && !(data as { avito_item_id_text?: string | null }).avito_item_id_text) {
+    if (data && data.is_active && !data.avito_item_id) {
       console.warn('PropertyModal: Old integration detected - missing avito_item_id', {
         integration_id: data.id,
         property_id: property?.id,
@@ -257,9 +257,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   };
 
   const handleEditItemId = () => {
-    const currentItemId = avitoIntegration?.avito_item_id || 
-                         (avitoIntegration as { avito_item_id_text?: string | null })?.avito_item_id_text || 
-                         '';
+    const currentItemId = avitoIntegration?.avito_item_id || '';
     setEditingItemId(currentItemId);
     setIsEditingItemId(true);
   };
@@ -709,7 +707,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                         </div>
                       )}
                       {/* Warning for missing avito_item_id */}
-                      {!avitoIntegration.avito_item_id && !(avitoIntegration as { avito_item_id_text?: string | null }).avito_item_id_text && (
+                      {!avitoIntegration.avito_item_id && (
                         <div className="bg-yellow-500/20 border border-yellow-500/50 rounded p-3 mb-3">
                           <p className="text-yellow-300 text-sm font-medium mb-1">⚠️ Требуется обновление</p>
                           <p className="text-yellow-200 text-xs">
