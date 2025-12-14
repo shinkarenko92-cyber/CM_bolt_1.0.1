@@ -168,9 +168,10 @@ export function Calendar({
       if (data) {
         setExpandedGroups(new Set(data.map(g => g.id)));
       }
-    } catch (error: any) {
+    } catch (error) {
       // Не логируем ошибку, если таблица просто не существует
-      if (error?.code === 'PGRST205' || error?.message?.includes('Could not find the table')) {
+      const errorObj = error as { code?: string; message?: string };
+      if (errorObj?.code === 'PGRST205' || errorObj?.message?.includes('Could not find the table')) {
         console.warn('Property groups table not found - working without groups. Apply migration to enable grouping.');
       } else {
         console.error('Error loading property groups:', error);
