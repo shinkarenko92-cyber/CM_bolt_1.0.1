@@ -346,7 +346,8 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
         property?.bedrooms !== newBedrooms ||
         property?.minimum_booking_days !== newMinimumBookingDays;
 
-      if (property && avitoIntegration?.is_active && !isTokenExpired && hasRelevantChanges) {
+      // Note: We don't check isTokenExpired here because Edge Function will automatically refresh the token if needed
+      if (property && avitoIntegration?.is_active && hasRelevantChanges) {
         try {
           await syncAvitoIntegration(property.id);
           // Показываем успешное уведомление
@@ -633,7 +634,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                     </div>
                   </div>
 
-                  {avitoIntegration?.is_active && !isTokenExpired ? (
+                  {avitoIntegration?.is_active ? (
                     <>
                       <div className="text-sm text-slate-400">
                         Последняя синхронизация: {formatDate(avitoIntegration.last_sync_at)}
