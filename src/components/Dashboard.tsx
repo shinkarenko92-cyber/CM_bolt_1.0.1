@@ -517,7 +517,7 @@ export function Dashboard() {
             // Check for 404 errors - show toast with specific message
             const has404Error = error.errors.some(e => e.statusCode === 404);
             if (has404Error) {
-              toast.error('Объявление не найдено в Avito (код 404). Проверь ID объявления в настройках интеграции — должен быть номер вроде 2336174775');
+              toast.error('Объявление не найдено в Avito. Проверь ID объявления — должен быть длинный номер вроде 2336174775');
             }
             
             // Check for 409 paid conflict

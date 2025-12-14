@@ -929,10 +929,8 @@ Deno.serve(async (req: Request) => {
           });
         }
 
-        // Get account_id and item_id
-        // avito_account_id should be the account/user_id
+        // Get item_id - ONLY use avito_item_id, NEVER use avito_account_id in /items/{id}/ paths
         // avito_item_id should be the item/advertisement_id (TEXT)
-        const accountId = integration.avito_account_id;
         // Use avito_item_id (TEXT) - primary field, fallback to avito_item_id_text or BIGINT conversion
         const itemId = (integration as { avito_item_id?: string | null }).avito_item_id
           || (integration as { avito_item_id_text?: string | null }).avito_item_id_text
@@ -943,7 +941,7 @@ Deno.serve(async (req: Request) => {
           return new Response(
             JSON.stringify({ 
               success: false,
-              error: "ID объявления не настроен в интеграции Avito. Проверь настройки интеграции — должен быть номер вроде 2336174775" 
+              error: "ID объявления Avito не настроен. Проверь настройки интеграции — должен быть длинный номер вроде 2336174775" 
             }),
             { 
               status: 400, 
@@ -951,6 +949,10 @@ Deno.serve(async (req: Request) => {
             }
           );
         }
+
+        // Get account_id ONLY for endpoints that require it (e.g., /accounts/{account_id}/items/{item_id}/bookings)
+        // For /items/{item_id}/ endpoints, NEVER use account_id
+        const accountId = integration.avito_account_id;
 
         // Sync property_rates (calendar prices) and availability to Avito
         // Используем правильные эндпоинты согласно документации:
@@ -1087,7 +1089,7 @@ Deno.serve(async (req: Request) => {
           if (!pricesResponse.ok) {
             // Handle 404 - item not found
             if (pricesResponse.status === 404) {
-              const errorMessage = "Объявление не найдено в Avito (код 404). Проверь ID объявления в настройках интеграции — должен быть номер вроде 2336174775";
+              const errorMessage = "Объявление не найдено в Avito. Проверь ID объявления — должен быть длинный номер вроде 2336174775";
               syncErrors.push({
                 operation: 'price_update',
                 statusCode: 404,
@@ -1172,7 +1174,7 @@ Deno.serve(async (req: Request) => {
         if (!baseParamsResponse.ok) {
           // Handle 404 - item not found
           if (baseParamsResponse.status === 404) {
-            const errorMessage = "Объявление не найдено в Avito (код 404). Проверь ID объявления в настройках интеграции — должен быть номер вроде 2336174775";
+            const errorMessage = "Объявление не найдено в Avito. Проверь ID объявления — должен быть длинный номер вроде 2336174775";
             syncErrors.push({
               operation: 'base_params_update',
               statusCode: 404,
@@ -1334,7 +1336,7 @@ Deno.serve(async (req: Request) => {
             
             // Handle 404 - item not found
             if (errorStatus === 404) {
-              const errorMessage = "Объявление не найдено в Avito (код 404). Проверь ID объявления в настройках интеграции — должен быть номер вроде 2336174775";
+              const errorMessage = "Объявление не найдено в Avito. Проверь ID объявления — должен быть длинный номер вроде 2336174775";
               syncErrors.push({
                 operation: 'bookings_update',
                 statusCode: 404,
@@ -1506,9 +1508,10 @@ Deno.serve(async (req: Request) => {
 
         // Helper function to fetch bookings with 401 retry
         // For pull bookings, we need account_id in the path: /accounts/{account_id}/items/{item_id}/bookings
+        // NOTE: This is the ONLY endpoint that requires account_id in the path
         const fetchBookings = async (token: string): Promise<Response> => {
           if (!accountId) {
-            throw new Error("Missing avito_account_id for fetching bookings");
+            throw new Error("Missing avito_account_id for fetching bookings (required for /accounts/{account_id}/items/{item_id}/bookings endpoint)");
           }
 
           const response = await fetchWithRetry(
