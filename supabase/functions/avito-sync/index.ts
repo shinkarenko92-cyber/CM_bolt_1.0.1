@@ -905,7 +905,7 @@ Deno.serve(async (req: Request) => {
         
         // Filter bookings: exclude deleted booking if exclude_booking_id is provided
         // This is used when deleting manual bookings to open dates in Avito
-        let bookingsForAvito = (bookings as BookingRecord[] || []).filter((b) => {
+        const bookingsForAvito = (bookings as BookingRecord[] || []).filter((b) => {
           // Exclude deleted booking if specified
           if (exclude_booking_id && b.id === exclude_booking_id) {
             console.log("Excluding deleted booking from Avito sync", {
@@ -1335,11 +1335,26 @@ Deno.serve(async (req: Request) => {
             }
             // Специальная обработка ошибки 409 (конфликт с оплаченными бронями)
             else if (errorStatus === 409) {
-              console.warn("Some bookings conflict with paid bookings in Avito (409)", {
+              const errorMessage = exclude_booking_id
+                ? "Конфликт с оплаченной бронью в Avito — проверь вручную"
+                : "Some bookings conflict with paid bookings in Avito (409)";
+              
+              console.warn(errorMessage, {
                 error: errorText,
                 bookingsCount: bookingsToSend.length,
+                excluded_booking_id: exclude_booking_id || null,
               });
-              // Не добавляем 409 в ошибки, это нормальная ситуация
+              
+              // Add 409 to errors if it's a manual booking deletion (user needs to know)
+              if (exclude_booking_id) {
+                syncErrors.push({
+                  operation: 'bookings_update',
+                  statusCode: 409,
+                  message: errorMessage,
+                  details: { item_id: itemId, excluded_booking_id: exclude_booking_id },
+                });
+              }
+              // Не добавляем 409 в ошибки для обычного sync, это нормальная ситуация
             } else {
               let errorDetails: unknown = errorText;
               let errorCode: string | undefined;

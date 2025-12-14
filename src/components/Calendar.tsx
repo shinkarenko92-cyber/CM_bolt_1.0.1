@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Plus, ChevronDown, ChevronRight, Settings, GripVertical } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Plus, Settings } from 'lucide-react';
 import { Property, Booking, PropertyRate, PropertyGroup, supabase } from '../lib/supabase';
 import { CalendarHeader } from './CalendarHeader';
 import { BookingBlock } from './BookingBlock';
@@ -22,9 +22,7 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
-  useSortable,
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
 type CalendarProps = {
   properties: Property[];
