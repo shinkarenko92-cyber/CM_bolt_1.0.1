@@ -83,24 +83,23 @@ export async function syncAvitoIntegration(propertyId: string): Promise<void> {
   const integration = await getPropertyIntegration(propertyId, 'avito');
   
   if (!integration || !integration.is_active) {
-    throw new Error('Avito integration not found or inactive');
+    // Don't throw error - just skip sync if integration is not found or inactive
+    // This can happen during race conditions or when integration is being set up
+    console.log('syncAvitoIntegration: Skipping sync - integration not found or inactive', {
+      propertyId,
+      hasIntegration: !!integration,
+      isActive: integration?.is_active,
+    });
+    return;
   }
 
-  // Check token expiration
-  // Используем ту же логику, что и в PropertyModal - добавляем 'Z' если его нет
-  if (integration.token_expires_at) {
-    let expiresAtString = integration.token_expires_at;
-    if (!expiresAtString.endsWith('Z') && !expiresAtString.includes('+') && !expiresAtString.includes('-', 10)) {
-      expiresAtString = expiresAtString + 'Z';
-    }
-    
-    const expiresAt = new Date(expiresAtString);
-    const now = new Date();
-    
-    if (expiresAt.getTime() <= now.getTime()) {
-      throw new Error('Token expired. Please reconnect Avito.');
-    }
-  }
+  // Note: Token expiration check is now handled in Edge Function with automatic refresh
+  // We no longer check token expiration on the client side to allow Edge Function to handle it
+  console.log('syncAvitoIntegration: Skipping client-side token check, Edge Function will handle it', {
+    propertyId,
+    integrationId: integration.id,
+    hasTokenExpiresAt: !!integration.token_expires_at,
+  });
 
   // Call Edge Function for sync (it will fetch property and bookings internally)
   console.log('syncAvitoIntegration: Calling Edge Function', {
