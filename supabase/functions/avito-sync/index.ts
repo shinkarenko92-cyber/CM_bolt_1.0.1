@@ -766,7 +766,7 @@ Deno.serve(async (req: Request) => {
         // Используем правильные эндпоинты согласно документации:
         // 1. POST /realty/v1/accounts/{user_id}/items/{item_id}/prices - для обновления цен
         // 2. POST /realty/v1/items/{item_id}/base - для базовых параметров
-        // 3. POST /core/v1/accounts/{user_id}/items/{item_id}/bookings - для отправки бронирований
+        // 3. PUT /core/v1/accounts/{user_id}/items/{item_id}/bookings - для отправки бронирований (putBookingsInfo)
         console.log("Syncing property_rates to Avito", {
           property_id: integration.property_id,
           accountId,
