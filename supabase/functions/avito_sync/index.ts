@@ -731,7 +731,7 @@ Deno.serve(async (req: Request) => {
           }, {
             onConflict: 'property_id,platform' // Указываем поля для разрешения конфликта
           })
-          .select()
+          .select('id, property_id, platform, avito_account_id, avito_item_id, avito_markup, is_active, token_expires_at, last_sync_at')
           .single();
 
         if (error) {
@@ -769,7 +769,7 @@ Deno.serve(async (req: Request) => {
           // Get integration with decrypted token
           const { data: integration, error: intError } = await supabase
             .from("integrations")
-            .select("*")
+            .select("id, property_id, platform, avito_account_id, avito_item_id, avito_markup, access_token_encrypted, refresh_token_encrypted, token_expires_at, is_active, last_sync_at, sync_interval_seconds")
             .eq("id", integration_id)
             .eq("is_active", true)
             .single();
