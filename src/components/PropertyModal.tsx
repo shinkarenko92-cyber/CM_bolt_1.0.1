@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { X } from 'lucide-react';
-import { Badge, Button, InputNumber, Modal, message } from 'antd';
+import { Badge, Button, Input, InputNumber, Modal, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { Property, PropertyIntegration } from '../lib/supabase';
@@ -40,6 +40,8 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   const [isAvitoModalOpen, setIsAvitoModalOpen] = useState(false);
   const [isEditMarkupModalOpen, setIsEditMarkupModalOpen] = useState(false);
   const [newMarkup, setNewMarkup] = useState<number>(15);
+  const [isEditingItemId, setIsEditingItemId] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string>('');
 
   const loadAvitoIntegration = useCallback(async () => {
     if (!property) return;
@@ -657,13 +659,31 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
                   {avitoIntegration?.is_active ? (
                     <>
-                      {/* Warning for old integrations missing avito_item_id */}
+                      {/* Warning for old integrations with short avito_item_id */}
+                      {avitoIntegration.avito_item_id && 
+                       String(avitoIntegration.avito_item_id).length < 10 && (
+                        <div className="bg-yellow-500/20 border border-yellow-500/50 rounded p-3 mb-3">
+                          <p className="text-yellow-300 text-sm font-medium mb-1">⚠️ Требуется обновление</p>
+                          <p className="text-yellow-200 text-xs">
+                            Обнови ID объявления — должен быть длинный номер (10-11 цифр) из Avito. 
+                            Нажми "Редактировать ID объявления" ниже.
+                          </p>
+                        </div>
+                      )}
+                      {/* Warning for missing avito_item_id */}
                       {!avitoIntegration.avito_item_id && !(avitoIntegration as { avito_item_id_text?: string | null }).avito_item_id_text && (
                         <div className="bg-yellow-500/20 border border-yellow-500/50 rounded p-3 mb-3">
                           <p className="text-yellow-300 text-sm font-medium mb-1">⚠️ Требуется обновление</p>
                           <p className="text-yellow-200 text-xs">
-                            Обнови ID объявления (новое поле). Нажми "Подключить заново" и введи ID объявления.
+                            Обнови ID объявления — должен быть длинный номер (10-11 цифр) из Avito. 
+                            Нажми "Редактировать ID объявления" ниже.
                           </p>
+                        </div>
+                      )}
+                      {/* Display current item_id */}
+                      {avitoIntegration.avito_item_id && String(avitoIntegration.avito_item_id).length >= 10 && (
+                        <div className="text-sm text-slate-400 mb-2">
+                          ID объявления: {avitoIntegration.avito_item_id}
                         </div>
                       )}
                       <div className="text-sm text-slate-400">
@@ -672,15 +692,59 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                       <div className="text-sm text-slate-400">
                         Наценка: {avitoIntegration.avito_markup || 15}%
                       </div>
-                      <div className="flex gap-2">
-                        <Button onClick={handleEditMarkup}>Редактировать наценку</Button>
-                        <Button onClick={handleDisconnectAvito}>
-                          Отключить
-                        </Button>
-                        <Button danger onClick={handleDeleteAvito}>
-                          Удалить
-                        </Button>
-                      </div>
+                      
+                      {/* Inline form for editing item_id */}
+                      {isEditingItemId ? (
+                        <div className="mt-3 p-3 bg-slate-600/50 rounded border border-slate-500">
+                          <label className="block text-sm text-white mb-2">ID объявления на Avito</label>
+                          <Input
+                            placeholder="Например, 2336174775"
+                            value={editingItemId}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/\D/g, '').slice(0, 11);
+                              setEditingItemId(value);
+                            }}
+                            maxLength={11}
+                          />
+                          {editingItemId && !/^[0-9]{10,11}$/.test(editingItemId) && (
+                            <p className="text-xs text-red-400 mt-1">
+                              ID объявления должен содержать 10-11 цифр
+                            </p>
+                          )}
+                          <div className="flex gap-2 mt-3">
+                            <Button 
+                              type="primary" 
+                              size="small"
+                              onClick={handleSaveItemId}
+                              disabled={!editingItemId || !/^[0-9]{10,11}$/.test(editingItemId)}
+                              loading={loading}
+                            >
+                              Сохранить
+                            </Button>
+                            <Button 
+                              size="small"
+                              onClick={() => {
+                                setIsEditingItemId(false);
+                                setEditingItemId('');
+                              }}
+                              disabled={loading}
+                            >
+                              Отмена
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2 mt-3">
+                          <Button onClick={handleEditMarkup}>Редактировать наценку</Button>
+                          <Button onClick={handleEditItemId}>Редактировать ID объявления</Button>
+                          <Button onClick={handleDisconnectAvito}>
+                            Отключить
+                          </Button>
+                          <Button danger onClick={handleDeleteAvito}>
+                            Удалить
+                          </Button>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <Button type="primary" onClick={() => setIsAvitoModalOpen(true)}>

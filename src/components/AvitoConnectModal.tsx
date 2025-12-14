@@ -335,9 +335,9 @@ export function AvitoConnectModal({
       return;
     }
 
-    // Validate itemId is a number (required, digits only)
-    if (!itemId.trim() || !/^\d+$/.test(itemId)) {
-      message.error('Введи правильный ID объявления из Avito (например, 2336174775)');
+    // Validate itemId: must be 10-11 digits
+    if (!itemId.trim() || !/^[0-9]{10,11}$/.test(itemId.trim())) {
+      message.error('ID объявления должен содержать 10-11 цифр (например, 2336174775)');
       return;
     }
 
@@ -399,6 +399,12 @@ export function AvitoConnectModal({
   const handleSubmit = async () => {
     if (!selectedAccountId || !itemId || !accessToken) {
       message.error('Заполните все поля');
+      return;
+    }
+
+    // Validate itemId: must be 10-11 digits before saving
+    if (!itemId || !/^[0-9]{10,11}$/.test(itemId.trim())) {
+      message.error('ID объявления должен содержать 10-11 цифр');
       return;
     }
 
@@ -649,30 +655,35 @@ export function AvitoConnectModal({
           <div>
             <p className="text-white mb-2 font-medium">Введите ID объявления на Avito:</p>
             <p className="text-sm text-slate-300 mb-4">
-              ID можно найти в URL объявления: avito.ru/moskva/kvartiry/
-              <span className="text-teal-400 font-bold">123456789</span>
+              ID объявления должен содержать 10-11 цифр. ID можно найти в URL объявления: avito.ru/moskva/kvartiry/
+              <span className="text-teal-400 font-bold">2336174775</span>
             </p>
             <Input
-              placeholder="Например: 123456789"
+              placeholder="Например: 2336174775"
               value={itemId}
               onChange={(e) => {
-                // Only allow numbers
-                const value = e.target.value.replace(/\D/g, '');
+                // Only allow numbers, max 11 digits
+                const value = e.target.value.replace(/\D/g, '').slice(0, 11);
                 setItemId(value);
               }}
               onPressEnter={handleItemIdValidate}
               disabled={validatingItemId}
               required
-              type="number"
+              maxLength={11}
+              pattern="[0-9]{10,11}"
             />
             {!itemId && (
               <p className="text-xs text-red-400 mt-1">ID объявления обязателен</p>
+            )}
+            {itemId && !/^[0-9]{10,11}$/.test(itemId) && (
+              <p className="text-xs text-red-400 mt-1">ID объявления должен содержать 10-11 цифр</p>
             )}
             <div className="flex gap-2 mt-4">
               <Button
                 type="primary"
                 onClick={handleItemIdValidate}
                 loading={validatingItemId}
+                disabled={!itemId || !/^[0-9]{10,11}$/.test(itemId)}
               >
                 Проверить ID
               </Button>
