@@ -152,7 +152,16 @@ export function Calendar({
         .eq('user_id', user.id)
         .order('sort_order', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        // Если таблица не существует (миграция не применена), просто работаем без групп
+        if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
+          console.warn('Property groups table not found - working without groups. Apply migration to enable grouping.');
+          setPropertyGroups([]);
+          return;
+        }
+        throw error;
+      }
+      
       setPropertyGroups(data || []);
       
       // Разворачиваем все группы по умолчанию
@@ -161,6 +170,8 @@ export function Calendar({
       }
     } catch (error) {
       console.error('Error loading property groups:', error);
+      // Не падаем, просто работаем без групп
+      setPropertyGroups([]);
     }
   };
 
@@ -1088,7 +1099,7 @@ export function Calendar({
                                     className="flex-shrink-0"
                                     style={{ width: `${dates.length * CELL_WIDTH}px`, height: `${totalRowHeight}px`, minWidth: `${256 + dates.length * CELL_WIDTH}px` }}
                                   >
-                                    {isExpanded && (
+                                    {isExpanded ? (
                         <div className="flex flex-col h-full">
                           <div className="border-b border-slate-700/30 bg-slate-800/50">
                             <div className="h-8 flex">
@@ -1200,6 +1211,9 @@ export function Calendar({
                             </div>
                           </div>
                         </div>
+                      ) : (
+                        // Collapsed состояние - пустая строка, но видимая
+                        <div className="h-full bg-slate-800/50 border-b border-slate-700" />
                       )}
                                   </div>
                                 </SortablePropertyRow>
