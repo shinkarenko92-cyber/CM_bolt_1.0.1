@@ -1,14 +1,15 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Search, Calendar, MapPin, User, Phone, Mail } from 'lucide-react';
+import { Search, Calendar, MapPin, User, Phone, Mail, Upload } from 'lucide-react';
 import { Booking, Property } from '../lib/supabase';
 
 interface BookingsViewProps {
   bookings: Booking[];
   properties: Property[];
   onEdit: (booking: Booking) => void;
+  onImport?: () => void;
 }
 
-export function BookingsView({ bookings, properties, onEdit }: BookingsViewProps) {
+export function BookingsView({ bookings, properties, onEdit, onImport }: BookingsViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'upcoming' | 'past'>('all');
   const [sortBy, setSortBy] = useState<'date' | 'property' | 'source'>('date');
@@ -122,9 +123,20 @@ export function BookingsView({ bookings, properties, onEdit }: BookingsViewProps
   return (
     <div className="flex-1 overflow-auto p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-white mb-1">Бронирования</h1>
-          <p className="text-slate-400">Просмотр всех прошлых и будущих бронирований</p>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white mb-1">Бронирования</h1>
+            <p className="text-slate-400">Просмотр всех прошлых и будущих бронирований</p>
+          </div>
+          {onImport && (
+            <button
+              onClick={onImport}
+              className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors"
+            >
+              <Upload size={18} />
+              <span>Импорт из Excel</span>
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-3 gap-4 mb-6">

@@ -5,9 +5,12 @@ import {
   Download, 
   Globe, 
   FileSpreadsheet,
-  FileText
+  FileText,
+  Trash2
 } from 'lucide-react';
 import { Booking, Property } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { ConfirmModal } from './ConfirmModal';
 
 interface SettingsViewProps {
   bookings: Booking[];
@@ -16,7 +19,10 @@ interface SettingsViewProps {
 
 export function SettingsView({ bookings, properties }: SettingsViewProps) {
   const { t, i18n } = useTranslation();
+  const { deleteAccount } = useAuth();
   const [exportDateRange, setExportDateRange] = useState('all');
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const convertToRUB = (amount: number, currency: string) => {
     const rates: { [key: string]: number } = { RUB: 1, EUR: 100, USD: 92 };
@@ -184,6 +190,18 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
     URL.revokeObjectURL(url);
   };
 
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteAccount();
+      toast.success('Аккаунт успешно удалён');
+      // После удаления пользователь будет автоматически разлогинен
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Ошибка при удалении аккаунта');
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="flex-1 overflow-auto p-4 md:p-6">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -286,7 +304,41 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
             </p>
           </div>
         </div>
+
+        {/* Delete Account */}
+        <div className="bg-slate-800 rounded-lg p-6 border border-red-500/20">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-red-500/20 rounded-lg">
+              <Trash2 className="w-5 h-5 text-red-400" />
+            </div>
+            <h2 className="text-lg font-semibold text-white">Удаление аккаунта</h2>
+          </div>
+          
+          <p className="text-slate-400 text-sm mb-4">
+            Удаление аккаунта приведёт к безвозвратному удалению всех ваших данных: 
+            объектов недвижимости, бронирований и настроек. Это действие нельзя отменить.
+          </p>
+          
+          <button
+            onClick={() => setIsDeleteModalOpen(true)}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+          >
+            Удалить аккаунт
+          </button>
+        </div>
       </div>
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => !isDeleting && setIsDeleteModalOpen(false)}
+        onConfirm={handleDeleteAccount}
+        title="Удаление аккаунта"
+        message="Вы уверены, что хотите удалить свой аккаунт? Все ваши данные будут безвозвратно удалены. Это действие нельзя отменить."
+        confirmText="Да, удалить аккаунт"
+        cancelText="Отмена"
+        variant="danger"
+        loading={isDeleting}
+      />
     </div>
   );
 }

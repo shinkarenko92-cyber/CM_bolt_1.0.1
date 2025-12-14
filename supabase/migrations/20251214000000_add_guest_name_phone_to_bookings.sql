@@ -21,3 +21,6 @@ WHERE guest_phone IS NOT NULL;
 COMMENT ON COLUMN bookings.guest_name IS 'Guest name from booking source (Avito, Airbnb, etc.)';
 COMMENT ON COLUMN bookings.guest_phone IS 'Guest phone number in international format (cleaned, digits and + only)';
 
+
+
+

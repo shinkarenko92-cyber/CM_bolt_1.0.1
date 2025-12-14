@@ -11,6 +11,7 @@ type AuthContextType = {
   signUp: (email: string, password: string) => Promise<{ data: { user: User | null }; error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -159,10 +160,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null);
   };
 
+  const deleteAccount = async () => {
+    if (!user) {
+      throw new Error('Пользователь не авторизован');
+    }
+
+    try {
+      // 1. Получаем все properties пользователя
+      const { data: userProperties } = await supabase
+        .from('properties')
+        .select('id')
+        .eq('owner_id', user.id);
+
+      if (userProperties && userProperties.length > 0) {
+        const propertyIds = userProperties.map(p => p.id);
+        
+        // 2. Удаляем bookings для всех properties пользователя
+        await supabase
+          .from('bookings')
+          .delete()
+          .in('property_id', propertyIds);
+
+        // 3. Удаляем property_rates для всех properties
+        await supabase
+          .from('property_rates')
+          .delete()
+          .in('property_id', propertyIds);
+      }
+
+      // 4. Удаляем все properties пользователя
+      await supabase
+        .from('properties')
+        .delete()
+        .eq('owner_id', user.id);
+
+      // 5. Деактивируем профиль (soft delete)
+      await supabase
+        .from('profiles')
+        .update({ is_active: false })
+        .eq('id', user.id);
+
+      // 6. Выходим из системы
+      await signOut();
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      throw error;
+    }
+  };
+
   const isAdmin = profile?.role === 'admin' && profile?.is_active === true;
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin, signIn, signUp, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin, signIn, signUp, signOut, refreshProfile, deleteAccount }}>
       {children}
     </AuthContext.Provider>
   );

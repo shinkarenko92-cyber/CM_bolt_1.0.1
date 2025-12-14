@@ -22,6 +22,7 @@ import { getOAuthSuccess, getOAuthError } from '../services/avito';
 import { syncWithExternalAPIs, syncAvitoIntegration, AvitoSyncError } from '../services/apiSync';
 import { showAvitoErrors } from '../services/avitoErrors';
 import { DeletePropertyModal } from './DeletePropertyModal';
+import { ImportBookingsModal } from './ImportBookingsModal';
 
 type NewReservation = {
   property_id: string;
@@ -62,6 +63,7 @@ export function Dashboard() {
   const [isDeletePropertyModalOpen, setIsDeletePropertyModalOpen] = useState(false);
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
   const [bookingsForDelete, setBookingsForDelete] = useState<Booking[]>([]);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Helper function for retry logic
   type SupabaseQueryResult<T> = {
@@ -888,6 +890,7 @@ export function Dashboard() {
             bookings={bookings}
             properties={properties}
             onEdit={handleEditReservation}
+            onImport={() => setIsImportModalOpen(true)}
           />
         ) : currentView === 'analytics' ? (
           <AnalyticsView bookings={bookings} properties={properties} />
@@ -973,6 +976,16 @@ export function Dashboard() {
             onConfirm={handleDeletePropertyConfirm}
           />
         )}
+
+        {/* Import Bookings Modal */}
+        <ImportBookingsModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onSuccess={() => {
+            loadData();
+            setCurrentView('bookings');
+          }}
+        />
       </div>
     </div>
   );

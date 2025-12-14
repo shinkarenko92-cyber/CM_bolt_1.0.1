@@ -60,27 +60,112 @@ ON bookings(guest_phone)
 WHERE guest_phone IS NOT NULL;
 ```
 
-### 2. Обновление Edge Function для очистки номера телефона
+### 2. Обновление Edge Function для извлечения имени и очистки номера телефона
 
-**Файл**: `supabase/functions/avito-sync/index.ts` (строки ~1176-1178)
+**Файл**: `supabase/functions/avito-sync/index.ts` (строки ~1174-1209)
+
+**Проблема**: Сейчас используется fallback "Гость с Avito", хотя в ответе от Avito API есть реальное имя гостя. Нужно:
+- Проверить все возможные поля в ответе API (`customer.name`, `contact.name`, `guest.name`, `user.name`)
+- Добавить детальное логирование структуры ответа для диагностики
+- Обновлять существующие бронирования, если они имеют "Гость с Avito", а теперь найдено реальное имя
 
 **Изменения**:
 
-- Добавить функцию очистки номера телефона от лишних символов
-- Применить очистку к `contactPhone` перед сохранением в БД
+1. **Улучшить логику извлечения имени** - добавить больше вариантов полей и детальное логирование:
 ```typescript
-// Функция очистки номера (добавить перед обработкой бронирований)
+// Расширенная функция извлечения имени с логированием
+const extractGuestName = (booking: AvitoBookingResponse): string => {
+  // Проверяем все возможные варианты полей
+  const name = booking.contact?.name 
+    || booking.customer?.name 
+    || booking.guest_name 
+    || booking.guest?.name
+    || booking.user?.name
+    || (booking as any).name;
+  
+  if (name && name.trim() && name !== "Гость с Avito") {
+    return name.trim();
+  }
+  
+  // Логируем, если имя не найдено
+  console.warn("Guest name not found in booking", {
+    bookingId: booking.avito_booking_id || booking.id,
+    availableFields: Object.keys(booking),
+    contact: booking.contact,
+    customer: (booking as any).customer,
+    guest: booking.guest,
+    user: (booking as any).user,
+  });
+  
+  return "Гость с Avito"; // Fallback только если действительно нет имени
+};
+
+// В обработке бронирований:
+const contactName = extractGuestName(booking);
+```
+
+2. **Добавить функцию очистки номера телефона**:
+```typescript
 const cleanPhoneNumber = (phone: string | null | undefined): string | null => {
   if (!phone) return null;
-  // Оставляем только цифры и знак +
   const cleaned = phone.replace(/[^\d+]/g, '');
   return cleaned || null;
 };
 
-// В обработке бронирований (строка ~1178):
 const contactPhone = cleanPhoneNumber(
-  booking.contact?.phone || booking.guest_phone || booking.guest?.phone
+  booking.contact?.phone 
+    || booking.customer?.phone
+    || booking.guest_phone 
+    || booking.guest?.phone
+    || (booking as any).phone
 );
+```
+
+3. **Обновлять существующие бронирования** - если бронирование уже существует, но имеет "Гость с Avito", обновить его:
+```typescript
+if (existing) {
+  // Если существующее бронирование имеет fallback имя, обновляем его
+  if (existing.guest_name === "Гость с Avito" && contactName !== "Гость с Avito") {
+    await supabase.from("bookings").update({
+      guest_name: contactName,
+      guest_email: contactEmail,
+      guest_phone: contactPhone,
+    }).eq("id", existing.id);
+    console.log("Updated existing booking with real guest name", {
+      booking_id: existing.id,
+      old_name: "Гость с Avito",
+      new_name: contactName,
+    });
+  }
+  skippedCount++;
+} else {
+  // Создаем новое бронирование
+  ...
+}
+```
+
+4. **Улучшить интерфейс AvitoBookingResponse** - добавить возможные варианты полей:
+```typescript
+interface AvitoBookingResponse {
+  // ... существующие поля ...
+  contact?: {
+    name: string;
+    email: string;
+    phone?: string;
+  };
+  customer?: {  // Добавить как возможный вариант
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
+  user?: {  // Добавить как возможный вариант
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
+  // ... остальные поля ...
+  [key: string]: unknown; // Для дополнительных полей
+}
 ```
 
 
@@ -196,7 +281,7 @@ const formatPhoneForWhatsApp = (phone: string | null): string | null => {
 
 2. **Изменения**:
 
-   - `supabase/functions/avito-sync/index.ts` - добавить очистку номера телефона
+   - `supabase/functions/avito-sync/index.ts` - улучшить извлечение имени, добавить очистку номера, обновлять существующие бронирования
    - `src/components/BookingBlock.tsx` - улучшить отображение в календаре и tooltip
    - `src/components/BookingsView.tsx` - добавить ссылку на WhatsApp
 
