@@ -744,7 +744,7 @@ Deno.serve(async (req: Request) => {
 
       case "initial-sync":
       case "sync": {
-        const { integration_id } = params;
+        const { integration_id, exclude_booking_id } = params;
 
         // Get integration with decrypted token
         const { data: integration, error: intError } = await supabase
@@ -895,16 +895,39 @@ Deno.serve(async (req: Request) => {
         // Prepare blocked dates from bookings
         // Используем реальные check_in и check_out для создания бронирований
         interface BookingRecord {
+          id: string;
           check_in: string;
           check_out: string;
           guest_name?: string | null;
           guest_phone?: string | null;
+          source?: string | null;
         }
-        const bookingsForAvito = (bookings as BookingRecord[] || []).filter((b) => {
+        
+        // Filter bookings: exclude deleted booking if exclude_booking_id is provided
+        // This is used when deleting manual bookings to open dates in Avito
+        let bookingsForAvito = (bookings as BookingRecord[] || []).filter((b) => {
+          // Exclude deleted booking if specified
+          if (exclude_booking_id && b.id === exclude_booking_id) {
+            console.log("Excluding deleted booking from Avito sync", {
+              booking_id: b.id,
+              check_in: b.check_in,
+              check_out: b.check_out,
+            });
+            return false;
+          }
           // Только будущие бронирования
           const checkIn = new Date(b.check_in);
           return checkIn >= new Date(new Date().toISOString().split('T')[0]);
         });
+
+        // Log if we're excluding a booking (manual booking deletion)
+        if (exclude_booking_id) {
+          console.log("Syncing Avito with excluded booking (manual booking deleted)", {
+            excluded_booking_id: exclude_booking_id,
+            remaining_bookings_count: bookingsForAvito.length,
+            total_bookings_count: bookings?.length || 0,
+          });
+        }
 
         // Get account_id and item_id
         // avito_account_id should be the account/user_id
@@ -1263,6 +1286,21 @@ Deno.serve(async (req: Request) => {
           });
 
           // Use correct endpoint: /realty/v1/items/{item_id}/intervals for blocking dates
+          // Avito API: intervals array with date_start and date_end closes those dates
+          // Empty intervals array opens all dates
+          // We send only closed intervals (occupied dates), rest are open by default
+          const intervalsToSend = bookingsToSend.map(b => ({
+            date_start: b.date_start,
+            date_end: b.date_end,
+          }));
+
+          console.log("Sending intervals to Avito", {
+            endpoint: `${AVITO_API_BASE}/realty/v1/items/${itemId}/intervals`,
+            intervalsCount: intervalsToSend.length,
+            exclude_booking_id: exclude_booking_id || null,
+            action: exclude_booking_id ? "open_dates_after_manual_delete" : "sync_occupancy",
+          });
+
           const bookingsUpdateResponse = await fetchWithRetry(
             `${AVITO_API_BASE}/realty/v1/items/${itemId}/intervals`,
             {
@@ -1272,10 +1310,8 @@ Deno.serve(async (req: Request) => {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                intervals: bookingsToSend.map(b => ({
-                  date_start: b.date_start,
-                  date_end: b.date_end,
-                })),
+                item_id: itemId,
+                intervals: intervalsToSend,
                 source: "Roomi Pro", // Название PMS системы
               }),
             }
@@ -1337,22 +1373,87 @@ Deno.serve(async (req: Request) => {
           } else {
             try {
               const responseData = await bookingsUpdateResponse.json().catch(() => null);
-              console.log("Avito bookings updated successfully via putBookingsInfo", {
+              const logMessage = exclude_booking_id 
+                ? "Dates opened in Avito for manual booking delete"
+                : "Avito bookings updated successfully via intervals";
+              
+              console.log(logMessage, {
+                intervalsCount: intervalsToSend.length,
                 bookingsCount: bookingsToSend.length,
+                excluded_booking_id: exclude_booking_id || null,
                 response: responseData,
               });
+
+              // Log success to avito_logs
+              await supabase.from("avito_logs").insert({
+                integration_id: integration.id,
+                property_id: integration.property_id,
+                action: exclude_booking_id ? "open_dates_after_delete" : "sync_intervals",
+                status: "success",
+                details: {
+                  intervals_count: intervalsToSend.length,
+                  excluded_booking_id: exclude_booking_id || null,
+                },
+              });
             } catch {
-              console.log("Avito bookings updated successfully via putBookingsInfo", {
+              console.log("Avito intervals updated successfully", {
+                intervalsCount: intervalsToSend.length,
                 bookingsCount: bookingsToSend.length,
                 status: bookingsUpdateResponse.status,
+                excluded_booking_id: exclude_booking_id || null,
               });
             }
           }
         } else {
-          console.log("No bookings to send to Avito (no blocked dates)", {
-            bookingsForAvitoCount: bookingsForAvito.length,
-            today: new Date().toISOString().split('T')[0],
-          });
+          // No bookings to block - send empty intervals to open all dates
+          // This happens when all bookings are deleted or none are future
+          if (exclude_booking_id) {
+            console.log("No bookings left after deletion, opening all dates in Avito", {
+              excluded_booking_id: exclude_booking_id,
+            });
+
+            const openAllResponse = await fetchWithRetry(
+              `${AVITO_API_BASE}/realty/v1/items/${itemId}/intervals`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  item_id: itemId,
+                  intervals: [], // Empty array opens all dates
+                  source: "Roomi Pro",
+                }),
+              }
+            );
+
+            if (openAllResponse.ok) {
+              console.log("All dates opened in Avito after manual booking deletion");
+              
+              // Log success to avito_logs
+              await supabase.from("avito_logs").insert({
+                integration_id: integration.id,
+                property_id: integration.property_id,
+                action: "open_all_dates_after_delete",
+                status: "success",
+                details: {
+                  excluded_booking_id: exclude_booking_id,
+                },
+              });
+            } else {
+              const errorText = await openAllResponse.text();
+              console.error("Failed to open all dates in Avito", {
+                status: openAllResponse.status,
+                error: errorText,
+              });
+            }
+          } else {
+            console.log("No bookings to send to Avito (no blocked dates)", {
+              bookingsForAvitoCount: bookingsForAvito.length,
+              today: new Date().toISOString().split('T')[0],
+            });
+          }
         }
 
         // Pull bookings from Avito

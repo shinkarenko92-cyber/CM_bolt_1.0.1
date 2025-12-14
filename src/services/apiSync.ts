@@ -77,8 +77,14 @@ export class AvitoSyncError extends Error {
  * Sync Avito integration for a specific property
  * Prepares data and calls Edge Function for actual sync
  * Throws AvitoSyncError if there are errors from Avito API
+ * 
+ * @param propertyId - Property ID to sync
+ * @param excludeBookingId - Optional booking ID to exclude from sync (for manual booking deletion)
  */
-export async function syncAvitoIntegration(propertyId: string): Promise<void> {
+export async function syncAvitoIntegration(
+  propertyId: string,
+  excludeBookingId?: string
+): Promise<void> {
   // Get integration from database
   const integration = await getPropertyIntegration(propertyId, 'avito');
   
@@ -99,6 +105,7 @@ export async function syncAvitoIntegration(propertyId: string): Promise<void> {
     propertyId,
     integrationId: integration.id,
     hasTokenExpiresAt: !!integration.token_expires_at,
+    excludeBookingId,
   });
 
   // Call Edge Function for sync (it will fetch property and bookings internally)
@@ -107,12 +114,14 @@ export async function syncAvitoIntegration(propertyId: string): Promise<void> {
     property_id: integration.property_id,
     avito_account_id: integration.avito_account_id,
     avito_item_id: integration.avito_item_id,
+    exclude_booking_id: excludeBookingId,
   });
 
   const { data, error: syncError } = await supabase.functions.invoke('avito-sync', {
     body: {
       action: 'sync',
       integration_id: integration.id,
+      exclude_booking_id: excludeBookingId, // Exclude deleted booking from sync
     },
   });
 

@@ -476,9 +476,11 @@ export function Dashboard() {
 
   const handleDeleteReservation = async (id: string) => {
     try {
-      // Сохраняем property_id перед удалением для синхронизации
+      // Сохраняем данные брони перед удалением для синхронизации
       const booking = bookings.find(b => b.id === id);
       const propertyId = booking?.property_id;
+      const bookingSource = booking?.source || 'manual';
+      const isAvitoBooking = bookingSource === 'avito';
 
       const { error } = await supabase.from('bookings').delete().eq('id', id);
 
@@ -490,15 +492,34 @@ export function Dashboard() {
       toast.success(t('success.bookingDeleted'));
 
       // Sync to Avito after successful booking deletion
+      // For manual bookings: open dates in Avito (exclude deleted booking from sync)
+      // For Avito bookings: cancel booking + open dates
       if (propertyId) {
         try {
-          await syncAvitoIntegration(propertyId);
-          console.log('Dashboard: Avito sync completed after booking deletion');
+          // If manual booking, exclude it from sync to open dates in Avito
+          // If Avito booking, full sync will handle cancellation
+          await syncAvitoIntegration(propertyId, isAvitoBooking ? undefined : id);
+          
+          if (!isAvitoBooking) {
+            toast.success('Бронь удалена. Даты открыты в Avito');
+          }
+          
+          console.log('Dashboard: Avito sync completed after booking deletion', {
+            bookingId: id,
+            source: bookingSource,
+            isAvitoBooking,
+          });
         } catch (error) {
           console.error('Dashboard: Failed to sync to Avito after booking deletion:', error);
           
           // Если это AvitoSyncError с массивом ошибок, показываем их
           if (error instanceof AvitoSyncError && error.errors.length > 0) {
+            // Check for 409 paid conflict
+            const hasPaidConflict = error.errors.some(e => e.statusCode === 409);
+            if (hasPaidConflict) {
+              toast.warning('Конфликт с оплаченной бронью в Avito — проверь вручную');
+            }
+            
             showAvitoErrors(error.errors, t).catch((err) => {
               console.error('Error showing Avito error modals:', err);
             });
@@ -506,6 +527,9 @@ export function Dashboard() {
             // Для других ошибок просто логируем
             const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
             console.warn('Dashboard: Avito sync failed after booking deletion', { error: errorMessage });
+            if (!isAvitoBooking) {
+              toast.warning('Бронь удалена, но не удалось открыть даты в Avito');
+            }
           }
         }
       }
