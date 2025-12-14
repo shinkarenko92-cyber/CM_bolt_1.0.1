@@ -339,6 +339,7 @@ Deno.serve(async (req: Request) => {
         currency: "RUB",
         status: "confirmed",
         source: "excel_import",
+        external_id: null, // Excel imports don't have external IDs
         notes: booking.notes || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -363,17 +364,34 @@ Deno.serve(async (req: Request) => {
       const batchSize = 100;
       for (let i = 0; i < bookingsToInsert.length; i += batchSize) {
         const batch = bookingsToInsert.slice(i, i + batchSize);
-        const { error: insertError } = await supabase
+        console.log(`Inserting batch ${Math.floor(i / batchSize) + 1}, ${batch.length} bookings`);
+        
+        const { data: insertedData, error: insertError } = await supabase
           .from("bookings")
-          .insert(batch);
+          .insert(batch)
+          .select("id");
 
         if (insertError) {
-          console.error("Error inserting bookings:", insertError);
+          console.error("Error inserting bookings:", {
+            error: insertError,
+            message: insertError.message,
+            details: insertError.details,
+            hint: insertError.hint,
+            code: insertError.code,
+            batchSize: batch.length,
+            firstBooking: batch[0],
+          });
           return new Response(
-            JSON.stringify({ error: `Failed to insert bookings: ${insertError.message}` }),
+            JSON.stringify({ 
+              error: `Failed to insert bookings: ${insertError.message}`,
+              details: insertError.details,
+              hint: insertError.hint,
+            }),
             { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
+        
+        console.log(`Successfully inserted ${insertedData?.length || 0} bookings in batch`);
       }
     }
 
@@ -390,9 +408,17 @@ Deno.serve(async (req: Request) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error("Unexpected error:", {
+      error,
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined,
+    });
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : "Unknown error",
+        details: error instanceof Error ? error.stack : undefined,
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
