@@ -183,8 +183,7 @@ Deno.serve(async (req: Request) => {
     const { data: existingProperties, error: propertiesError } = await supabase
       .from("properties")
       .select("id, name")
-      .eq("owner_id", user.id)
-      .is("deleted_at", null);
+      .eq("owner_id", user.id);
 
     if (propertiesError) {
       console.error("Error fetching properties:", propertiesError);
