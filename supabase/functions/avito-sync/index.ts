@@ -13,6 +13,128 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+// Helper function to refresh access token
+async function refreshAccessToken(
+  integration: { id: string; refresh_token_encrypted?: string | null },
+  avitoClientId: string,
+  avitoClientSecret: string,
+  supabase: ReturnType<typeof createClient>
+): Promise<{ access_token: string; refresh_token?: string; expires_in: number }> {
+  // Try refresh_token grant_type first if refresh_token exists
+  if (integration.refresh_token_encrypted) {
+    try {
+      // Try to decrypt refresh token
+      let refreshToken = integration.refresh_token_encrypted;
+      try {
+        const { data: decrypted } = await supabase.rpc('decrypt_avito_token', {
+          encrypted_token: refreshToken,
+        });
+        if (decrypted) refreshToken = decrypted;
+      } catch {
+        // If RPC fails, assume token is not encrypted yet
+      }
+
+      const refreshResponse = await fetch(`${AVITO_API_BASE}/token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          client_id: avitoClientId,
+          client_secret: avitoClientSecret,
+          refresh_token: refreshToken,
+        }),
+      });
+
+      if (refreshResponse.ok) {
+        const refreshData = await refreshResponse.json();
+        return {
+          access_token: refreshData.access_token,
+          refresh_token: refreshData.refresh_token,
+          expires_in: refreshData.expires_in || 3600,
+        };
+      }
+    } catch (error) {
+      console.warn("Refresh token flow failed, falling back to client_credentials", error);
+    }
+  }
+
+  // Fallback to client_credentials flow
+  const refreshResponse = await fetch(`${AVITO_API_BASE}/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: avitoClientId,
+      client_secret: avitoClientSecret,
+    }),
+  });
+
+  if (!refreshResponse.ok) {
+    const errorText = await refreshResponse.text();
+    throw new Error(`Token refresh failed: ${refreshResponse.status} ${errorText}`);
+  }
+
+  const refreshData = await refreshResponse.json();
+  return {
+    access_token: refreshData.access_token,
+    refresh_token: refreshData.refresh_token,
+    expires_in: refreshData.expires_in || 3600,
+  };
+}
+
+// Helper function to fetch with retry on 429 (rate limiting)
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 3
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const response = await fetch(url, options);
+    
+    // If 429 (rate limit), retry with exponential backoff
+    if (response.status === 429) {
+      if (attempt < maxRetries - 1) {
+        const retryAfter = response.headers.get('Retry-After');
+        const waitTime = retryAfter 
+          ? parseInt(retryAfter, 10) * 1000 
+          : Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+        
+        console.log(`Rate limited (429), retrying in ${waitTime}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+    }
+    
+    return response;
+  }
+  
+  throw lastError || new Error(`Failed after ${maxRetries} retries`);
+}
+
+// Helper function to normalize phone number (keep only digits and +)
+function normalizePhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  // Keep only digits and +
+  const cleaned = phone.replace(/[^\d+]/g, '');
+  // Normalize to +7 format if starts with 8 or 7
+  if (cleaned.startsWith('8')) {
+    return '+7' + cleaned.slice(1);
+  }
+  if (cleaned.startsWith('7') && !cleaned.startsWith('+7')) {
+    return '+7' + cleaned.slice(1);
+  }
+  if (!cleaned.startsWith('+')) {
+    return '+7' + cleaned;
+  }
+  return cleaned || null;
+}
+
 // Types for Avito API responses
 interface AvitoAccount {
   id?: string;
@@ -637,83 +759,121 @@ Deno.serve(async (req: Request) => {
           throw new Error("Integration not found or inactive");
         }
 
-        // Check token expiration and refresh if needed
-        // Используем ту же логику, что и в других местах - добавляем 'Z' если его нет
-        let accessToken = integration.access_token_encrypted;
-        
-        if (integration.token_expires_at) {
-          // Добавляем 'Z' если его нет для правильной интерпретации как UTC
-          let expiresAtString = integration.token_expires_at;
-          if (!expiresAtString.endsWith('Z') && !expiresAtString.includes('+') && !expiresAtString.includes('-', 10)) {
-            expiresAtString = expiresAtString + 'Z';
-          }
+        // Helper function to get and refresh token if needed
+        const getAccessToken = async (): Promise<string> => {
+          let accessToken = integration.access_token_encrypted;
           
-          const expiresAt = new Date(expiresAtString);
-          const now = new Date();
-          
-          if (expiresAt.getTime() <= now.getTime()) {
-            console.log("Token expired, refreshing...", {
-              expiresAt: expiresAt.toISOString(),
-              now: now.toISOString(),
-              integration_id: integration.id,
-            });
-
-            // Refresh token using client_credentials flow
-            const refreshResponse = await fetch(`${AVITO_API_BASE}/token`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-              },
-              body: new URLSearchParams({
-                grant_type: "client_credentials",
-                client_id: avitoClientId,
-                client_secret: avitoClientSecret,
-              }),
-            });
-
-            if (!refreshResponse.ok) {
-              const errorText = await refreshResponse.text();
-              console.error("Failed to refresh token", {
-                status: refreshResponse.status,
-                error: errorText,
-                integration_id: integration.id,
-              });
-              throw new Error("Token expired and failed to refresh. Please reconnect.");
+          // Check if token is expired
+          if (integration.token_expires_at) {
+            let expiresAtString = integration.token_expires_at;
+            if (!expiresAtString.endsWith('Z') && !expiresAtString.includes('+') && !expiresAtString.includes('-', 10)) {
+              expiresAtString = expiresAtString + 'Z';
             }
-
-            const refreshData = await refreshResponse.json();
-            accessToken = refreshData.access_token;
-
-            // Update token in database
-            const expiresIn = refreshData.expires_in || 3600;
-            const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
-
-            const { error: updateError } = await supabase
-              .from("integrations")
-              .update({
-                access_token_encrypted: accessToken,
-                token_expires_at: tokenExpiresAt.toISOString(),
-              })
-              .eq("id", integration_id);
-
-            if (updateError) {
-              console.error("Failed to update token in database", {
-                error: updateError,
+            
+            const expiresAt = new Date(expiresAtString);
+            const now = new Date();
+            
+            // Refresh if expired or expires within 5 minutes
+            if (expiresAt.getTime() <= now.getTime() + 5 * 60 * 1000) {
+              console.log("Token expired or expiring soon, refreshing...", {
+                expiresAt: expiresAt.toISOString(),
+                now: now.toISOString(),
                 integration_id: integration.id,
               });
-              // Continue with new token even if DB update fails
-            } else {
-              console.log("Token refreshed and updated in database", {
-                integration_id: integration.id,
-                newExpiresAt: tokenExpiresAt.toISOString(),
-              });
+
+              try {
+                const refreshData = await refreshAccessToken(
+                  integration,
+                  avitoClientId,
+                  avitoClientSecret,
+                  supabase
+                );
+                
+                accessToken = refreshData.access_token;
+
+                // Update token in database
+                const expiresIn = refreshData.expires_in || 3600;
+                const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
+
+                const updateData: {
+                  access_token_encrypted: string;
+                  token_expires_at: string;
+                  refresh_token_encrypted?: string;
+                } = {
+                  access_token_encrypted: accessToken,
+                  token_expires_at: tokenExpiresAt.toISOString(),
+                };
+
+                // Update refresh_token if provided
+                if (refreshData.refresh_token) {
+                  updateData.refresh_token_encrypted = refreshData.refresh_token;
+                }
+
+                const { error: updateError } = await supabase
+                  .from("integrations")
+                  .update(updateData)
+                  .eq("id", integration_id);
+
+                if (updateError) {
+                  console.error("Failed to update token in database", {
+                    error: updateError,
+                    integration_id: integration.id,
+                  });
+                } else {
+                  console.log("Token refreshed and updated in database", {
+                    integration_id: integration.id,
+                    newExpiresAt: tokenExpiresAt.toISOString(),
+                  });
+                  
+                  // Log refresh success
+                  await supabase.from("avito_logs").insert({
+                    integration_id: integration.id,
+                    property_id: integration.property_id,
+                    action: "refresh_token",
+                    status: "success",
+                    details: { expires_at: tokenExpiresAt.toISOString() },
+                  });
+                }
+              } catch (error) {
+                console.error("Failed to refresh token", {
+                  error: error instanceof Error ? error.message : String(error),
+                  integration_id: integration.id,
+                });
+                
+                // Log refresh failure
+                await supabase.from("avito_logs").insert({
+                  integration_id: integration.id,
+                  property_id: integration.property_id,
+                  action: "refresh_token",
+                  status: "error",
+                  error: error instanceof Error ? error.message : String(error),
+                });
+                
+                throw new Error("Token expired and failed to refresh. Please reconnect.");
+              }
             }
           }
-        }
 
-        if (!accessToken) {
-          throw new Error("No access token available");
-        }
+          if (!accessToken) {
+            throw new Error("No access token available");
+          }
+
+          // Try to decrypt token if encrypted
+          try {
+            const { data: decrypted } = await supabase.rpc('decrypt_avito_token', {
+              encrypted_token: accessToken,
+            });
+            if (decrypted) accessToken = decrypted;
+          } catch {
+            // If RPC fails, assume token is not encrypted yet
+            console.warn("RPC decrypt_avito_token failed, using token as-is");
+          }
+
+          return accessToken;
+        };
+
+        // Get access token (will refresh if needed)
+        let accessToken = await getAccessToken();
 
         // Get property and bookings
         const { data: property } = await supabase
@@ -747,20 +907,6 @@ Deno.serve(async (req: Request) => {
           return checkIn >= new Date(new Date().toISOString().split('T')[0]);
         });
 
-        // Push availability and prices to Avito
-        // accessToken is already set above (either from integration or refreshed)
-        // Decrypt token using RPC function (or use directly if not encrypted yet)
-        // Try to decrypt via RPC (if encrypted)
-        try {
-          const { data: decrypted } = await supabase.rpc('decrypt_avito_token', {
-            encrypted_token: accessToken,
-          });
-          if (decrypted) accessToken = decrypted;
-        } catch {
-          // If RPC fails, assume token is not encrypted yet (for development)
-          console.warn("RPC decrypt_avito_token failed, using token as-is");
-        }
-        
         const accountId = integration.avito_account_id;
         const itemId = integration.avito_item_id;
 
@@ -881,7 +1027,7 @@ Deno.serve(async (req: Request) => {
             periodsCount: pricesToUpdate.length,
           });
 
-          const pricesResponse = await fetch(
+          const pricesResponse = await fetchWithRetry(
             `${AVITO_API_BASE}/realty/v1/accounts/${accountId}/items/${itemId}/prices?skip_error=true`,
             {
               method: "POST",
@@ -949,7 +1095,7 @@ Deno.serve(async (req: Request) => {
           minimal_duration: property?.minimum_booking_days || 1,
         });
 
-        const baseParamsResponse = await fetch(
+        const baseParamsResponse = await fetchWithRetry(
           `${AVITO_API_BASE}/realty/v1/items/${itemId}/base`,
           {
             method: "POST",
@@ -1081,7 +1227,7 @@ Deno.serve(async (req: Request) => {
             method: "POST",
           });
 
-          const bookingsUpdateResponse = await fetch(
+          const bookingsUpdateResponse = await fetchWithRetry(
             `${AVITO_API_BASE}/core/v1/accounts/${accountId}/items/${itemId}/bookings`,
             {
               method: "POST",
@@ -1179,18 +1325,82 @@ Deno.serve(async (req: Request) => {
           skip_error: true, // Получаем 200 статус вместо ошибок при проблемах с items
         });
 
-        const bookingsResponse = await fetch(
-          `${AVITO_API_BASE}/realty/v1/accounts/${accountId}/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}&with_unpaid=true&skip_error=true`,
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        // Helper function to fetch bookings with 401 retry
+        const fetchBookings = async (token: string): Promise<Response> => {
+          const response = await fetchWithRetry(
+            `${AVITO_API_BASE}/realty/v1/accounts/${accountId}/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}&with_unpaid=true&skip_error=true`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
 
-        if (bookingsResponse.ok) {
-          const responseData: unknown = await bookingsResponse.json();
+          // If 401, refresh token and retry once
+          if (response.status === 401) {
+            console.log("Got 401, refreshing token and retrying...");
+            const refreshData = await refreshAccessToken(
+              integration,
+              avitoClientId,
+              avitoClientSecret,
+              supabase
+            );
+            
+            // Update token in database
+            const expiresIn = refreshData.expires_in || 3600;
+            const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
+            const updateData: {
+              access_token_encrypted: string;
+              token_expires_at: string;
+              refresh_token_encrypted?: string;
+            } = {
+              access_token_encrypted: refreshData.access_token,
+              token_expires_at: tokenExpiresAt.toISOString(),
+            };
+            if (refreshData.refresh_token) {
+              updateData.refresh_token_encrypted = refreshData.refresh_token;
+            }
+            await supabase.from("integrations").update(updateData).eq("id", integration_id);
+            
+            // Retry with new token
+            return await fetchWithRetry(
+              `${AVITO_API_BASE}/realty/v1/accounts/${accountId}/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}&with_unpaid=true&skip_error=true`,
+              {
+                headers: {
+                  Authorization: `Bearer ${refreshData.access_token}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            );
+          }
+
+          return response;
+        };
+
+        const bookingsResponse = await fetchBookings(accessToken);
+
+        // Handle 409 conflict (some bookings conflict with paid bookings)
+        if (bookingsResponse.status === 409) {
+          console.warn("Some bookings conflict with paid bookings in Avito (409)", {
+            integration_id: integration.id,
+          });
+          // Don't treat 409 as error, continue with sync
+        }
+
+        if (bookingsResponse.ok || bookingsResponse.status === 409) {
+          let responseData: unknown;
+          try {
+            responseData = await bookingsResponse.json();
+          } catch {
+            // If 409 and no JSON body, continue
+            if (bookingsResponse.status === 409) {
+              console.log("409 conflict, no bookings data, continuing...");
+              responseData = { bookings: [] };
+            } else {
+              throw new Error("Failed to parse bookings response");
+            }
+          }
           
           // Avito API может возвращать массив напрямую или объект с массивом внутри
           // Обрабатываем оба варианта
@@ -1204,11 +1414,11 @@ Deno.serve(async (req: Request) => {
             total_price?: number; // Fallback для обратной совместимости
             price?: number; // Fallback для обратной совместимости
             contact?: {
-              name: string; // Имя гостя (обязательное)
-              email: string; // Email гостя (обязательное)
-              phone?: string; // Номер телефона в 10-ти значном формате
+              name?: string; // Имя гостя
+              email?: string; // Email гостя
+              phone?: string; // Номер телефона
             };
-            customer?: {  // Возможный вариант структуры данных
+            customer?: {  // Приоритетное поле согласно документации
               name?: string;
               email?: string;
               phone?: string;
@@ -1322,25 +1532,17 @@ Deno.serve(async (req: Request) => {
                   continue;
                 }
 
-                // Функция очистки номера телефона от лишних символов
-                // Оставляем только цифры и знак + для международного формата
-                const cleanPhoneNumber = (phone: string | null | undefined): string | null => {
-                  if (!phone) return null;
-                  // Оставляем только цифры и знак +
-                  const cleaned = phone.replace(/[^\d+]/g, '');
-                  return cleaned || null;
-                };
 
                 // Расширенная функция извлечения имени с проверкой всех возможных полей
+                // Приоритет: customer.name > contact.name > остальные
                 const extractGuestName = (booking: AvitoBookingResponse): string => {
-                  // Проверяем все возможные варианты полей согласно документации Avito
-                  const nameFromIndex = 'name' in booking && typeof booking.name === 'string' ? booking.name : undefined;
-                  const name = booking.contact?.name 
-                    || booking.customer?.name 
+                  // Приоритет customer.name согласно документации
+                  const name = booking.customer?.name 
+                    || booking.contact?.name 
                     || booking.guest_name 
                     || booking.guest?.name
                     || booking.user?.name
-                    || nameFromIndex;
+                    || ('name' in booking && typeof booking.name === 'string' ? booking.name : undefined);
                   
                   if (name && name.trim() && name !== "Гость с Avito") {
                     return name.trim();
@@ -1356,31 +1558,32 @@ Deno.serve(async (req: Request) => {
                     user: booking.user,
                   });
                   
-                  return "Гость с Avito"; // Fallback только если действительно нет имени
+                  return "Гость Avito"; // Fallback только если действительно нет имени
                 };
 
                 // Расширенная функция извлечения телефона
+                // Приоритет: customer.phone > contact.phone > остальные
                 const extractGuestPhone = (booking: AvitoBookingResponse): string | null => {
-                  const phoneFromIndex = 'phone' in booking && typeof booking.phone === 'string' ? booking.phone : undefined;
-                  const phone = booking.contact?.phone 
-                    || booking.customer?.phone
+                  // Приоритет customer.phone согласно документации
+                  const phone = booking.customer?.phone
+                    || booking.contact?.phone 
                     || booking.guest_phone 
                     || booking.guest?.phone
                     || booking.user?.phone
-                    || phoneFromIndex;
+                    || ('phone' in booking && typeof booking.phone === 'string' ? booking.phone : undefined);
                   
-                  return cleanPhoneNumber(phone);
+                  return normalizePhone(phone);
                 };
 
                 // Извлекаем данные гостя используя расширенные функции
+                // Приоритет customer согласно документации
                 const contactName = extractGuestName(booking);
-                const emailFromIndex = 'email' in booking && typeof booking.email === 'string' ? booking.email : null;
-                const contactEmail = booking.contact?.email 
-                  || booking.customer?.email
+                const contactEmail = booking.customer?.email
+                  || booking.contact?.email 
                   || booking.guest_email 
                   || booking.guest?.email
                   || booking.user?.email
-                  || emailFromIndex
+                  || ('email' in booking && typeof booking.email === 'string' ? booking.email : null)
                   || null;
                 const contactPhone = extractGuestPhone(booking);
 
@@ -1427,44 +1630,94 @@ Deno.serve(async (req: Request) => {
                   bookingStatus = "pending";
                 }
 
+                // Use upsert with onConflict on avito_booking_id to avoid duplicates
+                const bookingData = {
+                  property_id: integration.property_id,
+                  avito_booking_id: bookingId.toString(), // Use avito_booking_id for unique constraint
+                  guest_name: contactName,
+                  guest_email: contactEmail,
+                  guest_phone: contactPhone,
+                  check_in: booking.check_in,
+                  check_out: booking.check_out,
+                  total_price: basePrice,
+                  currency: booking.currency || "RUB",
+                  status: bookingStatus,
+                  source: "avito",
+                  external_id: bookingId.toString(), // Keep for backward compatibility
+                  guests_count: guestCount,
+                  // TODO: Добавить поля для nights и safe_deposit когда они будут в схеме БД
+                  // nights: booking.nights,
+                  // safe_deposit_total: booking.safe_deposit?.total_amount,
+                  // safe_deposit_owner: booking.safe_deposit?.owner_amount,
+                  // safe_deposit_tax: booking.safe_deposit?.tax,
+                };
+
+                // Upsert booking using avito_booking_id as unique key
+                // First check if booking exists
                 const { data: existing } = await supabase
                   .from("bookings")
-                  .select("id, guest_name")
-                  .eq("source", "avito")
-                  .eq("external_id", bookingId.toString())
+                  .select("id, guest_name, guest_phone, guest_email")
+                  .eq("avito_booking_id", bookingId.toString())
                   .maybeSingle();
 
-                if (!existing) {
-                  const { error: insertError } = await supabase.from("bookings").insert({
-                    property_id: integration.property_id,
-                    guest_name: contactName,
-                    guest_email: contactEmail,
-                    guest_phone: contactPhone,
-                    check_in: booking.check_in,
-                    check_out: booking.check_out,
-                    total_price: basePrice,
-                    currency: booking.currency || "RUB",
-                    status: bookingStatus,
-                    source: "avito",
-                    external_id: bookingId.toString(),
-                    guests_count: guestCount,
-                    // TODO: Добавить поля для nights и safe_deposit когда они будут в схеме БД
-                    // nights: booking.nights,
-                    // safe_deposit_total: booking.safe_deposit?.total_amount,
-                    // safe_deposit_owner: booking.safe_deposit?.owner_amount,
-                    // safe_deposit_tax: booking.safe_deposit?.tax,
-                  });
+                let upserted;
+                let upsertError;
 
-                  if (insertError) {
-                    console.error("Failed to insert booking from Avito", {
-                      booking,
-                      error: insertError,
-                    });
-                    errorCount++;
+                if (existing) {
+                  // Update existing booking
+                  const { data: updated, error: updateError } = await supabase
+                    .from("bookings")
+                    .update(bookingData)
+                    .eq("id", existing.id)
+                    .select()
+                    .single();
+                  upserted = updated;
+                  upsertError = updateError;
+                } else {
+                  // Insert new booking
+                  const { data: inserted, error: insertError } = await supabase
+                    .from("bookings")
+                    .insert(bookingData)
+                    .select()
+                    .single();
+                  upserted = inserted;
+                  upsertError = insertError;
+                }
+
+                if (upsertError) {
+                  console.error("Failed to upsert booking from Avito", {
+                    booking,
+                    error: upsertError,
+                  });
+                  errorCount++;
+                } else {
+                  // Check if this was an insert or update
+                  if (existing) {
+                    // Check if we updated guest data
+                    const wasUpdate = existing.guest_name !== contactName 
+                      || existing.guest_phone !== contactPhone 
+                      || existing.guest_email !== contactEmail;
+                    
+                    if (wasUpdate) {
+                      console.log("Updated booking from Avito", {
+                        avito_booking_id: bookingId,
+                        check_in: booking.check_in,
+                        check_out: booking.check_out,
+                        status: bookingStatus,
+                        guest_name: contactName,
+                        has_phone: !!contactPhone,
+                        has_email: !!contactEmail,
+                      });
+                      createdCount++; // Count as created/updated
+                    } else {
+                      console.log("Booking already exists, skipped", {
+                        avito_booking_id: bookingId,
+                      });
+                      skippedCount++;
+                    }
                   } else {
                     console.log("Created booking from Avito", {
-                      external_id: bookingId,
-                      avito_booking_id: booking.avito_booking_id,
+                      avito_booking_id: bookingId,
                       check_in: booking.check_in,
                       check_out: booking.check_out,
                       status: bookingStatus,
@@ -1472,74 +1725,9 @@ Deno.serve(async (req: Request) => {
                       guest_count: guestCount,
                       guest_name: contactName,
                       has_phone: !!contactPhone,
-                      nights: booking.nights,
+                      has_email: !!contactEmail,
                     });
                     createdCount++;
-                  }
-                } else {
-                  // Обновляем существующее бронирование, если найдены реальные данные гостя
-                  // Обновляем если:
-                  // 1. Найдено реальное имя (не "Гость с Avito") и текущее имя - fallback или пустое
-                  // 2. ИЛИ найден телефон (которого раньше не было)
-                  // 3. ИЛИ найден email (которого раньше не было)
-                  const hasRealName = contactName && contactName !== "Гость с Avito";
-                  const hasNewPhone = contactPhone && (!existing.guest_phone || existing.guest_phone.trim() === '');
-                  const hasNewEmail = contactEmail && (!existing.guest_email || existing.guest_email.trim() === '');
-                  const hasNewName = hasRealName && (existing.guest_name === "Гость с Avito" || !existing.guest_name || existing.guest_name.trim() === '');
-                  
-                  const shouldUpdate = hasNewName || hasNewPhone || hasNewEmail;
-                  
-                  if (shouldUpdate) {
-                    const updateData: {
-                      guest_name?: string;
-                      guest_email?: string | null;
-                      guest_phone?: string | null;
-                    } = {};
-                    
-                    if (hasNewName) {
-                      updateData.guest_name = contactName;
-                    }
-                    if (hasNewPhone) {
-                      updateData.guest_phone = contactPhone;
-                    }
-                    if (hasNewEmail) {
-                      updateData.guest_email = contactEmail;
-                    }
-                    
-                    const { error: updateError } = await supabase
-                      .from("bookings")
-                      .update(updateData)
-                      .eq("id", existing.id);
-                    
-                    if (updateError) {
-                      console.error("Failed to update existing booking with guest data", {
-                        booking_id: existing.id,
-                        error: updateError,
-                        updateData,
-                      });
-                      errorCount++;
-                    } else {
-                      console.log("Updated existing booking with guest data", {
-                        booking_id: existing.id,
-                        old_name: existing.guest_name,
-                        new_name: contactName,
-                        has_phone: !!contactPhone,
-                        has_email: !!contactEmail,
-                        updateData,
-                      });
-                      skippedCount++;
-                    }
-                  } else {
-                    console.log("Booking already exists, skipping", {
-                      external_id: bookingId,
-                      avito_booking_id: booking.avito_booking_id,
-                      existing_id: existing.id,
-                      existing_name: existing.guest_name,
-                      extracted_name: contactName,
-                      has_extracted_phone: !!contactPhone,
-                      has_extracted_email: !!contactEmail,
-                    });
-                    skippedCount++;
                   }
                 }
               } catch (error) {
@@ -1562,6 +1750,20 @@ Deno.serve(async (req: Request) => {
             created: createdCount,
             skipped: skippedCount,
             errors: errorCount,
+          });
+
+          // Log sync success to avito_logs
+          await supabase.from("avito_logs").insert({
+            integration_id: integration.id,
+            property_id: integration.property_id,
+            action: "sync_bookings",
+            status: "success",
+            details: {
+              total: avitoBookings.length,
+              created: createdCount,
+              skipped: skippedCount,
+              errors: errorCount,
+            },
           });
         } else {
           const errorText = await bookingsResponse.text();
@@ -1591,6 +1793,21 @@ Deno.serve(async (req: Request) => {
             statusText: bookingsResponse.statusText,
             error: errorText,
           });
+
+          // Log error to avito_logs
+          await supabase.from("avito_logs").insert({
+            integration_id: integration.id,
+            property_id: integration.property_id,
+            action: "sync_bookings",
+            status: "error",
+            error: errorMessage,
+            details: {
+              statusCode: bookingsResponse.status,
+              errorCode,
+              details: errorDetails,
+            },
+          });
+
           // Don't throw error - bookings pull is not critical for sync
           console.warn("Continuing sync despite bookings fetch failure");
         }

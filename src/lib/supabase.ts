@@ -32,6 +32,7 @@ export type Booking = {
   property_id: string;
   source: string;
   external_id: string | null;
+  avito_booking_id?: string | null; // Unique identifier from Avito API
   guest_name: string;
   guest_email: string | null;
   guest_phone: string | null;
