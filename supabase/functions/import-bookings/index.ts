@@ -220,7 +220,7 @@ Deno.serve(async (req: Request) => {
         owner_id: user.id,
         name,
         type: "APARTMENT",
-        address: null,
+        address: name, // Use property name as address if not provided
         description: null,
         max_guests: 4,
         bedrooms: 1,
