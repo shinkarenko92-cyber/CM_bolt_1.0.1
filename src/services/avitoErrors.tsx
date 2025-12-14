@@ -157,38 +157,48 @@ function getRecommendations(errorInfo: AvitoErrorInfo, t: TFunction): string[] {
   const recommendations: string[] = [];
   const { statusCode, errorCode, message } = errorInfo;
 
+  // Helper to safely get translation string
+  const safeT = (key: string, defaultValue: string): string => {
+    try {
+      const result = t(key, { defaultValue });
+      return typeof result === 'string' ? result : defaultValue;
+    } catch {
+      return defaultValue;
+    }
+  };
+
   // Validation errors
   if (statusCode === 400 || errorCode === 'VALIDATION_ERROR') {
     if (message.toLowerCase().includes('price') || message.toLowerCase().includes('цена')) {
       if (message.toLowerCase().includes('low') || message.toLowerCase().includes('низк')) {
-        recommendations.push(t('avito.errors.recommendations.priceTooLow', { defaultValue: 'Убедитесь, что цена соответствует минимальным требованиям Avito' }));
+        recommendations.push(safeT('avito.errors.recommendations.priceTooLow', 'Убедитесь, что цена соответствует минимальным требованиям Avito'));
       } else if (message.toLowerCase().includes('high') || message.toLowerCase().includes('высок')) {
-        recommendations.push(t('avito.errors.recommendations.priceTooHigh', { defaultValue: 'Убедитесь, что цена не превышает максимально допустимую' }));
+        recommendations.push(safeT('avito.errors.recommendations.priceTooHigh', 'Убедитесь, что цена не превышает максимально допустимую'));
       }
     }
     if (message.toLowerCase().includes('date') || message.toLowerCase().includes('дата')) {
-      recommendations.push(t('avito.errors.recommendations.invalidDateRange', { defaultValue: 'Проверьте корректность диапазона дат' }));
+      recommendations.push(safeT('avito.errors.recommendations.invalidDateRange', 'Проверьте корректность диапазона дат'));
     }
   }
 
   // Authorization errors
   if (statusCode === 401 || statusCode === 403 || errorCode === 'UNAUTHORIZED') {
-    recommendations.push(t('avito.errors.recommendations.reconnect', { defaultValue: 'Попробуйте переподключить интеграцию с Avito' }));
+    recommendations.push(safeT('avito.errors.recommendations.reconnect', 'Попробуйте переподключить интеграцию с Avito'));
   }
 
   // Token expiration
   if (message.toLowerCase().includes('expired') || message.toLowerCase().includes('истёк')) {
-    recommendations.push(t('avito.errors.recommendations.tokenExpired', { defaultValue: 'Токен доступа истёк. Переподключите интеграцию' }));
+    recommendations.push(safeT('avito.errors.recommendations.tokenExpired', 'Токен доступа истёк. Переподключите интеграцию'));
   }
 
   // Network errors
   if (statusCode === 0 || message.toLowerCase().includes('network') || message.toLowerCase().includes('fetch')) {
-    recommendations.push(t('avito.errors.recommendations.networkError', { defaultValue: 'Проверьте подключение к интернету и попробуйте снова' }));
+    recommendations.push(safeT('avito.errors.recommendations.networkError', 'Проверьте подключение к интернету и попробуйте снова'));
   }
 
   // Default recommendation
   if (recommendations.length === 0) {
-    recommendations.push(t('avito.errors.recommendations.contactSupport', { defaultValue: 'Если проблема повторяется, обратитесь в поддержку' }));
+    recommendations.push(safeT('avito.errors.recommendations.contactSupport', 'Если проблема повторяется, обратитесь в поддержку'));
   }
 
   return recommendations;
@@ -275,7 +285,14 @@ export async function showAvitoErrors(
             })() : null}
             {recommendations.length > 0 && (
               <div style={{ marginTop: 16 }}>
-                <strong>{t('avito.errors.recommendations', { defaultValue: 'Рекомендации' })}:</strong>
+                <strong>{(() => {
+                  try {
+                    const label = t('avito.errors.recommendations', { defaultValue: 'Рекомендации' });
+                    return typeof label === 'string' ? label : 'Рекомендации';
+                  } catch {
+                    return 'Рекомендации';
+                  }
+                })()}:</strong>
                 <ul style={{ marginTop: '8px', marginBottom: 0, paddingLeft: '20px' }}>
                   {recommendations.map((rec, index) => (
                     <li key={index} style={{ marginBottom: '4px' }}>{rec}</li>

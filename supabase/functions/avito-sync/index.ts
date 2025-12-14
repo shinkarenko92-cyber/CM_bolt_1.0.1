@@ -936,12 +936,51 @@ Deno.serve(async (req: Request) => {
           || (integration as { avito_item_id_text?: string | null }).avito_item_id_text
           || (integration.avito_item_id ? String(integration.avito_item_id) : null);
 
+        // CRITICAL DEBUG: Log all integration fields to diagnose 404 errors
+        console.log("Integration item_id extraction", {
+          integration_id: integration.id,
+          avito_item_id: integration.avito_item_id,
+          avito_item_id_type: typeof integration.avito_item_id,
+          avito_item_id_text: (integration as { avito_item_id_text?: string | null }).avito_item_id_text,
+          avito_account_id: integration.avito_account_id,
+          extracted_itemId: itemId,
+          extracted_itemId_type: typeof itemId,
+          extracted_itemId_length: itemId?.length,
+        });
+
         // Validate item_id - must be non-empty string
         if (!itemId || itemId.trim() === '') {
+          console.error("CRITICAL: itemId is empty or null", {
+            integration_id: integration.id,
+            avito_item_id: integration.avito_item_id,
+            avito_item_id_text: (integration as { avito_item_id_text?: string | null }).avito_item_id_text,
+            avito_account_id: integration.avito_account_id,
+          });
           return new Response(
             JSON.stringify({ 
               success: false,
               error: "ID объявления Avito не настроен. Проверь настройки интеграции — должен быть длинный номер вроде 2336174775" 
+            }),
+            { 
+              status: 400, 
+              headers: { ...corsHeaders, "Content-Type": "application/json" } 
+            }
+          );
+        }
+
+        // CRITICAL: Validate that itemId is NOT the same as accountId (common mistake)
+        const accountIdForValidation = integration.avito_account_id;
+        if (itemId === accountIdForValidation) {
+          console.error("CRITICAL ERROR: itemId equals accountId - this will cause 404!", {
+            integration_id: integration.id,
+            itemId: itemId,
+            accountId: accountIdForValidation,
+            error: "itemId should be a long number like 2336174775, not accountId like 4720770",
+          });
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              error: "ОШИБКА КОНФИГУРАЦИИ: ID объявления совпадает с ID аккаунта. Проверь настройки интеграции — ID объявления должен быть длинный номер вроде 2336174775, а не короткий номер аккаунта" 
             }),
             { 
               status: 400, 
@@ -1147,8 +1186,14 @@ Deno.serve(async (req: Request) => {
 
         // 2. Обновление базовых параметров через POST /realty/v1/items/{item_id}/base
         // Формат: { night_price, minimal_duration, extra_guest_fee?, extra_guest_threshold?, instant?, refund?, discount? }
+        // CRITICAL: Use ONLY itemId (avito_item_id), NEVER accountId (avito_account_id) in /items/{id}/ paths
         console.log("Updating base parameters in Avito", {
           endpoint: `${AVITO_API_BASE}/realty/v1/items/${itemId}/base`,
+          itemId: itemId, // Log itemId for debugging
+          itemIdType: typeof itemId,
+          itemIdLength: itemId?.length,
+          integration_avito_item_id: integration.avito_item_id,
+          integration_avito_account_id: integration.avito_account_id, // Log for comparison
           night_price: priceWithMarkup,
           minimal_duration: property?.minimum_booking_days || 1,
         });
