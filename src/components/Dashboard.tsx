@@ -912,6 +912,9 @@ export function Dashboard() {
                 setBookings(updatedBookings);
                 setFilteredBookings(updatedBookings);
               }}
+              onPropertiesUpdate={(updatedProperties) => {
+                setProperties(updatedProperties);
+              }}
             />
             <AddReservationModal
               isOpen={isAddModalOpen}

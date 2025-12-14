@@ -13,14 +13,43 @@ type BookingBlockProps = {
   isDragging: boolean;
   isStartTruncated?: boolean;
   isEndTruncated?: boolean;
+  hasConflict?: boolean; // Для отображения конфликтов
 };
 
-const SOURCE_COLORS = {
-  avito: { bg: '#E8998D', text: 'text-white', badge: 'A' },
-  cian: { bg: '#E8998D', text: 'text-white', badge: 'C' },
-  booking: { bg: '#E8998D', text: 'text-white', badge: 'B' },
-  airbnb: { bg: '#E8998D', text: 'text-white', badge: 'Ab' },
-  manual: { bg: '#E8998D', text: 'text-white', badge: 'M' },
+// Цвета на основе статуса брони
+const getBookingColors = (status: string, hasConflict?: boolean) => {
+  if (hasConflict) {
+    return {
+      bg: 'bg-red-300',
+      hover: 'hover:bg-red-400',
+      text: 'text-white',
+    };
+  }
+
+  const statusLower = status.toLowerCase();
+  
+  if (statusLower === 'paid' || statusLower === 'confirmed') {
+    return {
+      bg: 'bg-teal-500',
+      hover: 'hover:bg-teal-600',
+      text: 'text-white',
+    };
+  }
+  
+  if (statusLower === 'pending' || statusLower === 'waiting') {
+    return {
+      bg: 'bg-amber-400',
+      hover: 'hover:bg-amber-500',
+      text: 'text-white',
+    };
+  }
+  
+  // По умолчанию: забронировано (booked/reserved)
+  return {
+    bg: 'bg-orange-300',
+    hover: 'hover:bg-orange-400',
+    text: 'text-white',
+  };
 };
 
 export function BookingBlock({
@@ -35,10 +64,14 @@ export function BookingBlock({
   isDragging,
   isStartTruncated = false,
   isEndTruncated = false,
+  hasConflict = false,
 }: BookingBlockProps) {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-  const source = (booking.source || 'manual').toLowerCase() as keyof typeof SOURCE_COLORS;
-  const colorConfig = SOURCE_COLORS[source] || SOURCE_COLORS.manual;
+  const colorConfig = getBookingColors(booking.status, hasConflict);
+  
+  // Определяем, есть ли имя гостя или только телефон
+  const hasGuestName = booking.guest_name && booking.guest_name.trim() !== '';
+  const isPhoneOnly = !hasGuestName && booking.guest_phone;
 
   const blockHeight = 24;
   const topOffset = 8 + layerIndex * (blockHeight + 8);
@@ -58,11 +91,14 @@ export function BookingBlock({
 
   // Функция форматирования отображения гостя в календаре
   const formatGuestDisplay = (name: string, phone: string | null): string => {
+    if (hasGuestName) {
+      return name;
+    }
     if (phone && phone.length >= 4) {
       const last4 = phone.slice(-4);
-      return `${name} (****${last4})`;
+      return `****${last4}`;
     }
-    return name;
+    return 'Без имени';
   };
 
   // Функция форматирования номера для WhatsApp (только цифры, без +)
@@ -99,7 +135,9 @@ export function BookingBlock({
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className={`absolute text-xs font-medium cursor-grab active:cursor-grabbing transition-all hover:brightness-110 group overflow-hidden ${
+      className={`absolute text-xs font-medium cursor-grab active:cursor-grabbing transition-all group overflow-hidden ${
+        colorConfig.bg
+      } ${colorConfig.hover} ${
         isStartTruncated ? '' : 'rounded-l-md'
       } ${
         isEndTruncated ? '' : 'rounded-r-md'
@@ -111,13 +149,19 @@ export function BookingBlock({
         width: `${Math.max(blockWidth, 20)}px`,
         top: `${topOffset}px`,
         height: `${blockHeight}px`,
-        backgroundColor: colorConfig.bg,
         zIndex: 5,
       }}
       data-testid={`booking-block-${booking.id}`}
     >
-      <div className="flex items-center justify-center h-full px-2 overflow-hidden">
-        <div className="truncate text-white font-medium text-[11px]">
+      <div className="flex items-center justify-center h-full px-2 overflow-hidden gap-1">
+        {isPhoneOnly && booking.guest_phone && (
+          <img 
+            src="/whatsapp-icon.svg" 
+            alt="WhatsApp" 
+            className="w-3 h-3 flex-shrink-0"
+          />
+        )}
+        <div className={`truncate ${hasGuestName ? 'font-bold text-white' : 'text-gray-600'} text-[11px]`}>
           {formatGuestDisplay(booking.guest_name, booking.guest_phone)}
         </div>
       </div>

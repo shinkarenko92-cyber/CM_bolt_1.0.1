@@ -1,9 +1,30 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, ChevronDown, ChevronRight, Settings } from 'lucide-react';
-import { Property, Booking, PropertyRate, supabase } from '../lib/supabase';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { Plus, ChevronDown, ChevronRight, Settings, GripVertical } from 'lucide-react';
+import { Property, Booking, PropertyRate, PropertyGroup, supabase } from '../lib/supabase';
 import { CalendarHeader } from './CalendarHeader';
 import { BookingBlock } from './BookingBlock';
 import { ChangeConditionsModal } from './ChangeConditionsModal';
+import { PropertyGroupHeader } from './PropertyGroupHeader';
+import { SortablePropertyRow } from './SortablePropertyRow';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 type CalendarProps = {
   properties: Property[];
@@ -11,6 +32,7 @@ type CalendarProps = {
   onAddReservation: (propertyId: string, checkIn: string, checkOut: string) => void;
   onEditReservation: (booking: Booking) => void;
   onBookingUpdate: (bookingId: string, updates: Partial<Booking>) => void;
+  onPropertiesUpdate?: (properties: Property[]) => void;
 };
 
 type DateSelection = {
@@ -24,12 +46,18 @@ type DragState = {
   originalPropertyId: string | null;
 };
 
+type GroupedProperties = {
+  group: PropertyGroup | null; // null для объектов без группы
+  properties: Property[];
+};
+
 export function Calendar({
   properties,
   bookings,
   onAddReservation,
   onEditReservation,
   onBookingUpdate,
+  onPropertiesUpdate,
 }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(() => {
     const today = new Date();
@@ -43,7 +71,10 @@ export function Calendar({
   const [expandedProperties, setExpandedProperties] = useState<Set<string>>(
     new Set(properties.map(p => p.id))
   );
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [propertyGroups, setPropertyGroups] = useState<PropertyGroup[]>([]);
   const [propertyRates, setPropertyRates] = useState<Map<string, PropertyRate[]>>(new Map());
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [dateSelection, setDateSelection] = useState<DateSelection>({
     propertyId: '',
     startDate: null,
@@ -65,6 +96,8 @@ export function Calendar({
     minStay: number;
     currency: string;
   } | null>(null);
+  const [showNewGroupModal, setShowNewGroupModal] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
   const calendarRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const seenPropertyIds = useRef<Set<string>>(new Set());
@@ -93,10 +126,45 @@ export function Calendar({
   
   const initialScrollDone = useRef(false);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Загрузка групп объектов
+  useEffect(() => {
+    loadPropertyGroups();
+  }, []);
+
   useEffect(() => {
     loadPropertyRates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [properties]);
+
+  const loadPropertyGroups = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('property_groups')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('sort_order', { ascending: true });
+
+      if (error) throw error;
+      setPropertyGroups(data || []);
+      
+      // Разворачиваем все группы по умолчанию
+      if (data) {
+        setExpandedGroups(new Set(data.map(g => g.id)));
+      }
+    } catch (error) {
+      console.error('Error loading property groups:', error);
+    }
+  };
 
   // Автоматически разворачиваем только действительно новые объекты при их загрузке
   // seenPropertyIds отслеживает все объекты, которые мы когда-либо видели
@@ -601,10 +669,231 @@ export function Calendar({
     return bookings.some(b => b.property_id === propertyId && isDateInRange(date, b.check_in, b.check_out));
   };
 
+  // Группировка properties по группам
+  const groupedProperties = useMemo(() => {
+    const grouped: GroupedProperties[] = [];
+    const groupsMap = new Map<string, PropertyGroup>();
+    
+    propertyGroups.forEach(group => {
+      groupsMap.set(group.id, group);
+    });
+
+    // Создаем записи для каждой группы
+    const sortedGroups = [...propertyGroups].sort((a, b) => a.sort_order - b.sort_order);
+    sortedGroups.forEach(group => {
+      const groupProperties = properties
+        .filter(p => p.group_id === group.id)
+        .sort((a, b) => a.sort_order - b.sort_order);
+      
+      if (groupProperties.length > 0) {
+        grouped.push({ group, properties: groupProperties });
+      }
+    });
+
+    // Добавляем объекты без группы
+    const ungroupedProperties = properties
+      .filter(p => !p.group_id)
+      .sort((a, b) => a.sort_order - b.sort_order);
+    
+    if (ungroupedProperties.length > 0) {
+      grouped.push({ group: null, properties: ungroupedProperties });
+    }
+
+    return grouped;
+  }, [properties, propertyGroups]);
+
+  // Обработка drag & drop для групп и объектов
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over || active.id === over.id) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Определяем, что перетаскиваем: группу или объект
+    const isGroup = propertyGroups.some(g => g.id === activeId);
+    const isOverGroup = propertyGroups.some(g => g.id === overId);
+
+    if (isGroup && isOverGroup) {
+      // Перемещение группы
+      await handleGroupReorder(activeId, overId);
+    } else if (!isGroup && !isOverGroup) {
+      // Перемещение объекта внутри/между группами
+      await handlePropertyReorder(activeId, overId);
+    } else if (!isGroup && isOverGroup) {
+      // Перемещение объекта в группу
+      await handlePropertyMoveToGroup(activeId, overId);
+    }
+
+    // Обновляем список properties через callback
+    if (onPropertiesUpdate) {
+      const { data } = await supabase
+        .from('properties')
+        .select('*')
+        .in('id', properties.map(p => p.id))
+        .order('sort_order', { ascending: true });
+      
+      if (data) {
+        onPropertiesUpdate(data);
+      }
+    }
+  };
+
+  const handleGroupReorder = async (activeId: string, overId: string) => {
+    const activeIndex = propertyGroups.findIndex(g => g.id === activeId);
+    const overIndex = propertyGroups.findIndex(g => g.id === overId);
+
+    if (activeIndex === -1 || overIndex === -1) return;
+
+    const newGroups = arrayMove(propertyGroups, activeIndex, overIndex);
+    
+    // Обновляем sort_order в БД
+    const updates = newGroups.map((group, index) => ({
+      id: group.id,
+      sort_order: index,
+    }));
+
+    for (const update of updates) {
+      await supabase
+        .from('property_groups')
+        .update({ sort_order: update.sort_order })
+        .eq('id', update.id);
+    }
+
+    setPropertyGroups(newGroups);
+  };
+
+  const handlePropertyReorder = async (activeId: string, overId: string) => {
+    const activeProperty = properties.find(p => p.id === activeId);
+    const overProperty = properties.find(p => p.id === overId);
+
+    if (!activeProperty || !overProperty) return;
+
+    // Если объекты в одной группе (или оба без группы)
+    if (activeProperty.group_id === overProperty.group_id) {
+      const sameGroupProperties = properties
+        .filter(p => p.group_id === activeProperty.group_id)
+        .sort((a, b) => a.sort_order - b.sort_order);
+
+      const activeIndex = sameGroupProperties.findIndex(p => p.id === activeId);
+      const overIndex = sameGroupProperties.findIndex(p => p.id === overId);
+
+      if (activeIndex === -1 || overIndex === -1) return;
+
+      const reordered = arrayMove(sameGroupProperties, activeIndex, overIndex);
+      
+      // Обновляем sort_order в БД
+      for (let i = 0; i < reordered.length; i++) {
+        await supabase
+          .from('properties')
+          .update({ sort_order: i })
+          .eq('id', reordered[i].id);
+      }
+    } else {
+      // Перемещение между группами - меняем group_id и sort_order
+      const targetGroupProperties = properties
+        .filter(p => p.group_id === overProperty.group_id)
+        .sort((a, b) => a.sort_order - b.sort_order);
+
+      const overIndex = targetGroupProperties.findIndex(p => p.id === overId);
+      
+      // Обновляем активный объект
+      await supabase
+        .from('properties')
+        .update({
+          group_id: overProperty.group_id,
+          sort_order: overIndex,
+        })
+        .eq('id', activeId);
+
+      // Обновляем sort_order для остальных объектов в целевой группе
+      for (let i = 0; i < targetGroupProperties.length; i++) {
+        if (targetGroupProperties[i].id !== overId) {
+          await supabase
+            .from('properties')
+            .update({ sort_order: i >= overIndex ? i + 1 : i })
+            .eq('id', targetGroupProperties[i].id);
+        }
+      }
+    }
+  };
+
+  const handlePropertyMoveToGroup = async (propertyId: string, groupId: string) => {
+    const targetGroupProperties = properties
+      .filter(p => p.group_id === groupId)
+      .sort((a, b) => a.sort_order - b.sort_order);
+
+    await supabase
+      .from('properties')
+      .update({
+        group_id: groupId,
+        sort_order: targetGroupProperties.length,
+      })
+      .eq('id', propertyId);
+  };
+
+  const toggleGroupExpansion = (groupId: string) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupId)) {
+        newSet.delete(groupId);
+      } else {
+        newSet.add(groupId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim()) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const maxSortOrder = propertyGroups.length > 0 
+        ? Math.max(...propertyGroups.map(g => g.sort_order))
+        : -1;
+
+      const { data, error } = await supabase
+        .from('property_groups')
+        .insert({
+          name: newGroupName.trim(),
+          user_id: user.id,
+          sort_order: maxSortOrder + 1,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setPropertyGroups([...propertyGroups, data]);
+      setExpandedGroups(prev => new Set([...prev, data.id]));
+      setShowNewGroupModal(false);
+      setNewGroupName('');
+    } catch (error) {
+      console.error('Error creating group:', error);
+      alert('Ошибка создания группы');
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-slate-900">
       <div className="bg-slate-800 border-b border-slate-700 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowNewGroupModal(true)}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Новая группа
+          </button>
           <button
             onClick={() => onAddReservation('', '', '')}
             className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
@@ -687,8 +976,55 @@ export function Calendar({
           </div>
 
           <div className="flex-1 overflow-auto" ref={scrollContainerRef}>
-            <div className="relative">
-              {properties.map((property) => {
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={[...propertyGroups.map(g => g.id), ...properties.map(p => p.id)]}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="relative">
+                  {groupedProperties.map((grouped) => {
+                    const groupId = grouped.group?.id || 'ungrouped';
+                    const isGroupExpanded = grouped.group ? expandedGroups.has(groupId) : true;
+                    
+                    return (
+                      <div key={groupId} className="border-b border-slate-700">
+                        {grouped.group && (
+                          <PropertyGroupHeader
+                            group={grouped.group}
+                            isExpanded={isGroupExpanded}
+                            onToggle={() => toggleGroupExpansion(groupId)}
+                            onEdit={() => {
+                              // TODO: Реализовать редактирование группы
+                              console.log('Edit group', grouped.group);
+                            }}
+                            onDelete={async () => {
+                              // TODO: Реализовать удаление группы
+                              if (confirm(`Удалить группу "${grouped.group.name}"? Объекты будут перемещены в "Без группы".`)) {
+                                await supabase
+                                  .from('properties')
+                                  .update({ group_id: null })
+                                  .eq('group_id', grouped.group.id);
+                                
+                                await supabase
+                                  .from('property_groups')
+                                  .delete()
+                                  .eq('id', grouped.group.id);
+                                
+                                await loadPropertyGroups();
+                              }
+                            }}
+                            propertiesCount={grouped.properties.length}
+                          />
+                        )}
+                        
+                        {isGroupExpanded && (
+                          <div>
+                            {grouped.properties.map((property) => {
                 const first = new Date(dates[0]);
                 const firstVisibleDate = new Date(first.getFullYear(), first.getMonth(), first.getDate(), 0, 0, 0, 0);
                 const last = new Date(dates[dates.length - 1]);
@@ -705,47 +1041,67 @@ export function Calendar({
                   return checkOut > firstVisibleDate && checkIn <= lastVisibleDate;
                 });
 
-                const isExpanded = expandedProperties.has(property.id);
-                const bookingLayers = getBookingLayers(propertyBookings);
-                const rowHeight = Math.max(44, bookingLayers.length * 32 + 16);
-                const collapsedHeight = 48;
-                const totalRowHeight = isExpanded ? 32 + rowHeight : collapsedHeight;
+                              const first = new Date(dates[0]);
+                              const firstVisibleDate = new Date(first.getFullYear(), first.getMonth(), first.getDate(), 0, 0, 0, 0);
+                              const last = new Date(dates[dates.length - 1]);
+                              const lastVisibleDate = new Date(last.getFullYear(), last.getMonth(), last.getDate(), 23, 59, 59, 999);
 
-                return (
-                  <div 
-                    key={property.id} 
-                    className="flex border-b border-slate-700"
-                    style={{ minWidth: `${256 + dates.length * CELL_WIDTH}px` }}
-                  >
-                    <div 
-                      className="w-64 flex-shrink-0 sticky left-0 z-30 bg-slate-800 border-r border-slate-700 flex items-center px-4 gap-2"
-                      style={{ height: `${totalRowHeight}px` }}
-                    >
-                      <button 
-                        className="text-slate-400 hover:text-slate-300 flex-shrink-0"
-                        onClick={() => togglePropertyExpansion(property.id)}
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="w-4 h-4" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4" />
-                        )}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-white leading-tight truncate">
-                          {property.name}
-                        </div>
-                        <div className="text-xs text-slate-400">
-                          {property.type}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div 
-                      className="flex-shrink-0"
-                      style={{ width: `${dates.length * CELL_WIDTH}px`, height: `${totalRowHeight}px` }}
-                    >
-                      {isExpanded && (
+                              const propertyBookings = bookings.filter((b) => {
+                                if (b.property_id !== property.id) return false;
+
+                                const checkInDate = new Date(b.check_in);
+                                const checkIn = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
+                                const checkOutDate = new Date(b.check_out);
+                                const checkOut = new Date(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate());
+
+                                return checkOut > firstVisibleDate && checkIn <= lastVisibleDate;
+                              });
+
+                              const isExpanded = expandedProperties.has(property.id);
+                              const bookingLayers = getBookingLayers(propertyBookings);
+                              const rowHeight = Math.max(44, bookingLayers.length * 32 + 16);
+                              const collapsedHeight = 48;
+                              const totalRowHeight = isExpanded ? 32 + rowHeight : collapsedHeight;
+
+                              return (
+                                <SortablePropertyRow
+                                  key={property.id}
+                                  property={property}
+                                  isExpanded={isExpanded}
+                                  onToggle={() => togglePropertyExpansion(property.id)}
+                                  totalRowHeight={totalRowHeight}
+                                  groups={propertyGroups}
+                                  onMoveToGroup={async (propertyId, groupId) => {
+                                    const targetGroupProperties = properties
+                                      .filter(p => p.group_id === groupId)
+                                      .sort((a, b) => a.sort_order - b.sort_order);
+
+                                    await supabase
+                                      .from('properties')
+                                      .update({
+                                        group_id: groupId,
+                                        sort_order: groupId ? targetGroupProperties.length : property.sort_order,
+                                      })
+                                      .eq('id', propertyId);
+
+                                    if (onPropertiesUpdate) {
+                                      const { data } = await supabase
+                                        .from('properties')
+                                        .select('*')
+                                        .in('id', properties.map(p => p.id))
+                                        .order('sort_order', { ascending: true });
+                                      
+                                      if (data) {
+                                        onPropertiesUpdate(data);
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <div 
+                                    className="flex-shrink-0"
+                                    style={{ width: `${dates.length * CELL_WIDTH}px`, height: `${totalRowHeight}px`, minWidth: `${256 + dates.length * CELL_WIDTH}px` }}
+                                  >
+                                    {isExpanded && (
                         <div className="flex flex-col h-full">
                           <div className="border-b border-slate-700/30 bg-slate-800/50">
                             <div className="h-8 flex">
@@ -858,19 +1214,36 @@ export function Calendar({
                           </div>
                         </div>
                       )}
-                    </div>
-                  </div>
-                );
-              })}
+                                  </div>
+                                </SortablePropertyRow>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
 
-              {properties.length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-slate-400">
-                    Нет объектов. Добавьте первый объект для начала работы.
-                  </p>
+                  {properties.length === 0 && (
+                    <div className="text-center py-12">
+                      <p className="text-slate-400">
+                        Нет объектов. Добавьте первый объект для начала работы.
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </SortableContext>
+              
+              <DragOverlay>
+                {activeId ? (
+                  <div className="bg-slate-700 p-2 rounded shadow-lg">
+                    {propertyGroups.find(g => g.id === activeId)?.name || 
+                     properties.find(p => p.id === activeId)?.name || 
+                     'Перетаскивание'}
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
           </div>
         </div>
       </div>
@@ -888,6 +1261,47 @@ export function Calendar({
           currency={conditionsModalData.currency}
           properties={properties}
         />
+      )}
+
+      {showNewGroupModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 rounded-lg p-6 w-96">
+            <h2 className="text-xl font-semibold text-white mb-4">Новая группа</h2>
+            <input
+              type="text"
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleCreateGroup();
+                } else if (e.key === 'Escape') {
+                  setShowNewGroupModal(false);
+                  setNewGroupName('');
+                }
+              }}
+              placeholder="Название группы"
+              className="w-full px-4 py-2 bg-slate-700 text-white rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              autoFocus
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => {
+                  setShowNewGroupModal(false);
+                  setNewGroupName('');
+                }}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleCreateGroup}
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Создать
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
