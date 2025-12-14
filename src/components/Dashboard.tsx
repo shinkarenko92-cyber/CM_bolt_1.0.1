@@ -517,7 +517,7 @@ export function Dashboard() {
             // Check for 409 paid conflict
             const hasPaidConflict = error.errors.some(e => e.statusCode === 409);
             if (hasPaidConflict) {
-              toast.warning('Конфликт с оплаченной бронью в Avito — проверь вручную');
+              toast.error('Конфликт с оплаченной бронью в Avito — проверь вручную');
             }
             
             showAvitoErrors(error.errors, t).catch((err) => {
@@ -528,7 +528,7 @@ export function Dashboard() {
             const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
             console.warn('Dashboard: Avito sync failed after booking deletion', { error: errorMessage });
             if (!isAvitoBooking) {
-              toast.warning('Бронь удалена, но не удалось открыть даты в Avito');
+              toast.error('Бронь удалена, но не удалось открыть даты в Avito');
             }
           }
         }

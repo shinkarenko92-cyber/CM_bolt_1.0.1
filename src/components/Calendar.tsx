@@ -998,11 +998,13 @@ export function Calendar({
                             onToggle={() => toggleGroupExpansion(groupId)}
                             onEdit={() => {
                               // TODO: Реализовать редактирование группы
-                              console.log('Edit group', grouped.group);
+                              if (grouped.group) {
+                                console.log('Edit group', grouped.group);
+                              }
                             }}
                             onDelete={async () => {
                               // TODO: Реализовать удаление группы
-                              if (confirm(`Удалить группу "${grouped.group.name}"? Объекты будут перемещены в "Без группы".`)) {
+                              if (grouped.group && confirm(`Удалить группу "${grouped.group.name}"? Объекты будут перемещены в "Без группы".`)) {
                                 await supabase
                                   .from('properties')
                                   .update({ group_id: null })
@@ -1023,22 +1025,6 @@ export function Calendar({
                         {isGroupExpanded && (
                           <div>
                             {grouped.properties.map((property) => {
-                const first = new Date(dates[0]);
-                const firstVisibleDate = new Date(first.getFullYear(), first.getMonth(), first.getDate(), 0, 0, 0, 0);
-                const last = new Date(dates[dates.length - 1]);
-                const lastVisibleDate = new Date(last.getFullYear(), last.getMonth(), last.getDate(), 23, 59, 59, 999);
-
-                const propertyBookings = bookings.filter((b) => {
-                  if (b.property_id !== property.id) return false;
-
-                  const checkInDate = new Date(b.check_in);
-                  const checkIn = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
-                  const checkOutDate = new Date(b.check_out);
-                  const checkOut = new Date(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate());
-
-                  return checkOut > firstVisibleDate && checkIn <= lastVisibleDate;
-                });
-
                               const first = new Date(dates[0]);
                               const firstVisibleDate = new Date(first.getFullYear(), first.getMonth(), first.getDate(), 0, 0, 0, 0);
                               const last = new Date(dates[dates.length - 1]);
