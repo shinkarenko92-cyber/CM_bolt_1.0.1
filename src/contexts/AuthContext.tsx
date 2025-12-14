@@ -106,6 +106,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data.session) {
       setUser(data.user);
       const profileData = await fetchProfile(data.user.id);
+      
+      // Проверяем, что профиль активен
+      if (profileData && profileData.is_active === false) {
+        await supabase.auth.signOut();
+        throw new Error('Аккаунт был удалён. Вход невозможен.');
+      }
+      
       setProfile(profileData);
     }
   };
@@ -166,41 +173,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      // 1. Получаем все properties пользователя
-      const { data: userProperties } = await supabase
-        .from('properties')
-        .select('id')
-        .eq('owner_id', user.id);
-
-      if (userProperties && userProperties.length > 0) {
-        const propertyIds = userProperties.map(p => p.id);
-        
-        // 2. Удаляем bookings для всех properties пользователя
-        await supabase
-          .from('bookings')
-          .delete()
-          .in('property_id', propertyIds);
-
-        // 3. Удаляем property_rates для всех properties
-        await supabase
-          .from('property_rates')
-          .delete()
-          .in('property_id', propertyIds);
+      // Получаем сессию для передачи в Edge Function
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Необходима авторизация');
       }
 
-      // 4. Удаляем все properties пользователя
-      await supabase
-        .from('properties')
-        .delete()
-        .eq('owner_id', user.id);
+      // Вызываем Edge Function для полного удаления аккаунта
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const functionUrl = `${supabaseUrl}/functions/v1/delete-user-account`;
 
-      // 5. Деактивируем профиль (soft delete)
-      await supabase
-        .from('profiles')
-        .update({ is_active: false })
-        .eq('id', user.id);
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
 
-      // 6. Выходим из системы
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+        throw new Error(errorData.error || `Ошибка ${response.status}`);
+      }
+
+      // После успешного удаления выходим из системы
       await signOut();
     } catch (error) {
       console.error('Error deleting account:', error);
