@@ -53,7 +53,7 @@ Deno.serve(async (req: Request) => {
               AND avito_item_id_text != '';
           `
         });
-      } catch (rpcError) {
+      } catch {
         console.warn("RPC exec_sql not available, will need manual migration");
       }
     }
@@ -77,12 +77,11 @@ BEGIN
 END $$;
     `;
 
-    // Try to execute via pg_net
+    // Try to execute via pg_net (placeholder - not implemented yet)
+    // For now, we return SQL for manual execution
     try {
-      const dbUrl = Deno.env.get("DATABASE_URL") || supabaseUrl.replace("https://", "postgresql://postgres:") + "@db." + supabaseUrl.split("//")[1].split(".")[0] + ".supabase.co:5432/postgres";
-      
-      // Use pg_net if available
-      const { data: pgNetResult, error: pgNetError } = await supabase.rpc("net_http_request", {
+      // Use pg_net if available (future implementation)
+      const { error: pgNetError } = await supabase.rpc("net_http_request", {
         url: "https://httpbin.org/post", // Placeholder, we'll use direct SQL
         method: "POST"
       });
