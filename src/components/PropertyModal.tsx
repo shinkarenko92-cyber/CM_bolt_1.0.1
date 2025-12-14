@@ -256,6 +256,44 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     }
   };
 
+  const handleEditItemId = () => {
+    const currentItemId = avitoIntegration?.avito_item_id || 
+                         (avitoIntegration as { avito_item_id_text?: string | null })?.avito_item_id_text || 
+                         '';
+    setEditingItemId(currentItemId);
+    setIsEditingItemId(true);
+  };
+
+  const handleSaveItemId = async () => {
+    if (!avitoIntegration || !editingItemId || !/^[0-9]{10,11}$/.test(editingItemId.trim())) {
+      message.error('ID объявления должен содержать 10-11 цифр');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('integrations')
+        .update({ 
+          avito_item_id: editingItemId.trim(),
+          is_active: true  // Активируем, если была деактивирована миграцией
+        })
+        .eq('id', avitoIntegration.id);
+
+      if (error) throw error;
+
+      message.success('ID объявления обновлён');
+      setIsEditingItemId(false);
+      setEditingItemId('');
+      loadAvitoIntegration();
+    } catch (error) {
+      console.error('Failed to update item_id:', error);
+      message.error('Ошибка при обновлении ID объявления');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Никогда';
     return new Date(dateString).toLocaleString('ru-RU', {
