@@ -176,7 +176,8 @@ export async function syncAvitoIntegration(
     if (responseData.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
       const errors = responseData.errors as AvitoErrorInfo[];
       
-      // Check for 404 errors - will be handled by showAvitoErrors
+      // Check for 404 errors - will show toast in Dashboard component
+      // Toast is handled in Dashboard.tsx where syncAvitoIntegration is called
       
       throw new AvitoSyncError('Avito synchronization completed with errors', errors);
     }

@@ -92,9 +92,10 @@ Deno.serve(async (req: Request) => {
       || (integration as { avito_item_id_text?: string | null }).avito_item_id_text
       || (integration.avito_item_id ? String(integration.avito_item_id) : null);
 
-    if (!itemIdText) {
+    // Validate item_id - must be non-empty string
+    if (!itemIdText || itemIdText.trim() === '') {
       return new Response(
-        JSON.stringify({ error: "ID объявления не настроен. Проверь настройки интеграции Avito." }),
+        JSON.stringify({ error: "ID объявления не настроен в интеграции Avito. Проверь настройки интеграции — должен быть номер вроде 2336174775" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

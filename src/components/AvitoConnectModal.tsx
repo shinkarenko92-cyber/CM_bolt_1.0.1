@@ -335,9 +335,9 @@ export function AvitoConnectModal({
       return;
     }
 
-    // Validate itemId is a number
-    if (!/^\d+$/.test(itemId)) {
-      message.error('ID объявления должен быть числом');
+    // Validate itemId is a number (required, digits only)
+    if (!itemId.trim() || !/^\d+$/.test(itemId)) {
+      message.error('Введи правильный ID объявления из Avito (например, 2336174775)');
       return;
     }
 

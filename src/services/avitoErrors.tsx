@@ -208,9 +208,27 @@ export async function showAvitoErrors(
   // Show errors one by one, waiting for each modal to close
   for (const error of errors) {
     await new Promise<void>((resolve) => {
-      const recommendations = getRecommendations(error, t);
+      let recommendations: string[] = [];
+      try {
+        recommendations = getRecommendations(error, t);
+        // Handle case where t() returns an object instead of string
+        recommendations = recommendations.map(rec => 
+          typeof rec === 'string' ? rec : 'Ошибка при получении рекомендаций'
+        );
+      } catch (err) {
+        // If getRecommendations throws (e.g., i18n key returned object), use empty array
+        console.warn('Error getting recommendations:', err);
+        recommendations = [];
+      }
+      
       const operationKey = `avito.errors.${error.operation}`;
-      const operationName = t(operationKey, { defaultValue: error.operation });
+      let operationName: string;
+      try {
+        const opName = t(operationKey, { defaultValue: error.operation });
+        operationName = typeof opName === 'string' ? opName : error.operation;
+      } catch {
+        operationName = error.operation;
+      }
 
       Modal.error({
         title: t('avito.errors.syncFailed', { defaultValue: 'Ошибка синхронизации с Avito' }),

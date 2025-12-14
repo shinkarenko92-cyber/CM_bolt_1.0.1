@@ -938,11 +938,12 @@ Deno.serve(async (req: Request) => {
           || (integration as { avito_item_id_text?: string | null }).avito_item_id_text
           || (integration.avito_item_id ? String(integration.avito_item_id) : null);
 
-        if (!itemId) {
+        // Validate item_id - must be non-empty string
+        if (!itemId || itemId.trim() === '') {
           return new Response(
             JSON.stringify({ 
               success: false,
-              error: "ID объявления не настроен. Проверь настройки интеграции Avito." 
+              error: "ID объявления не настроен в интеграции Avito. Проверь настройки интеграции — должен быть номер вроде 2336174775" 
             }),
             { 
               status: 400, 
@@ -1064,7 +1065,7 @@ Deno.serve(async (req: Request) => {
         // Отправляем обновление цен
         if (pricesToUpdate.length > 0) {
           console.log("Sending price update to Avito", {
-            endpoint: `${AVITO_API_BASE}/realty/v1/accounts/${accountId}/items/${itemId}/prices`,
+            endpoint: `${AVITO_API_BASE}/realty/v1/items/${itemId}/prices`,
             periodsCount: pricesToUpdate.length,
           });
 
@@ -1086,7 +1087,7 @@ Deno.serve(async (req: Request) => {
           if (!pricesResponse.ok) {
             // Handle 404 - item not found
             if (pricesResponse.status === 404) {
-              const errorMessage = "Объявление не найдено в Avito. Проверь ID объекта в настройках интеграции";
+              const errorMessage = "Объявление не найдено в Avito (код 404). Проверь ID объявления в настройках интеграции — должен быть номер вроде 2336174775";
               syncErrors.push({
                 operation: 'price_update',
                 statusCode: 404,
@@ -1171,7 +1172,7 @@ Deno.serve(async (req: Request) => {
         if (!baseParamsResponse.ok) {
           // Handle 404 - item not found
           if (baseParamsResponse.status === 404) {
-            const errorMessage = "Объявление не найдено в Avito. Проверь ID объекта в настройках интеграции";
+            const errorMessage = "Объявление не найдено в Avito (код 404). Проверь ID объявления в настройках интеграции — должен быть номер вроде 2336174775";
             syncErrors.push({
               operation: 'base_params_update',
               statusCode: 404,
@@ -1333,7 +1334,7 @@ Deno.serve(async (req: Request) => {
             
             // Handle 404 - item not found
             if (errorStatus === 404) {
-              const errorMessage = "Объявление не найдено в Avito. Проверь ID объекта в настройках интеграции";
+              const errorMessage = "Объявление не найдено в Avito (код 404). Проверь ID объявления в настройках интеграции — должен быть номер вроде 2336174775";
               syncErrors.push({
                 operation: 'bookings_update',
                 statusCode: 404,
