@@ -871,7 +871,7 @@ Deno.serve(async (req: Request) => {
         };
 
         // Get access token (will refresh if needed)
-        let accessToken = await getAccessToken();
+        const accessToken = await getAccessToken();
 
         // Get property and bookings
         const { data: property } = await supabase
@@ -1658,27 +1658,20 @@ Deno.serve(async (req: Request) => {
                   .eq("avito_booking_id", bookingId.toString())
                   .maybeSingle();
 
-                let upserted;
                 let upsertError;
 
                 if (existing) {
                   // Update existing booking
-                  const { data: updated, error: updateError } = await supabase
+                  const { error: updateError } = await supabase
                     .from("bookings")
                     .update(bookingData)
-                    .eq("id", existing.id)
-                    .select()
-                    .single();
-                  upserted = updated;
+                    .eq("id", existing.id);
                   upsertError = updateError;
                 } else {
                   // Insert new booking
-                  const { data: inserted, error: insertError } = await supabase
+                  const { error: insertError } = await supabase
                     .from("bookings")
-                    .insert(bookingData)
-                    .select()
-                    .single();
-                  upserted = inserted;
+                    .insert(bookingData);
                   upsertError = insertError;
                 }
 
