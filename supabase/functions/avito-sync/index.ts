@@ -1064,18 +1064,18 @@ Deno.serve(async (req: Request) => {
               // Continue with other operations - skip rest of error handling
             } else {
               const errorText = await pricesResponse.text();
-            let errorDetails: unknown = errorText;
-            let errorCode: string | undefined;
-            let errorMessage = `Failed to update prices: ${pricesResponse.status} ${pricesResponse.statusText}`;
+              let errorDetails: unknown = errorText;
+              let errorCode: string | undefined;
+              let errorMessage = `Failed to update prices: ${pricesResponse.status} ${pricesResponse.statusText}`;
 
-            try {
-              const errorJson = JSON.parse(errorText);
-              errorDetails = errorJson;
-              errorMessage = errorJson.message || errorJson.error?.message || errorMessage;
-              errorCode = errorJson.error?.code || errorJson.code;
-            } catch {
-              // Если не JSON, используем текст как есть
-            }
+              try {
+                const errorJson = JSON.parse(errorText);
+                errorDetails = errorJson;
+                errorMessage = errorJson.message || errorJson.error?.message || errorMessage;
+                errorCode = errorJson.error?.code || errorJson.code;
+              } catch {
+                // Если не JSON, используем текст как есть
+              }
 
               syncErrors.push({
                 operation: 'price_update',
