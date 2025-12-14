@@ -92,8 +92,6 @@ async function fetchWithRetry(
   options: RequestInit,
   maxRetries = 3
 ): Promise<Response> {
-  let lastError: Error | null = null;
-  
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const response = await fetch(url, options);
     
@@ -114,7 +112,7 @@ async function fetchWithRetry(
     return response;
   }
   
-  throw lastError || new Error(`Failed after ${maxRetries} retries`);
+  throw new Error(`Failed after ${maxRetries} retries`);
 }
 
 // Helper function to normalize phone number (keep only digits and +)
