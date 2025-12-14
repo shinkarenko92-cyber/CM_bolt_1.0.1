@@ -335,6 +335,12 @@ export function AvitoConnectModal({
       return;
     }
 
+    // Validate itemId is a number
+    if (!/^\d+$/.test(itemId)) {
+      message.error('ID объявления должен быть числом');
+      return;
+    }
+
     setValidatingItemId(true);
     try {
       const validation = await validateItemId(selectedAccountId, itemId, accessToken, property.id);
@@ -356,16 +362,32 @@ export function AvitoConnectModal({
       });
       setCurrentStep(3);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Ошибка при проверке ID';
+      // Improved error handling
+      let errorMessage: string;
+      if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = (error as { message?: string }).message || JSON.stringify(error);
+      } else {
+        errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+      }
       
       // Проверяем ошибку 404
       if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
-        Modal.error({
-          title: 'Edge Function не найдена',
-          content: 'Функция avito-sync не развернута. Пожалуйста, разверните её в Supabase Dashboard → Edge Functions или обратитесь к администратору.',
-          okText: 'Понятно',
-          width: 500,
-        });
+        if (errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
+          Modal.error({
+            title: 'Edge Function не найдена',
+            content: 'Функция avito-sync не развернута. Пожалуйста, разверните её в Supabase Dashboard → Edge Functions или обратитесь к администратору.',
+            okText: 'Понятно',
+            width: 500,
+          });
+        } else {
+          Modal.error({
+            title: 'Объявление не найдено',
+            content: 'Объявление не найдено в Avito. Проверь ID объекта в настройках интеграции.',
+            okText: 'Понятно',
+          });
+        }
       } else {
         message.error(errorMessage);
       }
@@ -633,10 +655,19 @@ export function AvitoConnectModal({
             <Input
               placeholder="Например: 123456789"
               value={itemId}
-              onChange={(e) => setItemId(e.target.value)}
+              onChange={(e) => {
+                // Only allow numbers
+                const value = e.target.value.replace(/\D/g, '');
+                setItemId(value);
+              }}
               onPressEnter={handleItemIdValidate}
               disabled={validatingItemId}
+              required
+              type="number"
             />
+            {!itemId && (
+              <p className="text-xs text-red-400 mt-1">ID объявления обязателен</p>
+            )}
             <div className="flex gap-2 mt-4">
               <Button
                 type="primary"

@@ -704,8 +704,8 @@ Deno.serve(async (req: Request) => {
             platform: "avito",
             external_id: avito_item_id.toString(),
             avito_account_id,
-            avito_item_id: parsedItemId, // Keep BIGINT for backward compatibility
-            avito_item_id_text: avito_item_id.toString(), // Store as TEXT for API calls
+            avito_item_id: avito_item_id.toString(), // Store as TEXT for API calls (primary field)
+            avito_item_id_text: avito_item_id.toString(), // Keep for backward compatibility
             avito_markup: avito_markup !== null && avito_markup !== undefined ? parseFloat(avito_markup) : 15.0,
             // Token will be encrypted by Vault trigger (create trigger in migration)
             access_token_encrypted: access_token,
@@ -931,14 +931,24 @@ Deno.serve(async (req: Request) => {
 
         // Get account_id and item_id
         // avito_account_id should be the account/user_id
-        // avito_item_id should be the item/advertisement_id
+        // avito_item_id should be the item/advertisement_id (TEXT)
         const accountId = integration.avito_account_id;
-        // Use avito_item_id_text if available, otherwise convert avito_item_id (BIGINT) to string
-        const itemId = (integration as { avito_item_id_text?: string | null }).avito_item_id_text 
+        // Use avito_item_id (TEXT) - primary field, fallback to avito_item_id_text or BIGINT conversion
+        const itemId = (integration as { avito_item_id?: string | null }).avito_item_id
+          || (integration as { avito_item_id_text?: string | null }).avito_item_id_text
           || (integration.avito_item_id ? String(integration.avito_item_id) : null);
 
         if (!itemId) {
-          throw new Error("Missing avito_item_id in integration. Please check Avito integration settings.");
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              error: "ID объявления не настроен. Проверь настройки интеграции Avito." 
+            }),
+            { 
+              status: 400, 
+              headers: { ...corsHeaders, "Content-Type": "application/json" } 
+            }
+          );
         }
 
         // Sync property_rates (calendar prices) and availability to Avito
@@ -1076,7 +1086,7 @@ Deno.serve(async (req: Request) => {
           if (!pricesResponse.ok) {
             // Handle 404 - item not found
             if (pricesResponse.status === 404) {
-              const errorMessage = "Объявление не найдено. Проверь ID объекта в настройках Avito";
+              const errorMessage = "Объявление не найдено в Avito. Проверь ID объекта в настройках интеграции";
               syncErrors.push({
                 operation: 'price_update',
                 statusCode: 404,
@@ -1161,7 +1171,7 @@ Deno.serve(async (req: Request) => {
         if (!baseParamsResponse.ok) {
           // Handle 404 - item not found
           if (baseParamsResponse.status === 404) {
-            const errorMessage = "Объявление не найдено. Проверь ID объекта в настройках Avito";
+            const errorMessage = "Объявление не найдено в Avito. Проверь ID объекта в настройках интеграции";
             syncErrors.push({
               operation: 'base_params_update',
               statusCode: 404,
@@ -1323,7 +1333,7 @@ Deno.serve(async (req: Request) => {
             
             // Handle 404 - item not found
             if (errorStatus === 404) {
-              const errorMessage = "Объявление не найдено. Проверь ID объекта в настройках Avito";
+              const errorMessage = "Объявление не найдено в Avito. Проверь ID объекта в настройках интеграции";
               syncErrors.push({
                 operation: 'bookings_update',
                 statusCode: 404,
@@ -1555,7 +1565,7 @@ Deno.serve(async (req: Request) => {
 
         // Handle 404 - item not found
         if (bookingsResponse.status === 404) {
-          const errorMessage = "Объявление не найдено. Проверь ID объекта в настройках Avito";
+          const errorMessage = "Объявление не найдено в Avito. Проверь ID объекта в настройках интеграции";
           syncErrors.push({
             operation: 'bookings_fetch',
             statusCode: 404,

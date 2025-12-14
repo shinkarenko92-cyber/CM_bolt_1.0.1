@@ -87,13 +87,14 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Get item_id - use avito_item_id_text if available, otherwise convert avito_item_id (BIGINT) to string
-    const itemIdText = (integration as { avito_item_id_text?: string | null }).avito_item_id_text 
+    // Get item_id - use avito_item_id (TEXT) - primary field, fallback to avito_item_id_text or BIGINT conversion
+    const itemIdText = (integration as { avito_item_id?: string | null }).avito_item_id
+      || (integration as { avito_item_id_text?: string | null }).avito_item_id_text
       || (integration.avito_item_id ? String(integration.avito_item_id) : null);
 
     if (!itemIdText) {
       return new Response(
-        JSON.stringify({ error: "Missing avito_item_id in integration. Please check Avito integration settings." }),
+        JSON.stringify({ error: "ID объявления не настроен. Проверь настройки интеграции Avito." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -220,7 +221,7 @@ Deno.serve(async (req: Request) => {
 
         // Handle 404 - item not found
         if (response.status === 404) {
-          const userMessage = "?????????? ?? ???????. ??????? ID ??????? ? ?????????? Avito";
+          const userMessage = "Объявление не найдено в Avito. Проверь ID объекта в настройках интеграции";
           console.error("Avito item not found (404)", { item_id: itemId, error: errorDetails });
 
           // Log error to avito_logs

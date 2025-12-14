@@ -67,6 +67,15 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     if (data?.avito_markup) {
       setNewMarkup(data.avito_markup);
     }
+    
+    // Show warning if old integration (missing avito_item_id)
+    if (data && data.is_active && !data.avito_item_id && !(data as { avito_item_id_text?: string | null }).avito_item_id_text) {
+      console.warn('PropertyModal: Old integration detected - missing avito_item_id', {
+        integration_id: data.id,
+        property_id: property?.id,
+      });
+      // Warning will be shown in UI
+    }
   }, [property]);
 
   useEffect(() => {
@@ -363,9 +372,21 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
             });
           } else {
             // Для других ошибок показываем простое сообщение
-            const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
-            // Показываем toast с ошибкой
-            toast.error(t('avito.errors.syncFailed', { defaultValue: 'Ошибка синхронизации с Avito' }) + ': ' + errorMessage);
+            let errorMessage: string;
+            if (typeof error === 'string') {
+              errorMessage = error;
+            } else if (error && typeof error === 'object' && 'message' in error) {
+              errorMessage = (error as { message?: string }).message || JSON.stringify(error);
+            } else {
+              errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+            }
+            
+            // Check for 404 errors
+            if (errorMessage.includes('404') || errorMessage.includes('не найдено')) {
+              toast.error('Объявление не найдено в Avito. Проверь ID объекта в настройках интеграции');
+            } else {
+              toast.error(t('avito.errors.syncFailed', { defaultValue: 'Ошибка синхронизации с Avito' }) + ': ' + errorMessage);
+            }
           }
         }
       }
@@ -636,6 +657,15 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
                   {avitoIntegration?.is_active ? (
                     <>
+                      {/* Warning for old integrations missing avito_item_id */}
+                      {!avitoIntegration.avito_item_id && !(avitoIntegration as { avito_item_id_text?: string | null }).avito_item_id_text && (
+                        <div className="bg-yellow-500/20 border border-yellow-500/50 rounded p-3 mb-3">
+                          <p className="text-yellow-300 text-sm font-medium mb-1">⚠️ Требуется обновление</p>
+                          <p className="text-yellow-200 text-xs">
+                            Обнови ID объявления (новое поле). Нажми "Подключить заново" и введи ID объявления.
+                          </p>
+                        </div>
+                      )}
                       <div className="text-sm text-slate-400">
                         Последняя синхронизация: {formatDate(avitoIntegration.last_sync_at)}
                       </div>

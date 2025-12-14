@@ -154,7 +154,18 @@ export async function syncAvitoIntegration(
     if (errors.length > 0) {
       throw new AvitoSyncError('Avito synchronization completed with errors', errors);
     }
-    throw new Error(syncError.message || 'Sync failed');
+    
+    // Improved error message handling
+    let errorMessage: string;
+    if (typeof syncError === 'string') {
+      errorMessage = syncError;
+    } else if (syncError && typeof syncError === 'object' && 'message' in syncError) {
+      errorMessage = (syncError as { message?: string }).message || JSON.stringify(syncError);
+    } else {
+      errorMessage = syncError instanceof Error ? syncError.message : JSON.stringify(syncError);
+    }
+    
+    throw new Error(errorMessage || 'Sync failed');
   }
 
   // Check response data for errors
@@ -164,6 +175,9 @@ export async function syncAvitoIntegration(
     // Check if there are errors in the response
     if (responseData.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
       const errors = responseData.errors as AvitoErrorInfo[];
+      
+      // Check for 404 errors - will be handled by showAvitoErrors
+      
       throw new AvitoSyncError('Avito synchronization completed with errors', errors);
     }
 
