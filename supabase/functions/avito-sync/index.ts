@@ -637,8 +637,10 @@ Deno.serve(async (req: Request) => {
           throw new Error("Integration not found or inactive");
         }
 
-        // Check token expiration
+        // Check token expiration and refresh if needed
         // Используем ту же логику, что и в других местах - добавляем 'Z' если его нет
+        let accessToken = integration.access_token_encrypted;
+        
         if (integration.token_expires_at) {
           // Добавляем 'Z' если его нет для правильной интерпретации как UTC
           let expiresAtString = integration.token_expires_at;
@@ -650,8 +652,67 @@ Deno.serve(async (req: Request) => {
           const now = new Date();
           
           if (expiresAt.getTime() <= now.getTime()) {
-            throw new Error("Token expired. Please reconnect.");
+            console.log("Token expired, refreshing...", {
+              expiresAt: expiresAt.toISOString(),
+              now: now.toISOString(),
+              integration_id: integration.id,
+            });
+
+            // Refresh token using client_credentials flow
+            const refreshResponse = await fetch(`${AVITO_API_BASE}/token`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: new URLSearchParams({
+                grant_type: "client_credentials",
+                client_id: avitoClientId,
+                client_secret: avitoClientSecret,
+              }),
+            });
+
+            if (!refreshResponse.ok) {
+              const errorText = await refreshResponse.text();
+              console.error("Failed to refresh token", {
+                status: refreshResponse.status,
+                error: errorText,
+                integration_id: integration.id,
+              });
+              throw new Error("Token expired and failed to refresh. Please reconnect.");
+            }
+
+            const refreshData = await refreshResponse.json();
+            accessToken = refreshData.access_token;
+
+            // Update token in database
+            const expiresIn = refreshData.expires_in || 3600;
+            const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
+
+            const { error: updateError } = await supabase
+              .from("integrations")
+              .update({
+                access_token_encrypted: accessToken,
+                token_expires_at: tokenExpiresAt.toISOString(),
+              })
+              .eq("id", integration_id);
+
+            if (updateError) {
+              console.error("Failed to update token in database", {
+                error: updateError,
+                integration_id: integration.id,
+              });
+              // Continue with new token even if DB update fails
+            } else {
+              console.log("Token refreshed and updated in database", {
+                integration_id: integration.id,
+                newExpiresAt: tokenExpiresAt.toISOString(),
+              });
+            }
           }
+        }
+
+        if (!accessToken) {
+          throw new Error("No access token available");
         }
 
         // Get property and bookings
@@ -685,9 +746,8 @@ Deno.serve(async (req: Request) => {
         });
 
         // Push availability and prices to Avito
+        // accessToken is already set above (either from integration or refreshed)
         // Decrypt token using RPC function (or use directly if not encrypted yet)
-        let accessToken = integration.access_token_encrypted;
-        
         // Try to decrypt via RPC (if encrypted)
         try {
           const { data: decrypted } = await supabase.rpc('decrypt_avito_token', {
@@ -696,6 +756,7 @@ Deno.serve(async (req: Request) => {
           if (decrypted) accessToken = decrypted;
         } catch {
           // If RPC fails, assume token is not encrypted yet (for development)
+          console.warn("RPC decrypt_avito_token failed, using token as-is");
         }
         
         const accountId = integration.avito_account_id;
@@ -946,11 +1007,12 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        // 3. Отправка бронирований через POST /core/v1/accounts/{account_id}/items/{item_id}/bookings (putBookingsInfo)
+        // 3. Отправка бронирований через PUT /core/v1/accounts/{account_id}/items/{item_id}/bookings (putBookingsInfo)
         // Формат: { bookings: [{ date_start, date_end, type?, comment? }], source? }
         // type: "manual" | "booking" - тип бронирования (manual - закрыто вручную, booking - бронирование)
         // comment: дополнительная информация (опционально)
         // source: название PMS системы (опционально)
+        // date_start и date_end должны быть в формате YYYY-MM-DD
         // Отправляем реальные бронирования из нашей системы
         const bookingsToSend: Array<{
           date_start: string;
@@ -961,9 +1023,13 @@ Deno.serve(async (req: Request) => {
 
         // Преобразуем бронирования в формат Avito API
         for (const booking of bookingsForAvito) {
+          // Убеждаемся, что даты в формате YYYY-MM-DD (обрезаем время, если есть)
+          const dateStart = booking.check_in.split('T')[0];
+          const dateEnd = booking.check_out.split('T')[0];
+          
           bookingsToSend.push({
-            date_start: booking.check_in,
-            date_end: booking.check_out,
+            date_start: dateStart,
+            date_end: dateEnd,
             type: "booking", // Тип бронирования
             comment: "Бронирование из Roomi Pro",
           });
@@ -974,12 +1040,13 @@ Deno.serve(async (req: Request) => {
           console.log("Sending bookings to Avito via putBookingsInfo", {
             endpoint: `${AVITO_API_BASE}/core/v1/accounts/${accountId}/items/${itemId}/bookings`,
             bookingsCount: bookingsToSend.length,
+            method: "PUT",
           });
 
           const bookingsUpdateResponse = await fetch(
             `${AVITO_API_BASE}/core/v1/accounts/${accountId}/items/${itemId}/bookings`,
             {
-              method: "POST",
+              method: "PUT",
               headers: {
                 Authorization: `Bearer ${accessToken}`,
                 "Content-Type": "application/json",
