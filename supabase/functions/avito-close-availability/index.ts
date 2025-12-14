@@ -87,9 +87,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    if (!integration.avito_item_id) {
+    // Get item_id - use avito_item_id_text if available, otherwise convert avito_item_id (BIGINT) to string
+    const itemIdText = (integration as { avito_item_id_text?: string | null }).avito_item_id_text 
+      || (integration.avito_item_id ? String(integration.avito_item_id) : null);
+
+    if (!itemIdText) {
       return new Response(
-        JSON.stringify({ error: "Missing avito_item_id in integration" }),
+        JSON.stringify({ error: "Missing avito_item_id in integration. Please check Avito integration settings." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -163,9 +167,9 @@ Deno.serve(async (req: Request) => {
     }
 
     // Call Avito API to close all dates
-    // POST /realty/v1/items/intervals with empty intervals array closes full calendar
-    const itemId = integration.avito_item_id;
-    const closeUrl = `${AVITO_API_BASE}/realty/v1/items/intervals`;
+    // POST /realty/v1/items/{item_id}/intervals with empty intervals array closes full calendar
+    const itemId = itemIdText;
+    const closeUrl = `${AVITO_API_BASE}/realty/v1/items/${itemId}/intervals`;
 
     console.log("Calling Avito API to close availability", {
       url: closeUrl,
@@ -200,10 +204,44 @@ Deno.serve(async (req: Request) => {
       if (!response.ok) {
         const errorText = await response.text();
         let errorDetails: unknown = errorText;
+        let errorMessage: string;
         try {
-          errorDetails = JSON.parse(errorText);
+          const errorJson = JSON.parse(errorText);
+          errorDetails = errorJson;
+          errorMessage = typeof errorJson === 'object' && errorJson !== null
+            ? (errorJson as { message?: string; error?: { message?: string } }).message 
+              || (errorJson as { error?: { message?: string } }).error?.message
+              || JSON.stringify(errorJson)
+            : String(errorJson);
         } catch {
           // Keep as text if not JSON
+          errorMessage = errorText;
+        }
+
+        // Handle 404 - item not found
+        if (response.status === 404) {
+          const userMessage = "?????????? ?? ???????. ??????? ID ??????? ? ?????????? Avito";
+          console.error("Avito item not found (404)", { item_id: itemId, error: errorDetails });
+
+          // Log error to avito_logs
+          await supabase.from("avito_logs").insert({
+            integration_id,
+            property_id,
+            action: "close_availability",
+            status: "error",
+            error: userMessage,
+            details: { item_id: itemId, error: errorDetails },
+          });
+
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "item_not_found",
+              message: userMessage,
+              details: errorDetails,
+            }),
+            { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
 
         // Handle 409 Conflict (paid bookings)
@@ -227,7 +265,7 @@ Deno.serve(async (req: Request) => {
             JSON.stringify({
               success: false,
               error: "paid_conflict",
-              message: "Есть оплаченные брони — верните деньги вручную",
+              message: "???? ?????????? ????? � ??????? ?????? ???????",
               details: errorDetails,
             }),
             { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -248,7 +286,7 @@ Deno.serve(async (req: Request) => {
         // Handle other errors - don't retry
         lastError = {
           status: response.status,
-          message: `Avito API error: ${response.status} ${response.statusText}`,
+          message: errorMessage || `Avito API error: ${response.status} ${response.statusText}`,
           details: errorDetails,
         };
 
@@ -322,7 +360,13 @@ Deno.serve(async (req: Request) => {
       }
     );
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    let errorMessage: string;
+    if (typeof error === 'object' && error !== null) {
+      errorMessage = (error as { message?: string }).message || JSON.stringify(error);
+    } else {
+      errorMessage = error instanceof Error ? error.message : String(error);
+    }
+    
     const errorStack = error instanceof Error ? error.stack : undefined;
     console.error("Edge Function error:", {
       name: error instanceof Error ? error.name : "Error",

@@ -704,7 +704,8 @@ Deno.serve(async (req: Request) => {
             platform: "avito",
             external_id: avito_item_id.toString(),
             avito_account_id,
-            avito_item_id: parsedItemId,
+            avito_item_id: parsedItemId, // Keep BIGINT for backward compatibility
+            avito_item_id_text: avito_item_id.toString(), // Store as TEXT for API calls
             avito_markup: avito_markup !== null && avito_markup !== undefined ? parseFloat(avito_markup) : 15.0,
             // Token will be encrypted by Vault trigger (create trigger in migration)
             access_token_encrypted: access_token,
@@ -905,8 +906,17 @@ Deno.serve(async (req: Request) => {
           return checkIn >= new Date(new Date().toISOString().split('T')[0]);
         });
 
+        // Get account_id and item_id
+        // avito_account_id should be the account/user_id
+        // avito_item_id should be the item/advertisement_id
         const accountId = integration.avito_account_id;
-        const itemId = integration.avito_item_id;
+        // Use avito_item_id_text if available, otherwise convert avito_item_id (BIGINT) to string
+        const itemId = (integration as { avito_item_id_text?: string | null }).avito_item_id_text 
+          || (integration.avito_item_id ? String(integration.avito_item_id) : null);
+
+        if (!itemId) {
+          throw new Error("Missing avito_item_id in integration. Please check Avito integration settings.");
+        }
 
         // Sync property_rates (calendar prices) and availability to Avito
         // Используем правильные эндпоинты согласно документации:
@@ -1025,8 +1035,9 @@ Deno.serve(async (req: Request) => {
             periodsCount: pricesToUpdate.length,
           });
 
+          // Use correct endpoint: /realty/v1/items/{item_id}/prices (no account_id needed)
           const pricesResponse = await fetchWithRetry(
-            `${AVITO_API_BASE}/realty/v1/accounts/${accountId}/items/${itemId}/prices?skip_error=true`,
+            `${AVITO_API_BASE}/realty/v1/items/${itemId}/prices?skip_error=true`,
             {
               method: "POST",
               headers: {
@@ -1040,6 +1051,20 @@ Deno.serve(async (req: Request) => {
           );
 
           if (!pricesResponse.ok) {
+            // Handle 404 - item not found
+            if (pricesResponse.status === 404) {
+              const errorMessage = "Объявление не найдено. Проверь ID объекта в настройках Avito";
+              syncErrors.push({
+                operation: 'price_update',
+                statusCode: 404,
+                message: errorMessage,
+                details: { item_id: itemId },
+              });
+              console.error("Avito item not found (404)", { item_id: itemId });
+              // Continue with other operations
+              continue;
+            }
+
             const errorText = await pricesResponse.text();
             let errorDetails: unknown = errorText;
             let errorCode: string | undefined;
@@ -1112,19 +1137,31 @@ Deno.serve(async (req: Request) => {
         );
 
         if (!baseParamsResponse.ok) {
-          const errorText = await baseParamsResponse.text();
-          let errorDetails: unknown = errorText;
-          let errorCode: string | undefined;
-          let errorMessage = `Failed to update base parameters: ${baseParamsResponse.status} ${baseParamsResponse.statusText}`;
+          // Handle 404 - item not found
+          if (baseParamsResponse.status === 404) {
+            const errorMessage = "Объявление не найдено. Проверь ID объекта в настройках Avito";
+            syncErrors.push({
+              operation: 'base_params_update',
+              statusCode: 404,
+              message: errorMessage,
+              details: { item_id: itemId },
+            });
+            console.error("Avito item not found (404)", { item_id: itemId });
+            // Continue with other operations
+          } else {
+            const errorText = await baseParamsResponse.text();
+            let errorDetails: unknown = errorText;
+            let errorCode: string | undefined;
+            let errorMessage = `Failed to update base parameters: ${baseParamsResponse.status} ${baseParamsResponse.statusText}`;
 
-          try {
-            const errorJson = JSON.parse(errorText);
-            errorDetails = errorJson;
-            errorMessage = errorJson.message || errorJson.error?.message || errorMessage;
-            errorCode = errorJson.error?.code || errorJson.code;
-          } catch {
-            // Если не JSON, используем текст как есть
-          }
+            try {
+              const errorJson = JSON.parse(errorText);
+              errorDetails = errorJson;
+              errorMessage = errorJson.message || errorJson.error?.message || errorMessage;
+              errorCode = errorJson.error?.code || errorJson.code;
+            } catch {
+              // Если не JSON, используем текст как есть
+            }
 
           syncErrors.push({
             operation: 'base_params_update',
@@ -1225,8 +1262,9 @@ Deno.serve(async (req: Request) => {
             method: "POST",
           });
 
+          // Use correct endpoint: /realty/v1/items/{item_id}/intervals for blocking dates
           const bookingsUpdateResponse = await fetchWithRetry(
-            `${AVITO_API_BASE}/core/v1/accounts/${accountId}/items/${itemId}/bookings`,
+            `${AVITO_API_BASE}/realty/v1/items/${itemId}/intervals`,
             {
               method: "POST",
               headers: {
@@ -1234,7 +1272,10 @@ Deno.serve(async (req: Request) => {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                bookings: bookingsToSend,
+                intervals: bookingsToSend.map(b => ({
+                  date_start: b.date_start,
+                  date_end: b.date_end,
+                })),
                 source: "Roomi Pro", // Название PMS системы
               }),
             }
@@ -1244,8 +1285,20 @@ Deno.serve(async (req: Request) => {
             const errorText = await bookingsUpdateResponse.text();
             const errorStatus = bookingsUpdateResponse.status;
             
+            // Handle 404 - item not found
+            if (errorStatus === 404) {
+              const errorMessage = "Объявление не найдено. Проверь ID объекта в настройках Avito";
+              syncErrors.push({
+                operation: 'bookings_update',
+                statusCode: 404,
+                message: errorMessage,
+                details: { item_id: itemId },
+              });
+              console.error("Avito item not found (404)", { item_id: itemId });
+              // Continue with other operations
+            }
             // Специальная обработка ошибки 409 (конфликт с оплаченными бронями)
-            if (errorStatus === 409) {
+            else if (errorStatus === 409) {
               console.warn("Some bookings conflict with paid bookings in Avito (409)", {
                 error: errorText,
                 bookingsCount: bookingsToSend.length,
@@ -1313,7 +1366,7 @@ Deno.serve(async (req: Request) => {
         const dateStart = today.toISOString().split('T')[0]; // YYYY-MM-DD
         const dateEnd = oneYearLater.toISOString().split('T')[0]; // YYYY-MM-DD
 
-        console.log("Pulling bookings from Avito", {
+          console.log("Pulling bookings from Avito", {
           accountId,
           itemId,
           property_id: integration.property_id,
@@ -1321,10 +1374,16 @@ Deno.serve(async (req: Request) => {
           date_end: dateEnd,
           with_unpaid: true, // Получаем неоплаченные бронирования (в статусе pending)
           skip_error: true, // Получаем 200 статус вместо ошибок при проблемах с items
+          endpoint: `/realty/v1/accounts/${accountId}/items/${itemId}/bookings`,
         });
 
         // Helper function to fetch bookings with 401 retry
+        // For pull bookings, we need account_id in the path: /accounts/{account_id}/items/{item_id}/bookings
         const fetchBookings = async (token: string): Promise<Response> => {
+          if (!accountId) {
+            throw new Error("Missing avito_account_id for fetching bookings");
+          }
+
           const response = await fetchWithRetry(
             `${AVITO_API_BASE}/realty/v1/accounts/${accountId}/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}&with_unpaid=true&skip_error=true`,
             {
@@ -1377,6 +1436,19 @@ Deno.serve(async (req: Request) => {
         };
 
         const bookingsResponse = await fetchBookings(accessToken);
+
+        // Handle 404 - item not found
+        if (bookingsResponse.status === 404) {
+          const errorMessage = "Объявление не найдено. Проверь ID объекта в настройках Avito";
+          syncErrors.push({
+            operation: 'bookings_fetch',
+            statusCode: 404,
+            message: errorMessage,
+            details: { item_id: itemId, account_id: accountId },
+          });
+          console.error("Avito item not found (404)", { item_id: itemId, account_id: accountId });
+          // Don't throw, continue with sync (bookings pull is not critical)
+        }
 
         // Handle 409 conflict (some bookings conflict with paid bookings)
         if (bookingsResponse.status === 409) {
@@ -1830,7 +1902,13 @@ Deno.serve(async (req: Request) => {
         throw new Error(`Unknown action: ${action}`);
     }
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    let errorMessage: string;
+    if (typeof error === 'object' && error !== null) {
+      errorMessage = (error as { message?: string }).message || JSON.stringify(error);
+    } else {
+      errorMessage = error instanceof Error ? error.message : String(error);
+    }
+    
     const errorStack = error instanceof Error ? error.stack : undefined;
     const errorName = error instanceof Error ? error.name : "Error";
 

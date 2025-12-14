@@ -93,8 +93,9 @@ export type PropertyIntegration = {
   is_enabled: boolean;
   last_sync_at: string | null;
   // Avito-specific fields
-  avito_account_id?: string | null;
-  avito_item_id?: number | null;
+  avito_account_id?: string | null; // Account/user ID for API calls to /accounts/{account_id}/items/{item_id}/bookings
+  avito_item_id?: number | null; // Item ID as BIGINT (legacy, use avito_item_id_text)
+  avito_item_id_text?: string | null; // Item ID as TEXT - use this for API calls to /items/{item_id}
   avito_markup?: number | null;
   access_token_encrypted?: string | null;
   refresh_token_encrypted?: string | null;
