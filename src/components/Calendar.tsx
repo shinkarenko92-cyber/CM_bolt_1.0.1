@@ -1004,16 +1004,19 @@ export function Calendar({
                             }}
                             onDelete={async () => {
                               // TODO: Реализовать удаление группы
-                              if (grouped.group && confirm(`Удалить группу "${grouped.group.name}"? Объекты будут перемещены в "Без группы".`)) {
+                              if (!grouped.group) return;
+                              
+                              if (confirm(`Удалить группу "${grouped.group.name}"? Объекты будут перемещены в "Без группы".`)) {
+                                const groupId = grouped.group.id;
                                 await supabase
                                   .from('properties')
                                   .update({ group_id: null })
-                                  .eq('group_id', grouped.group.id);
+                                  .eq('group_id', groupId);
                                 
                                 await supabase
                                   .from('property_groups')
                                   .delete()
-                                  .eq('id', grouped.group.id);
+                                  .eq('id', groupId);
                                 
                                 await loadPropertyGroups();
                               }
@@ -1025,12 +1028,12 @@ export function Calendar({
                         {isGroupExpanded && (
                           <div>
                             {grouped.properties.map((property) => {
-                              const first = new Date(dates[0]);
-                              const firstVisibleDate = new Date(first.getFullYear(), first.getMonth(), first.getDate(), 0, 0, 0, 0);
-                              const last = new Date(dates[dates.length - 1]);
-                              const lastVisibleDate = new Date(last.getFullYear(), last.getMonth(), last.getDate(), 23, 59, 59, 999);
+                              const propFirst = new Date(dates[0]);
+                              const propFirstVisibleDate = new Date(propFirst.getFullYear(), propFirst.getMonth(), propFirst.getDate(), 0, 0, 0, 0);
+                              const propLast = new Date(dates[dates.length - 1]);
+                              const propLastVisibleDate = new Date(propLast.getFullYear(), propLast.getMonth(), propLast.getDate(), 23, 59, 59, 999);
 
-                              const propertyBookings = bookings.filter((b) => {
+                              const propBookings = bookings.filter((b) => {
                                 if (b.property_id !== property.id) return false;
 
                                 const checkInDate = new Date(b.check_in);
@@ -1038,11 +1041,11 @@ export function Calendar({
                                 const checkOutDate = new Date(b.check_out);
                                 const checkOut = new Date(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate());
 
-                                return checkOut > firstVisibleDate && checkIn <= lastVisibleDate;
+                                return checkOut > propFirstVisibleDate && checkIn <= propLastVisibleDate;
                               });
 
                               const isExpanded = expandedProperties.has(property.id);
-                              const bookingLayers = getBookingLayers(propertyBookings);
+                              const bookingLayers = getBookingLayers(propBookings);
                               const rowHeight = Math.max(44, bookingLayers.length * 32 + 16);
                               const collapsedHeight = 48;
                               const totalRowHeight = isExpanded ? 32 + rowHeight : collapsedHeight;
