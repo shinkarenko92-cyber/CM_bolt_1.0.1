@@ -738,6 +738,8 @@ Deno.serve(async (req: Request) => {
         interface BookingRecord {
           check_in: string;
           check_out: string;
+          guest_name?: string | null;
+          guest_phone?: string | null;
         }
         const bookingsForAvito = (bookings as BookingRecord[] || []).filter((b) => {
           // Только будущие бронирования
@@ -1008,9 +1010,10 @@ Deno.serve(async (req: Request) => {
         }
 
         // 3. Отправка бронирований через PUT /core/v1/accounts/{account_id}/items/{item_id}/bookings (putBookingsInfo)
-        // Формат: { bookings: [{ date_start, date_end, type?, comment? }], source? }
+        // Формат: { bookings: [{ date_start, date_end, type?, comment?, contact? }], source? }
         // type: "manual" | "booking" - тип бронирования (manual - закрыто вручную, booking - бронирование)
         // comment: дополнительная информация (опционально)
+        // contact: { name?, phone? } - контактная информация гостя (опционально, если API поддерживает)
         // source: название PMS системы (опционально)
         // date_start и date_end должны быть в формате YYYY-MM-DD
         // Отправляем реальные бронирования из нашей системы
@@ -1019,6 +1022,10 @@ Deno.serve(async (req: Request) => {
           date_end: string;
           type?: string;
           comment?: string;
+          contact?: {
+            name?: string;
+            phone?: string;
+          };
         }> = [];
 
         // Преобразуем бронирования в формат Avito API
@@ -1027,12 +1034,41 @@ Deno.serve(async (req: Request) => {
           const dateStart = booking.check_in.split('T')[0];
           const dateEnd = booking.check_out.split('T')[0];
           
-          bookingsToSend.push({
+          // Формируем объект бронирования
+          const bookingToSend: {
+            date_start: string;
+            date_end: string;
+            type: string;
+            comment?: string;
+            contact?: {
+              name?: string;
+              phone?: string;
+            };
+          } = {
             date_start: dateStart,
             date_end: dateEnd,
             type: "booking", // Тип бронирования
-            comment: "Бронирование из Roomi Pro",
-          });
+          };
+
+          // Добавляем комментарий с информацией о госте, если есть имя
+          if (booking.guest_name && booking.guest_name !== "Гость с Avito") {
+            bookingToSend.comment = `Бронирование: ${booking.guest_name}`;
+            
+            // Пытаемся добавить контактную информацию, если API поддерживает
+            if (booking.guest_name || booking.guest_phone) {
+              bookingToSend.contact = {};
+              if (booking.guest_name && booking.guest_name !== "Гость с Avito") {
+                bookingToSend.contact.name = booking.guest_name;
+              }
+              if (booking.guest_phone) {
+                bookingToSend.contact.phone = booking.guest_phone;
+              }
+            }
+          } else {
+            bookingToSend.comment = "Бронирование из Roomi Pro";
+          }
+          
+          bookingsToSend.push(bookingToSend);
         }
 
         // Отправляем бронирования через putBookingsInfo
