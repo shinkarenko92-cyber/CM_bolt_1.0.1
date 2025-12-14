@@ -506,7 +506,7 @@ export function Dashboard() {
             .maybeSingle();
 
           if (!integration || !integration.avito_item_id) {
-            toast.warning('Настрой ID объявления в интеграции Avito');
+            toast.error('Настрой ID объявления в интеграции Avito');
             console.warn('Dashboard: Avito integration missing item_id', {
               propertyId,
               hasIntegration: !!integration,
@@ -518,7 +518,7 @@ export function Dashboard() {
           // Validate item_id format (10-11 digits)
           const itemIdStr = String(integration.avito_item_id).trim();
           if (itemIdStr.length < 10 || itemIdStr.length > 11 || !/^\d+$/.test(itemIdStr)) {
-            toast.warning('Неверный ID объявления Avito. Должен быть 10–11 цифр.');
+            toast.error('Неверный ID объявления Avito. Должен быть 10–11 цифр.');
             console.warn('Dashboard: Invalid Avito item_id format', {
               propertyId,
               itemId: integration.avito_item_id,
