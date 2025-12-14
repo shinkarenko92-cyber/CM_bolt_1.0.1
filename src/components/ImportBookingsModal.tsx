@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { X, Upload, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { X, Upload, FileSpreadsheet } from 'lucide-react';
 import { Upload as AntUpload, Table, Button, Progress, Alert, message } from 'antd';
 import type { UploadFile, UploadProps } from 'antd';
 import { parseExcelFile, type ParsedBooking } from '../utils/excelParser';

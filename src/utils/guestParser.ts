@@ -52,7 +52,7 @@ export function parseGuestContacts(contacts: string | null | undefined): ParsedG
   }
 
   // Regex для поиска телефона: +7 или 7 или 8, затем 10+ цифр
-  const phoneRegex = /(\+?7|8)[\d\s\-\(\)]{10,}/;
+  const phoneRegex = /(\+?7|8)[\d\s\-()]{10,}/;
   const phoneMatch = trimmed.match(phoneRegex);
 
   if (!phoneMatch) {

@@ -161,7 +161,7 @@ Deno.serve(async (req: Request) => {
     let requestBody;
     try {
       requestBody = await req.json();
-    } catch (jsonError) {
+    } catch {
       return new Response(
         JSON.stringify({ error: "Invalid JSON in request body" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
