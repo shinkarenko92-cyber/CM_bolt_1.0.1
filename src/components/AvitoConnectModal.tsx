@@ -113,7 +113,10 @@ export function AvitoConnectModal({
       // Get account_id from token response (obtained via GET /core/v1/user in Edge Function)
       const accountId = tokenResponse.account_id;
       if (!accountId) {
-        console.error('AvitoConnectModal: No account_id in token response');
+        console.error('AvitoConnectModal: No account_id in token response', {
+          tokenResponseKeys: Object.keys(tokenResponse),
+          hasAccountId: 'account_id' in tokenResponse,
+        });
         throw new Error('Не удалось получить ID аккаунта Avito. Попробуйте подключить заново.');
       }
 
@@ -123,6 +126,9 @@ export function AvitoConnectModal({
         accountId: accountId,
         accessToken: tokenResponse.access_token,
       });
+      
+      // Show success toast and move to next step
+      message.success('Аккаунт Avito подключён! Теперь введи ID объявления');
       setCurrentStep(1); // Go to Item ID step
 
       // OAuth данные уже удалены в начале функции, просто логируем успех

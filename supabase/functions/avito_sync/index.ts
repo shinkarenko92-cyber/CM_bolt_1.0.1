@@ -287,8 +287,14 @@ Deno.serve(async (req: Request) => {
 
         // Get user info to extract account_id (user.id)
         // This is required for Avito STR API to verify item_id ownership
+        // According to Avito docs: GET /core/v1/user → user.id = account_id
         let accountId: string | null = null;
         try {
+          console.log("Fetching user info from Avito to get account_id", {
+            tokenLength: tokenData.access_token.length,
+            endpoint: `${AVITO_API_BASE}/core/v1/user`,
+          });
+
           const userResponse = await fetch(`${AVITO_API_BASE}/core/v1/user`, {
             headers: {
               Authorization: `Bearer ${tokenData.access_token}`,
@@ -298,24 +304,64 @@ Deno.serve(async (req: Request) => {
 
           if (userResponse.ok) {
             const userData = await userResponse.json();
-            // Avito API returns user.id or id field
-            accountId = userData.user?.id || userData.id || userData.user_id || null;
-            console.log("Got user account_id from Avito", {
-              accountId,
+            console.log("Avito user API response", {
               userDataKeys: Object.keys(userData),
               hasUser: !!userData.user,
+              userDataStructure: JSON.stringify(userData).substring(0, 500), // First 500 chars for debugging
             });
+
+            // Avito API returns user.id or id field
+            // Try multiple possible paths: user.id, id, user_id
+            accountId = userData.user?.id || userData.id || userData.user_id || null;
+            
+            if (accountId) {
+              console.log("Successfully extracted account_id from Avito user API", {
+                accountId,
+                source: userData.user?.id ? 'user.id' : (userData.id ? 'id' : 'user_id'),
+              });
+            } else {
+              console.error("Failed to extract account_id from user data", {
+                userDataKeys: Object.keys(userData),
+                userData: JSON.stringify(userData).substring(0, 1000),
+              });
+            }
           } else {
-            console.warn("Failed to get user info, but continuing with token exchange", {
+            const errorText = await userResponse.text().catch(() => 'Unable to read error');
+            console.error("Failed to get user info from Avito API", {
               status: userResponse.status,
               statusText: userResponse.statusText,
+              errorText: errorText.substring(0, 500),
             });
+            // This is critical - we need account_id for Avito STR API
+            // Throw error to prevent saving integration without account_id
+            throw new Error(`Не удалось получить данные аккаунта Avito (${userResponse.status}): ${errorText.substring(0, 200)}`);
           }
         } catch (userError) {
-          console.warn("Error fetching user info, but continuing with token exchange", {
-            error: userError instanceof Error ? userError.message : String(userError),
+          const errorMessage = userError instanceof Error ? userError.message : String(userError);
+          console.error("Critical error fetching user info from Avito", {
+            error: errorMessage,
+            errorType: userError instanceof Error ? userError.constructor.name : typeof userError,
           });
-          // Don't fail token exchange if user fetch fails - user can provide account_id later
+          // Fail token exchange if we can't get account_id - it's required for Avito STR API
+          return new Response(
+            JSON.stringify({ 
+              error: errorMessage || "Не удалось получить ID аккаунта Avito. Попробуйте подключить заново.",
+              details: "account_id is required for Avito STR API to verify item_id ownership"
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Validate that we got account_id
+        if (!accountId) {
+          console.error("account_id is null or empty after fetching user info");
+          return new Response(
+            JSON.stringify({ 
+              error: "Не удалось получить ID аккаунта Avito из ответа API. Попробуйте подключить заново.",
+              details: "Avito API did not return user.id or id field"
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
 
         return new Response(
