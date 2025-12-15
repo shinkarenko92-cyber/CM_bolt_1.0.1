@@ -285,12 +285,47 @@ Deno.serve(async (req: Request) => {
 
         const tokenData = await response.json();
 
+        // Get user info to extract account_id (user.id)
+        // This is required for Avito STR API to verify item_id ownership
+        let accountId: string | null = null;
+        try {
+          const userResponse = await fetch(`${AVITO_API_BASE}/core/v1/user`, {
+            headers: {
+              Authorization: `Bearer ${tokenData.access_token}`,
+              "Content-Type": "application/json",
+            },
+          });
+
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            // Avito API returns user.id or id field
+            accountId = userData.user?.id || userData.id || userData.user_id || null;
+            console.log("Got user account_id from Avito", {
+              accountId,
+              userDataKeys: Object.keys(userData),
+              hasUser: !!userData.user,
+            });
+          } else {
+            console.warn("Failed to get user info, but continuing with token exchange", {
+              status: userResponse.status,
+              statusText: userResponse.statusText,
+            });
+          }
+        } catch (userError) {
+          console.warn("Error fetching user info, but continuing with token exchange", {
+            error: userError instanceof Error ? userError.message : String(userError),
+          });
+          // Don't fail token exchange if user fetch fails - user can provide account_id later
+        }
+
         return new Response(
           JSON.stringify({
             access_token: tokenData.access_token,
             token_type: tokenData.token_type,
             expires_in: tokenData.expires_in,
-            // Note: Avito does NOT provide refresh_token
+            refresh_token: tokenData.refresh_token || null,
+            account_id: accountId, // Return account_id for frontend to save
+            // Note: Avito may provide refresh_token in some cases
           }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1042,7 +1077,26 @@ Deno.serve(async (req: Request) => {
 
         // Get account_id ONLY for endpoints that require it (e.g., /accounts/{account_id}/items/{item_id}/bookings)
         // For /items/{item_id}/ endpoints, NEVER use account_id
+        // GUARD: account_id is required for pull bookings to verify item_id ownership
         const accountId = integration.avito_account_id;
+        
+        if (!accountId) {
+          console.error("CRITICAL: avito_account_id is missing", {
+            integration_id: integration.id,
+            property_id: integration.property_id,
+            error: "account_id is required for Avito STR API to verify item_id ownership",
+          });
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              error: "ID аккаунта Avito не настроен. Подключи аккаунт Avito заново через настройки интеграции." 
+            }),
+            { 
+              status: 400, 
+              headers: { ...corsHeaders, "Content-Type": "application/json" } 
+            }
+          );
+        }
 
         // Sync property_rates (calendar prices) and availability to Avito
         // Используем правильные эндпоинты согласно документации:

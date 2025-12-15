@@ -7,7 +7,9 @@ export interface AvitoTokenResponse {
   access_token: string;
   token_type: string;
   expires_in: number;
-  // Note: Avito does NOT provide refresh_token in Authorization Code flow (as of Dec 2025)
+  refresh_token?: string | null;
+  account_id?: string | null; // User ID from GET /core/v1/user (obtained during token exchange)
+  // Note: Avito may provide refresh_token in some cases
 }
 
 export interface AvitoAccount {

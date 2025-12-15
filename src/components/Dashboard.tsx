@@ -496,16 +496,32 @@ export function Dashboard() {
       // For Avito bookings: cancel booking + open dates
       if (propertyId) {
         try {
-          // Check if Avito integration has valid item_id before syncing
+          // Check if Avito integration has valid item_id and account_id before syncing
           const { data: integration } = await supabase
             .from('integrations')
-            .select('avito_item_id, is_active')
+            .select('avito_item_id, avito_account_id, is_active')
             .eq('property_id', propertyId)
             .eq('platform', 'avito')
             .eq('is_active', true)
             .maybeSingle();
 
-          if (!integration || !integration.avito_item_id) {
+          if (!integration) {
+            toast.error('Интеграция Avito не найдена');
+            console.warn('Dashboard: Avito integration not found', { propertyId });
+            return; // Skip sync if no integration
+          }
+
+          if (!integration.avito_account_id) {
+            toast.error('Подключи аккаунт Avito заново');
+            console.warn('Dashboard: Avito integration missing account_id', {
+              propertyId,
+              hasIntegration: !!integration,
+              hasAccountId: !!integration?.avito_account_id,
+            });
+            return; // Skip sync if no account_id
+          }
+
+          if (!integration.avito_item_id) {
             toast.error('Настрой ID объявления в интеграции Avito');
             console.warn('Dashboard: Avito integration missing item_id', {
               propertyId,

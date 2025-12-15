@@ -107,35 +107,42 @@ export function AvitoConnectModal({
       
       console.log('AvitoConnectModal: Token received successfully', {
         tokenLength: tokenResponse.access_token.length,
-        expiresIn: tokenResponse.expires_in
+        expiresIn: tokenResponse.expires_in,
+        accountId: (tokenResponse as any).account_id,
       });
       setAccessToken(tokenResponse.access_token);
-      setExpiresIn(tokenResponse.expires_in); // Сохранить expires_in для правильного расчета времени истечения
+      setExpiresIn(tokenResponse.expires_in);
 
-      // Get user accounts
-      console.log('AvitoConnectModal: Fetching user accounts from Edge Function');
-      const userAccounts = await getUserAccounts(tokenResponse.access_token);
-      console.log('AvitoConnectModal: User accounts received', {
-        count: userAccounts.length,
-        accounts: userAccounts.map(a => ({ id: a.id, name: a.name }))
-      });
-      setAccounts(userAccounts);
-
-      // Auto-select if only one account
-      if (userAccounts.length === 1) {
-        console.log('AvitoConnectModal: Auto-selecting single account', userAccounts[0].id);
-        setSelectedAccountId(userAccounts[0].id);
-        saveConnectionProgress(property.id, 2, {
-          accountId: userAccounts[0].id,
-          accessToken: tokenResponse.access_token,
-        });
-        setCurrentStep(2); // Skip to Item ID step
+      // Get account_id from token response (obtained via GET /core/v1/user in Edge Function)
+      const accountId = (tokenResponse as any).account_id;
+      if (!accountId) {
+        console.warn('AvitoConnectModal: No account_id in token response, will need to get it manually');
+        // Fallback: try to get accounts via get-accounts action
+        try {
+          const userAccounts = await getUserAccounts(tokenResponse.access_token);
+          if (userAccounts.length > 0) {
+            const fallbackAccountId = userAccounts[0].id;
+            console.log('AvitoConnectModal: Using account_id from get-accounts fallback', fallbackAccountId);
+            setSelectedAccountId(fallbackAccountId);
+            saveConnectionProgress(property.id, 1, {
+              accountId: fallbackAccountId,
+              accessToken: tokenResponse.access_token,
+            });
+            setCurrentStep(1); // Go to Item ID step
+          } else {
+            throw new Error('Не удалось получить ID аккаунта Avito. Попробуйте подключить заново.');
+          }
+        } catch (fallbackError) {
+          throw new Error('Не удалось получить ID аккаунта Avito. Попробуйте подключить заново.');
+        }
       } else {
-        console.log('AvitoConnectModal: Multiple accounts, going to selection step');
+        console.log('AvitoConnectModal: Using account_id from token response', accountId);
+        setSelectedAccountId(accountId);
         saveConnectionProgress(property.id, 1, {
+          accountId: accountId,
           accessToken: tokenResponse.access_token,
         });
-        setCurrentStep(1); // Go to account selection
+        setCurrentStep(1); // Go to Item ID step (skip account selection)
       }
 
       // OAuth данные уже удалены в начале функции, просто логируем успех
@@ -354,13 +361,13 @@ export function AvitoConnectModal({
         return;
       }
 
-      // Item ID is valid, proceed to markup step
-      saveConnectionProgress(property.id, 2, {
+      // Item ID is valid, ready to save
+      saveConnectionProgress(property.id, 1, {
         accountId: selectedAccountId,
         itemId,
         accessToken,
       });
-      setCurrentStep(3);
+      // Stay on step 1, user can click "Завершить подключение" to save
     } catch (error) {
       // Improved error handling
       let errorMessage: string;
@@ -506,32 +513,6 @@ export function AvitoConnectModal({
 
   // Render custom footer with navigation buttons
   const renderFooter = () => {
-    // On last step, show "Завершить подключение" button instead of "Назад"
-    if (currentStep === 3) {
-      return (
-        <div className="flex justify-between items-center">
-          <div>
-            <Button onClick={handleBack} disabled={loading || oauthRedirecting}>
-              Назад
-            </Button>
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={handleCancel} disabled={loading && !oauthRedirecting}>
-              Отмена
-            </Button>
-            <Button
-              type="primary"
-              onClick={handleSubmit}
-              loading={loading}
-              icon={<CheckCircleOutlined />}
-            >
-              Завершить подключение
-            </Button>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="flex justify-between items-center">
         <div>
@@ -576,10 +557,8 @@ export function AvitoConnectModal({
         current={currentStep} 
         className="mb-6"
         items={[
-          { title: 'Авторизация' },
-          { title: 'Выбор аккаунта' },
-          { title: 'ID объявления' },
-          { title: 'Наценка' },
+          { title: 'Подключить аккаунт Avito' },
+          { title: 'Введи ID объявления' },
         ]}
       />
 
@@ -608,50 +587,8 @@ export function AvitoConnectModal({
           </div>
         )}
 
-        {/* Step 1: Account Selection */}
+        {/* Step 1: Item ID Input */}
         {currentStep === 1 && (
-          <div>
-            <p className="text-white mb-4 font-medium">Выберите аккаунт Avito:</p>
-            {loading && accounts.length === 0 ? (
-              <div className="flex items-center justify-center py-8">
-                <Spin indicator={<LoadingOutlined style={{ fontSize: 24, color: '#14b8a6' }} spin />} />
-                <span className="ml-3 text-white">Загрузка аккаунтов...</span>
-              </div>
-            ) : accounts.length === 0 ? (
-              <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
-                <p className="text-white mb-2 font-medium">Аккаунты не найдены</p>
-                <p className="text-sm text-slate-300">
-                  Убедитесь, что у вас есть доступ к аккаунтам Avito через API.
-                </p>
-              </div>
-            ) : (
-              <Select
-                style={{ width: '100%' }}
-                placeholder="Выберите аккаунт"
-                value={selectedAccountId || undefined}
-                onChange={handleAccountSelect}
-                loading={loading}
-                className="avito-account-select"
-                popupClassName="avito-account-select-dropdown"
-                size="large"
-              >
-                {accounts.map((account) => (
-                  <Select.Option key={account.id} value={account.id} className="text-white">
-                    <span className="text-white font-medium">{account.name}</span>
-                    {account.is_primary && (
-                      <span className="ml-2 text-xs text-teal-400 bg-teal-400/20 px-2 py-0.5 rounded">
-                        Основной
-                      </span>
-                    )}
-                  </Select.Option>
-                ))}
-              </Select>
-            )}
-          </div>
-        )}
-
-        {/* Step 2: Item ID Input */}
-        {currentStep === 2 && (
           <div>
             <p className="text-white mb-2 font-medium">Введите ID объявления на Avito:</p>
             <p className="text-sm text-slate-300 mb-4">
@@ -678,35 +615,32 @@ export function AvitoConnectModal({
             {itemId && !/^[0-9]{10,11}$/.test(itemId) && (
               <p className="text-xs text-red-400 mt-1">ID объявления должен содержать 10-11 цифр</p>
             )}
+            <div className="mt-4">
+              <p className="text-white mb-2 font-medium">Наценка для компенсации комиссии:</p>
+              <p className="text-sm text-slate-300 mb-4">
+                Цена на Avito = базовая цена + наценка (%)
+              </p>
+              <InputNumber
+                style={{ width: '100%' }}
+                min={0}
+                max={100}
+                value={markup}
+                onChange={(value) => setMarkup(value !== null && value !== undefined ? value : 15)}
+                formatter={(value) => `${value}%`}
+                parser={(value) => parseFloat(value?.replace('%', '') || '0')}
+              />
+            </div>
             <div className="flex gap-2 mt-4">
               <Button
                 type="primary"
-                onClick={handleItemIdValidate}
-                loading={validatingItemId}
-                disabled={!itemId || !/^[0-9]{10,11}$/.test(itemId)}
+                onClick={handleSubmit}
+                loading={loading || validatingItemId}
+                disabled={!itemId || !/^[0-9]{10,11}$/.test(itemId) || !selectedAccountId}
+                icon={<CheckCircleOutlined />}
               >
-                Проверить ID
+                Завершить подключение
               </Button>
             </div>
-          </div>
-        )}
-
-        {/* Step 3: Markup Configuration */}
-        {currentStep === 3 && (
-          <div>
-            <p className="text-white mb-2 font-medium">Наценка для компенсации комиссии:</p>
-            <p className="text-sm text-slate-300 mb-4">
-              Цена на Avito = базовая цена + наценка (%)
-            </p>
-            <InputNumber
-              style={{ width: '100%' }}
-              min={0}
-              max={100}
-              value={markup}
-              onChange={(value) => setMarkup(value !== null && value !== undefined ? value : 15)}
-              formatter={(value) => `${value}%`}
-              parser={(value) => parseFloat(value?.replace('%', '') || '0')}
-            />
           </div>
         )}
       </div>
