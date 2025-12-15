@@ -1394,14 +1394,15 @@ Deno.serve(async (req: Request) => {
             );
 
             // Handle 401 and retry with refreshed token
-            baseParamsResponse = await handle401AndRetry(
-              baseParamsResponse,
-              async (token: string) => await fetchWithRetry(
+            if (baseParamsResponse.status === 401) {
+              console.log("401 Unauthorized, refreshing token and retrying base params update");
+              const refreshedToken = await getAccessToken();
+              baseParamsResponse = await fetchWithRetry(
                 `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}`,
                 {
                   method: "PATCH",
                   headers: {
-                    Authorization: `Bearer ${token}`,
+                    Authorization: `Bearer ${refreshedToken}`,
                     "Content-Type": "application/json",
                   },
                   body: JSON.stringify({
@@ -1409,8 +1410,8 @@ Deno.serve(async (req: Request) => {
                     minimal_duration: property?.minimum_booking_days || 1,
                   }),
                 }
-              )
-            );
+              );
+            }
 
             if (!baseParamsResponse.ok) {
               // Handle 404 - item not found
