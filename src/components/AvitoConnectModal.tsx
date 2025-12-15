@@ -18,7 +18,6 @@ import {
   getOAuthSuccess,
   clearOAuthError,
   clearOAuthSuccess,
-  exchangeCodeForToken,
   validateItemId,
   performInitialSync,
 } from '../services/avito';
@@ -42,9 +41,6 @@ export function AvitoConnectModal({
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [itemId, setItemId] = useState<string>('');
   const [markup, setMarkup] = useState<number>(15);
-  const [accessToken, setAccessToken] = useState<string>('');
-  const [refreshToken, setRefreshToken] = useState<string>('');
-  const [expiresIn, setExpiresIn] = useState<number | null>(null);
   const [validatingItemId, setValidatingItemId] = useState(false);
   const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
 
@@ -87,112 +83,84 @@ export function AvitoConnectModal({
       // Используем тот же redirect_uri, что и в OAuth URL
       // Должен совпадать с настройками в Avito: https://app.roomi.pro/auth/avito-callback
       const redirectUri = import.meta.env.VITE_AVITO_REDIRECT_URI || 'https://app.roomi.pro/auth/avito-callback';
-      console.log('AvitoConnectModal: Exchanging code for token', { redirectUri });
+      console.log('AvitoConnectModal: Calling avito-oauth-callback Edge Function', { redirectUri });
       
-      // Exchange code for token
-      const tokenResponse = await exchangeCodeForToken(code, redirectUri);
-      console.log('AvitoConnectModal: Token exchange response', {
-        hasResponse: !!tokenResponse,
-        hasAccessToken: !!tokenResponse?.access_token,
-        tokenLength: tokenResponse?.access_token?.length
+      // Call Edge Function to handle OAuth callback (token exchange + account_id fetch + save)
+      const { data: callbackResponse, error: callbackError } = await supabase.functions.invoke('avito-oauth-callback', {
+        body: {
+          code,
+          state,
+          redirect_uri: redirectUri,
+        },
       });
-      
-      // Валидация токена
-      if (!tokenResponse || !tokenResponse.access_token) {
-        console.error('AvitoConnectModal: Token response is invalid:', tokenResponse);
-        throw new Error('Не удалось получить access token от Avito');
-      }
-      
-      console.log('AvitoConnectModal: Token received successfully', {
-        tokenLength: tokenResponse.access_token.length,
-        expiresIn: tokenResponse.expires_in,
-        accountId: tokenResponse.account_id,
-        hasRefreshToken: !!tokenResponse.refresh_token,
-      });
-      setAccessToken(tokenResponse.access_token);
-      setExpiresIn(tokenResponse.expires_in);
-      // Save refresh_token if provided by Avito
-      if (tokenResponse.refresh_token) {
-        setRefreshToken(tokenResponse.refresh_token);
-      }
 
-      // Get account_id from token response (obtained via GET /core/v1/user in Edge Function)
-      let accountId = tokenResponse.account_id;
-      
-      // Fallback: if Edge Function didn't return account_id, fetch it directly from Avito API
-      if (!accountId) {
-        console.warn('AvitoConnectModal: No account_id in token response, fetching directly from Avito API', {
-          tokenResponseKeys: Object.keys(tokenResponse),
-          hasAccountId: 'account_id' in tokenResponse,
+      if (callbackError) {
+        console.error('AvitoConnectModal: Edge Function error', {
+          error: callbackError,
+          message: callbackError.message,
+          status: callbackError.status,
+          data: callbackError.data,
         });
-        
-        try {
-          console.log('AvitoConnectModal: Fetching user info from Avito API to get account_id', {
-            endpoint: 'https://api.avito.ru/core/v1/user',
-            tokenLength: tokenResponse.access_token.length,
-          });
+        throw new Error(callbackError.message || 'Ошибка при обработке OAuth callback');
+      }
 
-          const userResponse = await fetch('https://api.avito.ru/core/v1/user', {
-            headers: {
-              Authorization: `Bearer ${tokenResponse.access_token}`,
-              'Content-Type': 'application/json',
-            },
-          });
+      if (!callbackResponse || !callbackResponse.success) {
+        console.error('AvitoConnectModal: Invalid callback response', callbackResponse);
+        throw new Error(callbackResponse?.error || 'Не удалось обработать OAuth callback');
+      }
 
-          if (!userResponse.ok) {
-            const errorText = await userResponse.text().catch(() => 'Unable to read error');
-            console.error('AvitoConnectModal: Failed to get user info from Avito API', {
-              status: userResponse.status,
-              statusText: userResponse.statusText,
-              errorText: errorText.substring(0, 500),
-            });
-            throw new Error(`Не удалось получить данные аккаунта Avito (${userResponse.status}): ${errorText.substring(0, 200)}`);
-          }
+      const accountId = callbackResponse.accountId;
+      if (!accountId) {
+        console.error('AvitoConnectModal: No account_id in callback response', callbackResponse);
+        throw new Error('Не удалось получить ID аккаунта Avito. Попробуйте подключить заново.');
+      }
 
-          const userData = await userResponse.json();
-          console.log('AvitoConnectModal: Avito user API response', {
-            userDataKeys: Object.keys(userData),
-            hasUser: !!userData.user,
-            userDataStructure: JSON.stringify(userData).substring(0, 500),
-          });
+      console.log('AvitoConnectModal: OAuth callback processed successfully', {
+        accountId,
+        integrationId: callbackResponse.integrationId,
+      });
 
-          // Avito API returns user.id or id field
-          // Try multiple possible paths: user.id, id, user_id
-          accountId = userData.user?.id || userData.id || userData.user_id || null;
+      // Load integration to get tokens for next step (item_id input)
+      const { data: integration, error: integrationError } = await supabase
+        .from('integrations')
+        .select('id, avito_account_id, access_token_encrypted, refresh_token_encrypted, token_expires_at')
+        .eq('property_id', property.id)
+        .eq('platform', 'avito')
+        .eq('is_active', true)
+        .single();
 
-          if (accountId) {
-            console.log('AvitoConnectModal: Successfully extracted account_id from Avito user API', {
-              accountId,
-              source: userData.user?.id ? 'user.id' : (userData.id ? 'id' : 'user_id'),
-            });
-          } else {
-            console.error('AvitoConnectModal: Failed to extract account_id from user data', {
-              userDataKeys: Object.keys(userData),
-              userData: JSON.stringify(userData).substring(0, 1000),
-            });
-            throw new Error('Не удалось получить ID аккаунта Avito из ответа API. Попробуйте подключить заново.');
-          }
-        } catch (userError) {
-          const errorMessage = userError instanceof Error ? userError.message : String(userError);
-          console.error('AvitoConnectModal: Critical error fetching user info from Avito', {
-            error: errorMessage,
-            errorType: userError instanceof Error ? userError.constructor.name : typeof userError,
-          });
-          throw new Error(errorMessage || 'Не удалось получить ID аккаунта Avito. Попробуйте подключить заново.');
-        }
+      if (integrationError || !integration) {
+        console.warn('AvitoConnectModal: Could not load integration after OAuth callback', {
+          error: integrationError,
+          hasIntegration: !!integration,
+        });
+        // Continue anyway - account_id is saved, user can proceed to item_id step
       } else {
-        console.log('AvitoConnectModal: Using account_id from token response', accountId);
+        // Note: tokens are encrypted, we can't use them directly on frontend
+        // They will be used by Edge Functions for API calls
+        console.log('AvitoConnectModal: Integration loaded', {
+          integrationId: integration.id,
+          hasAccessToken: !!integration.access_token_encrypted,
+          hasRefreshToken: !!integration.refresh_token_encrypted,
+        });
       }
 
       setSelectedAccountId(accountId);
       saveConnectionProgress(property.id, 1, {
         accountId: accountId,
-        accessToken: tokenResponse.access_token,
-        refreshToken: tokenResponse.refresh_token || '',
+        // Tokens are saved in DB by Edge Function, we don't need to store them in progress
       });
       
-      // Show success toast and move to next step
-      message.success('Аккаунт Avito подключён! Теперь введи ID объявления');
+      // Clean URL - remove OAuth callback parameters
+      if (typeof window !== 'undefined' && window.history) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('code');
+        url.searchParams.delete('state');
+        window.history.replaceState({}, '', url.toString());
+      }
+      
+      // Show success toast with accountId and move to next step
+      message.success(`Аккаунт Avito подключён (ID: ${accountId})! Теперь введи ID объявления`);
       setCurrentStep(1); // Go to Item ID step
 
       // OAuth данные уже удалены в начале функции, просто логируем успех
@@ -274,8 +242,7 @@ export function AvitoConnectModal({
         if (progress.data.accountId) setSelectedAccountId(progress.data.accountId);
         if (progress.data.itemId) setItemId(progress.data.itemId);
         if (progress.data.markup) setMarkup(progress.data.markup);
-        if (progress.data.accessToken) setAccessToken(progress.data.accessToken);
-        if (progress.data.refreshToken) setRefreshToken(progress.data.refreshToken);
+        // Tokens are now stored in DB, not in progress
       } else {
         // Check for OAuth callback results
         console.log('AvitoConnectModal: No saved progress, checking for OAuth callback');
@@ -379,7 +346,7 @@ export function AvitoConnectModal({
   };
 
   const handleItemIdValidate = async () => {
-    if (!itemId || !selectedAccountId || !accessToken) {
+    if (!itemId || !selectedAccountId) {
       message.error('Заполните все поля');
       return;
     }
@@ -393,7 +360,22 @@ export function AvitoConnectModal({
 
     setValidatingItemId(true);
     try {
-      const validation = await validateItemId(selectedAccountId, trimmedItemId, accessToken, property.id);
+      // Load integration to get access_token for validation
+      const { data: integration, error: integrationError } = await supabase
+        .from('integrations')
+        .select('id, avito_account_id, access_token_encrypted')
+        .eq('property_id', property.id)
+        .eq('platform', 'avito')
+        .eq('is_active', true)
+        .single();
+
+      if (integrationError || !integration || !integration.access_token_encrypted) {
+        throw new Error('Интеграция не найдена. Пожалуйста, подключите Avito заново.');
+      }
+
+      // Note: access_token_encrypted is encrypted, but validateItemId Edge Function will decrypt it
+      // For now, we pass the encrypted token - Edge Function should handle decryption
+      const validation = await validateItemId(selectedAccountId, trimmedItemId, integration.access_token_encrypted, property.id);
       
       if (!validation.available) {
         Modal.error({
@@ -408,8 +390,6 @@ export function AvitoConnectModal({
       saveConnectionProgress(property.id, 1, {
         accountId: selectedAccountId,
         itemId: trimmedItemId,
-        accessToken,
-        refreshToken: refreshToken || undefined,
       });
       message.success('ID объявления проверен. Нажмите "Завершить подключение" для сохранения.');
     } catch (error) {
@@ -440,7 +420,7 @@ export function AvitoConnectModal({
   };
 
   const handleSubmit = async () => {
-    if (!selectedAccountId || !itemId || !accessToken) {
+    if (!selectedAccountId || !itemId) {
       message.error('Заполните все поля');
       return;
     }
@@ -454,21 +434,24 @@ export function AvitoConnectModal({
 
     setLoading(true);
     try {
-      // Encrypt tokens via Edge Function (Vault encryption)
-      const { data: integration, error } = await supabase.functions.invoke('avito_sync', {
-        body: {
-          action: 'save-integration',
-          property_id: property.id,
-          avito_account_id: selectedAccountId,
-          avito_item_id: parseInt(trimmedItemId, 10),
+      // Update integration with item_id (account_id and tokens are already saved by OAuth callback)
+      const { data: integration, error } = await supabase
+        .from('integrations')
+        .update({
+          avito_item_id: trimmedItemId,
           avito_markup: markup,
-          access_token: accessToken,
-          refresh_token: refreshToken || null, // Pass refresh_token if available
-          expires_in: expiresIn,
-        },
-      });
+          external_id: trimmedItemId,
+        })
+        .eq('property_id', property.id)
+        .eq('platform', 'avito')
+        .eq('is_active', true)
+        .select('id, property_id, platform, avito_account_id, avito_item_id, avito_markup, is_active')
+        .single();
 
       if (error) throw error;
+      if (!integration) {
+        throw new Error('Интеграция не найдена. Пожалуйста, подключите Avito заново.');
+      }
 
       // Perform initial sync
       await performInitialSync(integration.id);
@@ -520,8 +503,7 @@ export function AvitoConnectModal({
         if (progress.data.accountId) setSelectedAccountId(progress.data.accountId);
         if (progress.data.itemId) setItemId(progress.data.itemId);
         if (progress.data.markup) setMarkup(progress.data.markup);
-        if (progress.data.accessToken) setAccessToken(progress.data.accessToken);
-        if (progress.data.refreshToken) setRefreshToken(progress.data.refreshToken);
+        // Tokens are now stored in DB, not in progress
         message.info('Продолжаем подключение Avito');
       }
   };
