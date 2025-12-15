@@ -732,6 +732,7 @@ Deno.serve(async (req: Request) => {
           avito_item_id,
           avito_markup,
           access_token,
+          refresh_token,
           expires_in,
         } = params;
 
@@ -793,23 +794,44 @@ Deno.serve(async (req: Request) => {
         // Store token - Vault encryption will be handled by database trigger or RPC function
         // Note: For production, create a database trigger that encrypts access_token_encrypted
         // using vault.encrypt() before insert/update
+        const upsertData: {
+          property_id: string;
+          platform: string;
+          external_id: string;
+          avito_account_id: string;
+          avito_item_id: string;
+          avito_markup: number;
+          access_token_encrypted: string;
+          refresh_token_encrypted?: string;
+          token_expires_at: string;
+          is_active: boolean;
+          is_enabled: boolean;
+          markup_type: string;
+          markup_value: number;
+        } = {
+          property_id,
+          platform: "avito",
+          external_id: itemIdString,
+          avito_account_id,
+          avito_item_id: itemIdString, // Store as TEXT for API calls
+          avito_markup: avito_markup !== null && avito_markup !== undefined ? parseFloat(avito_markup) : 15.0,
+          // Token will be encrypted by Vault trigger (create trigger in migration)
+          access_token_encrypted: access_token,
+          token_expires_at: tokenExpiresAt.toISOString(),
+          is_active: true,
+          is_enabled: true,
+          markup_type: "percent",
+          markup_value: avito_markup !== null && avito_markup !== undefined ? parseFloat(avito_markup) : 15.0,
+        };
+
+        // Add refresh_token if provided
+        if (refresh_token) {
+          upsertData.refresh_token_encrypted = refresh_token;
+        }
+
         const { data: integration, error } = await supabase
           .from("integrations")
-          .upsert({
-            property_id,
-            platform: "avito",
-            external_id: itemIdString,
-            avito_account_id,
-            avito_item_id: itemIdString, // Store as TEXT for API calls
-            avito_markup: avito_markup !== null && avito_markup !== undefined ? parseFloat(avito_markup) : 15.0,
-            // Token will be encrypted by Vault trigger (create trigger in migration)
-            access_token_encrypted: access_token,
-            token_expires_at: tokenExpiresAt.toISOString(),
-            is_active: true,
-            is_enabled: true,
-            markup_type: "percent",
-            markup_value: avito_markup !== null && avito_markup !== undefined ? parseFloat(avito_markup) : 15.0,
-          }, {
+          .upsert(upsertData, {
             onConflict: 'property_id,platform' // Указываем поля для разрешения конфликта
           })
           .select('id, property_id, platform, avito_account_id, avito_item_id, avito_markup, is_active, token_expires_at, last_sync_at')

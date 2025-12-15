@@ -43,6 +43,7 @@ export function AvitoConnectModal({
   const [itemId, setItemId] = useState<string>('');
   const [markup, setMarkup] = useState<number>(15);
   const [accessToken, setAccessToken] = useState<string>('');
+  const [refreshToken, setRefreshToken] = useState<string>('');
   const [expiresIn, setExpiresIn] = useState<number | null>(null);
   const [validatingItemId, setValidatingItemId] = useState(false);
   const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
@@ -106,9 +107,14 @@ export function AvitoConnectModal({
         tokenLength: tokenResponse.access_token.length,
         expiresIn: tokenResponse.expires_in,
         accountId: tokenResponse.account_id,
+        hasRefreshToken: !!tokenResponse.refresh_token,
       });
       setAccessToken(tokenResponse.access_token);
       setExpiresIn(tokenResponse.expires_in);
+      // Save refresh_token if provided by Avito
+      if (tokenResponse.refresh_token) {
+        setRefreshToken(tokenResponse.refresh_token);
+      }
 
       // Get account_id from token response (obtained via GET /core/v1/user in Edge Function)
       const accountId = tokenResponse.account_id;
@@ -125,6 +131,7 @@ export function AvitoConnectModal({
       saveConnectionProgress(property.id, 1, {
         accountId: accountId,
         accessToken: tokenResponse.access_token,
+        refreshToken: tokenResponse.refresh_token || '',
       });
       
       // Show success toast and move to next step
@@ -211,6 +218,7 @@ export function AvitoConnectModal({
         if (progress.data.itemId) setItemId(progress.data.itemId);
         if (progress.data.markup) setMarkup(progress.data.markup);
         if (progress.data.accessToken) setAccessToken(progress.data.accessToken);
+        if (progress.data.refreshToken) setRefreshToken(progress.data.refreshToken);
       } else {
         // Check for OAuth callback results
         console.log('AvitoConnectModal: No saved progress, checking for OAuth callback');
@@ -397,6 +405,7 @@ export function AvitoConnectModal({
           avito_item_id: parseInt(trimmedItemId, 10),
           avito_markup: markup,
           access_token: accessToken,
+          refresh_token: refreshToken || null, // Pass refresh_token if available
           expires_in: expiresIn,
         },
       });
@@ -448,14 +457,15 @@ export function AvitoConnectModal({
 
   const handleResume = () => {
     const progress = loadConnectionProgress(property.id);
-    if (progress) {
-      setCurrentStep(progress.step);
-      if (progress.data.accountId) setSelectedAccountId(progress.data.accountId);
-      if (progress.data.itemId) setItemId(progress.data.itemId);
-      if (progress.data.markup) setMarkup(progress.data.markup);
-      if (progress.data.accessToken) setAccessToken(progress.data.accessToken);
-      message.info('Продолжаем подключение Avito');
-    }
+      if (progress) {
+        setCurrentStep(progress.step);
+        if (progress.data.accountId) setSelectedAccountId(progress.data.accountId);
+        if (progress.data.itemId) setItemId(progress.data.itemId);
+        if (progress.data.markup) setMarkup(progress.data.markup);
+        if (progress.data.accessToken) setAccessToken(progress.data.accessToken);
+        if (progress.data.refreshToken) setRefreshToken(progress.data.refreshToken);
+        message.info('Продолжаем подключение Avito');
+      }
   };
 
   const handleCancel = () => {
