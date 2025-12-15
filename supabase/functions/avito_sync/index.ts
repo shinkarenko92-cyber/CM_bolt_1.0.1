@@ -1238,6 +1238,7 @@ Deno.serve(async (req: Request) => {
 
           // Use correct endpoint: /realty/v1/items/{item_id}/prices (no account_id needed)
           try {
+            console.log("POST /realty/v1/items/{item_id}/prices - starting", { item_id: itemId });
             const pricesResponse = await fetchWithRetry(
               `${AVITO_API_BASE}/realty/v1/items/${itemId}/prices?skip_error=true`,
               {
