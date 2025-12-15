@@ -561,50 +561,62 @@ export function Dashboard() {
 
           // If manual booking, exclude it from sync to open dates in Avito
           // If Avito booking, full sync will handle cancellation
-          const syncResult = await syncAvitoIntegration(propertyId, isAvitoBooking ? undefined : id);
+          setIsSyncingAvito(true);
+          const syncToastId = toast.loading('Синхронизация с Avito...');
           
-          if (syncResult.success) {
-            if (syncResult.errors && syncResult.errors.length > 0) {
-              const errorMessages = syncResult.errors.map(e => e.message || 'Ошибка').join(', ');
-              toast.error(`Частичная синхронизация: ${errorMessages}`);
-              showAvitoErrors(syncResult.errors, t).catch((err) => {
-                console.error('Error showing Avito error modals:', err);
+          try {
+            const syncResult = await syncAvitoIntegration(propertyId, isAvitoBooking ? undefined : id);
+            
+            // PRIORITY: Check hasError === false first (from Edge Function response)
+            // If syncResult.success === true, it means hasError was false or not present
+            if (syncResult.success) {
+              toast.dismiss(syncToastId);
+              // Show success message
+              toast.success('Бронь удалена и синхронизирована с Avito 🚀');
+              console.log('Dashboard: Avito sync completed successfully after booking deletion', {
+                bookingId: id,
+                source: bookingSource,
+                isAvitoBooking,
+                syncResult,
               });
             } else {
-              if (!isAvitoBooking) {
-                toast.success('Бронь удалена. Даты открыты в Avito 🚀');
+              // Sync failed - show error
+              toast.dismiss(syncToastId);
+              if (syncResult.errors && syncResult.errors.length > 0) {
+                // Check for 404 errors
+                const has404 = syncResult.errors.some(e => e.statusCode === 404);
+                if (has404) {
+                  toast.error('Объявление не найдено в Avito. Проверь ID объявления — должен быть длинный номер вроде 2336174775');
+                } else {
+                  // Check for 409 paid conflict
+                  const hasPaidConflict = syncResult.errors.some(e => e.statusCode === 409);
+                  if (hasPaidConflict) {
+                    toast.error('Конфликт с оплаченной бронью в Avito — проверь вручную');
+                  } else {
+                    const errorMessages = syncResult.errors.map(e => e.message || 'Ошибка').join(', ');
+                    toast.error(`Ошибка синхронизации: ${errorMessages}`);
+                  }
+                }
+                
+                showAvitoErrors(syncResult.errors, t).catch((err) => {
+                  console.error('Error showing Avito error modals:', err);
+                });
               } else {
-                toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
+                toast.error(syncResult.message || 'Ошибка синхронизации с Avito');
               }
-            }
-            console.log('Dashboard: Avito sync completed after booking deletion', {
-              bookingId: id,
-              source: bookingSource,
-              isAvitoBooking,
-              syncResult,
-            });
-          } else {
-            // Sync failed
-            if (syncResult.errors && syncResult.errors.length > 0) {
-              // Check for 404 errors
-              const has404 = syncResult.errors.some(e => e.statusCode === 404);
-              if (has404) {
-                toast.error('Объявление не найдено в Avito. Проверь ID объявления — должен быть длинный номер вроде 2336174775');
-              }
-              
-              // Check for 409 paid conflict
-              const hasPaidConflict = syncResult.errors.some(e => e.statusCode === 409);
-              if (hasPaidConflict) {
-                toast.error('Конфликт с оплаченной бронью в Avito — проверь вручную');
-              }
-              
-              showAvitoErrors(syncResult.errors, t).catch((err) => {
-                console.error('Error showing Avito error modals:', err);
+              console.error('Dashboard: Avito sync failed after booking deletion', {
+                bookingId: id,
+                source: bookingSource,
+                isAvitoBooking,
+                syncResult,
               });
-            } else {
-              toast.error(syncResult.message || 'Ошибка синхронизации с Avito');
             }
-            console.error('Dashboard: Avito sync failed after booking deletion', syncResult);
+          } catch (error) {
+            toast.dismiss(syncToastId);
+            console.error('Dashboard: Unexpected error during Avito sync after booking deletion:', error);
+            toast.error('Ошибка синхронизации с Avito');
+          } finally {
+            setIsSyncingAvito(false);
           }
         } catch (error) {
           console.error('Dashboard: Unexpected error during Avito sync after booking deletion:', error);
