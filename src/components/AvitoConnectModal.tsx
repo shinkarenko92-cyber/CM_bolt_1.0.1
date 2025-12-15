@@ -453,7 +453,29 @@ export function AvitoConnectModal({
       // Clear progress
       clearConnectionProgress(property.id);
 
-      message.success('Avito подключён! Синхронизация запущена');
+      message.success('Avito подключён! Синхронизация запущена...');
+
+      // Auto trigger sync after a short delay to ensure DB is updated
+      setTimeout(async () => {
+        try {
+          const { syncAvitoIntegration } = await import('../services/apiSync');
+          const syncResult = await syncAvitoIntegration(property.id);
+          
+          if (syncResult.success) {
+            if (syncResult.errors && syncResult.errors.length > 0) {
+              const errorMessages = syncResult.errors.map(e => e.message || 'Ошибка').join(', ');
+              message.warning(`Частичная синхронизация: ${errorMessages}`);
+            } else {
+              message.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
+            }
+          } else {
+            message.error(syncResult.message || 'Ошибка синхронизации с Avito');
+          }
+        } catch (syncError) {
+          console.error('Auto sync after item_id save failed:', syncError);
+          // Don't show error toast - user already saw success message
+        }
+      }, 1000);
       
       // Вызываем onSuccess для обновления UI
       onSuccess?.();

@@ -879,9 +879,10 @@ Deno.serve(async (req: Request) => {
         try {
           const { integration_id, exclude_booking_id } = params;
 
-          console.log("Starting sync operation", {
+          console.log("Sync started", {
             integration_id,
             exclude_booking_id: exclude_booking_id || null,
+            action: params.action || 'sync',
           });
 
           // Get integration with decrypted token
@@ -1330,15 +1331,13 @@ Deno.serve(async (req: Request) => {
         // CRITICAL: Use ONLY itemId (avito_item_id), NEVER accountId (avito_account_id) in /items/{id}/ paths
         console.log("Updating base parameters in Avito", {
           endpoint: `${AVITO_API_BASE}/realty/v1/items/${itemId}/base`,
-          itemId: itemId, // Log itemId for debugging
-          itemIdType: typeof itemId,
-          itemIdLength: itemId?.length,
-          integration_avito_item_id: integration.avito_item_id,
+          itemId: itemId,
           night_price: priceWithMarkup,
           minimal_duration: property?.minimum_booking_days || 1,
         });
 
           try {
+            console.log("POST /realty/v1/items/{item_id}/base - starting", { item_id: itemId });
             let baseParamsResponse = await fetchWithRetry(
               `${AVITO_API_BASE}/realty/v1/items/${itemId}/base`,
               {
@@ -1703,6 +1702,8 @@ Deno.serve(async (req: Request) => {
           skip_error: true, // Get 200 status instead of errors for item issues
           endpoint: `/realty/v1/items/${itemId}/bookings`,
         });
+
+        console.log("GET /realty/v1/items/{item_id}/bookings - starting", { item_id: itemId });
 
         // Helper function to fetch bookings with 401 retry and error handling
         // Use STR API endpoint without account_id: /realty/v1/items/{item_id}/bookings

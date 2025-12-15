@@ -392,21 +392,35 @@ export function Dashboard() {
 
       // Sync to Avito after successful booking creation
       try {
-        await syncAvitoIntegration(reservation.property_id);
-        console.log('Dashboard: Avito sync completed after booking creation');
-      } catch (error) {
-        console.error('Dashboard: Failed to sync to Avito after booking creation:', error);
+        const syncResult = await syncAvitoIntegration(reservation.property_id);
         
-        // Если это AvitoSyncError с массивом ошибок, показываем их
-        if (error instanceof AvitoSyncError && error.errors.length > 0) {
-          showAvitoErrors(error.errors, t).catch((err) => {
-            console.error('Error showing Avito error modals:', err);
-          });
+        if (syncResult.success) {
+          if (syncResult.errors && syncResult.errors.length > 0) {
+            // Partial success - some operations failed
+            const errorMessages = syncResult.errors.map(e => e.message || 'Ошибка').join(', ');
+            toast.error(`Частичная синхронизация: ${errorMessages}`);
+            showAvitoErrors(syncResult.errors, t).catch((err) => {
+              console.error('Error showing Avito error modals:', err);
+            });
+          } else {
+            // Full success
+            toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
+          }
+          console.log('Dashboard: Avito sync completed after booking creation', syncResult);
         } else {
-          // Для других ошибок просто логируем, не показываем toast чтобы не мешать
-          const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
-          console.warn('Dashboard: Avito sync failed after booking creation', { error: errorMessage });
+          // Sync failed
+          if (syncResult.errors && syncResult.errors.length > 0) {
+            showAvitoErrors(syncResult.errors, t).catch((err) => {
+              console.error('Error showing Avito error modals:', err);
+            });
+          } else {
+            toast.error(syncResult.message || 'Ошибка синхронизации с Avito');
+          }
+          console.error('Dashboard: Avito sync failed after booking creation', syncResult);
         }
+      } catch (error) {
+        console.error('Dashboard: Unexpected error during Avito sync after booking creation:', error);
+        toast.error('Ошибка синхронизации с Avito');
       }
     } catch (error) {
       console.error('Error saving reservation:', error);

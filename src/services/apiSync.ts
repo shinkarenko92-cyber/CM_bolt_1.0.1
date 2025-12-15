@@ -84,7 +84,7 @@ export class AvitoSyncError extends Error {
 export async function syncAvitoIntegration(
   propertyId: string,
   excludeBookingId?: string
-): Promise<void> {
+): Promise<{ success: boolean; errors?: AvitoErrorInfo[]; message?: string }> {
   // Get integration from database
   const integration = await getPropertyIntegration(propertyId, 'avito');
   
@@ -96,7 +96,19 @@ export async function syncAvitoIntegration(
       hasIntegration: !!integration,
       isActive: integration?.is_active,
     });
-    return;
+    return { success: false, message: 'Интеграция не найдена или неактивна' };
+  }
+
+  // GUARD: Check if item_id is set
+  if (!integration.avito_item_id) {
+    const itemIdStr = String(integration.avito_item_id || '').trim();
+    if (!itemIdStr || itemIdStr.length < 10 || itemIdStr.length > 11 || !/^\d+$/.test(itemIdStr)) {
+      console.warn('syncAvitoIntegration: Missing or invalid item_id', {
+        propertyId,
+        avito_item_id: integration.avito_item_id,
+      });
+      return { success: false, message: 'Введи ID объявления на Avito (10-11 цифр)' };
+    }
   }
 
   // Note: Token expiration check is now handled in Edge Function with automatic refresh
@@ -133,7 +145,13 @@ export async function syncAvitoIntegration(
     data: data, // Полный ответ для диагностики
   });
 
+  // Handle Supabase function invocation error
   if (syncError) {
+    console.error('syncAvitoIntegration: Edge Function invocation error', {
+      error: syncError,
+      message: syncError?.message,
+    });
+    
     // Try to parse errors from response
     let errors: AvitoErrorInfo[] = [];
     try {
@@ -151,7 +169,7 @@ export async function syncAvitoIntegration(
     }
 
     if (errors.length > 0) {
-      throw new AvitoSyncError('Avito synchronization completed with errors', errors);
+      return { success: false, errors };
     }
     
     // Improved error message handling
@@ -164,40 +182,56 @@ export async function syncAvitoIntegration(
       errorMessage = syncError instanceof Error ? syncError.message : JSON.stringify(syncError);
     }
     
-    throw new Error(errorMessage || 'Sync failed');
+    return { success: false, message: errorMessage || 'Sync failed' };
   }
 
-  // Check response data for errors
+  // Check response data
   if (data && typeof data === 'object') {
     const responseData = data as Record<string, unknown>;
     
-    // Check if there are errors in the response
-    if (responseData.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
-      const errors = responseData.errors as AvitoErrorInfo[];
-      
-      // Check for 404 errors - will show toast in Dashboard component
-      // Toast is handled in Dashboard.tsx where syncAvitoIntegration is called
-      
-      throw new AvitoSyncError('Avito synchronization completed with errors', errors);
-    }
-
-    // Check if success is false
+    // Check if success is explicitly false
     if (responseData.success === false) {
       const errors = (responseData.errors as AvitoErrorInfo[]) || [];
-      throw new AvitoSyncError(
-        (responseData.message as string) || 'Avito synchronization failed',
-        errors
-      );
+      const message = (responseData.error as string) || (responseData.message as string) || 'Avito synchronization failed';
+      console.warn('syncAvitoIntegration: Sync returned success: false', {
+        message,
+        errorsCount: errors.length,
+      });
+      return { success: false, errors, message };
     }
+
+    // Check if there are errors but success is not false (partial success)
+    if (responseData.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
+      const errors = responseData.errors as AvitoErrorInfo[];
+      console.warn('syncAvitoIntegration: Sync completed with partial errors', {
+        errorsCount: errors.length,
+        success: responseData.success,
+      });
+      // If success is true or undefined, treat as partial success
+      return { 
+        success: responseData.success !== false, 
+        errors 
+      };
+    }
+
+    // Success case
+    console.log('syncAvitoIntegration: Avito sync completed successfully', { 
+      integration_id: integration.id,
+      property_id: integration.property_id,
+      success: responseData.success,
+      synced: responseData.synced,
+      hasErrors: false,
+    });
+    
+    return { success: true };
   }
 
-  console.log('syncAvitoIntegration: Avito sync completed successfully', { 
+  // If no data, treat as success (Edge Function might return empty response)
+  console.log('syncAvitoIntegration: Edge Function returned no data, treating as success', {
     integration_id: integration.id,
-    property_id: integration.property_id,
-    success: data && typeof data === 'object' ? (data as Record<string, unknown>).success : undefined,
-    synced: data && typeof data === 'object' ? (data as Record<string, unknown>).synced : undefined,
-    hasErrors: data && typeof data === 'object' && 'errors' in data ? Array.isArray((data as Record<string, unknown>).errors) && ((data as Record<string, unknown>).errors as unknown[]).length > 0 : false,
   });
+  
+  return { success: true };
 }
 
 /**
