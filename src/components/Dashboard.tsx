@@ -401,7 +401,7 @@ export function Dashboard() {
         if (syncResult.success) {
           toast.dismiss(syncToastId);
           // Show success message
-          toast.success('Бронь создана и отправлена в Avito 🚀');
+          toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
           console.log('Dashboard: Avito sync completed successfully after booking creation', syncResult);
         } else {
           // Sync failed - show error
@@ -473,7 +473,7 @@ export function Dashboard() {
           if (syncResult.success) {
             toast.dismiss(syncToastId);
             // Show success message
-            toast.success('Бронь обновлена и синхронизирована с Avito 🚀');
+            toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
             console.log('Dashboard: Avito sync completed successfully after booking update', syncResult);
           } else {
             // Sync failed - show error
@@ -573,7 +573,7 @@ export function Dashboard() {
             if (syncResult.success) {
               toast.dismiss(syncToastId);
               // Show success message
-              toast.success('Бронь удалена и синхронизирована с Avito 🚀');
+              toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
               console.log('Dashboard: Avito sync completed successfully after booking deletion', {
                 bookingId: id,
                 source: bookingSource,
