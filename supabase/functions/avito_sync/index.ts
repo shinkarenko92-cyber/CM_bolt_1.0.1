@@ -1349,91 +1349,34 @@ Deno.serve(async (req: Request) => {
             // Continue with other operations
           }
 
-        // 3. Отправка бронирований через POST /core/v1/accounts/{account_id}/items/{item_id}/bookings (putBookingsInfo)
-        // Примечание: несмотря на название метода putBookingsInfo, API использует POST метод
-        // Формат: { bookings: [{ date_start, date_end, type?, comment?, contact? }], source? }
-        // type: "manual" | "booking" - тип бронирования (manual - закрыто вручную, booking - бронирование)
-        // comment: дополнительная информация (опционально)
-        // contact: { name?, phone? } - контактная информация гостя (опционально, если API поддерживает)
-        // source: название PMS системы (опционально)
-        // date_start и date_end должны быть в формате YYYY-MM-DD
-        // Отправляем реальные бронирования из нашей системы
-        const bookingsToSend: Array<{
+        // 3. Отправка интервалов через POST /realty/v1/items/{item_id}/intervals для закрытия дат
+        // Avito API: intervals array с date_start и date_end закрывает эти даты
+        // Пустой массив intervals открывает все даты
+        // Отправляем только закрытые интервалы (занятые даты), остальные открыты по умолчанию
+        const intervalsToSend: Array<{
           date_start: string;
           date_end: string;
-          type?: string;
-          comment?: string;
-          contact?: {
-            name?: string;
-            phone?: string;
-          };
         }> = [];
 
-        // Преобразуем бронирования в формат Avito API
+        // Преобразуем бронирования в интервалы (только даты, без комментариев)
         for (const booking of bookingsForAvito) {
           // Убеждаемся, что даты в формате YYYY-MM-DD (обрезаем время, если есть)
           const dateStart = booking.check_in.split('T')[0];
           const dateEnd = booking.check_out.split('T')[0];
           
-          // Формируем объект бронирования
-          const bookingToSend: {
-            date_start: string;
-            date_end: string;
-            type: string;
-            comment?: string;
-            contact?: {
-              name?: string;
-              phone?: string;
-            };
-          } = {
+          intervalsToSend.push({
             date_start: dateStart,
             date_end: dateEnd,
-            type: "booking", // Тип бронирования
-          };
-
-          // Добавляем комментарий с информацией о госте, если есть имя
-          if (booking.guest_name && booking.guest_name !== "Гость с Avito") {
-            bookingToSend.comment = `Бронирование: ${booking.guest_name}`;
-            
-            // Пытаемся добавить контактную информацию, если API поддерживает
-            if (booking.guest_name || booking.guest_phone) {
-              bookingToSend.contact = {};
-              if (booking.guest_name && booking.guest_name !== "Гость с Avito") {
-                bookingToSend.contact.name = booking.guest_name;
-              }
-              if (booking.guest_phone) {
-                bookingToSend.contact.phone = booking.guest_phone;
-              }
-            }
-          } else {
-            bookingToSend.comment = "Бронирование из Roomi Pro";
-          }
-          
-          bookingsToSend.push(bookingToSend);
+          });
         }
 
-        // Отправляем бронирования через putBookingsInfo
-        if (bookingsToSend.length > 0) {
-          console.log("Sending bookings to Avito via putBookingsInfo", {
-            endpoint: `${AVITO_API_BASE}/core/v1/accounts/${accountId}/items/${itemId}/bookings`,
-            bookingsCount: bookingsToSend.length,
-            method: "POST",
-          });
-
-          // Use correct endpoint: /realty/v1/items/{item_id}/intervals for blocking dates
-          // Avito API: intervals array with date_start and date_end closes those dates
-          // Empty intervals array opens all dates
-          // We send only closed intervals (occupied dates), rest are open by default
-          const intervalsToSend = bookingsToSend.map(b => ({
-            date_start: b.date_start,
-            date_end: b.date_end,
-          }));
+        // Отправляем интервалы для закрытия дат
+        if (intervalsToSend.length > 0) {
 
           console.log("Sending intervals to Avito", {
             endpoint: `${AVITO_API_BASE}/realty/v1/items/${itemId}/intervals`,
             intervalsCount: intervalsToSend.length,
             exclude_booking_id: exclude_booking_id || null,
-            action: exclude_booking_id ? "open_dates_after_manual_delete" : "sync_occupancy",
           });
 
           try {
@@ -1448,7 +1391,6 @@ Deno.serve(async (req: Request) => {
                 body: JSON.stringify({
                   item_id: itemId,
                   intervals: intervalsToSend,
-                  source: "Roomi Pro", // Название PMS системы
                 }),
               }
             );
@@ -1477,7 +1419,7 @@ Deno.serve(async (req: Request) => {
               
               console.warn(errorMessage, {
                 error: errorText,
-                bookingsCount: bookingsToSend.length,
+                intervalsCount: intervalsToSend.length,
                 excluded_booking_id: exclude_booking_id || null,
               });
               
@@ -1526,11 +1468,10 @@ Deno.serve(async (req: Request) => {
               const responseData = await bookingsUpdateResponse.json().catch(() => null);
               const logMessage = exclude_booking_id 
                 ? "Dates opened in Avito for manual booking delete"
-                : "Avito bookings updated successfully via intervals";
+                : "Avito intervals updated successfully";
               
               console.log(logMessage, {
                 intervalsCount: intervalsToSend.length,
-                bookingsCount: bookingsToSend.length,
                 excluded_booking_id: exclude_booking_id || null,
                 response: responseData,
               });
@@ -1553,7 +1494,6 @@ Deno.serve(async (req: Request) => {
             } catch {
               console.log("Avito intervals updated successfully", {
                 intervalsCount: intervalsToSend.length,
-                bookingsCount: bookingsToSend.length,
                 status: bookingsUpdateResponse.status,
                 excluded_booking_id: exclude_booking_id || null,
               });
@@ -1590,11 +1530,10 @@ Deno.serve(async (req: Request) => {
                     Authorization: `Bearer ${accessToken}`,
                     "Content-Type": "application/json",
                   },
-                  body: JSON.stringify({
-                    item_id: itemId,
-                    intervals: [], // Empty array opens all dates
-                    source: "Roomi Pro",
-                  }),
+                body: JSON.stringify({
+                  item_id: itemId,
+                  intervals: [], // Empty array opens all dates
+                }),
                 }
               );
 
@@ -2106,10 +2045,65 @@ Deno.serve(async (req: Request) => {
             });
           }
 
+          // Cancel unpaid bookings in Avito (optional - only if not paid)
+          // This helps prevent overbooking by canceling pending bookings that weren't paid
+          let canceledCount = 0;
+          for (const booking of avitoBookings) {
+            try {
+              // Only cancel if status is "pending" (unpaid) and we have booking ID
+              const bookingId = booking.avito_booking_id || booking.id;
+              if (booking.status === "pending" && bookingId && accountId) {
+                try {
+                  const cancelResponse = await fetchWithRetry(
+                    `${AVITO_API_BASE}/core/v1/accounts/${accountId}/items/${itemId}/bookings/${bookingId}/cancel`,
+                    {
+                      method: "POST",
+                      headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                        "Content-Type": "application/json",
+                      },
+                    }
+                  );
+
+                  if (cancelResponse.ok) {
+                    console.log("Canceled unpaid booking in Avito", {
+                      booking_id: bookingId,
+                      check_in: booking.check_in,
+                      check_out: booking.check_out,
+                    });
+                    canceledCount++;
+                  } else if (cancelResponse.status === 409) {
+                    // 409 = booking is paid, can't cancel - this is expected
+                    console.log("Booking is paid, cannot cancel", {
+                      booking_id: bookingId,
+                    });
+                  } else {
+                    console.warn("Failed to cancel booking", {
+                      booking_id: bookingId,
+                      status: cancelResponse.status,
+                    });
+                  }
+                } catch (cancelError) {
+                  console.warn("Error canceling booking", {
+                    booking_id: bookingId,
+                    error: cancelError instanceof Error ? cancelError.message : String(cancelError),
+                  });
+                  // Don't fail sync if cancel fails
+                }
+              }
+            } catch (error) {
+              console.warn("Error processing booking cancellation", {
+                booking,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+
           console.log("Bookings sync summary", {
             total: avitoBookings.length,
             created: createdCount,
             skipped: skippedCount,
+            canceled: canceledCount,
             errors: errorCount,
           });
 
@@ -2124,6 +2118,7 @@ Deno.serve(async (req: Request) => {
                 total: avitoBookings.length,
                 created: createdCount,
                 skipped: skippedCount,
+                canceled: canceledCount,
                 errors: errorCount,
               },
             });
