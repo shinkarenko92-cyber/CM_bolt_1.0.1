@@ -58,6 +58,7 @@ export interface ConnectionProgress {
     itemId?: string;
     markup?: number;
     accessToken?: string;
+    refreshToken?: string;
   };
   timestamp: number;
 }
