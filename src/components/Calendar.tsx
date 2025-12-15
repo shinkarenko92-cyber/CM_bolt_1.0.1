@@ -155,12 +155,19 @@ export function Calendar({
 
       if (error) {
         // Если таблица не существует (миграция не применена), просто работаем без групп
-        if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
+        if (error.code === 'PGRST205' || 
+            error.code === '42P01' || 
+            error.message?.includes('Could not find the table') ||
+            error.message?.includes('relation') ||
+            error.message?.includes('does not exist')) {
           console.warn('Property groups table not found - working without groups. Apply migration to enable grouping.');
           setPropertyGroups([]);
           return;
         }
-        throw error;
+        // Для других ошибок тоже работаем без групп (fallback)
+        console.warn('Error loading property groups, working without groups:', error);
+        setPropertyGroups([]);
+        return;
       }
       
       setPropertyGroups(data || []);
@@ -480,7 +487,7 @@ export function Calendar({
         
         // After max retries, show warning and use empty rates
         console.warn('Failed to load property rates after retries, using empty rates');
-        toast.warning('Цены не загружены, попробуй позже');
+        toast.error('Цены не загружены, попробуй позже');
         setPropertyRates(new Map());
         return;
       }
@@ -505,7 +512,7 @@ export function Calendar({
       // After max retries or non-retryable error, show warning and use empty rates
       if (retryCount >= maxRetries) {
         console.warn('Failed to load property rates after retries, using empty rates');
-        toast.warning('Цены не загружены, попробуй позже');
+        toast.error('Цены не загружены, попробуй позже');
       }
       setPropertyRates(new Map());
     }
