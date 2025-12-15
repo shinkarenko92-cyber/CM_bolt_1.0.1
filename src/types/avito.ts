@@ -55,6 +55,7 @@ export interface ConnectionProgress {
   step: number;
   data: {
     accountId?: string;
+    userId?: string; // Avito user_id (account number) - short number like 4720770
     itemId?: string;
     markup?: number;
     accessToken?: string;

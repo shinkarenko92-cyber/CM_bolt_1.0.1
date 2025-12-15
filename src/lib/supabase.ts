@@ -105,8 +105,9 @@ export type PropertyIntegration = {
   is_enabled: boolean;
   last_sync_at: string | null;
   // Avito-specific fields
-  avito_account_id?: string | null; // Account/user ID for API calls to /accounts/{account_id}/items/{item_id}/bookings
-  avito_item_id?: string | null; // Item ID as TEXT - use this for API calls to /items/{item_id} (primary field)
+  avito_account_id?: string | null; // Legacy - use avito_user_id instead
+  avito_user_id?: string | null; // Avito user_id (account number) - short number like 4720770, required for STR API endpoints /realty/v1/{user_id}/items/{item_id}/...
+  avito_item_id?: string | null; // Item ID as TEXT - use this for API calls to /realty/v1/{user_id}/items/{item_id}/... (primary field)
   avito_item_id_text?: string | null; // Item ID as TEXT (legacy, kept for backward compatibility)
   avito_markup?: number | null;
   access_token_encrypted?: string | null;

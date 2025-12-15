@@ -38,6 +38,7 @@ export function AvitoConnectModal({
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [oauthRedirecting, setOauthRedirecting] = useState(false);
+  const [userId, setUserId] = useState<string>('');
   const [itemId, setItemId] = useState<string>('');
   const [markup, setMarkup] = useState<number>(15);
   const [validatingItemId, setValidatingItemId] = useState(false);
@@ -149,8 +150,8 @@ export function AvitoConnectModal({
       }
       
       // Show success toast and move to next step
-      message.success('Аккаунт Avito подключён! Теперь введи ID объявления');
-      setCurrentStep(1); // Go to Item ID step
+          message.success('Аккаунт Avito подключён! Теперь введи номер аккаунта');
+          setCurrentStep(1); // Go to User ID step
 
       // OAuth данные уже удалены в начале функции, просто логируем успех
       console.log('AvitoConnectModal: OAuth callback processed successfully');
@@ -228,6 +229,7 @@ export function AvitoConnectModal({
       if (progress && progress.step > 0) {
         console.log('AvitoConnectModal: Resuming from saved progress', { step: progress.step });
         setCurrentStep(progress.step);
+        if (progress.data.userId) setUserId(progress.data.userId);
         if (progress.data.itemId) setItemId(progress.data.itemId);
         if (progress.data.markup) setMarkup(progress.data.markup);
         // Tokens are now stored in DB, not in progress
@@ -374,7 +376,7 @@ export function AvitoConnectModal({
       }
 
       // Item ID is valid, ready to save
-      saveConnectionProgress(property.id, 1, {
+      saveConnectionProgress(property.id, 2, {
         itemId: trimmedItemId,
       });
       message.success('ID объявления проверен. Нажмите "Завершить подключение" для сохранения.');
@@ -406,8 +408,20 @@ export function AvitoConnectModal({
   };
 
   const handleSubmit = async () => {
+    if (!userId) {
+      message.error('Введи номер аккаунта Avito');
+      return;
+    }
+
     if (!itemId) {
       message.error('Введи ID объявления');
+      return;
+    }
+
+    // Validate userId: must be numeric
+    const trimmedUserId = userId.trim();
+    if (!trimmedUserId || !/^\d+$/.test(trimmedUserId)) {
+      message.error('Номер аккаунта должен содержать только цифры');
       return;
     }
 
@@ -420,10 +434,11 @@ export function AvitoConnectModal({
 
     setLoading(true);
     try {
-      // Update integration with item_id (account_id and tokens are already saved by OAuth callback)
+      // Update integration with user_id and item_id (tokens are already saved by OAuth callback)
       const { data: integration, error } = await supabase
         .from('integrations')
         .update({
+          avito_user_id: trimmedUserId,
           avito_item_id: trimmedItemId,
           avito_markup: markup,
           external_id: trimmedItemId,
@@ -431,7 +446,7 @@ export function AvitoConnectModal({
         .eq('property_id', property.id)
         .eq('platform', 'avito')
         .eq('is_active', true)
-        .select('id, property_id, platform, avito_account_id, avito_item_id, avito_markup, is_active')
+        .select('id, property_id, platform, avito_user_id, avito_item_id, avito_markup, is_active')
         .single();
 
       if (error) throw error;
@@ -586,6 +601,7 @@ export function AvitoConnectModal({
         className="mb-6"
         items={[
           { title: 'Подключить аккаунт Avito' },
+          { title: 'Введи номер аккаунта' },
           { title: 'Введи ID объявления' },
         ]}
       />
@@ -615,8 +631,48 @@ export function AvitoConnectModal({
           </div>
         )}
 
-        {/* Step 1: Item ID Input */}
+        {/* Step 1: User ID Input */}
         {currentStep === 1 && (
+          <div>
+            <p className="text-white mb-2 font-medium">Введите номер аккаунта Avito:</p>
+            <p className="text-sm text-slate-300 mb-4">
+              Номер аккаунта — короткий номер (например, <span className="text-teal-400 font-bold">4720770</span>).
+              Можно найти в настройках аккаунта Avito.
+            </p>
+            <Input
+              placeholder="Например: 4720770"
+              value={userId}
+              onChange={(e) => {
+                // Only allow numbers
+                const value = e.target.value.replace(/\D/g, '');
+                setUserId(value);
+              }}
+              disabled={loading}
+              required
+            />
+            {!userId && (
+              <p className="text-xs text-red-400 mt-1">Номер аккаунта обязателен</p>
+            )}
+            <div className="flex gap-2 mt-4">
+              <Button
+                type="primary"
+                onClick={() => {
+                  if (!userId || !/^\d+$/.test(userId)) {
+                    message.error('Введи номер аккаунта (только цифры)');
+                    return;
+                  }
+                  setCurrentStep(2);
+                }}
+                disabled={!userId || !/^\d+$/.test(userId)}
+              >
+                Далее
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Item ID Input */}
+        {currentStep === 2 && (
           <div>
             <p className="text-white mb-2 font-medium">Введите ID объявления на Avito:</p>
             <p className="text-sm text-slate-300 mb-4">
@@ -663,7 +719,7 @@ export function AvitoConnectModal({
                 type="primary"
                 onClick={handleSubmit}
                 loading={loading || validatingItemId}
-                    disabled={!itemId || !/^[0-9]{10,11}$/.test(itemId)}
+                disabled={!userId || !itemId || !/^\d+$/.test(userId) || !/^[0-9]{10,11}$/.test(itemId)}
                 icon={<CheckCircleOutlined />}
               >
                 Завершить подключение
