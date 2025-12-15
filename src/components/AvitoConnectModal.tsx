@@ -117,16 +117,73 @@ export function AvitoConnectModal({
       }
 
       // Get account_id from token response (obtained via GET /core/v1/user in Edge Function)
-      const accountId = tokenResponse.account_id;
+      let accountId = tokenResponse.account_id;
+      
+      // Fallback: if Edge Function didn't return account_id, fetch it directly from Avito API
       if (!accountId) {
-        console.error('AvitoConnectModal: No account_id in token response', {
+        console.warn('AvitoConnectModal: No account_id in token response, fetching directly from Avito API', {
           tokenResponseKeys: Object.keys(tokenResponse),
           hasAccountId: 'account_id' in tokenResponse,
         });
-        throw new Error('Не удалось получить ID аккаунта Avito. Попробуйте подключить заново.');
+        
+        try {
+          console.log('AvitoConnectModal: Fetching user info from Avito API to get account_id', {
+            endpoint: 'https://api.avito.ru/core/v1/user',
+            tokenLength: tokenResponse.access_token.length,
+          });
+
+          const userResponse = await fetch('https://api.avito.ru/core/v1/user', {
+            headers: {
+              Authorization: `Bearer ${tokenResponse.access_token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (!userResponse.ok) {
+            const errorText = await userResponse.text().catch(() => 'Unable to read error');
+            console.error('AvitoConnectModal: Failed to get user info from Avito API', {
+              status: userResponse.status,
+              statusText: userResponse.statusText,
+              errorText: errorText.substring(0, 500),
+            });
+            throw new Error(`Не удалось получить данные аккаунта Avito (${userResponse.status}): ${errorText.substring(0, 200)}`);
+          }
+
+          const userData = await userResponse.json();
+          console.log('AvitoConnectModal: Avito user API response', {
+            userDataKeys: Object.keys(userData),
+            hasUser: !!userData.user,
+            userDataStructure: JSON.stringify(userData).substring(0, 500),
+          });
+
+          // Avito API returns user.id or id field
+          // Try multiple possible paths: user.id, id, user_id
+          accountId = userData.user?.id || userData.id || userData.user_id || null;
+
+          if (accountId) {
+            console.log('AvitoConnectModal: Successfully extracted account_id from Avito user API', {
+              accountId,
+              source: userData.user?.id ? 'user.id' : (userData.id ? 'id' : 'user_id'),
+            });
+          } else {
+            console.error('AvitoConnectModal: Failed to extract account_id from user data', {
+              userDataKeys: Object.keys(userData),
+              userData: JSON.stringify(userData).substring(0, 1000),
+            });
+            throw new Error('Не удалось получить ID аккаунта Avito из ответа API. Попробуйте подключить заново.');
+          }
+        } catch (userError) {
+          const errorMessage = userError instanceof Error ? userError.message : String(userError);
+          console.error('AvitoConnectModal: Critical error fetching user info from Avito', {
+            error: errorMessage,
+            errorType: userError instanceof Error ? userError.constructor.name : typeof userError,
+          });
+          throw new Error(errorMessage || 'Не удалось получить ID аккаунта Avito. Попробуйте подключить заново.');
+        }
+      } else {
+        console.log('AvitoConnectModal: Using account_id from token response', accountId);
       }
 
-      console.log('AvitoConnectModal: Using account_id from token response', accountId);
       setSelectedAccountId(accountId);
       saveConnectionProgress(property.id, 1, {
         accountId: accountId,
