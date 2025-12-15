@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, Settings } from 'lucide-react';
+import { Plus, Settings, ChevronDown, ChevronRight, Home } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Property, Booking, PropertyRate, PropertyGroup, supabase } from '../lib/supabase';
 import { CalendarHeader } from './CalendarHeader';
