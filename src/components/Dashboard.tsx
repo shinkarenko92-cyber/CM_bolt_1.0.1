@@ -467,19 +467,25 @@ export function Dashboard() {
       // Sync to Avito after successful booking update
       const booking = bookings.find(b => b.id === id);
       if (booking?.property_id) {
+        setIsSyncingAvito(true);
+        const syncToastId = toast.loading('Синхронизация с Avito...');
+        
         try {
           const syncResult = await syncAvitoIntegration(booking.property_id);
           
+          // PRIORITY: Check hasError === false first (from Edge Function response)
+          // If syncResult.success === true, it means hasError was false or not present
           if (syncResult.success) {
+            toast.dismiss(syncToastId);
+            // Show success message
+            toast.success('Бронь обновлена и синхронизирована с Avito 🚀');
+            console.log('Dashboard: Avito sync completed successfully after booking update', syncResult);
+          } else {
+            // Sync failed - show error
+            toast.dismiss(syncToastId);
             if (syncResult.errors && syncResult.errors.length > 0) {
               const errorMessages = syncResult.errors.map(e => e.message || 'Ошибка').join(', ');
-              toast.error(`Частичная синхронизация: ${errorMessages}`);
-            } else {
-              toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
-            }
-            console.log('Dashboard: Avito sync completed after booking update', syncResult);
-          } else {
-            if (syncResult.errors && syncResult.errors.length > 0) {
+              toast.error(`Ошибка синхронизации: ${errorMessages}`);
               showAvitoErrors(syncResult.errors, t).catch((err) => {
                 console.error('Error showing Avito error modals:', err);
               });
@@ -489,8 +495,11 @@ export function Dashboard() {
             console.error('Dashboard: Avito sync failed after booking update', syncResult);
           }
         } catch (error) {
+          toast.dismiss(syncToastId);
           console.error('Dashboard: Unexpected error during Avito sync after booking update:', error);
           toast.error('Ошибка синхронизации с Avito');
+        } finally {
+          setIsSyncingAvito(false);
         }
       }
     } catch (error) {
