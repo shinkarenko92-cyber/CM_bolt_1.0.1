@@ -1339,7 +1339,7 @@ Deno.serve(async (req: Request) => {
         });
 
           try {
-            const baseParamsResponse = await fetchWithRetry(
+            let baseParamsResponse = await fetchWithRetry(
               `${AVITO_API_BASE}/realty/v1/items/${itemId}/base`,
               {
                 method: "POST",
@@ -1355,6 +1355,25 @@ Deno.serve(async (req: Request) => {
                   // extra_guest_threshold: property?.extra_guest_threshold,
                 }),
               }
+            );
+
+            // Handle 401 and retry with refreshed token
+            baseParamsResponse = await handle401AndRetry(
+              baseParamsResponse,
+              async (token: string) => await fetchWithRetry(
+                `${AVITO_API_BASE}/realty/v1/items/${itemId}/base`,
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    night_price: priceWithMarkup,
+                    minimal_duration: property?.minimum_booking_days || 1,
+                  }),
+                }
+              )
             );
 
             if (!baseParamsResponse.ok) {
