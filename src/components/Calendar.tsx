@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, Settings } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Property, Booking, PropertyRate, PropertyGroup, supabase } from '../lib/supabase';
 import { CalendarHeader } from './CalendarHeader';
 import { BookingBlock } from './BookingBlock';
@@ -451,8 +452,14 @@ export function Calendar({
     }
   };
 
-  const loadPropertyRates = async () => {
-    if (properties.length === 0) return;
+  const loadPropertyRates = async (retryCount = 0): Promise<void> => {
+    if (properties.length === 0) {
+      setPropertyRates(new Map());
+      return;
+    }
+
+    const maxRetries = 3;
+    const retryDelay = 1000; // 1 second
 
     try {
       const propertyIds = properties.map(p => p.id);
@@ -463,7 +470,18 @@ export function Calendar({
 
       if (error) {
         console.error('Error loading property rates:', error);
-        // Не бросаем ошибку, просто логируем - календарь может работать без rates
+        
+        // Retry logic
+        if (retryCount < maxRetries) {
+          console.log(`Retrying loadPropertyRates (attempt ${retryCount + 1}/${maxRetries})...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1)));
+          return loadPropertyRates(retryCount + 1);
+        }
+        
+        // After max retries, show warning and use empty rates
+        console.warn('Failed to load property rates after retries, using empty rates');
+        toast.warning('Цены не загружены, попробуй позже');
+        setPropertyRates(new Map());
         return;
       }
 
@@ -476,7 +494,20 @@ export function Calendar({
       setPropertyRates(ratesMap);
     } catch (error) {
       console.error('Error loading property rates:', error);
-      // Не бросаем ошибку дальше - календарь может работать без rates
+      
+      // Retry logic for network errors
+      if (retryCount < maxRetries && error instanceof TypeError && error.message.includes('fetch')) {
+        console.log(`Retrying loadPropertyRates after network error (attempt ${retryCount + 1}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1)));
+        return loadPropertyRates(retryCount + 1);
+      }
+      
+      // After max retries or non-retryable error, show warning and use empty rates
+      if (retryCount >= maxRetries) {
+        console.warn('Failed to load property rates after retries, using empty rates');
+        toast.warning('Цены не загружены, попробуй позже');
+      }
+      setPropertyRates(new Map());
     }
   };
 
