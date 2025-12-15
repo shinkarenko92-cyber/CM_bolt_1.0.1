@@ -910,6 +910,36 @@ Deno.serve(async (req: Request) => {
             );
           }
 
+          // GUARD: Check if item_id is set (required for all operations)
+          const itemIdRaw = integration?.avito_item_id;
+          const itemId = itemIdRaw != null ? String(itemIdRaw).trim() : null;
+
+          if (!itemId || itemId.length === 0 || itemId.length < 10 || itemId.length > 11 || !/^\d+$/.test(itemId)) {
+            console.error("CRITICAL: item_id is missing or invalid", {
+              integration_id: integration.id,
+              avito_item_id: integration.avito_item_id,
+              extracted_itemId: itemId,
+              itemIdLength: itemId?.length,
+            });
+            return new Response(
+              JSON.stringify({ 
+                success: false,
+                error: "Введи ID объявления в настройках интеграции Avito (10-11 цифр)" 
+              }),
+              { 
+                status: 400, 
+                headers: { ...corsHeaders, "Content-Type": "application/json" } 
+              }
+            );
+          }
+
+          console.log("Sync operation validated", {
+            integration_id: integration.id,
+            property_id: integration.property_id,
+            item_id: itemId,
+            has_token: !!integration.access_token_encrypted,
+          });
+
         // Helper function to get and refresh token if needed
         const getAccessToken = async (): Promise<string> => {
           let accessToken = integration.access_token_encrypted;
@@ -1081,82 +1111,11 @@ Deno.serve(async (req: Request) => {
           });
         }
 
-        // Get item_id - ONLY use avito_item_id, NEVER use avito_account_id in /items/{id}/ paths
-        // CRITICAL: avito_item_id can be number, string, or null - always convert to string safely
-        // GUARD: Validate itemId before any API calls
-        const itemIdRaw = integration?.avito_item_id;
-        const itemId = itemIdRaw != null ? String(itemIdRaw).trim() : null;
-
-        // CRITICAL DEBUG: Log all integration fields to diagnose 404 errors
-        console.log("Integration item_id extraction", {
+        // itemId already validated at the beginning of sync action
+        console.log("Using validated item_id for sync", {
           integration_id: integration.id,
-          avito_item_id: integration.avito_item_id,
-          avito_item_id_type: typeof integration.avito_item_id,
-          avito_account_id: integration.avito_account_id,
-          extracted_itemId: itemId,
-          extracted_itemId_type: typeof itemId,
-          extracted_itemId_length: itemId?.length,
+          item_id: itemId,
         });
-
-        // GUARD: Validate item_id - must be non-empty string, 10-11 digits
-        if (!itemId || itemId.length === 0) {
-          console.error("CRITICAL: itemId is empty or null", {
-            integration_id: integration.id,
-            avito_item_id: integration.avito_item_id,
-            avito_account_id: integration.avito_account_id,
-          });
-          return new Response(
-            JSON.stringify({ 
-              success: false,
-              error: "Неверный ID объявления Avito. Должен быть 10–11 цифр." 
-            }),
-            { 
-              status: 400, 
-              headers: { ...corsHeaders, "Content-Type": "application/json" } 
-            }
-          );
-        }
-
-        // GUARD: Validate format - must be 10-11 digits only
-        if (itemId.length < 10 || itemId.length > 11 || !/^\d+$/.test(itemId)) {
-          console.error("CRITICAL: itemId has invalid format", {
-            integration_id: integration.id,
-            itemId: itemId,
-            itemIdLength: itemId.length,
-            isValidFormat: /^\d+$/.test(itemId),
-          });
-          return new Response(
-            JSON.stringify({ 
-              success: false,
-              error: "Неверный ID объявления Avito. Должен быть 10–11 цифр." 
-            }),
-            { 
-              status: 400, 
-              headers: { ...corsHeaders, "Content-Type": "application/json" } 
-            }
-          );
-        }
-
-        // CRITICAL: Validate that itemId is NOT the same as accountId (common mistake)
-        const accountIdForValidation = integration.avito_account_id;
-        if (itemId === accountIdForValidation) {
-          console.error("CRITICAL ERROR: itemId equals accountId - this will cause 404!", {
-            integration_id: integration.id,
-            itemId: itemId,
-            accountId: accountIdForValidation,
-            error: "itemId should be a long number like 2336174775, not accountId like 4720770",
-          });
-          return new Response(
-            JSON.stringify({ 
-              success: false,
-              error: "ОШИБКА КОНФИГУРАЦИИ: ID объявления совпадает с ID аккаунта. ID объявления должен быть длинным числом (например, 2336174775), а не коротким номером аккаунта (например, 4720770). Открой настройки интеграции Avito и введи правильный ID объявления из личного кабинета Avito." 
-            }),
-            { 
-              status: 400, 
-              headers: { ...corsHeaders, "Content-Type": "application/json" } 
-            }
-          );
-        }
 
         // Sync property_rates (calendar prices) and availability to Avito
         // According to Avito STR API docs: endpoints /items/{item_id}/... don't require account_id
@@ -1375,7 +1334,6 @@ Deno.serve(async (req: Request) => {
           itemIdType: typeof itemId,
           itemIdLength: itemId?.length,
           integration_avito_item_id: integration.avito_item_id,
-          integration_avito_account_id: integration.avito_account_id, // Log for comparison
           night_price: priceWithMarkup,
           minimal_duration: property?.minimum_booking_days || 1,
         });
@@ -1707,9 +1665,9 @@ Deno.serve(async (req: Request) => {
         }
 
         // Pull bookings from Avito
-        // Используем правильный endpoint из документации: GET /realty/v1/accounts/{user_id}/items/{item_id}/bookings
-        // С обязательными параметрами date_start и date_end (диапазон на год вперед)
-        // Параметр with_unpaid=true позволяет получать неоплаченные бронирования (в статусе pending)
+        // Use STR API endpoint: GET /realty/v1/items/{item_id}/bookings
+        // With required parameters date_start and date_end (range: 1 year ahead)
+        // Parameter with_unpaid=true allows getting unpaid bookings (status: pending)
         const today = new Date();
         const oneYearLater = new Date(today);
         oneYearLater.setFullYear(today.getFullYear() + 1);
@@ -1717,74 +1675,105 @@ Deno.serve(async (req: Request) => {
         const dateStart = today.toISOString().split('T')[0]; // YYYY-MM-DD
         const dateEnd = oneYearLater.toISOString().split('T')[0]; // YYYY-MM-DD
 
-          console.log("Pulling bookings from Avito", {
-          accountId,
+        console.log("Pulling bookings from Avito", {
           itemId,
           property_id: integration.property_id,
           date_start: dateStart,
           date_end: dateEnd,
-          with_unpaid: true, // Получаем неоплаченные бронирования (в статусе pending)
-          skip_error: true, // Получаем 200 статус вместо ошибок при проблемах с items
-          endpoint: `/realty/v1/accounts/${accountId}/items/${itemId}/bookings`,
+          with_unpaid: true, // Get unpaid bookings (status: pending)
+          skip_error: true, // Get 200 status instead of errors for item issues
+          endpoint: `/realty/v1/items/${itemId}/bookings`,
         });
 
-        // Helper function to fetch bookings with 401 retry
-        // For pull bookings, we need account_id in the path: /accounts/{account_id}/items/{item_id}/bookings
-        // NOTE: This is the ONLY endpoint that requires account_id in the path
+        // Helper function to fetch bookings with 401 retry and error handling
+        // Use STR API endpoint without account_id: /realty/v1/items/{item_id}/bookings
         const fetchBookings = async (token: string): Promise<Response> => {
-          if (!accountId) {
-            throw new Error("Missing avito_account_id for fetching bookings (required for /accounts/{account_id}/items/{item_id}/bookings endpoint)");
-          }
-
-          const response = await fetchWithRetry(
-            `${AVITO_API_BASE}/realty/v1/accounts/${accountId}/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}&with_unpaid=true&skip_error=true`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
-          // If 401, refresh token and retry once
-          if (response.status === 401) {
-            console.log("Got 401, refreshing token and retrying...");
-            const refreshData = await refreshAccessToken(
-              integration,
-              avitoClientId,
-              avitoClientSecret,
-              supabase
-            );
-            
-            // Update token in database
-            const expiresIn = refreshData.expires_in || 3600;
-            const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
-            const updateData: {
-              access_token_encrypted: string;
-              token_expires_at: string;
-              refresh_token_encrypted?: string;
-            } = {
-              access_token_encrypted: refreshData.access_token,
-              token_expires_at: tokenExpiresAt.toISOString(),
-            };
-            if (refreshData.refresh_token) {
-              updateData.refresh_token_encrypted = refreshData.refresh_token;
-            }
-            await supabase.from("integrations").update(updateData).eq("id", integration_id);
-            
-            // Retry with new token
-            return await fetchWithRetry(
-              `${AVITO_API_BASE}/realty/v1/accounts/${accountId}/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}&with_unpaid=true&skip_error=true`,
+          try {
+            const response = await fetchWithRetry(
+              `${AVITO_API_BASE}/realty/v1/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}&with_unpaid=true&skip_error=true`,
               {
                 headers: {
-                  Authorization: `Bearer ${refreshData.access_token}`,
+                  Authorization: `Bearer ${token}`,
                   "Content-Type": "application/json",
                 },
               }
             );
-          }
 
-          return response;
+            // If 401, refresh token and retry once
+            if (response.status === 401) {
+              console.log("Got 401, refreshing token and retrying...", {
+                item_id: itemId,
+                integration_id: integration.id,
+              });
+              
+              try {
+                const refreshData = await refreshAccessToken(
+                  integration,
+                  avitoClientId,
+                  avitoClientSecret,
+                  supabase
+                );
+                
+                // Update token in database
+                const expiresIn = refreshData.expires_in || 3600;
+                const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
+                const updateData: {
+                  access_token_encrypted: string;
+                  token_expires_at: string;
+                  refresh_token_encrypted?: string;
+                } = {
+                  access_token_encrypted: refreshData.access_token,
+                  token_expires_at: tokenExpiresAt.toISOString(),
+                };
+                if (refreshData.refresh_token) {
+                  updateData.refresh_token_encrypted = refreshData.refresh_token;
+                }
+                
+                const { error: updateError } = await supabase
+                  .from("integrations")
+                  .update(updateData)
+                  .eq("id", integration_id);
+                
+                if (updateError) {
+                  console.error("Failed to update token in database after refresh", {
+                    error: updateError,
+                    integration_id: integration.id,
+                  });
+                } else {
+                  console.log("Token refreshed and updated in database", {
+                    integration_id: integration.id,
+                    newExpiresAt: tokenExpiresAt.toISOString(),
+                  });
+                }
+                
+                // Retry with new token
+                return await fetchWithRetry(
+                  `${AVITO_API_BASE}/realty/v1/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}&with_unpaid=true&skip_error=true`,
+                  {
+                    headers: {
+                      Authorization: `Bearer ${refreshData.access_token}`,
+                      "Content-Type": "application/json",
+                    },
+                  }
+                );
+              } catch (refreshError) {
+                console.error("Failed to refresh token", {
+                  error: refreshError instanceof Error ? refreshError.message : String(refreshError),
+                  integration_id: integration.id,
+                });
+                throw refreshError;
+              }
+            }
+
+            return response;
+          } catch (fetchError) {
+            console.error("Error fetching bookings from Avito", {
+              error: fetchError instanceof Error ? fetchError.message : String(fetchError),
+              item_id: itemId,
+              integration_id: integration.id,
+            });
+            throw fetchError;
+          }
         };
 
         const bookingsResponse = await fetchBookings(accessToken);
