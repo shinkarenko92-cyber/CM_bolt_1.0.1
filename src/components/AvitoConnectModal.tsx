@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Modal, Steps, Button, Input, InputNumber, Select, Spin, message } from 'antd';
+import { Modal, Steps, Button, Input, InputNumber, Spin, message } from 'antd';
 import { CheckCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import { Property } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
@@ -19,11 +19,10 @@ import {
   clearOAuthError,
   clearOAuthSuccess,
   exchangeCodeForToken,
-  getUserAccounts,
   validateItemId,
   performInitialSync,
 } from '../services/avito';
-import type { AvitoAccount } from '../types/avito';
+import type { AvitoTokenResponse } from '../types/avito';
 
 interface AvitoConnectModalProps {
   isOpen: boolean;
@@ -41,7 +40,6 @@ export function AvitoConnectModal({
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [oauthRedirecting, setOauthRedirecting] = useState(false);
-  const [accounts, setAccounts] = useState<AvitoAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [itemId, setItemId] = useState<string>('');
   const [markup, setMarkup] = useState<number>(15);
@@ -108,42 +106,25 @@ export function AvitoConnectModal({
       console.log('AvitoConnectModal: Token received successfully', {
         tokenLength: tokenResponse.access_token.length,
         expiresIn: tokenResponse.expires_in,
-        accountId: (tokenResponse as any).account_id,
+        accountId: tokenResponse.account_id,
       });
       setAccessToken(tokenResponse.access_token);
       setExpiresIn(tokenResponse.expires_in);
 
       // Get account_id from token response (obtained via GET /core/v1/user in Edge Function)
-      const accountId = (tokenResponse as any).account_id;
+      const accountId = tokenResponse.account_id;
       if (!accountId) {
-        console.warn('AvitoConnectModal: No account_id in token response, will need to get it manually');
-        // Fallback: try to get accounts via get-accounts action
-        try {
-          const userAccounts = await getUserAccounts(tokenResponse.access_token);
-          if (userAccounts.length > 0) {
-            const fallbackAccountId = userAccounts[0].id;
-            console.log('AvitoConnectModal: Using account_id from get-accounts fallback', fallbackAccountId);
-            setSelectedAccountId(fallbackAccountId);
-            saveConnectionProgress(property.id, 1, {
-              accountId: fallbackAccountId,
-              accessToken: tokenResponse.access_token,
-            });
-            setCurrentStep(1); // Go to Item ID step
-          } else {
-            throw new Error('Не удалось получить ID аккаунта Avito. Попробуйте подключить заново.');
-          }
-        } catch (fallbackError) {
-          throw new Error('Не удалось получить ID аккаунта Avito. Попробуйте подключить заново.');
-        }
-      } else {
-        console.log('AvitoConnectModal: Using account_id from token response', accountId);
-        setSelectedAccountId(accountId);
-        saveConnectionProgress(property.id, 1, {
-          accountId: accountId,
-          accessToken: tokenResponse.access_token,
-        });
-        setCurrentStep(1); // Go to Item ID step (skip account selection)
+        console.error('AvitoConnectModal: No account_id in token response');
+        throw new Error('Не удалось получить ID аккаунта Avito. Попробуйте подключить заново.');
       }
+
+      console.log('AvitoConnectModal: Using account_id from token response', accountId);
+      setSelectedAccountId(accountId);
+      saveConnectionProgress(property.id, 1, {
+        accountId: accountId,
+        accessToken: tokenResponse.access_token,
+      });
+      setCurrentStep(1); // Go to Item ID step
 
       // OAuth данные уже удалены в начале функции, просто логируем успех
       console.log('AvitoConnectModal: OAuth callback processed successfully');
@@ -327,15 +308,6 @@ export function AvitoConnectModal({
     }
   };
 
-  const handleAccountSelect = (accountId: string) => {
-    setSelectedAccountId(accountId);
-    saveConnectionProgress(property.id, 1, {
-      accountId,
-      accessToken,
-    });
-    setCurrentStep(2);
-  };
-
   const handleItemIdValidate = async () => {
     if (!itemId || !selectedAccountId || !accessToken) {
       message.error('Заполните все поля');
@@ -343,14 +315,15 @@ export function AvitoConnectModal({
     }
 
     // Validate itemId: must be 10-11 digits
-    if (!itemId.trim() || !/^[0-9]{10,11}$/.test(itemId.trim())) {
+    const trimmedItemId = itemId.trim();
+    if (!trimmedItemId || !/^[0-9]{10,11}$/.test(trimmedItemId)) {
       message.error('ID объявления должен содержать 10-11 цифр (например, 2336174775)');
       return;
     }
 
     setValidatingItemId(true);
     try {
-      const validation = await validateItemId(selectedAccountId, itemId, accessToken, property.id);
+      const validation = await validateItemId(selectedAccountId, trimmedItemId, accessToken, property.id);
       
       if (!validation.available) {
         Modal.error({
@@ -364,20 +337,12 @@ export function AvitoConnectModal({
       // Item ID is valid, ready to save
       saveConnectionProgress(property.id, 1, {
         accountId: selectedAccountId,
-        itemId,
+        itemId: trimmedItemId,
         accessToken,
       });
-      // Stay on step 1, user can click "Завершить подключение" to save
+      message.success('ID объявления проверен. Нажмите "Завершить подключение" для сохранения.');
     } catch (error) {
-      // Improved error handling
-      let errorMessage: string;
-      if (typeof error === 'string') {
-        errorMessage = error;
-      } else if (error && typeof error === 'object' && 'message' in error) {
-        errorMessage = (error as { message?: string }).message || JSON.stringify(error);
-      } else {
-        errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
-      }
+      const errorMessage = error instanceof Error ? error.message : String(error);
       
       // Проверяем ошибку 404
       if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
@@ -410,7 +375,8 @@ export function AvitoConnectModal({
     }
 
     // Validate itemId: must be 10-11 digits before saving
-    if (!itemId || !/^[0-9]{10,11}$/.test(itemId.trim())) {
+    const trimmedItemId = itemId.trim();
+    if (!trimmedItemId || !/^[0-9]{10,11}$/.test(trimmedItemId)) {
       message.error('ID объявления должен содержать 10-11 цифр');
       return;
     }
@@ -423,10 +389,10 @@ export function AvitoConnectModal({
           action: 'save-integration',
           property_id: property.id,
           avito_account_id: selectedAccountId,
-          avito_item_id: parseInt(itemId, 10),
+          avito_item_id: parseInt(trimmedItemId, 10),
           avito_markup: markup,
           access_token: accessToken,
-          expires_in: expiresIn, // Передать реальное время истечения из ответа Avito API
+          expires_in: expiresIn,
         },
       });
 
