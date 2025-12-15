@@ -61,8 +61,9 @@ Deno.serve(async (req: Request) => {
     let requestBody: OAuthCallbackRequest;
     try {
       requestBody = await req.json() as OAuthCallbackRequest;
-    } catch (jsonError) {
-      console.error("Failed to parse JSON:", jsonError);
+    } catch (jsonError: unknown) {
+      const errorMessage = jsonError instanceof Error ? jsonError.message : String(jsonError);
+      console.error("Failed to parse JSON:", errorMessage);
       return new Response(
         JSON.stringify({ error: "Invalid JSON in request body" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -90,8 +91,9 @@ Deno.serve(async (req: Request) => {
     let stateData: { property_id?: string; timestamp?: number } | null = null;
     try {
       stateData = JSON.parse(atob(state));
-    } catch (stateError) {
-      console.error("Failed to parse state:", stateError);
+    } catch (stateError: unknown) {
+      const errorMessage = stateError instanceof Error ? stateError.message : String(stateError);
+      console.error("Failed to parse state:", errorMessage);
       return new Response(
         JSON.stringify({ error: "Invalid state parameter" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
