@@ -332,23 +332,21 @@ export async function getUserAccounts(accessToken: string): Promise<AvitoAccount
  * Returns {available: true} if OK, {available: false, error: string} if conflict
  */
 export async function validateItemId(
-  accountId: string,
   itemId: string,
-  accessToken: string,
+  integrationId: string,
   propertyId?: string
 ): Promise<{ available: boolean; error?: string }> {
   console.log('validateItemId: Validating item', {
-    accountId,
     itemId,
-    tokenLength: accessToken.length,
+    integrationId,
+    propertyId,
   });
 
   const { data, error } = await supabase.functions.invoke('avito_sync', {
     body: {
       action: 'validate-item',
-      account_id: accountId,
+      integration_id: integrationId,
       item_id: itemId,
-      access_token: accessToken,
       property_id: propertyId, // Передаем property_id для проверки переподключения
     },
   });

@@ -28,17 +28,7 @@ interface AvitoErrorResponse {
   error_uri?: string;
 }
 
-interface AvitoUserResponse {
-  id?: string;
-  account_id?: string;
-  user?: {
-    id?: string;
-    name?: string;
-    email?: string;
-  };
-  user_id?: string;
-  [key: string]: unknown; // Allow other fields we don't know about
-}
+// AvitoUserResponse removed - not needed for STR API
 
 interface OAuthCallbackRequest {
   code?: string;
@@ -174,112 +164,9 @@ Deno.serve(async (req: Request) => {
       expiresIn: tokenData.expires_in,
     });
 
-    // Step 2: Get user info to extract account_id
-    // According to Avito docs: use /core/v1/accounts/current or /core/v1/account
-    console.log("Fetching user info from Avito to get account_id");
-    let accountId: string | null = null;
-    let userData: AvitoUserResponse | null = null;
-
-    try {
-      // Try /core/v1/accounts/current first (recommended endpoint)
-      const userResponse = await fetch(`${AVITO_API_BASE}/core/v1/accounts/current`, {
-        headers: {
-          Authorization: `Bearer ${tokenData.access_token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!userResponse.ok) {
-        // If 404, try alternative endpoint /core/v1/account
-        if (userResponse.status === 404) {
-          console.log("Endpoint /core/v1/accounts/current returned 404, trying /core/v1/account");
-          const altResponse = await fetch(`${AVITO_API_BASE}/core/v1/account`, {
-            headers: {
-              Authorization: `Bearer ${tokenData.access_token}`,
-              "Content-Type": "application/json",
-            },
-          });
-
-          if (!altResponse.ok) {
-            const errorText = await altResponse.text().catch(() => 'Unable to read error');
-            console.error("Failed to get user info from Avito API (both endpoints failed)", {
-              currentStatus: userResponse.status,
-              accountStatus: altResponse.status,
-              errorText: errorText.substring(0, 500),
-            });
-            return new Response(
-              JSON.stringify({ 
-                error: `Не удалось получить данные аккаунта Avito (${altResponse.status}): ${errorText.substring(0, 200)}` 
-              }),
-              { status: altResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-          }
-
-          userData = await altResponse.json() as AvitoUserResponse;
-          console.log("Avito user API response (from /core/v1/account)", {
-            userDataKeys: Object.keys(userData),
-            endpoint: "/core/v1/account",
-          });
-        } else {
-          const errorText = await userResponse.text().catch(() => 'Unable to read error');
-          console.error("Failed to get user info from Avito API", {
-            status: userResponse.status,
-            statusText: userResponse.statusText,
-            errorText: errorText.substring(0, 500),
-          });
-          return new Response(
-            JSON.stringify({ 
-              error: `Не удалось получить данные аккаунта Avito (${userResponse.status}): ${errorText.substring(0, 200)}` 
-            }),
-            { status: userResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-      } else {
-        userData = await userResponse.json() as AvitoUserResponse;
-        console.log("Avito user API response (from /core/v1/accounts/current)", {
-          userDataKeys: Object.keys(userData),
-          endpoint: "/core/v1/accounts/current",
-        });
-      }
-
-      // Extract account_id from user data
-      // Try multiple possible paths: id, account_id, user.id, user_id
-      if (userData) {
-        accountId = userData.id || userData.account_id || userData.user?.id || userData.user_id || null;
-      }
-
-      if (!accountId || !userData) {
-        console.error("Failed to extract account_id from user data", {
-          userDataKeys: userData ? Object.keys(userData) : [],
-          userData: userData ? JSON.stringify(userData).substring(0, 1000) : 'null',
-        });
-        return new Response(
-          JSON.stringify({ 
-            error: "Не удалось получить ID аккаунта Avito из ответа API. Попробуйте подключить заново." 
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      console.log("Successfully extracted account_id", {
-        accountId,
-        source: userData.id ? 'id' : (userData.account_id ? 'account_id' : (userData.user?.id ? 'user.id' : 'user_id')),
-      });
-    } catch (userError) {
-      const errorMessage = userError instanceof Error ? userError.message : String(userError);
-      console.error("Error fetching user info from Avito API", {
-        error: errorMessage,
-        errorType: userError instanceof Error ? userError.constructor.name : typeof userError,
-      });
-      return new Response(
-        JSON.stringify({ 
-          error: `Ошибка при получении данных аккаунта Avito: ${errorMessage}` 
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Step 3: Save to integrations
+    // Step 2: Save to integrations (no account_id needed for STR API)
+    // According to Avito STR API docs: endpoints /items/{item_id}/... don't require account_id
+    // Token itself verifies item_id ownership
     const expiresInSeconds = tokenData.expires_in && typeof tokenData.expires_in === 'number' && tokenData.expires_in > 0 
       ? tokenData.expires_in 
       : 3600;
@@ -288,7 +175,6 @@ Deno.serve(async (req: Request) => {
     const upsertData: {
       property_id: string;
       platform: string;
-      avito_account_id: string;
       access_token_encrypted: string;
       refresh_token_encrypted?: string;
       token_expires_at: string;
@@ -297,7 +183,6 @@ Deno.serve(async (req: Request) => {
     } = {
       property_id: propertyId,
       platform: "avito",
-      avito_account_id: accountId,
       access_token_encrypted: tokenData.access_token,
       token_expires_at: tokenExpiresAt.toISOString(),
       is_active: true,
@@ -311,7 +196,6 @@ Deno.serve(async (req: Request) => {
 
     console.log("Saving integration", {
       propertyId,
-      accountId,
       hasRefreshToken: !!tokenData.refresh_token,
       tokenExpiresAt: tokenExpiresAt.toISOString(),
     });
@@ -321,7 +205,7 @@ Deno.serve(async (req: Request) => {
       .upsert(upsertData, {
         onConflict: 'property_id,platform'
       })
-      .select('id, property_id, platform, avito_account_id, is_active')
+      .select('id, property_id, platform, is_active')
       .single();
 
     if (saveError) {
@@ -341,14 +225,12 @@ Deno.serve(async (req: Request) => {
     console.log("Integration saved successfully", {
       integrationId: integration.id,
       propertyId: integration.property_id,
-      accountId: integration.avito_account_id,
     });
 
-    // Return success with accountId
+    // Return success (no accountId needed)
     return new Response(
       JSON.stringify({
         success: true,
-        accountId: accountId,
         integrationId: integration.id,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -38,7 +38,6 @@ export function AvitoConnectModal({
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [oauthRedirecting, setOauthRedirecting] = useState(false);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [itemId, setItemId] = useState<string>('');
   const [markup, setMarkup] = useState<number>(15);
   const [validatingItemId, setValidatingItemId] = useState(false);
@@ -109,21 +108,14 @@ export function AvitoConnectModal({
         throw new Error(callbackResponse?.error || 'Не удалось обработать OAuth callback');
       }
 
-      const accountId = callbackResponse.accountId;
-      if (!accountId) {
-        console.error('AvitoConnectModal: No account_id in callback response', callbackResponse);
-        throw new Error('Не удалось получить ID аккаунта Avito. Попробуйте подключить заново.');
-      }
-
       console.log('AvitoConnectModal: OAuth callback processed successfully', {
-        accountId,
         integrationId: callbackResponse.integrationId,
       });
 
-      // Load integration to get tokens for next step (item_id input)
+      // Load integration to verify it was saved
       const { data: integration, error: integrationError } = await supabase
         .from('integrations')
-        .select('id, avito_account_id, access_token_encrypted, refresh_token_encrypted, token_expires_at')
+        .select('id, access_token_encrypted, refresh_token_encrypted, token_expires_at')
         .eq('property_id', property.id)
         .eq('platform', 'avito')
         .eq('is_active', true)
@@ -134,10 +126,8 @@ export function AvitoConnectModal({
           error: integrationError,
           hasIntegration: !!integration,
         });
-        // Continue anyway - account_id is saved, user can proceed to item_id step
+        // Continue anyway - tokens are saved, user can proceed to item_id step
       } else {
-        // Note: tokens are encrypted, we can't use them directly on frontend
-        // They will be used by Edge Functions for API calls
         console.log('AvitoConnectModal: Integration loaded', {
           integrationId: integration.id,
           hasAccessToken: !!integration.access_token_encrypted,
@@ -145,9 +135,8 @@ export function AvitoConnectModal({
         });
       }
 
-      setSelectedAccountId(accountId);
+      message.success('Аккаунт Avito подключён! Теперь введи ID объявления');
       saveConnectionProgress(property.id, 1, {
-        accountId: accountId,
         // Tokens are saved in DB by Edge Function, we don't need to store them in progress
       });
       
@@ -159,8 +148,8 @@ export function AvitoConnectModal({
         window.history.replaceState({}, '', url.toString());
       }
       
-      // Show success toast with accountId and move to next step
-      message.success(`Аккаунт Avito подключён (ID: ${accountId})! Теперь введи ID объявления`);
+      // Show success toast and move to next step
+      message.success('Аккаунт Avito подключён! Теперь введи ID объявления');
       setCurrentStep(1); // Go to Item ID step
 
       // OAuth данные уже удалены в начале функции, просто логируем успех
@@ -239,7 +228,6 @@ export function AvitoConnectModal({
       if (progress && progress.step > 0) {
         console.log('AvitoConnectModal: Resuming from saved progress', { step: progress.step });
         setCurrentStep(progress.step);
-        if (progress.data.accountId) setSelectedAccountId(progress.data.accountId);
         if (progress.data.itemId) setItemId(progress.data.itemId);
         if (progress.data.markup) setMarkup(progress.data.markup);
         // Tokens are now stored in DB, not in progress
@@ -346,8 +334,8 @@ export function AvitoConnectModal({
   };
 
   const handleItemIdValidate = async () => {
-    if (!itemId || !selectedAccountId) {
-      message.error('Заполните все поля');
+    if (!itemId) {
+      message.error('Введи ID объявления');
       return;
     }
 
@@ -360,22 +348,21 @@ export function AvitoConnectModal({
 
     setValidatingItemId(true);
     try {
-      // Load integration to get access_token for validation
+      // Load integration to get integration_id for validation
       const { data: integration, error: integrationError } = await supabase
         .from('integrations')
-        .select('id, avito_account_id, access_token_encrypted')
+        .select('id')
         .eq('property_id', property.id)
         .eq('platform', 'avito')
         .eq('is_active', true)
         .single();
 
-      if (integrationError || !integration || !integration.access_token_encrypted) {
+      if (integrationError || !integration) {
         throw new Error('Интеграция не найдена. Пожалуйста, подключите Avito заново.');
       }
 
-      // Note: access_token_encrypted is encrypted, but validateItemId Edge Function will decrypt it
-      // For now, we pass the encrypted token - Edge Function should handle decryption
-      const validation = await validateItemId(selectedAccountId, trimmedItemId, integration.access_token_encrypted, property.id);
+      // Validate item ID (Edge Function will use integration's token)
+      const validation = await validateItemId(trimmedItemId, integration.id, property.id);
       
       if (!validation.available) {
         Modal.error({
@@ -388,7 +375,6 @@ export function AvitoConnectModal({
 
       // Item ID is valid, ready to save
       saveConnectionProgress(property.id, 1, {
-        accountId: selectedAccountId,
         itemId: trimmedItemId,
       });
       message.success('ID объявления проверен. Нажмите "Завершить подключение" для сохранения.');
@@ -420,8 +406,8 @@ export function AvitoConnectModal({
   };
 
   const handleSubmit = async () => {
-    if (!selectedAccountId || !itemId) {
-      message.error('Заполните все поля');
+    if (!itemId) {
+      message.error('Введи ID объявления');
       return;
     }
 
@@ -500,7 +486,6 @@ export function AvitoConnectModal({
     const progress = loadConnectionProgress(property.id);
       if (progress) {
         setCurrentStep(progress.step);
-        if (progress.data.accountId) setSelectedAccountId(progress.data.accountId);
         if (progress.data.itemId) setItemId(progress.data.itemId);
         if (progress.data.markup) setMarkup(progress.data.markup);
         // Tokens are now stored in DB, not in progress
@@ -656,7 +641,7 @@ export function AvitoConnectModal({
                 type="primary"
                 onClick={handleSubmit}
                 loading={loading || validatingItemId}
-                disabled={!itemId || !/^[0-9]{10,11}$/.test(itemId) || !selectedAccountId}
+                    disabled={!itemId || !/^[0-9]{10,11}$/.test(itemId)}
                 icon={<CheckCircleOutlined />}
               >
                 Завершить подключение

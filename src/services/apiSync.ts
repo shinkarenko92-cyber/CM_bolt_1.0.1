@@ -112,7 +112,6 @@ export async function syncAvitoIntegration(
   console.log('syncAvitoIntegration: Calling Edge Function', {
     integration_id: integration.id,
     property_id: integration.property_id,
-    avito_account_id: integration.avito_account_id,
     avito_item_id: integration.avito_item_id,
     exclude_booking_id: excludeBookingId,
   });

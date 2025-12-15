@@ -582,14 +582,13 @@ Deno.serve(async (req: Request) => {
       }
 
       case "validate-item": {
-        const { account_id, item_id, access_token, property_id } = params;
+        const { integration_id, item_id, property_id } = params;
 
         // Валидация параметров
-        if (!account_id || !item_id || !access_token) {
+        if (!integration_id || !item_id) {
           console.error("Missing required parameters for validate-item", {
-            has_account_id: !!account_id,
+            has_integration_id: !!integration_id,
             has_item_id: !!item_id,
-            has_access_token: !!access_token,
           });
           return new Response(
             JSON.stringify({ available: false, error: "Отсутствуют обязательные параметры" }),
@@ -597,15 +596,32 @@ Deno.serve(async (req: Request) => {
           );
         }
 
+        // Load integration to get access token
+        const { data: integration, error: intError } = await supabase
+          .from("integrations")
+          .select("id, access_token_encrypted")
+          .eq("id", integration_id)
+          .eq("is_active", true)
+          .single();
+
+        if (intError || !integration || !integration.access_token_encrypted) {
+          return new Response(
+            JSON.stringify({ available: false, error: "Интеграция не найдена или неактивна" }),
+            { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Decrypt token (simplified - in production use Vault)
+        const accessToken = integration.access_token_encrypted;
+
         console.log("Validating item:", {
-          account_id,
+          integration_id,
           item_id,
-          token_length: access_token.length,
+          token_length: accessToken.length,
         });
 
-        // Используем правильный endpoint из OpenAPI спецификации
-        // /realty/v1/accounts/{user_id}/items/{item_id}/bookings требует обязательные query параметры date_start и date_end
-        // Вычисляем даты: сегодня и завтра (для минимального диапазона)
+        // Use STR API endpoint: GET /realty/v1/items/{item_id}/bookings
+        // Requires date_start and date_end query parameters
         const today = new Date();
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -613,19 +629,18 @@ Deno.serve(async (req: Request) => {
         const dateStart = today.toISOString().split('T')[0]; // YYYY-MM-DD
         const dateEnd = tomorrow.toISOString().split('T')[0]; // YYYY-MM-DD
 
-        console.log("Using realty/v1 endpoint with required date parameters", {
+        console.log("Using realty/v1/items endpoint with required date parameters", {
           date_start: dateStart,
           date_end: dateEnd,
         });
 
-        // Используем endpoint из OpenAPI спецификации с обязательными параметрами
-        // Параметр skip_error=true позволяет получать 200 статус вместо ошибок при проблемах с items
+        // Use STR API endpoint without account_id
         const response = await fetch(
-          `${AVITO_API_BASE}/realty/v1/accounts/${account_id}/items/${item_id}/bookings?date_start=${dateStart}&date_end=${dateEnd}&skip_error=true`,
+          `${AVITO_API_BASE}/realty/v1/items/${item_id}/bookings?date_start=${dateStart}&date_end=${dateEnd}&skip_error=true`,
           {
             method: "GET",
             headers: {
-              Authorization: `Bearer ${access_token}`,
+              Authorization: `Bearer ${accessToken}`,
               "Content-Type": "application/json",
             },
           }
@@ -834,7 +849,7 @@ Deno.serve(async (req: Request) => {
           .upsert(upsertData, {
             onConflict: 'property_id,platform' // Указываем поля для разрешения конфликта
           })
-          .select('id, property_id, platform, avito_account_id, avito_item_id, avito_markup, is_active, token_expires_at, last_sync_at')
+          .select('id, property_id, platform, avito_item_id, avito_markup, is_active, token_expires_at, last_sync_at')
           .single();
 
         if (error) {
@@ -872,7 +887,7 @@ Deno.serve(async (req: Request) => {
           // Get integration with decrypted token
           const { data: integration, error: intError } = await supabase
             .from("integrations")
-            .select("id, property_id, platform, avito_account_id, avito_item_id, avito_markup, access_token_encrypted, refresh_token_encrypted, token_expires_at, is_active, last_sync_at, sync_interval_seconds")
+            .select("id, property_id, platform, avito_item_id, avito_markup, access_token_encrypted, refresh_token_encrypted, token_expires_at, is_active, last_sync_at, sync_interval_seconds")
             .eq("id", integration_id)
             .eq("is_active", true)
             .single();
@@ -1143,38 +1158,16 @@ Deno.serve(async (req: Request) => {
           );
         }
 
-        // Get account_id ONLY for endpoints that require it (e.g., /accounts/{account_id}/items/{item_id}/bookings)
-        // For /items/{item_id}/ endpoints, NEVER use account_id
-        // GUARD: account_id is required for pull bookings to verify item_id ownership
-        const accountId = integration.avito_account_id;
-        
-        if (!accountId) {
-          console.error("CRITICAL: avito_account_id is missing", {
-            integration_id: integration.id,
-            property_id: integration.property_id,
-            error: "account_id is required for Avito STR API to verify item_id ownership",
-          });
-          return new Response(
-            JSON.stringify({ 
-              success: false,
-              error: "ID аккаунта Avito не настроен. Подключи аккаунт Avito заново через настройки интеграции." 
-            }),
-            { 
-              status: 400, 
-              headers: { ...corsHeaders, "Content-Type": "application/json" } 
-            }
-          );
-        }
-
         // Sync property_rates (calendar prices) and availability to Avito
-        // Используем правильные эндпоинты согласно документации:
-        // 1. POST /realty/v1/accounts/{user_id}/items/{item_id}/prices - для обновления цен
+        // According to Avito STR API docs: endpoints /items/{item_id}/... don't require account_id
+        // Token itself verifies item_id ownership
+        // Endpoints:
+        // 1. POST /realty/v1/items/{item_id}/prices - для обновления цен
         // 2. POST /realty/v1/items/{item_id}/base - для базовых параметров
-        // 3. POST /core/v1/accounts/{user_id}/items/{item_id}/bookings - для отправки бронирований (putBookingsInfo)
-        // Примечание: несмотря на название метода putBookingsInfo, API использует POST метод
+        // 3. GET /realty/v1/items/{item_id}/bookings - для получения бронирований
+        // 4. POST /realty/v1/items/{item_id}/intervals - для закрытия/открытия дат
         console.log("Syncing property_rates to Avito", {
           property_id: integration.property_id,
-          accountId,
           itemId,
           markup,
           basePrice,
@@ -1803,9 +1796,9 @@ Deno.serve(async (req: Request) => {
             operation: 'bookings_fetch',
             statusCode: 404,
             message: errorMessage,
-            details: { item_id: itemId, account_id: accountId },
+            details: { item_id: itemId },
           });
-          console.error("Avito item not found (404)", { item_id: itemId, account_id: accountId });
+          console.error("Avito item not found (404)", { item_id: itemId });
           // Don't throw, continue with sync (bookings pull is not critical)
         }
 
@@ -2174,10 +2167,11 @@ Deno.serve(async (req: Request) => {
             try {
               // Only cancel if status is "pending" (unpaid) and we have booking ID
               const bookingId = booking.avito_booking_id || booking.id;
-              if (booking.status === "pending" && bookingId && accountId) {
+              if (booking.status === "pending" && bookingId) {
                 try {
+                  // Use STR API endpoint without account_id
                   const cancelResponse = await fetchWithRetry(
-                    `${AVITO_API_BASE}/core/v1/accounts/${accountId}/items/${itemId}/bookings/${bookingId}/cancel`,
+                    `${AVITO_API_BASE}/realty/v1/items/${itemId}/bookings/${bookingId}/cancel`,
                     {
                       method: "POST",
                       headers: {
