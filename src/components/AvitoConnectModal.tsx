@@ -352,6 +352,7 @@ export function AvitoConnectModal({
         accountId: selectedAccountId,
         itemId: trimmedItemId,
         accessToken,
+        refreshToken: refreshToken || undefined,
       });
       message.success('ID объявления проверен. Нажмите "Завершить подключение" для сохранения.');
     } catch (error) {
