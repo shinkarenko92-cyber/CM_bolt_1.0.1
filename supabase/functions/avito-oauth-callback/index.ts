@@ -142,55 +142,107 @@ Deno.serve(async (req: Request) => {
     });
 
     // Step 2: Get user info to extract account_id
+    // According to Avito docs: use /core/v1/accounts/current or /core/v1/account
     console.log("Fetching user info from Avito to get account_id");
-    const userResponse = await fetch(`${AVITO_API_BASE}/core/v1/user`, {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-        "Content-Type": "application/json",
-      },
-    });
+    let accountId: string | null = null;
+    let userData: any = null;
 
-    if (!userResponse.ok) {
-      const errorText = await userResponse.text().catch(() => 'Unable to read error');
-      console.error("Failed to get user info from Avito API", {
-        status: userResponse.status,
-        statusText: userResponse.statusText,
-        errorText: errorText.substring(0, 500),
+    try {
+      // Try /core/v1/accounts/current first (recommended endpoint)
+      const userResponse = await fetch(`${AVITO_API_BASE}/core/v1/accounts/current`, {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!userResponse.ok) {
+        // If 404, try alternative endpoint /core/v1/account
+        if (userResponse.status === 404) {
+          console.log("Endpoint /core/v1/accounts/current returned 404, trying /core/v1/account");
+          const altResponse = await fetch(`${AVITO_API_BASE}/core/v1/account`, {
+            headers: {
+              Authorization: `Bearer ${tokenData.access_token}`,
+              "Content-Type": "application/json",
+            },
+          });
+
+          if (!altResponse.ok) {
+            const errorText = await altResponse.text().catch(() => 'Unable to read error');
+            console.error("Failed to get user info from Avito API (both endpoints failed)", {
+              currentStatus: userResponse.status,
+              accountStatus: altResponse.status,
+              errorText: errorText.substring(0, 500),
+            });
+            return new Response(
+              JSON.stringify({ 
+                error: `Не удалось получить данные аккаунта Avito (${altResponse.status}): ${errorText.substring(0, 200)}` 
+              }),
+              { status: altResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          userData = await altResponse.json();
+          console.log("Avito user API response (from /core/v1/account)", {
+            userDataKeys: Object.keys(userData),
+            endpoint: "/core/v1/account",
+          });
+        } else {
+          const errorText = await userResponse.text().catch(() => 'Unable to read error');
+          console.error("Failed to get user info from Avito API", {
+            status: userResponse.status,
+            statusText: userResponse.statusText,
+            errorText: errorText.substring(0, 500),
+          });
+          return new Response(
+            JSON.stringify({ 
+              error: `Не удалось получить данные аккаунта Avito (${userResponse.status}): ${errorText.substring(0, 200)}` 
+            }),
+            { status: userResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } else {
+        userData = await userResponse.json();
+        console.log("Avito user API response (from /core/v1/accounts/current)", {
+          userDataKeys: Object.keys(userData),
+          endpoint: "/core/v1/accounts/current",
+        });
+      }
+
+      // Extract account_id from user data
+      // Try multiple possible paths: id, account_id, user.id, user_id
+      accountId = userData.id || userData.account_id || userData.user?.id || userData.user_id || null;
+
+      if (!accountId) {
+        console.error("Failed to extract account_id from user data", {
+          userDataKeys: Object.keys(userData),
+          userData: JSON.stringify(userData).substring(0, 1000),
+        });
+        return new Response(
+          JSON.stringify({ 
+            error: "Не удалось получить ID аккаунта Avito из ответа API. Попробуйте подключить заново." 
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log("Successfully extracted account_id", {
+        accountId,
+        source: userData.id ? 'id' : (userData.account_id ? 'account_id' : (userData.user?.id ? 'user.id' : 'user_id')),
+      });
+    } catch (userError) {
+      const errorMessage = userError instanceof Error ? userError.message : String(userError);
+      console.error("Error fetching user info from Avito API", {
+        error: errorMessage,
+        errorType: userError instanceof Error ? userError.constructor.name : typeof userError,
       });
       return new Response(
         JSON.stringify({ 
-          error: `Не удалось получить данные аккаунта Avito (${userResponse.status}): ${errorText.substring(0, 200)}` 
+          error: `Ошибка при получении данных аккаунта Avito: ${errorMessage}` 
         }),
-        { status: userResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    const userData = await userResponse.json();
-    console.log("Avito user API response", {
-      userDataKeys: Object.keys(userData),
-      hasUser: !!userData.user,
-    });
-
-    // Extract account_id from user data
-    const accountId = userData.user?.id || userData.id || userData.user_id || null;
-
-    if (!accountId) {
-      console.error("Failed to extract account_id from user data", {
-        userDataKeys: Object.keys(userData),
-        userData: JSON.stringify(userData).substring(0, 1000),
-      });
-      return new Response(
-        JSON.stringify({ 
-          error: "Не удалось получить ID аккаунта Avito из ответа API. Попробуйте подключить заново." 
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log("Successfully extracted account_id", {
-      accountId,
-      source: userData.user?.id ? 'user.id' : (userData.id ? 'id' : 'user_id'),
-    });
 
     // Step 3: Save to integrations
     const expiresInSeconds = tokenData.expires_in && typeof tokenData.expires_in === 'number' && tokenData.expires_in > 0 
