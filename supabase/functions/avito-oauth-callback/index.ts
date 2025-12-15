@@ -13,6 +13,39 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Type definitions for Avito API responses
+interface AvitoTokenResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  refresh_token?: string;
+  scope?: string;
+}
+
+interface AvitoErrorResponse {
+  error?: string;
+  error_description?: string;
+  error_uri?: string;
+}
+
+interface AvitoUserResponse {
+  id?: string;
+  account_id?: string;
+  user?: {
+    id?: string;
+    name?: string;
+    email?: string;
+  };
+  user_id?: string;
+  [key: string]: unknown; // Allow other fields we don't know about
+}
+
+interface OAuthCallbackRequest {
+  code?: string;
+  state?: string;
+  redirect_uri?: string;
+}
+
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight - must return 204 No Content
   if (req.method === "OPTIONS") {
@@ -35,9 +68,9 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     // Parse request body
-    let requestBody;
+    let requestBody: OAuthCallbackRequest;
     try {
-      requestBody = await req.json();
+      requestBody = await req.json() as OAuthCallbackRequest;
     } catch (jsonError) {
       console.error("Failed to parse JSON:", jsonError);
       return new Response(
@@ -111,7 +144,7 @@ Deno.serve(async (req: Request) => {
     if (!tokenResponse.ok) {
       let errorMessage = `Token exchange failed (${tokenResponse.status})`;
       try {
-        const errorData = await tokenResponse.json();
+        const errorData = await tokenResponse.json() as AvitoErrorResponse;
         if (errorData.error) {
           errorMessage = `Avito API error: ${errorData.error}`;
           if (errorData.error_description) {
@@ -134,7 +167,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const tokenData = await tokenResponse.json();
+    const tokenData = await tokenResponse.json() as AvitoTokenResponse;
     console.log("Token exchange successful", {
       hasAccessToken: !!tokenData.access_token,
       hasRefreshToken: !!tokenData.refresh_token,
@@ -145,7 +178,7 @@ Deno.serve(async (req: Request) => {
     // According to Avito docs: use /core/v1/accounts/current or /core/v1/account
     console.log("Fetching user info from Avito to get account_id");
     let accountId: string | null = null;
-    let userData: any = null;
+    let userData: AvitoUserResponse | null = null;
 
     try {
       // Try /core/v1/accounts/current first (recommended endpoint)
@@ -182,7 +215,7 @@ Deno.serve(async (req: Request) => {
             );
           }
 
-          userData = await altResponse.json();
+          userData = await altResponse.json() as AvitoUserResponse;
           console.log("Avito user API response (from /core/v1/account)", {
             userDataKeys: Object.keys(userData),
             endpoint: "/core/v1/account",
@@ -202,7 +235,7 @@ Deno.serve(async (req: Request) => {
           );
         }
       } else {
-        userData = await userResponse.json();
+        userData = await userResponse.json() as AvitoUserResponse;
         console.log("Avito user API response (from /core/v1/accounts/current)", {
           userDataKeys: Object.keys(userData),
           endpoint: "/core/v1/accounts/current",
@@ -211,12 +244,14 @@ Deno.serve(async (req: Request) => {
 
       // Extract account_id from user data
       // Try multiple possible paths: id, account_id, user.id, user_id
-      accountId = userData.id || userData.account_id || userData.user?.id || userData.user_id || null;
+      if (userData) {
+        accountId = userData.id || userData.account_id || userData.user?.id || userData.user_id || null;
+      }
 
-      if (!accountId) {
+      if (!accountId || !userData) {
         console.error("Failed to extract account_id from user data", {
-          userDataKeys: Object.keys(userData),
-          userData: JSON.stringify(userData).substring(0, 1000),
+          userDataKeys: userData ? Object.keys(userData) : [],
+          userData: userData ? JSON.stringify(userData).substring(0, 1000) : 'null',
         });
         return new Response(
           JSON.stringify({ 
