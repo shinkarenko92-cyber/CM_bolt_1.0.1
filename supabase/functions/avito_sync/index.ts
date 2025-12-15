@@ -1469,9 +1469,11 @@ Deno.serve(async (req: Request) => {
             endpoint: `${AVITO_API_BASE}/realty/v1/items/${itemId}/intervals`,
             intervalsCount: intervalsToSend.length,
             exclude_booking_id: exclude_booking_id || null,
+            item_id: itemId,
           });
 
           try {
+            console.log("POST /realty/v1/items/{item_id}/intervals - starting", { item_id: itemId });
             const bookingsUpdateResponse = await fetchWithRetry(
               `${AVITO_API_BASE}/realty/v1/items/${itemId}/intervals`,
               {
