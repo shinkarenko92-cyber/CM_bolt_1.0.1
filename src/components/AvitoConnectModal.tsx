@@ -22,7 +22,6 @@ import {
   validateItemId,
   performInitialSync,
 } from '../services/avito';
-import type { AvitoTokenResponse } from '../types/avito';
 
 interface AvitoConnectModalProps {
   isOpen: boolean;
