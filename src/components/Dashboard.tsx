@@ -19,7 +19,7 @@ import { SkeletonCalendar } from './Skeleton';
 import { supabase, Property, Booking, Profile } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { getOAuthSuccess, getOAuthError } from '../services/avito';
-import { syncWithExternalAPIs, syncAvitoIntegration, AvitoSyncError } from '../services/apiSync';
+import { syncWithExternalAPIs, syncAvitoIntegration } from '../services/apiSync';
 import { showAvitoErrors } from '../services/avitoErrors';
 import { DeletePropertyModal } from './DeletePropertyModal';
 import { ImportBookingsModal } from './ImportBookingsModal';
