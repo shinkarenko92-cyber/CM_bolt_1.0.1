@@ -1046,7 +1046,7 @@ export function Calendar({
                     
                     return (
                       <div key={groupId} className="border-b border-slate-700">
-                        {grouped.group && (
+                        {grouped.group ? (
                           <PropertyGroupHeader
                             group={grouped.group}
                             isExpanded={isGroupExpanded}
@@ -1078,6 +1078,29 @@ export function Calendar({
                             }}
                             propertiesCount={grouped.properties.length}
                           />
+                        ) : (
+                          // Header for ungrouped properties
+                          <div className="bg-slate-600 text-white border-b border-slate-700 flex items-center px-4 gap-2 h-12 sticky top-0 z-40">
+                            <button
+                              onClick={() => toggleGroupExpansion(groupId)}
+                              className="flex-shrink-0 text-slate-300 hover:text-white transition-colors"
+                            >
+                              {isGroupExpanded ? (
+                                <ChevronDown className="w-4 h-4" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4" />
+                              )}
+                            </button>
+                            <Home className="w-4 h-4 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium leading-tight truncate">
+                                Без группы
+                              </div>
+                              <div className="text-xs text-slate-300">
+                                {grouped.properties.length} {grouped.properties.length === 1 ? 'объект' : 'объектов'}
+                              </div>
+                            </div>
+                          </div>
                         )}
                         
                         {isGroupExpanded && (
