@@ -189,7 +189,31 @@ export async function syncAvitoIntegration(
   if (data && typeof data === 'object') {
     const responseData = data as Record<string, unknown>;
     
-    // Check if success is explicitly false
+    // PRIORITY: Check hasError first - this is the definitive success indicator
+    // If hasError === false, treat as success regardless of success/errorsCount fields
+    if ('hasError' in responseData && responseData.hasError === false) {
+      console.log('syncAvitoIntegration: Sync completed successfully (hasError: false)', { 
+        integration_id: integration.id,
+        property_id: integration.property_id,
+        hasData: responseData.hasData,
+        hasError: responseData.hasError,
+        errorsCount: responseData.errorsCount,
+      });
+      return { success: true };
+    }
+
+    // If hasError === true, it's a real error
+    if ('hasError' in responseData && responseData.hasError === true) {
+      const errors = (responseData.errors as AvitoErrorInfo[]) || [];
+      const message = (responseData.error as string) || (responseData.message as string) || 'Avito synchronization failed';
+      console.error('syncAvitoIntegration: Sync failed (hasError: true)', {
+        message,
+        errorsCount: errors.length,
+      });
+      return { success: false, errors, message };
+    }
+
+    // Fallback: Check if success is explicitly false (for backward compatibility)
     if (responseData.success === false) {
       const errors = (responseData.errors as AvitoErrorInfo[]) || [];
       const message = (responseData.error as string) || (responseData.message as string) || 'Avito synchronization failed';
@@ -200,18 +224,27 @@ export async function syncAvitoIntegration(
       return { success: false, errors, message };
     }
 
-    // Check if there are errors but success is not false (partial success)
+    // Check if there are errors but success is not false (partial success/warnings)
+    // Only treat as error if hasError is explicitly true
     if (responseData.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
       const errors = responseData.errors as AvitoErrorInfo[];
-      console.warn('syncAvitoIntegration: Sync completed with partial errors', {
-        errorsCount: errors.length,
-        success: responseData.success,
-      });
-      // If success is true or undefined, treat as partial success
-      return { 
-        success: responseData.success !== false, 
-        errors 
-      };
+      // If hasError is not explicitly true, these are warnings, not errors
+      const isRealError = 'hasError' in responseData && responseData.hasError === true;
+      
+      if (isRealError) {
+        console.warn('syncAvitoIntegration: Sync completed with errors', {
+          errorsCount: errors.length,
+          success: responseData.success,
+        });
+        return { success: false, errors };
+      } else {
+        // These are warnings, sync was successful
+        console.log('syncAvitoIntegration: Sync completed with warnings (but hasError: false)', {
+          errorsCount: errors.length,
+          success: responseData.success,
+        });
+        return { success: true, errors }; // Return errors for display but mark as success
+      }
     }
 
     // Success case

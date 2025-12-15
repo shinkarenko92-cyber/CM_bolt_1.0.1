@@ -64,6 +64,7 @@ export function Dashboard() {
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
   const [bookingsForDelete, setBookingsForDelete] = useState<Booking[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isSyncingAvito, setIsSyncingAvito] = useState(false);
 
   // Helper function for retry logic
   type SupabaseQueryResult<T> = {
@@ -391,25 +392,25 @@ export function Dashboard() {
       toast.success(t('success.bookingCreated'));
 
       // Sync to Avito after successful booking creation
+      setIsSyncingAvito(true);
+      const syncToastId = toast.loading('Синхронизация с Avito...');
+      
       try {
         const syncResult = await syncAvitoIntegration(reservation.property_id);
         
+        // PRIORITY: Check hasError === false first (from Edge Function response)
+        // If syncResult.success === true, it means hasError was false or not present
         if (syncResult.success) {
-          if (syncResult.errors && syncResult.errors.length > 0) {
-            // Partial success - some operations failed
-            const errorMessages = syncResult.errors.map(e => e.message || 'Ошибка').join(', ');
-            toast.error(`Частичная синхронизация: ${errorMessages}`);
-            showAvitoErrors(syncResult.errors, t).catch((err) => {
-              console.error('Error showing Avito error modals:', err);
-            });
-          } else {
-            // Full success
-            toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
-          }
-          console.log('Dashboard: Avito sync completed after booking creation', syncResult);
+          toast.dismiss(syncToastId);
+          // Show success message
+          toast.success('Бронь создана и отправлена в Avito 🚀');
+          console.log('Dashboard: Avito sync completed successfully after booking creation', syncResult);
         } else {
-          // Sync failed
+          // Sync failed - show error
+          toast.dismiss(syncToastId);
           if (syncResult.errors && syncResult.errors.length > 0) {
+            const errorMessages = syncResult.errors.map(e => e.message || 'Ошибка').join(', ');
+            toast.error(`Ошибка синхронизации: ${errorMessages}`);
             showAvitoErrors(syncResult.errors, t).catch((err) => {
               console.error('Error showing Avito error modals:', err);
             });
@@ -419,8 +420,11 @@ export function Dashboard() {
           console.error('Dashboard: Avito sync failed after booking creation', syncResult);
         }
       } catch (error) {
+        toast.dismiss(syncToastId);
         console.error('Dashboard: Unexpected error during Avito sync after booking creation:', error);
         toast.error('Ошибка синхронизации с Avito');
+      } finally {
+        setIsSyncingAvito(false);
       }
     } catch (error) {
       console.error('Error saving reservation:', error);
