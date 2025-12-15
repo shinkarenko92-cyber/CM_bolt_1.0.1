@@ -64,7 +64,6 @@ export function Dashboard() {
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
   const [bookingsForDelete, setBookingsForDelete] = useState<Booking[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [isSyncingAvito, setIsSyncingAvito] = useState(false);
 
   // Helper function for retry logic
   type SupabaseQueryResult<T> = {
@@ -392,7 +391,6 @@ export function Dashboard() {
       toast.success(t('success.bookingCreated'));
 
       // Sync to Avito after successful booking creation
-      setIsSyncingAvito(true);
       const syncToastId = toast.loading('Синхронизация с Avito...');
       
       try {
@@ -423,8 +421,6 @@ export function Dashboard() {
         toast.dismiss(syncToastId);
         console.error('Dashboard: Unexpected error during Avito sync after booking creation:', error);
         toast.error('Ошибка синхронизации с Avito');
-      } finally {
-        setIsSyncingAvito(false);
       }
     } catch (error) {
       console.error('Error saving reservation:', error);
@@ -467,7 +463,6 @@ export function Dashboard() {
       // Sync to Avito after successful booking update
       const booking = bookings.find(b => b.id === id);
       if (booking?.property_id) {
-        setIsSyncingAvito(true);
         const syncToastId = toast.loading('Синхронизация с Avito...');
         
         try {
@@ -498,8 +493,6 @@ export function Dashboard() {
           toast.dismiss(syncToastId);
           console.error('Dashboard: Unexpected error during Avito sync after booking update:', error);
           toast.error('Ошибка синхронизации с Avito');
-        } finally {
-          setIsSyncingAvito(false);
         }
       }
     } catch (error) {
@@ -570,7 +563,6 @@ export function Dashboard() {
 
           // If manual booking, exclude it from sync to open dates in Avito
           // If Avito booking, full sync will handle cancellation
-          setIsSyncingAvito(true);
           const syncToastId = toast.loading('Синхронизация с Avito...');
           
           try {
@@ -624,8 +616,6 @@ export function Dashboard() {
             toast.dismiss(syncToastId);
             console.error('Dashboard: Unexpected error during Avito sync after booking deletion:', error);
             toast.error('Ошибка синхронизации с Avito');
-          } finally {
-            setIsSyncingAvito(false);
           }
         } catch (error) {
           console.error('Dashboard: Unexpected error during Avito sync after booking deletion:', error);
