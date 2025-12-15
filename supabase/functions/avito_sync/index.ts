@@ -1378,7 +1378,7 @@ Deno.serve(async (req: Request) => {
             let baseParamsResponse = await fetchWithRetry(
               `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}`,
               {
-                method: "POST",
+                method: "PATCH",
                 headers: {
                   Authorization: `Bearer ${accessToken}`,
                   "Content-Type": "application/json",
