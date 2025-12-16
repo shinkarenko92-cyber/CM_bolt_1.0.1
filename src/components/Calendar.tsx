@@ -914,13 +914,23 @@ export function Calendar({
       
       // Обновляем sort_order в БД
       for (let i = 0; i < reordered.length; i++) {
-        const { error } = await supabase
-          .from('properties')
-          .update({ sort_order: i })
-          .eq('id', reordered[i].id);
-        
-        if (error) {
-          console.error(`Error updating sort_order for property ${reordered[i].id}:`, error);
+        try {
+          const { error } = await supabase
+            .from('properties')
+            .update({ sort_order: i })
+            .eq('id', reordered[i].id);
+          
+          if (error) {
+            // Игнорируем ошибку PGRST204 (колонка не найдена) - миграция может быть не применена
+            if (error.code === 'PGRST204' || error.message?.includes("Could not find the 'sort_order' column")) {
+              console.warn(`sort_order column not found, skipping update for property ${reordered[i].id}`);
+            } else {
+              console.error(`Error updating sort_order for property ${reordered[i].id}:`, error);
+            }
+          }
+        } catch (err) {
+          // Игнорируем ошибки при обновлении sort_order, если колонка не существует
+          console.warn(`Failed to update sort_order for property ${reordered[i].id}:`, err);
         }
       }
     } else {
@@ -948,13 +958,23 @@ export function Calendar({
       // Обновляем sort_order для остальных объектов в целевой группе
       for (let i = 0; i < targetGroupProperties.length; i++) {
         if (targetGroupProperties[i].id !== overId) {
-          const { error } = await supabase
-            .from('properties')
-            .update({ sort_order: i >= overIndex ? i + 1 : i })
-            .eq('id', targetGroupProperties[i].id);
-          
-          if (error) {
-            console.error(`Error updating sort_order for property ${targetGroupProperties[i].id}:`, error);
+          try {
+            const { error } = await supabase
+              .from('properties')
+              .update({ sort_order: i >= overIndex ? i + 1 : i })
+              .eq('id', targetGroupProperties[i].id);
+            
+            if (error) {
+              // Игнорируем ошибку PGRST204 (колонка не найдена) - миграция может быть не применена
+              if (error.code === 'PGRST204' || error.message?.includes("Could not find the 'sort_order' column")) {
+                console.warn(`sort_order column not found, skipping update for property ${targetGroupProperties[i].id}`);
+              } else {
+                console.error(`Error updating sort_order for property ${targetGroupProperties[i].id}:`, error);
+              }
+            }
+          } catch (err) {
+            // Игнорируем ошибки при обновлении sort_order, если колонка не существует
+            console.warn(`Failed to update sort_order for property ${targetGroupProperties[i].id}:`, err);
           }
         }
       }
@@ -1258,17 +1278,28 @@ export function Calendar({
                                       .filter(p => p.group_id === groupId)
                                       .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
-                                    const { error: updateError } = await supabase
-                                      .from('properties')
-                                      .update({
-                                        group_id: groupId,
-                                        sort_order: groupId ? targetGroupProperties.length : (property.sort_order || 0),
-                                      })
-                                      .eq('id', propertyId);
+                                    try {
+                                      const { error: updateError } = await supabase
+                                        .from('properties')
+                                        .update({
+                                          group_id: groupId,
+                                          sort_order: groupId ? targetGroupProperties.length : (property.sort_order || 0),
+                                        })
+                                        .eq('id', propertyId);
 
-                                    if (updateError) {
-                                      console.error(`Error moving property ${propertyId} to group ${groupId}:`, updateError);
-                                      return;
+                                      if (updateError) {
+                                        // Игнорируем ошибку PGRST204 (колонка не найдена) - миграция может быть не применена
+                                        if (updateError.code === 'PGRST204' || updateError.message?.includes("Could not find the 'sort_order' column")) {
+                                          console.warn(`sort_order column not found, skipping sort_order update for property ${propertyId}`);
+                                          // Продолжаем обновление group_id даже если sort_order не обновлен
+                                        } else {
+                                          console.error(`Error moving property ${propertyId} to group ${groupId}:`, updateError);
+                                          return;
+                                        }
+                                      }
+                                    } catch (err) {
+                                      // Игнорируем ошибки при обновлении sort_order, если колонка не существует
+                                      console.warn(`Failed to update sort_order for property ${propertyId}:`, err);
                                     }
 
                                     if (onPropertiesUpdate && properties.length > 0) {
@@ -1374,7 +1405,8 @@ export function Calendar({
                                   const hiddenDaysAtStart = getHiddenDaysAtStart(booking);
                                   const visibleSpan = fullSpan - hiddenDaysAtStart;
 
-                                  if (startCol < 0 || startCol >= daysToShow) return null;
+                                  // Используем dates.length вместо daysToShow для правильного отображения всех бронирований
+                                  if (startCol < 0 || startCol >= dates.length) return null;
 
                                   const isStartTruncated = isBookingStartTruncated(booking);
                                   const isEndTruncated = isBookingEndTruncated(booking);
@@ -1384,7 +1416,7 @@ export function Calendar({
                                       key={booking.id}
                                       booking={booking}
                                       startCol={startCol}
-                                      span={Math.min(visibleSpan, daysToShow - startCol)}
+                                      span={Math.min(visibleSpan, dates.length - startCol)}
                                       layerIndex={layerIndex}
                                       cellWidth={CELL_WIDTH}
                                       onClick={() => onEditReservation(booking)}
