@@ -942,8 +942,13 @@ Deno.serve(async (req: Request) => {
             });
             return new Response(
               JSON.stringify({ 
-                success: false,
-                error: "Введи номер аккаунта Avito (6-8 цифр, например 4720770) и ID объявления" 
+                hasError: true,
+                errorMessage: "Введи номер аккаунта Avito (6-8 цифр, например 4720770) и ID объявления",
+                errors: [{
+                  operation: 'validation',
+                  statusCode: 400,
+                  message: "Введи номер аккаунта Avito (6-8 цифр, например 4720770) и ID объявления"
+                }]
               }),
               { 
                 status: 400, 
@@ -961,8 +966,13 @@ Deno.serve(async (req: Request) => {
             });
             return new Response(
               JSON.stringify({ 
-                success: false,
-                error: "Введи ID объявления в настройках интеграции Avito (10-12 цифр)" 
+                hasError: true,
+                errorMessage: "Введи ID объявления в настройках интеграции Avito (10-12 цифр)",
+                errors: [{
+                  operation: 'validation',
+                  statusCode: 400,
+                  message: "Введи ID объявления в настройках интеграции Avito (10-12 цифр)"
+                }]
               }),
               { 
                 status: 400, 
@@ -1276,7 +1286,7 @@ Deno.serve(async (req: Request) => {
           // Use correct endpoint: /realty/v1/{user_id}/items/{item_id}/prices
           try {
             console.log("POST /realty/v1/{user_id}/items/{item_id}/prices - starting", { user_id: userId, item_id: itemId });
-            const pricesResponse = await fetchWithRetry(
+            let pricesResponse = await fetchWithRetry(
               `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}/prices?skip_error=true`,
               {
                 method: "POST",
@@ -1289,6 +1299,25 @@ Deno.serve(async (req: Request) => {
                 }),
               }
             );
+
+            // Handle 401 and retry with refreshed token
+            if (pricesResponse.status === 401) {
+              console.log("401 Unauthorized, refreshing token and retrying prices update");
+              const refreshedToken = await getAccessToken();
+              pricesResponse = await fetchWithRetry(
+                `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}/prices?skip_error=true`,
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${refreshedToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    prices: pricesToUpdate,
+                  }),
+                }
+              );
+            }
 
             if (!pricesResponse.ok) {
               // Handle 404 - item not found
@@ -1513,7 +1542,7 @@ Deno.serve(async (req: Request) => {
 
           try {
             console.log("POST /realty/v1/{user_id}/items/{item_id}/intervals - starting", { user_id: userId, item_id: itemId });
-            const bookingsUpdateResponse = await fetchWithRetry(
+            let bookingsUpdateResponse = await fetchWithRetry(
               `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}/intervals`,
               {
                 method: "POST",
@@ -1527,6 +1556,26 @@ Deno.serve(async (req: Request) => {
                 }),
               }
             );
+
+            // Handle 401 and retry with refreshed token
+            if (bookingsUpdateResponse.status === 401) {
+              console.log("401 Unauthorized, refreshing token and retrying intervals update");
+              const refreshedToken = await getAccessToken();
+              bookingsUpdateResponse = await fetchWithRetry(
+                `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}/intervals`,
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${refreshedToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    item_id: itemId,
+                    intervals: intervalsToSend,
+                  }),
+                }
+              );
+            }
 
             if (!bookingsUpdateResponse.ok) {
               const errorText = await bookingsUpdateResponse.text().catch(() => 'Failed to read error response');
@@ -2361,17 +2410,19 @@ Deno.serve(async (req: Request) => {
           }
 
           // Return structured response with errors if any
+          const hasError = syncErrors.length > 0;
           console.log("Sync operation completed", {
             integration_id,
-            success: syncErrors.length === 0,
+            hasError,
             errors_count: syncErrors.length,
           });
 
           return new Response(
             JSON.stringify({ 
-              success: syncErrors.length === 0,
-              synced: true,
-              errors: syncErrors.length > 0 ? syncErrors : undefined,
+              hasError,
+              hasData: true,
+              errorMessage: hasError ? syncErrors.map(e => e.message || 'Ошибка синхронизации').join('; ') : undefined,
+              errors: hasError ? syncErrors : undefined,
             }),
             {
               status: 200,
@@ -2391,9 +2442,14 @@ Deno.serve(async (req: Request) => {
 
           return new Response(
             JSON.stringify({ 
-              success: false,
-              error: "Internal server error during sync",
-              details: errorMessage,
+              hasError: true,
+              hasData: false,
+              errorMessage: "Internal server error during sync: " + errorMessage,
+              errors: [{
+                operation: 'sync',
+                statusCode: 500,
+                message: errorMessage,
+              }],
             }),
             {
               status: 500,
