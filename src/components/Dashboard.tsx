@@ -199,6 +199,7 @@ export function Dashboard() {
           console.log('Bookings data:', bookingsData);
 
           if (bookingsData) {
+            console.log('Bookings loaded', { count: bookingsData.length });
             setBookings(bookingsData);
             setFilteredBookings(bookingsData);
           }
