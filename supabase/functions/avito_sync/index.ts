@@ -933,16 +933,17 @@ Deno.serve(async (req: Request) => {
           const itemId = itemIdRaw != null ? String(itemIdRaw).trim() : null;
 
           // Log user_id and item_id before requests for debugging
-          console.log("Sync operation - user_id and item_id", {
+          console.log("Sync for user_id:", userId, "item_id:", itemId, {
             integration_id: integration.id,
-            user_id: userId,
-            item_id: itemId,
+            user_id_raw: userIdRaw,
+            item_id_raw: itemIdRaw,
             user_id_type: typeof userIdRaw,
             item_id_type: typeof itemIdRaw,
             user_id_length: userId?.length,
             item_id_length: itemId?.length,
           });
 
+          // Guard: Check if user_id and item_id are set
           if (!userId || !/^[0-9]{6,8}$/.test(userId)) {
             console.error("CRITICAL: user_id is missing or invalid", {
               integration_id: integration.id,
@@ -954,11 +955,11 @@ Deno.serve(async (req: Request) => {
             return new Response(
               JSON.stringify({ 
                 hasError: true,
-                errorMessage: "Введи номер аккаунта (4720770) и длинный ID объявления",
+                errorMessage: "Введи номер аккаунта (4720770) и ID объявления",
                 errors: [{
                   operation: 'validation',
                   statusCode: 400,
-                  message: "Введи номер аккаунта (4720770) и длинный ID объявления"
+                  message: "Введи номер аккаунта (4720770) и ID объявления"
                 }]
               }),
               { 
