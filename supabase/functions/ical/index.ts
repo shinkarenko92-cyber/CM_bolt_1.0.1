@@ -37,6 +37,8 @@ function generateICal(bookings: Array<{ check_in: string; check_out: string; gue
     'METHOD:PUBLISH',
     'X-WR-CALNAME:Roomi - Занятость',
     'X-WR-TIMEZONE:Europe/Moscow',
+    'X-PUBLISHED-TTL:PT5M', // Refresh every 5 minutes
+    'REFRESH-INTERVAL;VALUE=DURATION:PT1M', // Refresh interval: 1 minute (if supported)
   ].join('\r\n') + '\r\n';
 
   // Add VEVENT for each booking (BUSY)
@@ -165,6 +167,7 @@ Deno.serve(async (req: Request) => {
 
     // Get future bookings for this property (only BUSY events)
     // Only bookings with check_out >= today (future bookings)
+    // Exclude cancelled bookings - they should not block dates
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
     const todayStr = today.toISOString().split('T')[0];
@@ -174,6 +177,7 @@ Deno.serve(async (req: Request) => {
       .select("check_in, check_out, guest_name")
       .eq("property_id", propertyId)
       .gte("check_out", todayStr) // Only future bookings (check_out >= today) - BUSY events
+      .neq("status", "cancelled") // Exclude cancelled bookings - they don't block dates
       .order("check_in", { ascending: true });
 
     if (bookingsError) {
@@ -199,6 +203,10 @@ Deno.serve(async (req: Request) => {
         ...corsHeaders,
         "Content-Type": "text/calendar; charset=utf-8",
         "Content-Disposition": `attachment; filename="roomi-${propertyId}.ics"`,
+        "Cache-Control": "no-cache, no-store, must-revalidate", // Prevent caching for faster updates
+        "Pragma": "no-cache",
+        "Expires": "0",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (error) {
