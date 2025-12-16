@@ -852,7 +852,7 @@ export function Calendar({
     }
 
     // Обновляем список properties через callback
-    if (onPropertiesUpdate) {
+    if (onPropertiesUpdate && properties.length > 0) {
       const { data } = await supabase
         .from('properties')
         .select('*')
@@ -880,10 +880,14 @@ export function Calendar({
     }));
 
     for (const update of updates) {
-      await supabase
+      const { error } = await supabase
         .from('property_groups')
         .update({ sort_order: update.sort_order })
         .eq('id', update.id);
+      
+      if (error) {
+        console.error(`Error updating sort_order for group ${update.id}:`, error);
+      }
     }
 
     setPropertyGroups(newGroups);
@@ -899,7 +903,7 @@ export function Calendar({
     if (activeProperty.group_id === overProperty.group_id) {
       const sameGroupProperties = properties
         .filter(p => p.group_id === activeProperty.group_id)
-        .sort((a, b) => a.sort_order - b.sort_order);
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
       const activeIndex = sameGroupProperties.findIndex(p => p.id === activeId);
       const overIndex = sameGroupProperties.findIndex(p => p.id === overId);
@@ -910,21 +914,25 @@ export function Calendar({
       
       // Обновляем sort_order в БД
       for (let i = 0; i < reordered.length; i++) {
-        await supabase
+        const { error } = await supabase
           .from('properties')
           .update({ sort_order: i })
           .eq('id', reordered[i].id);
+        
+        if (error) {
+          console.error(`Error updating sort_order for property ${reordered[i].id}:`, error);
+        }
       }
     } else {
       // Перемещение между группами - меняем group_id и sort_order
       const targetGroupProperties = properties
         .filter(p => p.group_id === overProperty.group_id)
-        .sort((a, b) => a.sort_order - b.sort_order);
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
       const overIndex = targetGroupProperties.findIndex(p => p.id === overId);
       
       // Обновляем активный объект
-      await supabase
+      const { error: activeError } = await supabase
         .from('properties')
         .update({
           group_id: overProperty.group_id,
@@ -932,13 +940,22 @@ export function Calendar({
         })
         .eq('id', activeId);
 
+      if (activeError) {
+        console.error(`Error updating active property ${activeId}:`, activeError);
+        return;
+      }
+
       // Обновляем sort_order для остальных объектов в целевой группе
       for (let i = 0; i < targetGroupProperties.length; i++) {
         if (targetGroupProperties[i].id !== overId) {
-          await supabase
+          const { error } = await supabase
             .from('properties')
             .update({ sort_order: i >= overIndex ? i + 1 : i })
             .eq('id', targetGroupProperties[i].id);
+          
+          if (error) {
+            console.error(`Error updating sort_order for property ${targetGroupProperties[i].id}:`, error);
+          }
         }
       }
     }
@@ -947,15 +964,20 @@ export function Calendar({
   const handlePropertyMoveToGroup = async (propertyId: string, groupId: string) => {
     const targetGroupProperties = properties
       .filter(p => p.group_id === groupId)
-      .sort((a, b) => a.sort_order - b.sort_order);
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
-    await supabase
+    const { error } = await supabase
       .from('properties')
       .update({
         group_id: groupId,
         sort_order: targetGroupProperties.length,
       })
       .eq('id', propertyId);
+    
+    if (error) {
+      console.error(`Error moving property ${propertyId} to group ${groupId}:`, error);
+      throw error;
+    }
   };
 
   const toggleGroupExpansion = (groupId: string) => {
@@ -1234,17 +1256,22 @@ export function Calendar({
                                   onMoveToGroup={async (propertyId, groupId) => {
                                     const targetGroupProperties = properties
                                       .filter(p => p.group_id === groupId)
-                                      .sort((a, b) => a.sort_order - b.sort_order);
+                                      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
-                                    await supabase
+                                    const { error: updateError } = await supabase
                                       .from('properties')
                                       .update({
                                         group_id: groupId,
-                                        sort_order: groupId ? targetGroupProperties.length : property.sort_order,
+                                        sort_order: groupId ? targetGroupProperties.length : (property.sort_order || 0),
                                       })
                                       .eq('id', propertyId);
 
-                                    if (onPropertiesUpdate) {
+                                    if (updateError) {
+                                      console.error(`Error moving property ${propertyId} to group ${groupId}:`, updateError);
+                                      return;
+                                    }
+
+                                    if (onPropertiesUpdate && properties.length > 0) {
                                       const { data } = await supabase
                                         .from('properties')
                                         .select('*')
