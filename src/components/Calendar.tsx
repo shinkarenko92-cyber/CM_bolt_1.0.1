@@ -735,6 +735,7 @@ export function Calendar({
     
     // Если groups не загружены (404 или другая ошибка), все объекты идут в "Без группы"
     if (propertyGroups.length === 0) {
+      console.log('Groups not found - showing properties without groups', { propertiesCount: properties.length });
       const allProperties = properties.sort((a, b) => a.sort_order - b.sort_order);
       if (allProperties.length > 0) {
         grouped.push({ group: null, properties: allProperties });
@@ -1056,10 +1057,10 @@ export function Calendar({
               >
                 <div className="relative">
                   {groupedProperties.map((grouped) => {
-                    const groupId = grouped.group?.id || 'ungrouped';
-                    const isGroupExpanded = grouped.group ? expandedGroups.has(groupId) : true;
-                    
-                    return (
+                      const groupId = grouped.group?.id || 'ungrouped';
+                      const isGroupExpanded = grouped.group ? expandedGroups.has(groupId) : true;
+                      
+                      return (
                       <div key={groupId} className="border-b border-slate-700">
                         {grouped.group ? (
                           <PropertyGroupHeader
