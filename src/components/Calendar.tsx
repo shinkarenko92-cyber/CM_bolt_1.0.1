@@ -157,15 +157,17 @@ export function Calendar({
         // Если таблица не существует (миграция не применена), просто работаем без групп
         if (error.code === 'PGRST205' || 
             error.code === '42P01' || 
+            error.code === '404' ||
             error.message?.includes('Could not find the table') ||
             error.message?.includes('relation') ||
-            error.message?.includes('does not exist')) {
-          console.warn('Property groups table not found - working without groups. Apply migration to enable grouping.');
+            error.message?.includes('does not exist') ||
+            error.message?.includes('table not found')) {
+          console.log('Groups not found - showing properties without groups');
           setPropertyGroups([]);
           return;
         }
         // Для других ошибок тоже работаем без групп (fallback)
-        console.warn('Error loading property groups, working without groups:', error);
+        console.log('Groups not found - showing properties without groups', error);
         setPropertyGroups([]);
         return;
       }
@@ -179,10 +181,14 @@ export function Calendar({
     } catch (error) {
       // Не логируем ошибку, если таблица просто не существует
       const errorObj = error as { code?: string; message?: string };
-      if (errorObj?.code === 'PGRST205' || errorObj?.message?.includes('Could not find the table')) {
-        console.warn('Property groups table not found - working without groups. Apply migration to enable grouping.');
+      if (errorObj?.code === 'PGRST205' || 
+          errorObj?.code === '42P01' || 
+          errorObj?.code === '404' ||
+          errorObj?.message?.includes('Could not find the table') ||
+          errorObj?.message?.includes('table not found')) {
+        console.log('Groups not found - showing properties without groups');
       } else {
-        console.error('Error loading property groups:', error);
+        console.log('Groups not found - showing properties without groups', error);
       }
       // Не падаем, просто работаем без групп
       setPropertyGroups([]);
