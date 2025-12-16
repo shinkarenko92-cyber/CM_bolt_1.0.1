@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { X } from 'lucide-react';
+import { X, Calendar, Copy } from 'lucide-react';
 import { Badge, Button, Input, InputNumber, Modal, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -732,11 +732,70 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                           ID объявления: {avitoIntegration.avito_item_id}
                         </div>
                       )}
-                      <div className="text-sm text-slate-400">
+                      <div className="text-sm text-slate-300 mb-2">
+                        <span className="font-medium">Статус:</span> Avito подключён
+                      </div>
+                      <div className="text-sm text-slate-400 mb-2">
+                        Цены обновляются автоматически
+                      </div>
+                      
+                      {/* Display current item_id */}
+                      {avitoIntegration.avito_item_id && String(avitoIntegration.avito_item_id).length >= 10 && (
+                        <div className="text-sm text-slate-400 mb-2">
+                          ID объявления: {avitoIntegration.avito_item_id}
+                        </div>
+                      )}
+                      <div className="text-sm text-slate-400 mb-2">
                         Последняя синхронизация: {formatDate(avitoIntegration.last_sync_at)}
                       </div>
-                      <div className="text-sm text-slate-400">
+                      <div className="text-sm text-slate-400 mb-4">
                         Наценка: {avitoIntegration.avito_markup || 15}%
+                      </div>
+
+                      {/* iCal URL Block */}
+                      <div className="bg-slate-600/50 rounded-lg p-4 border border-slate-500/50 mb-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Calendar className="w-5 h-5 text-teal-400" />
+                          <h5 className="text-white font-medium">Закрытие дат через iCal</h5>
+                        </div>
+                        
+                        <div className="mb-3">
+                          <label className="block text-xs text-slate-400 mb-2">iCal URL:</label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              readOnly
+                              value={`https://app.roomi.pro/functions/v1/ical/${property.id}.ics`}
+                              className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm font-mono"
+                            />
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const icalUrl = `https://app.roomi.pro/functions/v1/ical/${property.id}.ics`;
+                                try {
+                                  await navigator.clipboard.writeText(icalUrl);
+                                  toast.success('URL скопирован');
+                                } catch (err) {
+                                  console.error('Failed to copy URL:', err);
+                                  toast.error('Не удалось скопировать URL');
+                                }
+                              }}
+                              className="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded transition flex items-center gap-2"
+                            >
+                              <Copy className="w-4 h-4" />
+                              Скопировать URL
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-700/50 rounded p-3 border border-slate-600">
+                          <p className="text-xs text-slate-300 font-medium mb-2">Инструкция:</p>
+                          <ol className="text-xs text-slate-400 space-y-1 list-decimal list-inside">
+                            <li>Зайди в Avito → объявление → "Календарь доступности"</li>
+                            <li>"Импорт календаря" → вставь URL</li>
+                            <li>Сохрани — даты из Roomi закроются автоматически (обновление каждые 15-30 мин)</li>
+                          </ol>
+                        </div>
                       </div>
                       
                       {/* Inline form for editing item_id */}
@@ -793,9 +852,16 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                       )}
                     </>
                   ) : (
-                    <Button type="primary" onClick={() => setIsAvitoModalOpen(true)}>
-                      {avitoIntegration ? 'Подключить заново' : 'Подключить Avito'}
-                    </Button>
+                    <div>
+                      {avitoIntegration && !avitoIntegration.is_active && (
+                        <div className="mb-3 p-3 bg-yellow-500/20 border border-yellow-500/50 rounded">
+                          <p className="text-yellow-300 text-sm">Переподключи Avito</p>
+                        </div>
+                      )}
+                      <Button type="primary" onClick={() => setIsAvitoModalOpen(true)}>
+                        {avitoIntegration ? 'Подключить заново' : 'Подключить Avito'}
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
