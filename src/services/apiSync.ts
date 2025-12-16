@@ -223,7 +223,8 @@ export async function syncAvitoIntegration(
     // Check if prices succeeded but intervals failed (404 - activation required)
     if ('pricesPushSuccess' in responseData && responseData.pricesPushSuccess === true) {
       const intervalsFailed = responseData.intervalsPushSuccess === false;
-      const has404Error = responseData.errors?.some((e: AvitoErrorInfo) => 
+      const errors = responseData.errors as AvitoErrorInfo[] | undefined;
+      const has404Error = Array.isArray(errors) && errors.some((e: AvitoErrorInfo) => 
         e.operation === 'bookings_update' && e.statusCode === 404
       );
       

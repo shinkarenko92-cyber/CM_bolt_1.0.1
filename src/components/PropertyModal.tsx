@@ -402,7 +402,10 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
             toast.success('Даты и цены закрыты в Avito 🚀');
           } else if (syncResult.pricesSuccess && syncResult.intervalsFailed) {
             toast.success('Цены обновлены в Avito');
-            toast.warning('Даты не закрыты (ожидаем активацию Avito). Используй iCal URL для закрытия дат.');
+            toast('Даты не закрыты (ожидаем активацию Avito). Используй iCal URL для закрытия дат.', {
+              icon: '⚠️',
+              duration: 6000,
+            });
           } else {
             toast.success(t('avito.success.syncCompleted', { defaultValue: 'Синхронизация с Avito завершена успешно' }));
           }
