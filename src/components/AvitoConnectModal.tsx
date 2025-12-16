@@ -439,6 +439,12 @@ export function AvitoConnectModal({
       const userIdNumber = parseInt(trimmedUserId, 10);
       const itemIdNumber = parseInt(trimmedItemId, 10);
       
+      // Validate parsed numbers
+      if (isNaN(userIdNumber) || isNaN(itemIdNumber)) {
+        message.error('Ошибка: неверный формат номера аккаунта или ID объявления');
+        return;
+      }
+      
       const { data: integration, error } = await supabase
         .from('integrations')
         .update({
@@ -449,7 +455,6 @@ export function AvitoConnectModal({
         })
         .eq('property_id', property.id)
         .eq('platform', 'avito')
-        .eq('is_active', true)
         .select('id, property_id, platform, avito_user_id, avito_item_id, avito_markup, is_active')
         .single();
 
