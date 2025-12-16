@@ -167,6 +167,7 @@ export function Dashboard() {
       console.log('Properties data:', propertiesData);
 
       if (propertiesData) {
+        console.log('Properties data loaded', { count: propertiesData.length, objects: propertiesData.map(p => ({ id: p.id, name: p.name })) });
         setProperties(propertiesData);
 
         const propertyIds = propertiesData.map((p: Property) => p.id);
