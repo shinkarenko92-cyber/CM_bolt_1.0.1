@@ -286,11 +286,35 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Verify token was saved by reloading integration
+    const { data: verifyIntegration, error: verifyError } = await supabase
+      .from("integrations")
+      .select("id, access_token_encrypted, refresh_token_encrypted, token_expires_at")
+      .eq("id", integration.id)
+      .single();
+
+    if (verifyError) {
+      console.error("Failed to verify token save", {
+        error: verifyError,
+        integration_id: integration.id,
+      });
+    } else {
+      console.log("Token save verified", {
+        integration_id: integration.id,
+        hasAccessToken: !!verifyIntegration?.access_token_encrypted,
+        accessTokenLength: verifyIntegration?.access_token_encrypted?.length || 0,
+        hasRefreshToken: !!verifyIntegration?.refresh_token_encrypted,
+        tokenExpiresAt: verifyIntegration?.token_expires_at,
+      });
+    }
+
     console.log("Token saved for integration", {
       integration_id: integration.id,
       property_id: integration.property_id,
       hasAccessToken: !!updateData.access_token_encrypted,
+      accessTokenLength: updateData.access_token_encrypted?.length || 0,
       hasRefreshToken: !!updateData.refresh_token_encrypted,
+      refreshTokenLength: updateData.refresh_token_encrypted?.length || 0,
       tokenExpiresAt: updateData.token_expires_at,
     });
 

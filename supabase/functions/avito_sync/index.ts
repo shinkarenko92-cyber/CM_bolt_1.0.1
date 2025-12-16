@@ -925,6 +925,19 @@ Deno.serve(async (req: Request) => {
             );
           }
 
+          // Log integration data (without exposing token value)
+          console.log("Integration loaded", {
+            integration_id: integration.id,
+            property_id: integration.property_id,
+            hasAccessToken: !!integration.access_token_encrypted,
+            accessTokenLength: integration.access_token_encrypted?.length || 0,
+            accessTokenType: typeof integration.access_token_encrypted,
+            hasRefreshToken: !!integration.refresh_token_encrypted,
+            refreshTokenLength: integration.refresh_token_encrypted?.length || 0,
+            tokenExpiresAt: integration.token_expires_at,
+            isActive: integration.is_active,
+          });
+
           // GUARD: Check if user_id and item_id are set (required for all STR API operations)
           const userIdRaw = integration?.avito_user_id || integration?.avito_account_id;
           const userId = userIdRaw != null ? String(userIdRaw).trim() : null;
@@ -1015,9 +1028,53 @@ Deno.serve(async (req: Request) => {
               integration_id: integration.id,
               property_id: integration.property_id,
               hasAccessToken: !!integration.access_token_encrypted,
+              accessTokenValue: integration.access_token_encrypted, // Log actual value for debugging
+              accessTokenType: typeof integration.access_token_encrypted,
               hasRefreshToken: !!integration.refresh_token_encrypted,
+              tokenExpiresAt: integration.token_expires_at,
+              integrationKeys: Object.keys(integration),
             });
-            throw new Error("No access token available");
+            
+            // Try to reload integration from database
+            console.log("Attempting to reload integration from database");
+            const { data: reloadedIntegration, error: reloadError } = await supabase
+              .from("integrations")
+              .select("id, access_token_encrypted, refresh_token_encrypted, token_expires_at")
+              .eq("id", integration.id)
+              .single();
+            
+            if (reloadError) {
+              console.error("Failed to reload integration", {
+                error: reloadError,
+                integration_id: integration.id,
+              });
+            } else {
+              console.log("Reloaded integration", {
+                integration_id: reloadedIntegration?.id,
+                hasAccessToken: !!reloadedIntegration?.access_token_encrypted,
+                accessTokenLength: reloadedIntegration?.access_token_encrypted?.length || 0,
+              });
+              
+              // Update local integration object
+              if (reloadedIntegration) {
+                integration.access_token_encrypted = reloadedIntegration.access_token_encrypted;
+                integration.refresh_token_encrypted = reloadedIntegration.refresh_token_encrypted;
+                integration.token_expires_at = reloadedIntegration.token_expires_at;
+                
+                // If token is now available, continue
+                if (integration.access_token_encrypted) {
+                  console.log("Token found after reload, continuing");
+                } else {
+                  throw new Error("No access token available in database. Please reconnect Avito integration.");
+                }
+              } else {
+                throw new Error("No access token available in database. Please reconnect Avito integration.");
+              }
+            }
+            
+            if (!integration.access_token_encrypted) {
+              throw new Error("No access token available in database. Please reconnect Avito integration.");
+            }
           }
 
           let accessToken = integration.access_token_encrypted;
