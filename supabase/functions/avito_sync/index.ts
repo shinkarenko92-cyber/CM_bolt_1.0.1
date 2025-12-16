@@ -1009,6 +1009,17 @@ Deno.serve(async (req: Request) => {
 
         // Helper function to get and refresh token if needed
         const getAccessToken = async (): Promise<string> => {
+          // Check if token exists
+          if (!integration.access_token_encrypted) {
+            console.error("CRITICAL: No access token available", {
+              integration_id: integration.id,
+              property_id: integration.property_id,
+              hasAccessToken: !!integration.access_token_encrypted,
+              hasRefreshToken: !!integration.refresh_token_encrypted,
+            });
+            throw new Error("No access token available");
+          }
+
           let accessToken = integration.access_token_encrypted;
           
           // Check if token is expired
@@ -1027,7 +1038,17 @@ Deno.serve(async (req: Request) => {
                 expiresAt: expiresAt.toISOString(),
                 now: now.toISOString(),
                 integration_id: integration.id,
+                hasRefreshToken: !!integration.refresh_token_encrypted,
               });
+
+              // Check if refresh token is available
+              if (!integration.refresh_token_encrypted) {
+                console.error("CRITICAL: Token expired but no refresh token available", {
+                  integration_id: integration.id,
+                  property_id: integration.property_id,
+                });
+                throw new Error("Token expired and no refresh token available. Please reconnect.");
+              }
 
               try {
                 const refreshData = await refreshAccessToken(
@@ -1067,11 +1088,19 @@ Deno.serve(async (req: Request) => {
                     error: updateError,
                     integration_id: integration.id,
                   });
+                  throw new Error(`Failed to update token: ${updateError.message}`);
                 } else {
                   console.log("Token refreshed and updated in database", {
                     integration_id: integration.id,
                     newExpiresAt: tokenExpiresAt.toISOString(),
                   });
+                  
+                  // Update local integration object for subsequent calls
+                  integration.access_token_encrypted = accessToken;
+                  integration.token_expires_at = tokenExpiresAt.toISOString();
+                  if (refreshData.refresh_token) {
+                    integration.refresh_token_encrypted = refreshData.refresh_token;
+                  }
                   
                   // Log refresh success
                   await supabase.from("avito_logs").insert({
@@ -1086,6 +1115,7 @@ Deno.serve(async (req: Request) => {
                 console.error("Failed to refresh token", {
                   error: error instanceof Error ? error.message : String(error),
                   integration_id: integration.id,
+                  stack: error instanceof Error ? error.stack : undefined,
                 });
                 
                 // Log refresh failure
@@ -1097,12 +1127,16 @@ Deno.serve(async (req: Request) => {
                   error: error instanceof Error ? error.message : String(error),
                 });
                 
-                throw new Error("Token expired and failed to refresh. Please reconnect.");
+                throw new Error(`Token expired and failed to refresh: ${error instanceof Error ? error.message : String(error)}. Please reconnect.`);
               }
             }
           }
 
           if (!accessToken) {
+            console.error("CRITICAL: No access token available after refresh check", {
+              integration_id: integration.id,
+              property_id: integration.property_id,
+            });
             throw new Error("No access token available");
           }
 
@@ -1112,9 +1146,11 @@ Deno.serve(async (req: Request) => {
               encrypted_token: accessToken,
             });
             if (decrypted) accessToken = decrypted;
-          } catch {
+          } catch (error) {
             // If RPC fails, assume token is not encrypted yet
-            console.warn("RPC decrypt_avito_token failed, using token as-is");
+            console.warn("RPC decrypt_avito_token failed, using token as-is", {
+              error: error instanceof Error ? error.message : String(error),
+            });
           }
 
           return accessToken;

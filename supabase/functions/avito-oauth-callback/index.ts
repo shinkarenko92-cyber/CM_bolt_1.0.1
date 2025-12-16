@@ -172,19 +172,49 @@ Deno.serve(async (req: Request) => {
     const expiresInSeconds = tokenData.expires_in && typeof tokenData.expires_in === 'number' && tokenData.expires_in > 0 
       ? tokenData.expires_in 
       : 3600;
+    
+    // Calculate token expiration: now + expires_in seconds
     const tokenExpiresAt = new Date(Date.now() + expiresInSeconds * 1000);
 
-    const upsertData: {
-      property_id: string;
-      platform: string;
+    console.log("Saving token to integration", {
+      propertyId,
+      hasAccessToken: !!tokenData.access_token,
+      hasRefreshToken: !!tokenData.refresh_token,
+      expiresIn: expiresInSeconds,
+      tokenExpiresAt: tokenExpiresAt.toISOString(),
+    });
+
+    // First, find existing integration by property_id and platform
+    const { data: existingIntegration, error: findError } = await supabase
+      .from("integrations")
+      .select("id")
+      .eq("property_id", propertyId)
+      .eq("platform", "avito")
+      .maybeSingle();
+
+    if (findError && findError.code !== 'PGRST116') { // PGRST116 = not found, which is OK
+      console.error("Error finding integration:", {
+        errorCode: findError.code,
+        errorMessage: findError.message,
+      });
+      return new Response(
+        JSON.stringify({ 
+          error: `Ошибка при поиске интеграции: ${findError.message}` 
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const integrationId = existingIntegration?.id;
+
+    // Prepare update data
+    const updateData: {
       access_token_encrypted: string;
       refresh_token_encrypted?: string;
       token_expires_at: string;
       is_active: boolean;
       is_enabled: boolean;
     } = {
-      property_id: propertyId,
-      platform: "avito",
       access_token_encrypted: tokenData.access_token,
       token_expires_at: tokenExpiresAt.toISOString(),
       is_active: true,
@@ -193,28 +223,50 @@ Deno.serve(async (req: Request) => {
 
     // Add refresh_token if provided
     if (tokenData.refresh_token) {
-      upsertData.refresh_token_encrypted = tokenData.refresh_token;
+      updateData.refresh_token_encrypted = tokenData.refresh_token;
     }
 
-    console.log("Saving integration", {
-      propertyId,
-      hasRefreshToken: !!tokenData.refresh_token,
-      tokenExpiresAt: tokenExpiresAt.toISOString(),
-    });
+    let integration;
+    let saveError;
 
-    const { data: integration, error: saveError } = await supabase
-      .from("integrations")
-      .upsert(upsertData, {
-        onConflict: 'property_id,platform'
-      })
-      .select('id, property_id, platform, is_active')
-      .single();
+    if (integrationId) {
+      // Update existing integration
+      console.log("Updating existing integration", { integrationId });
+      const { data, error } = await supabase
+        .from("integrations")
+        .update(updateData)
+        .eq("id", integrationId)
+        .select('id, property_id, platform, is_active')
+        .single();
+      
+      integration = data;
+      saveError = error;
+    } else {
+      // Create new integration
+      console.log("Creating new integration");
+      const upsertData = {
+        property_id: propertyId,
+        platform: "avito",
+        ...updateData,
+      };
+
+      const { data, error } = await supabase
+        .from("integrations")
+        .insert(upsertData)
+        .select('id, property_id, platform, is_active')
+        .single();
+      
+      integration = data;
+      saveError = error;
+    }
 
     if (saveError) {
       console.error("Error saving integration:", {
         errorCode: saveError.code,
         errorMessage: saveError.message,
         errorDetails: saveError.details,
+        integrationId,
+        propertyId,
       });
       return new Response(
         JSON.stringify({ 
@@ -224,9 +276,22 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log("Integration saved successfully", {
-      integrationId: integration.id,
-      propertyId: integration.property_id,
+    if (!integration) {
+      console.error("Integration not returned after save", { integrationId, propertyId });
+      return new Response(
+        JSON.stringify({ 
+          error: "Интеграция не была сохранена" 
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("Token saved for integration", {
+      integration_id: integration.id,
+      property_id: integration.property_id,
+      hasAccessToken: !!updateData.access_token_encrypted,
+      hasRefreshToken: !!updateData.refresh_token_encrypted,
+      tokenExpiresAt: updateData.token_expires_at,
     });
 
     // Return success (no accountId needed)
