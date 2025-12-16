@@ -22,6 +22,11 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
       propertiesCount: properties.length,
       properties: properties.map(p => ({ id: p.id, name: p.name }))
     });
+    
+    // Always render properties, even if groups error
+    if (properties.length > 0) {
+      console.log('PropertiesView: Rendering properties list (always show, groups error does not hide properties)');
+    }
   }, [properties]);
 
   // Сбрасываем флаг обработки OAuth при закрытии модального окна
