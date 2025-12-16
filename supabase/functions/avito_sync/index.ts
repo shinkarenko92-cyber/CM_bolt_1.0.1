@@ -2327,8 +2327,10 @@ Deno.serve(async (req: Request) => {
                 if (upsertError) {
                   // Handle PGRST204 error (column not found) - skip silently
                   if (upsertError.code === 'PGRST204' || upsertError.message?.includes('Could not find the') || upsertError.message?.includes('avito_booking_id')) {
-                    console.log("Skipping booking upsert - avito_booking_id column not found (PGRST204)", {
+                    console.log("Upsert skipped (column missing)", {
                       bookingId: bookingId.toString(),
+                      errorCode: upsertError.code,
+                      errorMessage: upsertError.message,
                     });
                     skippedCount++;
                   } else {

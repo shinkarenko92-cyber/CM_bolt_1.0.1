@@ -404,7 +404,7 @@ export function Dashboard() {
           toast.dismiss(syncToastId);
           // Show success message - check if pushSuccess (prices/intervals) for specific message
           if (syncResult.pushSuccess) {
-            toast.success('Даты и цены закрыты в Avito 🚀');
+            toast.success('Синхронизация успешна! Цены и даты обновлены в Avito');
           } else if (syncResult.pricesSuccess && syncResult.intervalsFailed) {
             toast.success('Цены обновлены в Avito');
             toast('Даты не закрыты (ожидаем активацию Avito). Используй iCal URL для закрытия дат.', {
@@ -412,7 +412,7 @@ export function Dashboard() {
               duration: 6000,
             });
           } else {
-            toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
+            toast.success('Синхронизация успешна! Цены и даты обновлены в Avito');
           }
           console.log('Dashboard: Avito sync completed successfully after booking creation', syncResult);
         } else {

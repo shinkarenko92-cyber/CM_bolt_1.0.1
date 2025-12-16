@@ -399,7 +399,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
           const syncResult = await syncAvitoIntegration(property.id);
           // Показываем успешное уведомление - check if pushSuccess for specific message
           if (syncResult.pushSuccess) {
-            toast.success('Даты и цены закрыты в Avito 🚀');
+            toast.success('Синхронизация успешна! Цены и даты обновлены в Avito');
           } else if (syncResult.pricesSuccess && syncResult.intervalsFailed) {
             toast.success('Цены обновлены в Avito');
             toast('Даты не закрыты (ожидаем активацию Avito). Используй iCal URL для закрытия дат.', {
@@ -407,7 +407,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
               duration: 6000,
             });
           } else {
-            toast.success(t('avito.success.syncCompleted', { defaultValue: 'Синхронизация с Avito завершена успешно' }));
+            toast.success('Синхронизация успешна! Цены и даты обновлены в Avito');
           }
         } catch (error) {
           console.error('Failed to sync prices to Avito:', error);
