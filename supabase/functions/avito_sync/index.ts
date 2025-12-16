@@ -932,6 +932,17 @@ Deno.serve(async (req: Request) => {
           const itemIdRaw = integration?.avito_item_id;
           const itemId = itemIdRaw != null ? String(itemIdRaw).trim() : null;
 
+          // Log user_id and item_id before requests for debugging
+          console.log("Sync operation - user_id and item_id", {
+            integration_id: integration.id,
+            user_id: userId,
+            item_id: itemId,
+            user_id_type: typeof userIdRaw,
+            item_id_type: typeof itemIdRaw,
+            user_id_length: userId?.length,
+            item_id_length: itemId?.length,
+          });
+
           if (!userId || !/^[0-9]{6,8}$/.test(userId)) {
             console.error("CRITICAL: user_id is missing or invalid", {
               integration_id: integration.id,
@@ -957,21 +968,24 @@ Deno.serve(async (req: Request) => {
             );
           }
 
-          if (!itemId || !/^[0-9]{10,12}$/.test(itemId)) {
-            console.error("CRITICAL: item_id is missing or invalid", {
+          // Guard: Validate item_id format (10-12 digits)
+          if (!itemId || !itemId.toString().match(/^\d{10,12}$/)) {
+            console.error("CRITICAL: item_id format is invalid", {
               integration_id: integration.id,
               avito_item_id: integration.avito_item_id,
               extracted_itemId: itemId,
+              itemIdType: typeof itemId,
               itemIdLength: itemId?.length,
+              itemIdMatch: itemId ? itemId.toString().match(/^\d{10,12}$/) : null,
             });
             return new Response(
               JSON.stringify({ 
                 hasError: true,
-                errorMessage: "Введи ID объявления в настройках интеграции Avito (10-12 цифр)",
+                errorMessage: "Неверный формат ID объявления. Должен быть длинный номер из URL Avito (10-12 цифр)",
                 errors: [{
                   operation: 'validation',
                   statusCode: 400,
-                  message: "Введи ID объявления в настройках интеграции Avito (10-12 цифр)"
+                  message: "Неверный формат ID объявления. Должен быть длинный номер из URL Avito (10-12 цифр)"
                 }]
               }),
               { 
@@ -1285,7 +1299,14 @@ Deno.serve(async (req: Request) => {
 
           // Use correct endpoint: /realty/v1/accounts/{user_id}/items/{item_id}/prices
           try {
-            console.log("POST /realty/v1/accounts/{user_id}/items/{item_id}/prices - starting", { user_id: userId, item_id: itemId });
+            console.log("POST /realty/v1/accounts/{user_id}/items/{item_id}/prices - starting", { 
+              user_id: userId, 
+              item_id: itemId,
+              user_id_type: typeof userId,
+              item_id_type: typeof itemId,
+              user_id_length: userId?.length,
+              item_id_length: itemId?.length,
+            });
             let pricesResponse = await fetchWithRetry(
               `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/prices?skip_error=true`,
               {
@@ -1404,7 +1425,14 @@ Deno.serve(async (req: Request) => {
         });
 
           try {
-            console.log("PATCH /realty/v1/accounts/{user_id}/items/{item_id} - starting", { user_id: userId, item_id: itemId });
+            console.log("PATCH /realty/v1/accounts/{user_id}/items/{item_id} - starting", { 
+              user_id: userId, 
+              item_id: itemId,
+              user_id_type: typeof userId,
+              item_id_type: typeof itemId,
+              user_id_length: userId?.length,
+              item_id_length: itemId?.length,
+            });
             let baseParamsResponse = await fetchWithRetry(
               `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}`,
               {
@@ -1541,7 +1569,14 @@ Deno.serve(async (req: Request) => {
           });
 
           try {
-            console.log("POST /realty/v1/accounts/{user_id}/items/{item_id}/intervals - starting", { user_id: userId, item_id: itemId });
+            console.log("POST /realty/v1/accounts/{user_id}/items/{item_id}/intervals - starting", { 
+              user_id: userId, 
+              item_id: itemId,
+              user_id_type: typeof userId,
+              item_id_type: typeof itemId,
+              user_id_length: userId?.length,
+              item_id_length: itemId?.length,
+            });
             let bookingsUpdateResponse = await fetchWithRetry(
               `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/intervals`,
               {
@@ -1794,7 +1829,14 @@ Deno.serve(async (req: Request) => {
           endpoint: `/realty/v1/accounts/${userId}/items/${itemId}/bookings`,
         });
 
-        console.log("GET /realty/v1/accounts/{user_id}/items/{item_id}/bookings - starting", { user_id: userId, item_id: itemId });
+        console.log("GET /realty/v1/accounts/{user_id}/items/{item_id}/bookings - starting", { 
+          user_id: userId, 
+          item_id: itemId,
+          user_id_type: typeof userId,
+          item_id_type: typeof itemId,
+          user_id_length: userId?.length,
+          item_id_length: itemId?.length,
+        });
 
         // Helper function to fetch bookings with 401 retry and error handling
         // Use STR API endpoint with user_id: /realty/v1/accounts/{user_id}/items/{item_id}/bookings

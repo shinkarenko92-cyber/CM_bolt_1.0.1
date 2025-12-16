@@ -147,6 +147,19 @@ export async function syncAvitoIntegration(
 
   // Handle Supabase function invocation error
   if (syncError) {
+    // Check for "Объявление не найдено" error
+    const errorMessage = syncError.message || 'Ошибка синхронизации с Avito';
+    if (errorMessage.includes('Объявление не найдено') || errorMessage.includes('404') || errorMessage.includes('не найдено')) {
+      return { 
+        success: false, 
+        message: 'Проверь ID объявления — это длинный номер из URL Avito (10-12 цифр)',
+        errors: [{
+          operation: 'sync',
+          statusCode: 404,
+          message: 'Проверь ID объявления — это длинный номер из URL Avito (10-12 цифр)'
+        }]
+      };
+    }
     console.error('syncAvitoIntegration: Edge Function invocation error', {
       error: syncError,
       message: syncError?.message,
@@ -205,6 +218,23 @@ export async function syncAvitoIntegration(
     // If hasError === true, it's a real error
     if ('hasError' in responseData && responseData.hasError === true) {
       const errors = (responseData.errors as AvitoErrorInfo[]) || [];
+      const errorMessage = responseData.errorMessage as string || '';
+      
+      // Check for "Объявление не найдено" error
+      if (errorMessage.includes('Объявление не найдено') || 
+          errorMessage.includes('404') || 
+          errorMessage.includes('не найдено') ||
+          errors.some(e => e.message?.includes('Объявление не найдено') || e.message?.includes('404'))) {
+        return { 
+          success: false, 
+          message: 'Проверь ID объявления — это длинный номер из URL Avito (10-12 цифр)',
+          errors: errors.length > 0 ? errors : [{
+            operation: 'sync',
+            statusCode: 404,
+            message: 'Проверь ID объявления — это длинный номер из URL Avito (10-12 цифр)'
+          }]
+        };
+      }
       const message = (responseData.error as string) || (responseData.message as string) || 'Avito synchronization failed';
       console.error('syncAvitoIntegration: Sync failed (hasError: true)', {
         message,

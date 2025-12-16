@@ -462,7 +462,13 @@ export function AvitoConnectModal({
               message.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
             }
           } else {
-            message.error(syncResult.message || 'Ошибка синхронизации с Avito');
+            // Check for "Объявление не найдено" error
+            const errorMessage = syncResult.message || 'Ошибка синхронизации с Avito';
+            if (errorMessage.includes('Объявление не найдено') || errorMessage.includes('404') || errorMessage.includes('не найдено')) {
+              message.error('Проверь ID объявления — это длинный номер из URL Avito (10-12 цифр)');
+            } else {
+              message.error(errorMessage);
+            }
           }
         } catch (syncError) {
           console.error('Auto sync after item_id save failed:', syncError);
@@ -644,7 +650,7 @@ export function AvitoConnectModal({
                 <span className="text-teal-400 font-bold">2336174775</span>
               </p>
               <Input
-                placeholder="Например: 2336174775"
+                placeholder="Пример: 3123456789 (из URL Avito)"
                 value={itemId}
                 onChange={(e) => {
                   // Only allow numbers, max 12 digits
