@@ -1,6 +1,7 @@
 /**
  * iCal Endpoint for Avito Calendar Sync
  * Generates iCal file with bookings as BUSY events
+ * URL: /functions/v1/ical/{property_id}.ics
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -35,9 +36,10 @@ function generateICal(bookings: Array<{ check_in: string; check_out: string; gue
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'X-WR-CALNAME:Roomi - Занятость',
-    `X-WR-TIMEZONE:Europe/Moscow`,
+    'X-WR-TIMEZONE:Europe/Moscow',
   ].join('\r\n') + '\r\n';
 
+  // Add VEVENT for each booking (BUSY)
   for (const booking of bookings) {
     const checkIn = new Date(booking.check_in);
     const checkOut = new Date(booking.check_out);
@@ -85,13 +87,38 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Parse property_id from URL: /ical/{property_id}.ics
+    // Parse property_id from URL
+    // Supabase Edge Functions receive full path: /functions/v1/ical/{property_id}.ics
     const url = new URL(req.url);
-    const pathMatch = url.pathname.match(/^\/ical\/([^/]+)\.ics$/);
+    console.log("iCal: Request URL", { url: req.url, pathname: url.pathname });
     
-    if (!pathMatch) {
+    // Try different path formats
+    let propertyId: string | null = null;
+    
+    // Format 1: /functions/v1/ical/{property_id}.ics (full path)
+    let pathMatch = url.pathname.match(/\/functions\/v1\/ical\/([^/]+)\.ics$/);
+    if (pathMatch && pathMatch[1]) {
+      propertyId = pathMatch[1];
+    }
+    
+    // Format 2: /ical/{property_id}.ics (relative path)
+    if (!propertyId) {
+      pathMatch = url.pathname.match(/\/ical\/([^/]+)\.ics$/);
+      if (pathMatch && pathMatch[1]) {
+        propertyId = pathMatch[1];
+      }
+    }
+    
+    // Format 3: Query parameter as fallback
+    if (!propertyId) {
+      const urlParams = new URLSearchParams(url.search);
+      propertyId = urlParams.get('property_id');
+    }
+    
+    if (!propertyId) {
+      console.error("iCal: Invalid URL format", { pathname: url.pathname, url: req.url });
       return new Response(
-        JSON.stringify({ error: "Invalid URL format. Expected: /ical/{property_id}.ics" }),
+        JSON.stringify({ error: "Invalid URL format. Expected: /functions/v1/ical/{property_id}.ics" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -99,11 +126,23 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const propertyId = pathMatch[1];
+    console.log("iCal: Processing request", { property_id: propertyId, url: req.url });
 
     // Get Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("iCal: Missing Supabase environment variables");
+      return new Response(
+        JSON.stringify({ error: "Server configuration error" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get property
@@ -114,6 +153,7 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (propertyError || !property) {
+      console.error("iCal: Property not found", { property_id: propertyId, error: propertyError });
       return new Response(
         JSON.stringify({ error: "Property not found" }),
         {
@@ -136,19 +176,8 @@ Deno.serve(async (req: Request) => {
       .gte("check_out", todayStr) // Only future bookings (check_out >= today) - BUSY events
       .order("check_in", { ascending: true });
 
-    console.log("iCal: Fetched bookings for calendar", {
-      property_id: propertyId,
-      bookings_count: bookings?.length || 0,
-      today: todayStr,
-      bookings: bookings?.map(b => ({
-        check_in: b.check_in,
-        check_out: b.check_out,
-        guest_name: b.guest_name,
-      })),
-    });
-
     if (bookingsError) {
-      console.error("Error fetching bookings:", bookingsError);
+      console.error("iCal: Error fetching bookings", { property_id: propertyId, error: bookingsError });
       return new Response(
         JSON.stringify({ error: "Failed to fetch bookings" }),
         {
@@ -158,7 +187,10 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Generate iCal
+    const bookingsCount = bookings?.length || 0;
+    console.log("iCal generated for property_id:", propertyId, "events:", bookingsCount);
+
+    // Generate iCal (even if no bookings - return empty calendar)
     const icalContent = generateICal(bookings || []);
 
     return new Response(icalContent, {
@@ -170,7 +202,7 @@ Deno.serve(async (req: Request) => {
       },
     });
   } catch (error) {
-    console.error("Error generating iCal:", error);
+    console.error("iCal: Error generating iCal", { error: error instanceof Error ? error.message : String(error) });
     return new Response(
       JSON.stringify({
         error: "Internal server error",
@@ -183,4 +215,3 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
-
