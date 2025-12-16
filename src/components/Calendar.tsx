@@ -736,10 +736,12 @@ export function Calendar({
     // Если groups не загружены (404 или другая ошибка), все объекты идут в "Без группы"
     if (propertyGroups.length === 0) {
       console.log('Groups not found - showing properties without groups', { propertiesCount: properties.length });
-      const allProperties = properties.sort((a, b) => a.sort_order - b.sort_order);
+      const allProperties = properties.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      // ВСЕГДА возвращаем массив с объектами, даже если properties пустой (для консистентности)
       if (allProperties.length > 0) {
         grouped.push({ group: null, properties: allProperties });
       }
+      // Если properties пустой, возвращаем пустой массив (но это не должно скрывать UI)
       return grouped;
     }
     
