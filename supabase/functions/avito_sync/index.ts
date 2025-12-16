@@ -932,17 +932,18 @@ Deno.serve(async (req: Request) => {
           const itemIdRaw = integration?.avito_item_id;
           const itemId = itemIdRaw != null ? String(itemIdRaw).trim() : null;
 
-          if (!userId || userId.length === 0 || !/^\d+$/.test(userId)) {
+          if (!userId || !/^[0-9]{6,8}$/.test(userId)) {
             console.error("CRITICAL: user_id is missing or invalid", {
               integration_id: integration.id,
               avito_user_id: integration.avito_user_id,
               avito_account_id: integration.avito_account_id,
               extracted_userId: userId,
+              userIdLength: userId?.length,
             });
             return new Response(
               JSON.stringify({ 
                 success: false,
-                error: "Введи номер аккаунта Avito (короткий номер, например 4720770)" 
+                error: "Введи номер аккаунта Avito (6-8 цифр, например 4720770) и ID объявления" 
               }),
               { 
                 status: 400, 
@@ -951,7 +952,7 @@ Deno.serve(async (req: Request) => {
             );
           }
 
-          if (!itemId || itemId.length === 0 || itemId.length < 10 || itemId.length > 11 || !/^\d+$/.test(itemId)) {
+          if (!itemId || !/^[0-9]{10,12}$/.test(itemId)) {
             console.error("CRITICAL: item_id is missing or invalid", {
               integration_id: integration.id,
               avito_item_id: integration.avito_item_id,
@@ -961,7 +962,7 @@ Deno.serve(async (req: Request) => {
             return new Response(
               JSON.stringify({ 
                 success: false,
-                error: "Введи ID объявления в настройках интеграции Avito (10-11 цифр)" 
+                error: "Введи ID объявления в настройках интеграции Avito (10-12 цифр)" 
               }),
               { 
                 status: 400, 

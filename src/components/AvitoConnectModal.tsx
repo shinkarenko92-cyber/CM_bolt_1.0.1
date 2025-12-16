@@ -341,10 +341,10 @@ export function AvitoConnectModal({
       return;
     }
 
-    // Validate itemId: must be 10-11 digits
+    // Validate itemId: must be 10-12 digits
     const trimmedItemId = itemId.trim();
-    if (!trimmedItemId || !/^[0-9]{10,11}$/.test(trimmedItemId)) {
-      message.error('ID объявления должен содержать 10-11 цифр (например, 2336174775)');
+    if (!trimmedItemId || !/^[0-9]{10,12}$/.test(trimmedItemId)) {
+      message.error('ID объявления должен содержать 10-12 цифр (например, 2336174775)');
       return;
     }
 
@@ -418,28 +418,32 @@ export function AvitoConnectModal({
       return;
     }
 
-    // Validate userId: must be numeric
+    // Validate userId: must be 6-8 digits
     const trimmedUserId = userId.trim();
-    if (!trimmedUserId || !/^\d+$/.test(trimmedUserId)) {
-      message.error('Номер аккаунта должен содержать только цифры');
+    if (!trimmedUserId || !/^[0-9]{6,8}$/.test(trimmedUserId)) {
+      message.error('Номер аккаунта должен содержать 6-8 цифр');
       return;
     }
 
-    // Validate itemId: must be 10-11 digits before saving
+    // Validate itemId: must be 10-12 digits before saving
     const trimmedItemId = itemId.trim();
-    if (!trimmedItemId || !/^[0-9]{10,11}$/.test(trimmedItemId)) {
-      message.error('ID объявления должен содержать 10-11 цифр');
+    if (!trimmedItemId || !/^[0-9]{10,12}$/.test(trimmedItemId)) {
+      message.error('ID объявления должен содержать 10-12 цифр');
       return;
     }
 
     setLoading(true);
     try {
       // Update integration with user_id and item_id (tokens are already saved by OAuth callback)
+      // Convert to numbers for BIGINT columns
+      const userIdNumber = parseInt(trimmedUserId, 10);
+      const itemIdNumber = parseInt(trimmedItemId, 10);
+      
       const { data: integration, error } = await supabase
         .from('integrations')
         .update({
-          avito_user_id: trimmedUserId,
-          avito_item_id: trimmedItemId,
+          avito_user_id: userIdNumber,
+          avito_item_id: itemIdNumber,
           avito_markup: markup,
           external_id: trimmedItemId,
         })
@@ -643,27 +647,31 @@ export function AvitoConnectModal({
               placeholder="Например: 4720770"
               value={userId}
               onChange={(e) => {
-                // Only allow numbers
-                const value = e.target.value.replace(/\D/g, '');
+                // Only allow numbers, max 8 digits
+                const value = e.target.value.replace(/\D/g, '').slice(0, 8);
                 setUserId(value);
               }}
               disabled={loading}
               required
+              maxLength={8}
             />
             {!userId && (
               <p className="text-xs text-red-400 mt-1">Номер аккаунта обязателен</p>
+            )}
+            {userId && (!/^[0-9]{6,8}$/.test(userId)) && (
+              <p className="text-xs text-red-400 mt-1">Номер аккаунта должен содержать 6-8 цифр</p>
             )}
             <div className="flex gap-2 mt-4">
               <Button
                 type="primary"
                 onClick={() => {
-                  if (!userId || !/^\d+$/.test(userId)) {
-                    message.error('Введи номер аккаунта (только цифры)');
+                  if (!userId || !/^[0-9]{6,8}$/.test(userId)) {
+                    message.error('Номер аккаунта должен содержать 6-8 цифр');
                     return;
                   }
                   setCurrentStep(2);
                 }}
-                disabled={!userId || !/^\d+$/.test(userId)}
+                disabled={!userId || !/^[0-9]{6,8}$/.test(userId)}
               >
                 Далее
               </Button>
@@ -683,21 +691,21 @@ export function AvitoConnectModal({
               placeholder="Например: 2336174775"
               value={itemId}
               onChange={(e) => {
-                // Only allow numbers, max 11 digits
-                const value = e.target.value.replace(/\D/g, '').slice(0, 11);
+                // Only allow numbers, max 12 digits
+                const value = e.target.value.replace(/\D/g, '').slice(0, 12);
                 setItemId(value);
               }}
               onPressEnter={handleItemIdValidate}
               disabled={validatingItemId}
               required
-              maxLength={11}
-              pattern="[0-9]{10,11}"
+              maxLength={12}
+              pattern="[0-9]{10,12}"
             />
             {!itemId && (
               <p className="text-xs text-red-400 mt-1">ID объявления обязателен</p>
             )}
-            {itemId && !/^[0-9]{10,11}$/.test(itemId) && (
-              <p className="text-xs text-red-400 mt-1">ID объявления должен содержать 10-11 цифр</p>
+            {itemId && !/^[0-9]{10,12}$/.test(itemId) && (
+              <p className="text-xs text-red-400 mt-1">ID объявления должен содержать 10-12 цифр</p>
             )}
             <div className="mt-4">
               <p className="text-white mb-2 font-medium">Наценка для компенсации комиссии:</p>
@@ -719,7 +727,7 @@ export function AvitoConnectModal({
                 type="primary"
                 onClick={handleSubmit}
                 loading={loading || validatingItemId}
-                disabled={!userId || !itemId || !/^\d+$/.test(userId) || !/^[0-9]{10,11}$/.test(itemId)}
+                disabled={!userId || !itemId || !/^[0-9]{6,8}$/.test(userId) || !/^[0-9]{10,12}$/.test(itemId)}
                 icon={<CheckCircleOutlined />}
               >
                 Завершить подключение
