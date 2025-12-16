@@ -853,14 +853,37 @@ export function Calendar({
 
     // Обновляем список properties через callback
     if (onPropertiesUpdate && properties.length > 0) {
-      const { data } = await supabase
-        .from('properties')
-        .select('*')
-        .in('id', properties.map(p => p.id))
-        .order('sort_order', { ascending: true });
-      
-      if (data) {
-        onPropertiesUpdate(data);
+      try {
+        const { data, error } = await supabase
+          .from('properties')
+          .select('*')
+          .in('id', properties.map(p => p.id))
+          .order('sort_order', { ascending: true });
+        
+        if (error) {
+          // Если sort_order колонка не существует, загружаем без сортировки
+          if (error.code === 'PGRST204' || error.message?.includes("Could not find the 'sort_order' column")) {
+            console.warn('sort_order column not found, loading properties without sort_order');
+            const { data: fallbackData } = await supabase
+              .from('properties')
+              .select('*')
+              .in('id', properties.map(p => p.id));
+            
+            if (fallbackData) {
+              // Сортируем вручную по created_at
+              const sorted = fallbackData.sort((a, b) => 
+                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+              );
+              onPropertiesUpdate(sorted);
+            }
+          } else {
+            console.error('Error loading properties:', error);
+          }
+        } else if (data) {
+          onPropertiesUpdate(data);
+        }
+      } catch (err) {
+        console.error('Error in onPropertiesUpdate:', err);
       }
     }
   };
