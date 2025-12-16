@@ -40,6 +40,8 @@ export function AvitoConnectModal({
   const [itemId, setItemId] = useState<string>('');
   const [markup, setMarkup] = useState<number>(15);
   const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [icalUrl, setIcalUrl] = useState<string>('');
 
   const handleOAuthCallback = useCallback(async (code: string, state: string) => {
     // Предотвращаем двойной вызов
@@ -215,10 +217,14 @@ export function AvitoConnectModal({
     }
   }, [property.id, isOpen, isProcessingOAuth]);
 
-  // Load progress on open
+  // Load progress on open and reset success state
   useEffect(() => {
     if (isOpen) {
       console.log('AvitoConnectModal: Modal opened, loading progress', { propertyId: property.id });
+      
+      // Reset success state when modal opens
+      setShowSuccess(false);
+      setIcalUrl('');
       
       const progress = loadConnectionProgress(property.id);
       console.log('AvitoConnectModal: Loaded progress', { progress });
@@ -269,6 +275,8 @@ export function AvitoConnectModal({
       setCurrentStep(0);
       setOauthRedirecting(false);
       setIsProcessingOAuth(false);
+      setShowSuccess(false);
+      setIcalUrl('');
     }
   }, [isOpen, property.id, handleOAuthCallback]);
 
@@ -445,60 +453,20 @@ export function AvitoConnectModal({
       // Clear progress
       clearConnectionProgress(property.id);
 
-      message.success('Avito подключён! Синхронизация запущена');
-
       // Show iCal URL for date blocking fallback
       // Use Supabase Edge Function URL: {supabaseUrl}/functions/v1/ical/{property_id}.ics
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const icalUrl = `${supabaseUrl}/functions/v1/ical/${property.id}.ics`;
-      
-      // Function to copy iCal URL to clipboard
-      const copyICalUrl = async () => {
-        try {
-          await navigator.clipboard.writeText(icalUrl);
-          message.success('iCal URL скопирован в буфер обмена');
-        } catch (err) {
-          console.error('Failed to copy URL:', err);
-          message.error('Не удалось скопировать URL');
-        }
-      };
+      const icalUrlValue = `${supabaseUrl}/functions/v1/ical/${property.id}.ics`;
+      setIcalUrl(icalUrlValue);
 
-      message.warning({
-        content: (
-          <div>
-            <div style={{ marginBottom: 8, fontWeight: 'bold' }}>
-              Даты закрываются через iCal (ожидаем активацию full API)
-            </div>
-            <div style={{ 
-              padding: '8px 12px', 
-              backgroundColor: '#f5f5f5', 
-              borderRadius: 4,
-              fontFamily: 'monospace',
-              fontSize: 12,
-              wordBreak: 'break-all',
-              marginBottom: 8,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}>
-              <span style={{ flex: 1, marginRight: 8 }}>{icalUrl}</span>
-              <Button
-                type="text"
-                size="small"
-                icon={<CopyOutlined />}
-                onClick={copyICalUrl}
-                style={{ flexShrink: 0 }}
-              >
-                Копировать
-              </Button>
-            </div>
-            <div style={{ fontSize: 12, color: '#666' }}>
-              Инструкция: Вставь этот URL в Avito → "Календарь доступности" → "Импорт iCal"
-            </div>
-          </div>
-        ),
-        duration: 15, // Show for 15 seconds
-      });
+      // Show success toast
+      message.success('Цены обновлены в Avito 🚀');
+      
+      // Show warning toast
+      message.warning('Даты закрываются через iCal (полный API после активации)');
+
+      // Show success block instead of closing modal
+      setShowSuccess(true);
 
       // Auto trigger sync after a short delay to ensure DB is updated
       setTimeout(async () => {
@@ -534,11 +502,7 @@ export function AvitoConnectModal({
       // Вызываем onSuccess для обновления UI
       onSuccess?.();
       
-      // Добавляем небольшую задержку перед закрытием, чтобы UI успел обновиться
-      // и база данных успела обновиться после initial-sync
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      onClose();
+      // Don't close modal - show success block instead
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ошибка при сохранении интеграции';
       
@@ -595,6 +559,11 @@ export function AvitoConnectModal({
 
   // Render custom footer with navigation buttons
   const renderFooter = () => {
+    // Don't show footer if success block is shown
+    if (showSuccess) {
+      return null;
+    }
+    
     return (
       <div className="flex justify-between items-center">
         <div>
@@ -635,14 +604,16 @@ export function AvitoConnectModal({
         </div>
       )}
 
-      <Steps 
-        current={currentStep} 
-        className="mb-6"
-        items={[
-          { title: 'Подключить аккаунт Avito' },
-          { title: 'Введи номер аккаунта и ID объявления' },
-        ]}
-      />
+      {!showSuccess && (
+        <Steps 
+          current={currentStep} 
+          className="mb-6"
+          items={[
+            { title: 'Подключить аккаунт Avito' },
+            { title: 'Введи номер аккаунта и ID объявления' },
+          ]}
+        />
+      )}
 
       <div className="min-h-[200px]">
         {/* Step 0: OAuth Redirect */}
@@ -670,7 +641,7 @@ export function AvitoConnectModal({
         )}
 
         {/* Step 1: User ID and Item ID Input (combined) */}
-        {currentStep === 1 && (
+        {currentStep === 1 && !showSuccess && (
           <div>
             <div className="mb-6">
               <p className="text-white mb-2 font-medium">Номер аккаунта Avito:</p>
@@ -751,6 +722,65 @@ export function AvitoConnectModal({
               >
                 Завершить подключение
               </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Success Block: Show iCal URL after successful save */}
+        {showSuccess && (
+          <div className="py-4">
+            <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+              <div className="flex items-center gap-2 mb-4">
+                <CheckCircleOutlined className="text-green-400 text-2xl" />
+                <h3 className="text-white text-lg font-semibold">Интеграция Avito успешно подключена!</h3>
+              </div>
+              
+              <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded">
+                <p className="text-yellow-200 text-sm font-medium mb-2">
+                  ⚠️ Даты закрываются через iCal (полный API после активации)
+                </p>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-white mb-2 font-medium">iCal URL для закрытия дат:</p>
+                <div className="flex items-center gap-2 p-3 bg-slate-800 rounded border border-slate-700">
+                  <code className="flex-1 text-sm text-slate-300 break-all font-mono">
+                    {icalUrl}
+                  </code>
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<CopyOutlined />}
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(icalUrl);
+                        message.success('iCal URL скопирован в буфер обмена');
+                      } catch (err) {
+                        console.error('Failed to copy URL:', err);
+                        message.error('Не удалось скопировать URL');
+                      }
+                    }}
+                    className="flex-shrink-0"
+                  >
+                    Скопировать URL
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded">
+                <p className="text-white font-medium mb-2">Инструкция (3 шага):</p>
+                <ol className="text-sm text-slate-300 space-y-1 list-decimal list-inside">
+                  <li>Скопируй iCal URL выше</li>
+                  <li>Открой Avito → "Календарь доступности" → "Импорт iCal"</li>
+                  <li>Вставь скопированный URL и сохрани</li>
+                </ol>
+              </div>
+
+              <div className="flex justify-end mt-6">
+                <Button type="primary" onClick={onClose}>
+                  Закрыть
+                </Button>
+              </div>
             </div>
           </div>
         )}
