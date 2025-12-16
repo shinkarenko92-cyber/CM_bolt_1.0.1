@@ -1021,18 +1021,15 @@ Deno.serve(async (req: Request) => {
           });
 
         // Helper function to get and refresh token if needed
-        const getAccessToken = async (): Promise<string> => {
+        const getAccessToken = async (): Promise<string | null> => {
           // Check if token exists
           if (!integration.access_token_encrypted) {
-            console.error("CRITICAL: No access token available", {
+            console.log("No token - reconnect Avito", {
               integration_id: integration.id,
               property_id: integration.property_id,
               hasAccessToken: !!integration.access_token_encrypted,
-              accessTokenValue: integration.access_token_encrypted, // Log actual value for debugging
-              accessTokenType: typeof integration.access_token_encrypted,
               hasRefreshToken: !!integration.refresh_token_encrypted,
               tokenExpiresAt: integration.token_expires_at,
-              integrationKeys: Object.keys(integration),
             });
             
             // Try to reload integration from database
@@ -1048,6 +1045,7 @@ Deno.serve(async (req: Request) => {
                 error: reloadError,
                 integration_id: integration.id,
               });
+              return null;
             } else {
               console.log("Reloaded integration", {
                 integration_id: reloadedIntegration?.id,
@@ -1061,19 +1059,20 @@ Deno.serve(async (req: Request) => {
                 integration.refresh_token_encrypted = reloadedIntegration.refresh_token_encrypted;
                 integration.token_expires_at = reloadedIntegration.token_expires_at;
                 
-                // If token is now available, continue
-                if (integration.access_token_encrypted) {
-                  console.log("Token found after reload, continuing");
-                } else {
-                  throw new Error("No access token available in database. Please reconnect Avito integration.");
+                // If token is still not available, return null
+                if (!integration.access_token_encrypted) {
+                  console.log("No token - reconnect Avito (after reload)");
+                  return null;
                 }
               } else {
-                throw new Error("No access token available in database. Please reconnect Avito integration.");
+                console.log("No token - reconnect Avito (integration not found)");
+                return null;
               }
             }
             
             if (!integration.access_token_encrypted) {
-              throw new Error("No access token available in database. Please reconnect Avito integration.");
+              console.log("No token - reconnect Avito (final check)");
+              return null;
             }
           }
 
@@ -1100,11 +1099,11 @@ Deno.serve(async (req: Request) => {
 
               // Check if refresh token is available
               if (!integration.refresh_token_encrypted) {
-                console.error("CRITICAL: Token expired but no refresh token available", {
+                console.log("No token - reconnect Avito (token expired, no refresh token)", {
                   integration_id: integration.id,
                   property_id: integration.property_id,
                 });
-                throw new Error("Token expired and no refresh token available. Please reconnect.");
+                return null;
               }
 
               try {
@@ -1117,6 +1116,34 @@ Deno.serve(async (req: Request) => {
                 
                 accessToken = refreshData.access_token;
 
+                // Encrypt new tokens before saving
+                let encryptedAccessToken = accessToken;
+                let encryptedRefreshToken = refreshData.refresh_token;
+
+                try {
+                  const { data: encryptedAccess, error: encryptAccessError } = await supabase.rpc('encrypt_avito_token', {
+                    token: accessToken,
+                  });
+                  if (encryptedAccess && !encryptAccessError) {
+                    encryptedAccessToken = encryptedAccess;
+                  }
+                } catch (error) {
+                  console.warn("encrypt_avito_token RPC not available for refresh, using plain token");
+                }
+
+                if (refreshData.refresh_token) {
+                  try {
+                    const { data: encryptedRefresh, error: encryptRefreshError } = await supabase.rpc('encrypt_avito_token', {
+                      token: refreshData.refresh_token,
+                    });
+                    if (encryptedRefresh && !encryptRefreshError) {
+                      encryptedRefreshToken = encryptedRefresh;
+                    }
+                  } catch (error) {
+                    console.warn("encrypt_avito_token RPC not available for refresh token, using plain token");
+                  }
+                }
+
                 // Update token in database
                 const expiresIn = refreshData.expires_in || 3600;
                 const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
@@ -1126,13 +1153,13 @@ Deno.serve(async (req: Request) => {
                   token_expires_at: string;
                   refresh_token_encrypted?: string;
                 } = {
-                  access_token_encrypted: accessToken,
+                  access_token_encrypted: encryptedAccessToken,
                   token_expires_at: tokenExpiresAt.toISOString(),
                 };
 
                 // Update refresh_token if provided
-                if (refreshData.refresh_token) {
-                  updateData.refresh_token_encrypted = refreshData.refresh_token;
+                if (encryptedRefreshToken) {
+                  updateData.refresh_token_encrypted = encryptedRefreshToken;
                 }
 
                 const { error: updateError } = await supabase
@@ -1184,17 +1211,21 @@ Deno.serve(async (req: Request) => {
                   error: error instanceof Error ? error.message : String(error),
                 });
                 
-                throw new Error(`Token expired and failed to refresh: ${error instanceof Error ? error.message : String(error)}. Please reconnect.`);
+                console.log("No token - reconnect Avito (refresh failed)", {
+                  error: error instanceof Error ? error.message : String(error),
+                  integration_id: integration.id,
+                });
+                return null;
               }
             }
           }
 
           if (!accessToken) {
-            console.error("CRITICAL: No access token available after refresh check", {
+            console.log("No token - reconnect Avito (no token after refresh check)", {
               integration_id: integration.id,
               property_id: integration.property_id,
             });
-            throw new Error("No access token available");
+            return null;
           }
 
           // Try to decrypt token if encrypted
@@ -1215,6 +1246,26 @@ Deno.serve(async (req: Request) => {
 
         // Get access token (will refresh if needed)
         const accessToken = await getAccessToken();
+
+        // If no token available, return error response for frontend
+        if (!accessToken) {
+          console.log("Sync aborted: No access token available", {
+            integration_id: integration.id,
+            property_id: integration.property_id,
+          });
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "Переподключи Avito для синхронизации",
+              errorCode: "NO_ACCESS_TOKEN",
+              requiresReconnect: true,
+            }),
+            { 
+              status: 401, 
+              headers: { ...corsHeaders, "Content-Type": "application/json" } 
+            }
+          );
+        }
 
         // Get property and bookings
         const { data: property } = await supabase
