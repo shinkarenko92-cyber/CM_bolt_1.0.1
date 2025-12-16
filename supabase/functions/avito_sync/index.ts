@@ -902,7 +902,7 @@ Deno.serve(async (req: Request) => {
           // Get integration with decrypted token
           const { data: integration, error: intError } = await supabase
             .from("integrations")
-            .select("id, property_id, platform, avito_user_id, avito_item_id, avito_markup, access_token_encrypted, refresh_token_encrypted, token_expires_at, is_active, last_sync_at, sync_interval_seconds")
+            .select("id, property_id, platform, avito_user_id, avito_account_id, avito_item_id, avito_markup, access_token_encrypted, refresh_token_encrypted, token_expires_at, is_active, last_sync_at, sync_interval_seconds")
             .eq("id", integration_id)
             .eq("is_active", true)
             .single();
