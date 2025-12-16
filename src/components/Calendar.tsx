@@ -1058,6 +1058,15 @@ export function Calendar({
                 strategy={verticalListSortingStrategy}
               >
                 <div className="relative">
+                  {/* ВСЕГДА рендерим groupedProperties.map(), независимо от groups error */}
+                  {(() => {
+                    console.log('Calendar: Rendering groupedProperties', { 
+                      groupedPropertiesCount: groupedProperties.length,
+                      propertiesCount: properties.length,
+                      propertyGroupsCount: propertyGroups.length
+                    });
+                    return null;
+                  })()}
                   {groupedProperties.map((grouped) => {
                       const groupId = grouped.group?.id || 'ungrouped';
                       const isGroupExpanded = grouped.group ? expandedGroups.has(groupId) : true;
