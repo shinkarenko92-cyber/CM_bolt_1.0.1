@@ -18,7 +18,6 @@ import {
   getOAuthSuccess,
   clearOAuthError,
   clearOAuthSuccess,
-  validateItemId,
   performInitialSync,
 } from '../services/avito';
 
