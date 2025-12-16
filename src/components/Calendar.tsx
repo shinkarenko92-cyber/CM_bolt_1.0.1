@@ -241,7 +241,15 @@ export function Calendar({
   }, [propertyGroups.length, properties.length]);
 
   // При изменении текущей базовой даты центрируем скролл и обновляем "видимую" дату
+  // ВАЖНО: НЕ сбрасываем expandedGroups или expandedProperties при изменении дат
   useEffect(() => {
+    console.log('Calendar: currentDate changed, updating scroll position', {
+      currentDateTimestamp,
+      expandedGroupsSize: expandedGroups.size,
+      expandedPropertiesSize: expandedProperties.size,
+      propertiesCount: properties.length,
+    });
+    
     const centerOffset = Math.floor(60 / 2);
     const scrollLeft = centerOffset * CELL_WIDTH;
 
@@ -751,7 +759,14 @@ export function Calendar({
   };
 
   // Группировка properties по группам
+  // ВАЖНО: groupedProperties НЕ зависит от dates - объекты должны отображаться всегда
   const groupedProperties = useMemo(() => {
+    console.log('groupedProperties useMemo: recalculating', {
+      propertiesCount: properties.length,
+      propertyGroupsCount: propertyGroups.length,
+      timestamp: new Date().toISOString(),
+    });
+    
     const grouped: GroupedProperties[] = [];
     const groupsMap = new Map<string, PropertyGroup>();
     
@@ -764,6 +779,10 @@ export function Calendar({
         grouped.push({ group: null, properties: allProperties });
       }
       // Если properties пустой, возвращаем пустой массив (но это не должно скрывать UI)
+      console.log('groupedProperties useMemo: returning ungrouped properties', {
+        groupedCount: grouped.length,
+        propertiesInGroup: grouped[0]?.properties.length || 0,
+      });
       return grouped;
     }
     
@@ -792,8 +811,16 @@ export function Calendar({
       grouped.push({ group: null, properties: ungroupedProperties });
     }
 
+    console.log('groupedProperties useMemo: returning grouped result', {
+      totalGroups: grouped.length,
+      groupsWithProperties: grouped.map(g => ({
+        groupName: g.group?.name || 'Без группы',
+        propertiesCount: g.properties.length,
+      })),
+    });
+
     return grouped;
-  }, [properties, propertyGroups]);
+  }, [properties, propertyGroups]); // ВАЖНО: НЕ включаем dates в зависимости - объекты должны отображаться всегда
 
   // Обработка drag & drop для групп и объектов
   const handleDragStart = (event: DragStartEvent) => {
@@ -1068,6 +1095,7 @@ export function Calendar({
             </div>
           </div>
 
+          {/* ВАЖНО: overflow-auto позволяет прокручивать даты, но объекты должны оставаться видимыми */}
           <div className="flex-1 overflow-auto" ref={scrollContainerRef}>
             <DndContext
               sensors={sensors}
@@ -1079,16 +1107,21 @@ export function Calendar({
                 items={[...propertyGroups.map(g => g.id), ...properties.map(p => p.id)]}
                 strategy={verticalListSortingStrategy}
               >
-                <div className="relative">
-                  {/* ВСЕГДА рендерим groupedProperties.map(), независимо от groups error */}
+                {/* ВАЖНО: relative позиционирование для корректного отображения объектов при прокрутке */}
+                <div className="relative" style={{ minHeight: '100%' }}>
+                  {/* ВАЖНО: ВСЕГДА рендерим groupedProperties.map(), независимо от groups error или прокрутки дат */}
                   {(() => {
                     console.log('Calendar: Rendering groupedProperties', { 
                       groupedPropertiesCount: groupedProperties.length,
                       propertiesCount: properties.length,
-                      propertyGroupsCount: propertyGroups.length
+                      propertyGroupsCount: propertyGroups.length,
+                      datesCount: dates.length,
+                      currentDateTimestamp,
+                      expandedGroupsSize: expandedGroups.size,
                     });
                     return null;
                   })()}
+                  {/* ВАЖНО: groupedProperties не зависит от dates - объекты должны отображаться всегда */}
                   {groupedProperties.map((grouped) => {
                       const groupId = grouped.group?.id || 'ungrouped';
                       const isGroupExpanded = grouped.group ? expandedGroups.has(groupId) : true;
@@ -1362,13 +1395,25 @@ export function Calendar({
                     );
                   })}
 
-                  {properties.length === 0 && (
+                  {/* ВАЖНО: Проверяем properties.length, а не groupedProperties.length, чтобы показывать сообщение только если действительно нет объектов */}
+                  {properties.length === 0 && groupedProperties.length === 0 && (
                     <div className="text-center py-12">
                       <p className="text-slate-400">
                         Нет объектов. Добавьте первый объект для начала работы.
                       </p>
                     </div>
                   )}
+                  
+                  {/* ВАЖНО: Добавляем дополнительную проверку для диагностики */}
+                  {(() => {
+                    if (groupedProperties.length === 0 && properties.length > 0) {
+                      console.warn('Calendar: groupedProperties is empty but properties exist!', {
+                        propertiesCount: properties.length,
+                        propertyGroupsCount: propertyGroups.length,
+                      });
+                    }
+                    return null;
+                  })()}
                 </div>
               </SortableContext>
               
