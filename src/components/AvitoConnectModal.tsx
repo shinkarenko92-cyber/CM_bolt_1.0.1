@@ -446,7 +446,7 @@ export function AvitoConnectModal({
       // Clear progress
       clearConnectionProgress(property.id);
 
-      message.success('Avito подключён! Синхронизация запущена 🚀');
+      message.success('Avito подключён! Синхронизация запущена');
 
       // Auto trigger sync after a short delay to ensure DB is updated
       setTimeout(async () => {
