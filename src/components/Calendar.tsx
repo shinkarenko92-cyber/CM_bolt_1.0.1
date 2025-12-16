@@ -854,33 +854,28 @@ export function Calendar({
     // Обновляем список properties через callback
     if (onPropertiesUpdate && properties.length > 0) {
       try {
+        // Сначала пытаемся загрузить без сортировки, чтобы избежать ошибки PGRST204
         const { data, error } = await supabase
           .from('properties')
           .select('*')
-          .in('id', properties.map(p => p.id))
-          .order('sort_order', { ascending: true });
+          .in('id', properties.map(p => p.id));
         
         if (error) {
-          // Если sort_order колонка не существует, загружаем без сортировки
-          if (error.code === 'PGRST204' || error.message?.includes("Could not find the 'sort_order' column")) {
-            console.warn('sort_order column not found, loading properties without sort_order');
-            const { data: fallbackData } = await supabase
-              .from('properties')
-              .select('*')
-              .in('id', properties.map(p => p.id));
-            
-            if (fallbackData) {
-              // Сортируем вручную по created_at
-              const sorted = fallbackData.sort((a, b) => 
-                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-              );
-              onPropertiesUpdate(sorted);
+          console.error('Error loading properties:', error);
+          return;
+        }
+        
+        if (data) {
+          // Сортируем вручную: сначала по sort_order (если есть), потом по created_at
+          const sorted = data.sort((a, b) => {
+            const aSort = (a as any).sort_order ?? Number.MAX_SAFE_INTEGER;
+            const bSort = (b as any).sort_order ?? Number.MAX_SAFE_INTEGER;
+            if (aSort !== bSort) {
+              return aSort - bSort;
             }
-          } else {
-            console.error('Error loading properties:', error);
-          }
-        } else if (data) {
-          onPropertiesUpdate(data);
+            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          });
+          onPropertiesUpdate(sorted);
         }
       } catch (err) {
         console.error('Error in onPropertiesUpdate:', err);
@@ -1326,14 +1321,32 @@ export function Calendar({
                                     }
 
                                     if (onPropertiesUpdate && properties.length > 0) {
-                                      const { data } = await supabase
-                                        .from('properties')
-                                        .select('*')
-                                        .in('id', properties.map(p => p.id))
-                                        .order('sort_order', { ascending: true });
-                                      
-                                      if (data) {
-                                        onPropertiesUpdate(data);
+                                      try {
+                                        // Загружаем без сортировки, чтобы избежать ошибки PGRST204
+                                        const { data, error } = await supabase
+                                          .from('properties')
+                                          .select('*')
+                                          .in('id', properties.map(p => p.id));
+                                        
+                                        if (error) {
+                                          console.error('Error loading properties:', error);
+                                          return;
+                                        }
+                                        
+                                        if (data) {
+                                          // Сортируем вручную: сначала по sort_order (если есть), потом по created_at
+                                          const sorted = data.sort((a, b) => {
+                                            const aSort = (a as any).sort_order ?? Number.MAX_SAFE_INTEGER;
+                                            const bSort = (b as any).sort_order ?? Number.MAX_SAFE_INTEGER;
+                                            if (aSort !== bSort) {
+                                              return aSort - bSort;
+                                            }
+                                            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                                          });
+                                          onPropertiesUpdate(sorted);
+                                        }
+                                      } catch (err) {
+                                        console.error('Error in onPropertiesUpdate:', err);
                                       }
                                     }
                                   }}
