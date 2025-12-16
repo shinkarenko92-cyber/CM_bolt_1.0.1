@@ -994,12 +994,18 @@ export function Dashboard() {
         {loading ? (
           <SkeletonCalendar />
         ) : currentView === 'properties' ? (
-          <PropertiesView
-            properties={properties}
-            onAdd={handleAddProperty}
-            onUpdate={handleUpdateProperty}
-            onDelete={handleDeleteProperty}
-          />
+          // ВСЕГДА передаем properties в PropertiesView, даже если groups error
+          (() => {
+            console.log('Dashboard: Rendering PropertiesView', { propertiesCount: properties.length });
+            return (
+              <PropertiesView
+                properties={properties}
+                onAdd={handleAddProperty}
+                onUpdate={handleUpdateProperty}
+                onDelete={handleDeleteProperty}
+              />
+            );
+          })()
         ) : currentView === 'bookings' ? (
           <BookingsView
             bookings={bookings}

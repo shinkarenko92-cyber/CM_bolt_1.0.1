@@ -120,6 +120,12 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
     setIsModalOpen(true);
   };
 
+  // Логируем перед рендером
+  console.log('PropertiesView: Rendering properties', { 
+    propertiesCount: properties.length, 
+    properties: properties.map(p => ({ id: p.id, name: p.name }))
+  });
+
   return (
     <div className="flex-1 overflow-auto p-6">
       <div className="max-w-7xl mx-auto">
@@ -137,6 +143,7 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
           </button>
         </div>
 
+        {/* ВСЕГДА рендерим объекты, даже если groups error */}
         {properties.length === 0 ? (
           <div className="text-center py-12 bg-slate-800 rounded-lg">
             <p className="text-slate-400 mb-4">У вас пока нет объектов недвижимости</p>
@@ -149,6 +156,7 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* ВСЕГДА рендерим properties.map(), независимо от groups error */}
             {properties.map((property) => (
               <div
                 key={property.id}
