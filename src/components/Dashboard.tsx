@@ -405,6 +405,9 @@ export function Dashboard() {
           // Show success message - check if pushSuccess (prices/intervals) for specific message
           if (syncResult.pushSuccess) {
             toast.success('Даты и цены закрыты в Avito 🚀');
+          } else if (syncResult.pricesSuccess && syncResult.intervalsFailed) {
+            toast.success('Цены обновлены в Avito');
+            toast.warning('Даты не закрыты (ожидаем активацию Avito). Используй iCal URL для закрытия дат.');
           } else {
             toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
           }

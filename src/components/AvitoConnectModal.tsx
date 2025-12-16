@@ -5,9 +5,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Modal, Steps, Button, Input, InputNumber, Spin, message } from 'antd';
-import { CheckCircleOutlined, LoadingOutlined } from '@ant-design/icons';
-import { Property } from '../lib/supabase';
-import { supabase } from '../lib/supabase';
+import { CheckCircleOutlined, LoadingOutlined, CopyOutlined } from '@ant-design/icons';
+import { Property, supabase } from '../lib/supabase';
 import {
   generateOAuthUrl,
   parseOAuthState,
@@ -448,6 +447,59 @@ export function AvitoConnectModal({
 
       message.success('Avito подключён! Синхронизация запущена');
 
+      // Show iCal URL for date blocking fallback
+      // Use Supabase Edge Function URL: {supabaseUrl}/functions/v1/ical/{property_id}.ics
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const icalUrl = `${supabaseUrl}/functions/v1/ical/${property.id}.ics`;
+      
+      // Function to copy iCal URL to clipboard
+      const copyICalUrl = async () => {
+        try {
+          await navigator.clipboard.writeText(icalUrl);
+          message.success('iCal URL скопирован в буфер обмена');
+        } catch (err) {
+          console.error('Failed to copy URL:', err);
+          message.error('Не удалось скопировать URL');
+        }
+      };
+
+      message.warning({
+        content: (
+          <div>
+            <div style={{ marginBottom: 8, fontWeight: 'bold' }}>
+              Даты закрываются через iCal (ожидаем активацию full API)
+            </div>
+            <div style={{ 
+              padding: '8px 12px', 
+              backgroundColor: '#f5f5f5', 
+              borderRadius: 4,
+              fontFamily: 'monospace',
+              fontSize: 12,
+              wordBreak: 'break-all',
+              marginBottom: 8,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <span style={{ flex: 1, marginRight: 8 }}>{icalUrl}</span>
+              <Button
+                type="text"
+                size="small"
+                icon={<CopyOutlined />}
+                onClick={copyICalUrl}
+                style={{ flexShrink: 0 }}
+              >
+                Копировать
+              </Button>
+            </div>
+            <div style={{ fontSize: 12, color: '#666' }}>
+              Инструкция: Вставь этот URL в Avito → "Календарь доступности" → "Импорт iCal"
+            </div>
+          </div>
+        ),
+        duration: 15, // Show for 15 seconds
+      });
+
       // Auto trigger sync after a short delay to ensure DB is updated
       setTimeout(async () => {
         try {
@@ -455,7 +507,10 @@ export function AvitoConnectModal({
           const syncResult = await syncAvitoIntegration(property.id);
           
           if (syncResult.success) {
-            if (syncResult.errors && syncResult.errors.length > 0) {
+            if (syncResult.pricesSuccess && syncResult.intervalsFailed) {
+              message.success('Цены обновлены в Avito');
+              // iCal warning already shown above
+            } else if (syncResult.errors && syncResult.errors.length > 0) {
               const errorMessages = syncResult.errors.map(e => e.message || 'Ошибка').join(', ');
               message.warning(`Частичная синхронизация: ${errorMessages}`);
             } else {

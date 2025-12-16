@@ -84,7 +84,14 @@ export class AvitoSyncError extends Error {
 export async function syncAvitoIntegration(
   propertyId: string,
   excludeBookingId?: string
-): Promise<{ success: boolean; errors?: AvitoErrorInfo[]; message?: string; pushSuccess?: boolean }> {
+): Promise<{ 
+  success: boolean; 
+  errors?: AvitoErrorInfo[]; 
+  message?: string; 
+  pushSuccess?: boolean;
+  pricesSuccess?: boolean;
+  intervalsFailed?: boolean;
+}> {
   // Get integration from database
   const integration = await getPropertyIntegration(propertyId, 'avito');
   
@@ -211,6 +218,29 @@ export async function syncAvitoIntegration(
         hasError: responseData.hasError,
       });
       return { success: true, pushSuccess: true };
+    }
+
+    // Check if prices succeeded but intervals failed (404 - activation required)
+    if ('pricesPushSuccess' in responseData && responseData.pricesPushSuccess === true) {
+      const intervalsFailed = responseData.intervalsPushSuccess === false;
+      const has404Error = responseData.errors?.some((e: AvitoErrorInfo) => 
+        e.operation === 'bookings_update' && e.statusCode === 404
+      );
+      
+      if (intervalsFailed || has404Error) {
+        console.log('syncAvitoIntegration: Prices succeeded but intervals failed (404)', {
+          integration_id: integration.id,
+          property_id: integration.property_id,
+          pricesPushSuccess: responseData.pricesPushSuccess,
+          intervalsPushSuccess: responseData.intervalsPushSuccess,
+        });
+        return { 
+          success: true, 
+          pushSuccess: false,
+          pricesSuccess: true,
+          intervalsFailed: true,
+        };
+      }
     }
 
     // PRIORITY: Check hasError first - this is the definitive success indicator

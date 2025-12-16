@@ -1625,16 +1625,14 @@ Deno.serve(async (req: Request) => {
               const errorText = await bookingsUpdateResponse.text().catch(() => 'Failed to read error response');
               const errorStatus = bookingsUpdateResponse.status;
             
-            // Handle 404 - item not found
+            // Handle 404 - intervals push skipped (activation required)
             if (errorStatus === 404) {
-              const errorMessage = "Объявление не найдено в Avito. Проверь ID объявления — должен быть длинный номер вроде 2336174775";
-              syncErrors.push({
-                operation: 'bookings_update',
-                statusCode: 404,
-                message: errorMessage,
-                details: { item_id: itemId },
+              console.log("Intervals push skipped (404 - активация Avito)", {
+                item_id: itemId,
+                message: "Avito объявление может требовать активации для закрытия дат",
               });
-              console.error("Avito item not found (404)", { item_id: itemId });
+              // Не добавляем в syncErrors - это ожидаемая ситуация при активации
+              intervalsPushSuccess = false; // Помечаем как неуспешный для показа fallback
               // Continue with other operations
             }
             // Специальная обработка ошибки 409 (конфликт с оплаченными бронями)
@@ -2563,6 +2561,8 @@ Deno.serve(async (req: Request) => {
               hasError: !pushSuccess && syncErrors.length > 0,
               hasData: true,
               pushSuccess,
+              pricesPushSuccess,
+              intervalsPushSuccess,
               errorMessage: hasError ? syncErrors.map(e => e.message || 'Ошибка синхронизации').join('; ') : undefined,
               errors: hasError ? syncErrors : undefined,
             }),
