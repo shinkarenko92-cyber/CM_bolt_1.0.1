@@ -84,7 +84,7 @@ export class AvitoSyncError extends Error {
 export async function syncAvitoIntegration(
   propertyId: string,
   excludeBookingId?: string
-): Promise<{ success: boolean; errors?: AvitoErrorInfo[]; message?: string }> {
+): Promise<{ success: boolean; errors?: AvitoErrorInfo[]; message?: string; pushSuccess?: boolean }> {
   // Get integration from database
   const integration = await getPropertyIntegration(propertyId, 'avito');
   
@@ -202,6 +202,17 @@ export async function syncAvitoIntegration(
   if (data && typeof data === 'object') {
     const responseData = data as Record<string, unknown>;
     
+    // PRIORITY: Check pushSuccess - if push operations (prices/intervals) succeeded, return success
+    if ('pushSuccess' in responseData && responseData.pushSuccess === true) {
+      console.log('syncAvitoIntegration: Push operations succeeded (prices/intervals)', { 
+        integration_id: integration.id,
+        property_id: integration.property_id,
+        pushSuccess: responseData.pushSuccess,
+        hasError: responseData.hasError,
+      });
+      return { success: true, pushSuccess: true };
+    }
+
     // PRIORITY: Check hasError first - this is the definitive success indicator
     // If hasError === false, treat as success regardless of success/errorsCount fields
     if ('hasError' in responseData && responseData.hasError === false) {

@@ -1208,6 +1208,10 @@ Deno.serve(async (req: Request) => {
           details?: unknown;
         }> = [];
 
+        // Track success of push operations (prices/intervals)
+        let pricesPushSuccess = false;
+        let intervalsPushSuccess = false;
+
         const { data: propertyRates } = await supabase
           .from("property_rates")
           .select("*")
@@ -1696,6 +1700,7 @@ Deno.serve(async (req: Request) => {
                 excluded_booking_id: exclude_booking_id || null,
                 response: responseData,
               });
+              intervalsPushSuccess = true;
 
               // Log success to avito_logs
               try {
@@ -1937,15 +1942,8 @@ Deno.serve(async (req: Request) => {
 
         // Handle 404 - item not found
         if (bookingsResponse.status === 404) {
-          const errorMessage = "Объявление не найдено в Avito. Проверь ID объекта в настройках интеграции";
-          syncErrors.push({
-            operation: 'bookings_fetch',
-            statusCode: 404,
-            message: errorMessage,
-            details: { item_id: itemId },
-          });
-          console.error("Avito item not found (404)", { item_id: itemId });
-          // Don't throw, continue with sync (bookings pull is not critical)
+          console.log("Bookings pull skipped (404) - continuing with push operations");
+          // Don't add to syncErrors - bookings pull is not critical, continue with push
         }
 
         // Handle 409 conflict (some bookings conflict with paid bookings)
@@ -2079,6 +2077,57 @@ Deno.serve(async (req: Request) => {
           let skippedCount = 0;
           let errorCount = 0;
 
+          // Helper function to fetch booking details by ID
+          // Try endpoint: GET /realty/v1/accounts/{user_id}/items/{item_id}/bookings/{booking_id}
+          const fetchBookingDetails = async (bookingId: string | number, token: string): Promise<AvitoBookingResponse | null> => {
+            try {
+              const bookingIdStr = String(bookingId);
+              const detailsUrl = `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/bookings/${bookingIdStr}`;
+              
+              console.log("Attempting to fetch booking details", {
+                bookingId: bookingIdStr,
+                url: detailsUrl,
+              });
+
+              const detailsResponse = await fetchWithRetry(detailsUrl, {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+              });
+
+              if (detailsResponse.ok) {
+                const detailsData = await detailsResponse.json() as AvitoBookingResponse;
+                console.log("Successfully fetched booking details", {
+                  bookingId: bookingIdStr,
+                  hasContact: !!detailsData.contact,
+                  hasCustomer: !!detailsData.customer,
+                  contactName: detailsData.contact?.name,
+                  customerName: detailsData.customer?.name,
+                });
+                return detailsData;
+              } else if (detailsResponse.status === 404) {
+                console.log("Booking details endpoint not found (404) - endpoint may not exist", {
+                  bookingId: bookingIdStr,
+                });
+                return null;
+              } else {
+                console.warn("Failed to fetch booking details", {
+                  bookingId: bookingIdStr,
+                  status: detailsResponse.status,
+                  statusText: detailsResponse.statusText,
+                });
+                return null;
+              }
+            } catch (error) {
+              console.warn("Error fetching booking details", {
+                bookingId: String(bookingId),
+                error: error instanceof Error ? error.message : String(error),
+              });
+              return null;
+            }
+          };
+
           // Create bookings in our DB
           if (avitoBookings.length > 0) {
             for (const booking of avitoBookings) {
@@ -2098,6 +2147,33 @@ Deno.serve(async (req: Request) => {
                   });
                   skippedCount++;
                   continue;
+                }
+
+                // Try to fetch booking details if contact data is missing
+                let bookingWithDetails = booking;
+                const hasContactData = booking.contact?.name || booking.contact?.email || booking.contact?.phone ||
+                                      booking.customer?.name || booking.customer?.email || booking.customer?.phone;
+                
+                if (!hasContactData) {
+                  console.log("Contact data missing, attempting to fetch booking details", {
+                    bookingId: String(bookingId),
+                  });
+                  
+                  const details = await fetchBookingDetails(bookingId, accessToken);
+                  if (details) {
+                    // Merge details with original booking, prioritizing details
+                    bookingWithDetails = {
+                      ...booking,
+                      contact: details.contact || booking.contact,
+                      customer: details.customer || booking.customer,
+                      guest: details.guest || booking.guest,
+                      user: details.user || booking.user,
+                    };
+                    console.log("Merged booking details", {
+                      bookingId: String(bookingId),
+                      hasContactAfterMerge: !!bookingWithDetails.contact?.name || !!bookingWithDetails.customer?.name,
+                    });
+                  }
                 }
 
 
@@ -2143,42 +2219,43 @@ Deno.serve(async (req: Request) => {
                   return normalizePhone(phone);
                 };
 
-                // Извлекаем данные гостя используя расширенные функции
+                // Извлекаем данные гостя используя расширенные функции и bookingWithDetails
                 // Приоритет customer согласно документации
-                const contactName = extractGuestName(booking);
-                const contactEmail = booking.customer?.email
-                  || booking.contact?.email 
-                  || booking.guest_email 
-                  || booking.guest?.email
-                  || booking.user?.email
-                  || ('email' in booking && typeof booking.email === 'string' ? booking.email : null)
+                const contactName = extractGuestName(bookingWithDetails);
+                const contactEmail = bookingWithDetails.customer?.email
+                  || bookingWithDetails.contact?.email 
+                  || bookingWithDetails.guest_email 
+                  || bookingWithDetails.guest?.email
+                  || bookingWithDetails.user?.email
+                  || ('email' in bookingWithDetails && typeof bookingWithDetails.email === 'string' ? bookingWithDetails.email : null)
                   || null;
-                const contactPhone = extractGuestPhone(booking);
+                const contactPhone = extractGuestPhone(bookingWithDetails);
 
                 // Логируем, какие поля были найдены для диагностики
                 console.log("Extracted guest data from booking", {
                   bookingId: booking.avito_booking_id || booking.id,
                   guestName: contactName,
-                  nameSource: booking.contact?.name ? 'contact.name' 
-                    : booking.customer?.name ? 'customer.name'
-                    : booking.guest_name ? 'guest_name'
-                    : booking.guest?.name ? 'guest.name'
-                    : booking.user?.name ? 'user.name'
+                  nameSource: bookingWithDetails.contact?.name ? 'contact.name' 
+                    : bookingWithDetails.customer?.name ? 'customer.name'
+                    : bookingWithDetails.guest_name ? 'guest_name'
+                    : bookingWithDetails.guest?.name ? 'guest.name'
+                    : bookingWithDetails.user?.name ? 'user.name'
                     : 'fallback',
                   hasEmail: !!contactEmail,
-                  emailSource: booking.contact?.email ? 'contact.email'
-                    : booking.customer?.email ? 'customer.email'
-                    : booking.guest_email ? 'guest_email'
-                    : booking.guest?.email ? 'guest.email'
-                    : booking.user?.email ? 'user.email'
+                  emailSource: bookingWithDetails.contact?.email ? 'contact.email'
+                    : bookingWithDetails.customer?.email ? 'customer.email'
+                    : bookingWithDetails.guest_email ? 'guest_email'
+                    : bookingWithDetails.guest?.email ? 'guest.email'
+                    : bookingWithDetails.user?.email ? 'user.email'
                     : 'none',
                   hasPhone: !!contactPhone,
-                  phoneSource: booking.contact?.phone ? 'contact.phone'
-                    : booking.customer?.phone ? 'customer.phone'
-                    : booking.guest_phone ? 'guest_phone'
-                    : booking.guest?.phone ? 'guest.phone'
-                    : booking.user?.phone ? 'user.phone'
+                  phoneSource: bookingWithDetails.contact?.phone ? 'contact.phone'
+                    : bookingWithDetails.customer?.phone ? 'customer.phone'
+                    : bookingWithDetails.guest_phone ? 'guest_phone'
+                    : bookingWithDetails.guest?.phone ? 'guest.phone'
+                    : bookingWithDetails.user?.phone ? 'user.phone'
                     : 'none',
+                  detailsFetched: bookingWithDetails !== booking,
                 });
                 
                 // base_price - основное поле согласно документации
@@ -2199,9 +2276,12 @@ Deno.serve(async (req: Request) => {
                 }
 
                 // Use upsert with onConflict on avito_booking_id to avoid duplicates
+                // Convert bookingId to number for BIGINT column
+                const avitoBookingIdNum = typeof bookingId === 'number' ? bookingId : parseInt(bookingId.toString(), 10);
+                
                 const bookingData = {
                   property_id: integration.property_id,
-                  avito_booking_id: bookingId.toString(), // Use avito_booking_id for unique constraint
+                  avito_booking_id: avitoBookingIdNum, // Use BIGINT
                   guest_name: contactName,
                   guest_email: contactEmail,
                   guest_phone: contactPhone,
@@ -2225,7 +2305,7 @@ Deno.serve(async (req: Request) => {
                 const { data: existing } = await supabase
                   .from("bookings")
                   .select("id, guest_name, guest_phone, guest_email")
-                  .eq("avito_booking_id", bookingId.toString())
+                  .eq("avito_booking_id", avitoBookingIdNum)
                   .maybeSingle();
 
                 let upsertError;
@@ -2246,11 +2326,19 @@ Deno.serve(async (req: Request) => {
                 }
 
                 if (upsertError) {
-                  console.error("Failed to upsert booking from Avito", {
-                    booking,
-                    error: upsertError,
-                  });
-                  errorCount++;
+                  // Handle PGRST204 error (column not found) - skip silently
+                  if (upsertError.code === 'PGRST204' || upsertError.message?.includes('Could not find the') || upsertError.message?.includes('avito_booking_id')) {
+                    console.log("Skipping booking upsert - avito_booking_id column not found (PGRST204)", {
+                      bookingId: bookingId.toString(),
+                    });
+                    skippedCount++;
+                  } else {
+                    console.error("Failed to upsert booking from Avito", {
+                      booking,
+                      error: upsertError,
+                    });
+                    errorCount++;
+                  }
                 } else {
                   // Check if this was an insert or update
                   if (existing) {
@@ -2455,18 +2543,25 @@ Deno.serve(async (req: Request) => {
             // Don't fail sync if update fails
           }
 
-          // Return structured response with errors if any
-          const hasError = syncErrors.length > 0;
+          // Return success if push operations (prices/intervals) succeeded
+          // Even if bookings pull failed with 404, we consider sync successful if push OK
+          const pushSuccess = pricesPushSuccess || intervalsPushSuccess;
+          const hasError = syncErrors.length > 0 && !pushSuccess;
+          
           console.log("Sync operation completed", {
             integration_id,
             hasError,
             errors_count: syncErrors.length,
+            pricesPushSuccess,
+            intervalsPushSuccess,
+            pushSuccess,
           });
 
           return new Response(
             JSON.stringify({ 
-              hasError,
+              hasError: !pushSuccess && syncErrors.length > 0,
               hasData: true,
+              pushSuccess,
               errorMessage: hasError ? syncErrors.map(e => e.message || 'Ошибка синхронизации').join('; ') : undefined,
               errors: hasError ? syncErrors : undefined,
             }),

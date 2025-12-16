@@ -396,9 +396,13 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       // Note: We don't check isTokenExpired here because Edge Function will automatically refresh the token if needed
       if (property && avitoIntegration?.is_active && hasRelevantChanges) {
         try {
-          await syncAvitoIntegration(property.id);
-          // Показываем успешное уведомление
-          toast.success(t('avito.success.syncCompleted', { defaultValue: 'Синхронизация с Avito завершена успешно' }));
+          const syncResult = await syncAvitoIntegration(property.id);
+          // Показываем успешное уведомление - check if pushSuccess for specific message
+          if (syncResult.pushSuccess) {
+            toast.success('Даты и цены закрыты в Avito 🚀');
+          } else {
+            toast.success(t('avito.success.syncCompleted', { defaultValue: 'Синхронизация с Avito завершена успешно' }));
+          }
         } catch (error) {
           console.error('Failed to sync prices to Avito:', error);
           

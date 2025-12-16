@@ -402,8 +402,12 @@ export function Dashboard() {
         // If syncResult.success === true, it means hasError was false or not present
         if (syncResult.success) {
           toast.dismiss(syncToastId);
-          // Show success message
-          toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
+          // Show success message - check if pushSuccess (prices/intervals) for specific message
+          if (syncResult.pushSuccess) {
+            toast.success('Даты и цены закрыты в Avito 🚀');
+          } else {
+            toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
+          }
           console.log('Dashboard: Avito sync completed successfully after booking creation', syncResult);
         } else {
           // Sync failed - show error
