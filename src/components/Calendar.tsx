@@ -106,11 +106,13 @@ export function Calendar({
   const currentDateTimestamp = currentDate.getTime();
   
   const dates = useMemo(() => {
-    return Array.from({ length: daysToShow }, (_, i) => {
+    const datesArray = Array.from({ length: daysToShow }, (_, i) => {
       const date = new Date(currentDateTimestamp);
       date.setDate(date.getDate() + i);
       return date;
     });
+    console.log('Calendar dates:', datesArray.length);
+    return datesArray;
   }, [currentDateTimestamp, daysToShow]);
 
   const centerDate = useMemo(() => {
@@ -164,11 +166,15 @@ export function Calendar({
             error.message?.includes('table not found')) {
           console.log('Groups not found - showing properties without groups');
           setPropertyGroups([]);
+          // Явно добавляем 'ungrouped' в expandedGroups для группы "Без группы"
+          setExpandedGroups(new Set(['ungrouped']));
           return;
         }
         // Для других ошибок тоже работаем без групп (fallback)
         console.log('Groups not found - showing properties without groups', error);
         setPropertyGroups([]);
+        // Явно добавляем 'ungrouped' в expandedGroups для группы "Без группы"
+        setExpandedGroups(new Set(['ungrouped']));
         return;
       }
       
@@ -177,6 +183,9 @@ export function Calendar({
       // Разворачиваем все группы по умолчанию
       if (data) {
         setExpandedGroups(new Set(data.map(g => g.id)));
+      } else {
+        // Если data пустой, добавляем 'ungrouped' для группы "Без группы"
+        setExpandedGroups(new Set(['ungrouped']));
       }
     } catch (error) {
       // Не логируем ошибку, если таблица просто не существует
@@ -192,6 +201,8 @@ export function Calendar({
       }
       // Не падаем, просто работаем без групп
       setPropertyGroups([]);
+      // Явно добавляем 'ungrouped' в expandedGroups для группы "Без группы"
+      setExpandedGroups(new Set(['ungrouped']));
     }
   };
 
@@ -217,6 +228,17 @@ export function Calendar({
       }
     }
   }, [properties]);
+
+  // Убеждаемся, что группа "Без группы" развернута, когда propertyGroups пуст
+  useEffect(() => {
+    if (propertyGroups.length === 0 && properties.length > 0) {
+      setExpandedGroups(prev => {
+        const newSet = new Set(prev);
+        newSet.add('ungrouped');
+        return newSet;
+      });
+    }
+  }, [propertyGroups.length, properties.length]);
 
   // При изменении текущей базовой даты центрируем скролл и обновляем "видимую" дату
   useEffect(() => {
@@ -1071,6 +1093,13 @@ export function Calendar({
                       const groupId = grouped.group?.id || 'ungrouped';
                       const isGroupExpanded = grouped.group ? expandedGroups.has(groupId) : true;
                       
+                      console.log('Rendering group:', { 
+                        groupId, 
+                        isGroupExpanded, 
+                        propertiesCount: grouped.properties.length,
+                        groupName: grouped.group?.name || 'Без группы'
+                      });
+                      
                       return (
                       <div key={groupId} className="border-b border-slate-700">
                         {grouped.group ? (
@@ -1133,30 +1162,36 @@ export function Calendar({
                         {isGroupExpanded && (
                           <div>
                             {grouped.properties.map((property) => {
-                              const propFirst = new Date(dates[0]);
-                              const propFirstVisibleDate = new Date(propFirst.getFullYear(), propFirst.getMonth(), propFirst.getDate(), 0, 0, 0, 0);
-                              const propLast = new Date(dates[dates.length - 1]);
-                              const propLastVisibleDate = new Date(propLast.getFullYear(), propLast.getMonth(), propLast.getDate(), 23, 59, 59, 999);
-
-                              const propBookings = bookings.filter((b) => {
-                                if (b.property_id !== property.id) return false;
-
-                                const checkInDate = new Date(b.check_in);
-                                const checkIn = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
-                                const checkOutDate = new Date(b.check_out);
-                                const checkOut = new Date(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate());
-
-                                return checkOut > propFirstVisibleDate && checkIn <= propLastVisibleDate;
+                              console.log('Rendering property:', { 
+                                propertyId: property.id, 
+                                propertyName: property.name 
                               });
+                              
+                              try {
+                                const propFirst = new Date(dates[0]);
+                                const propFirstVisibleDate = new Date(propFirst.getFullYear(), propFirst.getMonth(), propFirst.getDate(), 0, 0, 0, 0);
+                                const propLast = new Date(dates[dates.length - 1]);
+                                const propLastVisibleDate = new Date(propLast.getFullYear(), propLast.getMonth(), propLast.getDate(), 23, 59, 59, 999);
 
-                              const isExpanded = expandedProperties.has(property.id);
-                              const bookingLayers = getBookingLayers(propBookings);
-                              const rowHeight = Math.max(44, bookingLayers.length * 32 + 16);
-                              const collapsedHeight = 48;
-                              const totalRowHeight = isExpanded ? 32 + rowHeight : collapsedHeight;
+                                const propBookings = bookings.filter((b) => {
+                                  if (b.property_id !== property.id) return false;
 
-                              return (
-                                <SortablePropertyRow
+                                  const checkInDate = new Date(b.check_in);
+                                  const checkIn = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
+                                  const checkOutDate = new Date(b.check_out);
+                                  const checkOut = new Date(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate());
+
+                                  return checkOut > propFirstVisibleDate && checkIn <= propLastVisibleDate;
+                                });
+
+                                const isExpanded = expandedProperties.has(property.id);
+                                const bookingLayers = getBookingLayers(propBookings);
+                                const rowHeight = Math.max(44, bookingLayers.length * 32 + 16);
+                                const collapsedHeight = 48;
+                                const totalRowHeight = isExpanded ? 32 + rowHeight : collapsedHeight;
+
+                                return (
+                                  <SortablePropertyRow
                                   key={property.id}
                                   property={property}
                                   isExpanded={isExpanded}
@@ -1312,6 +1347,14 @@ export function Calendar({
                                   </div>
                                 </SortablePropertyRow>
                               );
+                              } catch (error) {
+                                console.error('Error rendering property:', property.id, error);
+                                return (
+                                  <div key={property.id} className="p-4 bg-red-900/20 text-red-400">
+                                    Ошибка отображения объекта: {property.name}
+                                  </div>
+                                );
+                              }
                             })}
                           </div>
                         )}
