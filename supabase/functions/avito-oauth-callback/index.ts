@@ -324,11 +324,10 @@ Deno.serve(async (req: Request) => {
 
     console.log("Tokens saved for integration", integration.id);
 
-    // Return success (no accountId needed)
+    // Return success
     return new Response(
       JSON.stringify({
         success: true,
-        integrationId: integration.id,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
