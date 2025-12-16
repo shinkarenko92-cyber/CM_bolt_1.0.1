@@ -41,7 +41,6 @@ export function AvitoConnectModal({
   const [userId, setUserId] = useState<string>('');
   const [itemId, setItemId] = useState<string>('');
   const [markup, setMarkup] = useState<number>(15);
-  const [validatingItemId, setValidatingItemId] = useState(false);
   const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
 
   const handleOAuthCallback = useCallback(async (code: string, state: string) => {
@@ -332,78 +331,6 @@ export function AvitoConnectModal({
     } catch (error) {
       message.error(error instanceof Error ? error.message : 'Ошибка при генерации OAuth URL');
       setOauthRedirecting(false);
-    }
-  };
-
-  const handleItemIdValidate = async () => {
-    if (!itemId) {
-      message.error('Введи ID объявления');
-      return;
-    }
-
-    // Validate itemId: must be 10-12 digits
-    const trimmedItemId = itemId.trim();
-    if (!trimmedItemId || !/^[0-9]{10,12}$/.test(trimmedItemId)) {
-      message.error('ID объявления должен содержать 10-12 цифр (например, 2336174775)');
-      return;
-    }
-
-    setValidatingItemId(true);
-    try {
-      // Load integration to get integration_id for validation
-      const { data: integration, error: integrationError } = await supabase
-        .from('integrations')
-        .select('id')
-        .eq('property_id', property.id)
-        .eq('platform', 'avito')
-        .eq('is_active', true)
-        .single();
-
-      if (integrationError || !integration) {
-        throw new Error('Интеграция не найдена. Пожалуйста, подключите Avito заново.');
-      }
-
-      // Validate item ID (Edge Function will use integration's token)
-      const validation = await validateItemId(trimmedItemId, integration.id, property.id);
-      
-      if (!validation.available) {
-        Modal.error({
-          title: 'ID уже используется',
-          content: validation.error || 'Этот ID уже подключен к другому объекту',
-          okText: 'Выбрать другой ID',
-        });
-        return;
-      }
-
-      // Item ID is valid, ready to save
-      saveConnectionProgress(property.id, 1, {
-        itemId: trimmedItemId,
-      });
-      message.success('ID объявления проверен. Нажмите "Завершить подключение" для сохранения.');
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      
-      // Проверяем ошибку 404
-      if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
-        if (errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
-          Modal.error({
-            title: 'Edge Function не найдена',
-            content: 'Функция avito_sync не развернута. Пожалуйста, разверните её в Supabase Dashboard → Edge Functions или обратитесь к администратору.',
-            okText: 'Понятно',
-            width: 500,
-          });
-        } else {
-          Modal.error({
-            title: 'Объявление не найдено',
-            content: 'Объявление не найдено в Avito. Проверь ID объекта в настройках интеграции.',
-            okText: 'Понятно',
-          });
-        }
-      } else {
-        message.error(errorMessage);
-      }
-    } finally {
-      setValidatingItemId(false);
     }
   };
 
@@ -725,7 +652,7 @@ export function AvitoConnectModal({
                   const value = e.target.value.replace(/\D/g, '').slice(0, 12);
                   setItemId(value);
                 }}
-                disabled={loading || validatingItemId}
+                disabled={loading}
                 required
                 maxLength={12}
                 pattern="[0-9]{10,12}"
@@ -758,7 +685,7 @@ export function AvitoConnectModal({
               <Button
                 type="primary"
                 onClick={handleSubmit}
-                loading={loading || validatingItemId}
+                loading={loading}
                 disabled={!userId || !itemId || !/^[0-9]{6,8}$/.test(userId) || !/^[0-9]{10,12}$/.test(itemId)}
                 icon={<CheckCircleOutlined />}
               >
