@@ -726,12 +726,6 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                           </p>
                         </div>
                       )}
-                      {/* Display current item_id */}
-                      {avitoIntegration.avito_item_id && String(avitoIntegration.avito_item_id).length >= 10 && (
-                        <div className="text-sm text-slate-400 mb-2">
-                          ID объявления: {avitoIntegration.avito_item_id}
-                        </div>
-                      )}
                       <div className="text-sm text-slate-300 mb-2">
                         <span className="font-medium">Статус:</span> Avito подключён
                       </div>
