@@ -218,12 +218,12 @@ export async function syncAvitoIntegration(
     // If hasError === true, it's a real error
     if ('hasError' in responseData && responseData.hasError === true) {
       const errors = (responseData.errors as AvitoErrorInfo[]) || [];
-      const errorMessage = responseData.errorMessage as string || '';
+      const responseErrorMessage = responseData.errorMessage as string || '';
       
       // Check for "Объявление не найдено" error
-      if (errorMessage.includes('Объявление не найдено') || 
-          errorMessage.includes('404') || 
-          errorMessage.includes('не найдено') ||
+      if (responseErrorMessage.includes('Объявление не найдено') || 
+          responseErrorMessage.includes('404') || 
+          responseErrorMessage.includes('не найдено') ||
           errors.some(e => e.message?.includes('Объявление не найдено') || e.message?.includes('404'))) {
         return { 
           success: false, 
