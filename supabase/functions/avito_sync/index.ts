@@ -642,7 +642,7 @@ Deno.serve(async (req: Request) => {
         const dateStart = today.toISOString().split('T')[0]; // YYYY-MM-DD
         const dateEnd = tomorrow.toISOString().split('T')[0]; // YYYY-MM-DD
 
-        console.log("Using realty/v1/{user_id}/items endpoint with required date parameters", {
+        console.log("Using realty/v1/accounts/{user_id}/items endpoint with required date parameters", {
           user_id: userIdForValidation,
           date_start: dateStart,
           date_end: dateEnd,
@@ -650,7 +650,7 @@ Deno.serve(async (req: Request) => {
 
         // Use STR API endpoint with user_id
         const response = await fetch(
-          `${AVITO_API_BASE}/realty/v1/${userIdForValidation}/items/${item_id}/bookings?date_start=${dateStart}&date_end=${dateEnd}&skip_error=true`,
+          `${AVITO_API_BASE}/realty/v1/accounts/${userIdForValidation}/items/${item_id}/bookings?date_start=${dateStart}&date_end=${dateEnd}&skip_error=true`,
           {
             method: "GET",
             headers: {
@@ -943,11 +943,11 @@ Deno.serve(async (req: Request) => {
             return new Response(
               JSON.stringify({ 
                 hasError: true,
-                errorMessage: "Введи номер аккаунта Avito (6-8 цифр, например 4720770) и ID объявления",
+                errorMessage: "Введи номер аккаунта (4720770) и длинный ID объявления",
                 errors: [{
                   operation: 'validation',
                   statusCode: 400,
-                  message: "Введи номер аккаунта Avito (6-8 цифр, например 4720770) и ID объявления"
+                  message: "Введи номер аккаунта (4720770) и длинный ID объявления"
                 }]
               }),
               { 
@@ -1169,10 +1169,10 @@ Deno.serve(async (req: Request) => {
         // Sync property_rates (calendar prices) and availability to Avito
         // According to Avito STR API docs: all endpoints require user_id in path
         // Endpoints:
-        // 1. POST /realty/v1/{user_id}/items/{item_id}/prices - для обновления цен
-        // 2. PATCH /realty/v1/{user_id}/items/{item_id} - для базовых параметров (min_stay, base_price)
-        // 3. GET /realty/v1/{user_id}/items/{item_id}/bookings - для получения бронирований
-        // 4. POST /realty/v1/{user_id}/items/{item_id}/intervals - для закрытия/открытия дат
+        // 1. POST /realty/v1/accounts/{user_id}/items/{item_id}/prices - для обновления цен
+        // 2. PATCH /realty/v1/accounts/{user_id}/items/{item_id} - для базовых параметров (min_stay, base_price)
+        // 3. GET /realty/v1/accounts/{user_id}/items/{item_id}/bookings - для получения бронирований
+        // 4. POST /realty/v1/accounts/{user_id}/items/{item_id}/intervals - для закрытия/открытия дат
         console.log("Syncing property_rates to Avito", {
           property_id: integration.property_id,
           itemId,
@@ -1279,15 +1279,15 @@ Deno.serve(async (req: Request) => {
         // Отправляем обновление цен
         if (pricesToUpdate.length > 0) {
           console.log("Sending price update to Avito", {
-            endpoint: `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}/prices`,
+            endpoint: `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/prices`,
             periodsCount: pricesToUpdate.length,
           });
 
-          // Use correct endpoint: /realty/v1/{user_id}/items/{item_id}/prices
+          // Use correct endpoint: /realty/v1/accounts/{user_id}/items/{item_id}/prices
           try {
-            console.log("POST /realty/v1/{user_id}/items/{item_id}/prices - starting", { user_id: userId, item_id: itemId });
+            console.log("POST /realty/v1/accounts/{user_id}/items/{item_id}/prices - starting", { user_id: userId, item_id: itemId });
             let pricesResponse = await fetchWithRetry(
-              `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}/prices?skip_error=true`,
+              `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/prices?skip_error=true`,
               {
                 method: "POST",
                 headers: {
@@ -1305,7 +1305,7 @@ Deno.serve(async (req: Request) => {
               console.log("401 Unauthorized, refreshing token and retrying prices update");
               const refreshedToken = await getAccessToken();
               pricesResponse = await fetchWithRetry(
-                `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}/prices?skip_error=true`,
+                `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/prices?skip_error=true`,
                 {
                   method: "POST",
                   headers: {
@@ -1393,10 +1393,10 @@ Deno.serve(async (req: Request) => {
             });
           }
 
-        // 2. Обновление базовых параметров через PATCH /realty/v1/{user_id}/items/{item_id}
+        // 2. Обновление базовых параметров через PATCH /realty/v1/accounts/{user_id}/items/{item_id}
         // Формат: { night_price, minimal_duration, extra_guest_fee?, extra_guest_threshold?, instant?, refund?, discount? }
         console.log("Updating base parameters in Avito", {
-          endpoint: `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}`,
+          endpoint: `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}`,
           user_id: userId,
           itemId: itemId,
           night_price: priceWithMarkup,
@@ -1404,9 +1404,9 @@ Deno.serve(async (req: Request) => {
         });
 
           try {
-            console.log("PATCH /realty/v1/{user_id}/items/{item_id} - starting", { user_id: userId, item_id: itemId });
+            console.log("PATCH /realty/v1/accounts/{user_id}/items/{item_id} - starting", { user_id: userId, item_id: itemId });
             let baseParamsResponse = await fetchWithRetry(
-              `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}`,
+              `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}`,
               {
                 method: "PATCH",
                 headers: {
@@ -1428,7 +1428,7 @@ Deno.serve(async (req: Request) => {
               console.log("401 Unauthorized, refreshing token and retrying base params update");
               const refreshedToken = await getAccessToken();
               baseParamsResponse = await fetchWithRetry(
-                `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}`,
+                `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}`,
                 {
                   method: "PATCH",
                   headers: {
@@ -1508,7 +1508,7 @@ Deno.serve(async (req: Request) => {
             // Continue with other operations
           }
 
-        // 3. Отправка интервалов через POST /realty/v1/{user_id}/items/{item_id}/intervals для закрытия дат
+        // 3. Отправка интервалов через POST /realty/v1/accounts/{user_id}/items/{item_id}/intervals для закрытия дат
         // Avito API: intervals array с date_start и date_end закрывает эти даты
         // Пустой массив intervals открывает все даты
         // Отправляем только закрытые интервалы (занятые даты), остальные открыты по умолчанию
@@ -1533,7 +1533,7 @@ Deno.serve(async (req: Request) => {
         if (intervalsToSend.length > 0) {
 
           console.log("Sending intervals to Avito", {
-            endpoint: `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}/intervals`,
+            endpoint: `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/intervals`,
             intervalsCount: intervalsToSend.length,
             exclude_booking_id: exclude_booking_id || null,
             user_id: userId,
@@ -1541,9 +1541,9 @@ Deno.serve(async (req: Request) => {
           });
 
           try {
-            console.log("POST /realty/v1/{user_id}/items/{item_id}/intervals - starting", { user_id: userId, item_id: itemId });
+            console.log("POST /realty/v1/accounts/{user_id}/items/{item_id}/intervals - starting", { user_id: userId, item_id: itemId });
             let bookingsUpdateResponse = await fetchWithRetry(
-              `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}/intervals`,
+              `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/intervals`,
               {
                 method: "POST",
                 headers: {
@@ -1562,7 +1562,7 @@ Deno.serve(async (req: Request) => {
               console.log("401 Unauthorized, refreshing token and retrying intervals update");
               const refreshedToken = await getAccessToken();
               bookingsUpdateResponse = await fetchWithRetry(
-                `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}/intervals`,
+                `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/intervals`,
                 {
                   method: "POST",
                   headers: {
@@ -1705,7 +1705,7 @@ Deno.serve(async (req: Request) => {
 
             try {
               const openAllResponse = await fetchWithRetry(
-                `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}/intervals`,
+                `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/intervals`,
                 {
                   method: "POST",
                   headers: {
@@ -1791,17 +1791,17 @@ Deno.serve(async (req: Request) => {
           date_end: dateEnd,
           with_unpaid: true, // Get unpaid bookings (status: pending)
           skip_error: true, // Get 200 status instead of errors for item issues
-          endpoint: `/realty/v1/${userId}/items/${itemId}/bookings`,
+          endpoint: `/realty/v1/accounts/${userId}/items/${itemId}/bookings`,
         });
 
-        console.log("GET /realty/v1/{user_id}/items/{item_id}/bookings - starting", { user_id: userId, item_id: itemId });
+        console.log("GET /realty/v1/accounts/{user_id}/items/{item_id}/bookings - starting", { user_id: userId, item_id: itemId });
 
         // Helper function to fetch bookings with 401 retry and error handling
-        // Use STR API endpoint with user_id: /realty/v1/{user_id}/items/{item_id}/bookings
+        // Use STR API endpoint with user_id: /realty/v1/accounts/{user_id}/items/{item_id}/bookings
         const fetchBookings = async (token: string): Promise<Response> => {
           try {
             const response = await fetchWithRetry(
-              `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}&with_unpaid=true&skip_error=true`,
+              `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}&with_unpaid=true&skip_error=true`,
               {
                 headers: {
                   Authorization: `Bearer ${token}`,
@@ -1859,7 +1859,7 @@ Deno.serve(async (req: Request) => {
                 
                 // Retry with new token
                 return await fetchWithRetry(
-                  `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}&with_unpaid=true&skip_error=true`,
+                  `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}&with_unpaid=true&skip_error=true`,
                   {
                     headers: {
                       Authorization: `Bearer ${refreshData.access_token}`,
@@ -2271,7 +2271,7 @@ Deno.serve(async (req: Request) => {
                 try {
                   // Use STR API endpoint with user_id
                   const cancelResponse = await fetchWithRetry(
-                    `${AVITO_API_BASE}/realty/v1/${userId}/items/${itemId}/bookings/${bookingId}/cancel`,
+                    `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/bookings/${bookingId}/cancel`,
                     {
                       method: "POST",
                       headers: {
