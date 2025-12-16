@@ -1127,7 +1127,7 @@ Deno.serve(async (req: Request) => {
                   if (encryptedAccess && !encryptAccessError) {
                     encryptedAccessToken = encryptedAccess;
                   }
-                } catch (error) {
+                } catch {
                   console.warn("encrypt_avito_token RPC not available for refresh, using plain token");
                 }
 
@@ -1139,7 +1139,7 @@ Deno.serve(async (req: Request) => {
                     if (encryptedRefresh && !encryptRefreshError) {
                       encryptedRefreshToken = encryptedRefresh;
                     }
-                  } catch (error) {
+                  } catch {
                     console.warn("encrypt_avito_token RPC not available for refresh token, using plain token");
                   }
                 }
