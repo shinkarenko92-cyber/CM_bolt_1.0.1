@@ -376,7 +376,7 @@ export function AvitoConnectModal({
       }
 
       // Item ID is valid, ready to save
-      saveConnectionProgress(property.id, 2, {
+      saveConnectionProgress(property.id, 1, {
         itemId: trimmedItemId,
       });
       message.success('ID объявления проверен. Нажмите "Завершить подключение" для сохранения.');
