@@ -868,8 +868,8 @@ export function Calendar({
         if (data) {
           // Сортируем вручную: сначала по sort_order (если есть), потом по created_at
           const sorted = data.sort((a, b) => {
-            const aSort = (a as any).sort_order ?? Number.MAX_SAFE_INTEGER;
-            const bSort = (b as any).sort_order ?? Number.MAX_SAFE_INTEGER;
+            const aSort = ('sort_order' in a && typeof a.sort_order === 'number') ? a.sort_order : Number.MAX_SAFE_INTEGER;
+            const bSort = ('sort_order' in b && typeof b.sort_order === 'number') ? b.sort_order : Number.MAX_SAFE_INTEGER;
             if (aSort !== bSort) {
               return aSort - bSort;
             }
@@ -1336,8 +1336,8 @@ export function Calendar({
                                         if (data) {
                                           // Сортируем вручную: сначала по sort_order (если есть), потом по created_at
                                           const sorted = data.sort((a, b) => {
-                                            const aSort = (a as any).sort_order ?? Number.MAX_SAFE_INTEGER;
-                                            const bSort = (b as any).sort_order ?? Number.MAX_SAFE_INTEGER;
+                                            const aSort = ('sort_order' in a && typeof a.sort_order === 'number') ? a.sort_order : Number.MAX_SAFE_INTEGER;
+                                            const bSort = ('sort_order' in b && typeof b.sort_order === 'number') ? b.sort_order : Number.MAX_SAFE_INTEGER;
                                             if (aSort !== bSort) {
                                               return aSort - bSort;
                                             }
