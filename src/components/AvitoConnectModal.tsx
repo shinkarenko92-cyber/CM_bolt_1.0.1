@@ -445,22 +445,65 @@ export function AvitoConnectModal({
         return;
       }
       
-      const { data: integration, error } = await supabase
+      // First, check if integration exists
+      const { data: existingIntegration } = await supabase
         .from('integrations')
-        .update({
-          avito_user_id: userIdNumber,
-          avito_item_id: itemIdNumber,
-          avito_markup: markup,
-          external_id: trimmedItemId,
-        })
+        .select('id')
         .eq('property_id', property.id)
         .eq('platform', 'avito')
+        .maybeSingle();
+
+      let integrationId: string;
+      
+      if (existingIntegration) {
+        // Update existing integration (without select to avoid 406)
+        const { error: updateError } = await supabase
+          .from('integrations')
+          .update({
+            avito_user_id: userIdNumber,
+            avito_item_id: itemIdNumber,
+            avito_markup: markup,
+            external_id: trimmedItemId,
+            is_active: true,
+          })
+          .eq('id', existingIntegration.id);
+
+        if (updateError) throw updateError;
+        integrationId = existingIntegration.id;
+      } else {
+        // Create new integration using upsert
+        const { data: newIntegration, error: upsertError } = await supabase
+          .from('integrations')
+          .upsert({
+            property_id: property.id,
+            platform: 'avito',
+            avito_user_id: userIdNumber,
+            avito_item_id: itemIdNumber,
+            avito_markup: markup,
+            external_id: trimmedItemId,
+            is_active: true,
+          }, {
+            onConflict: 'property_id,platform',
+          })
+          .select('id')
+          .single();
+
+        if (upsertError) throw upsertError;
+        if (!newIntegration) {
+          throw new Error('Не удалось создать интеграцию');
+        }
+        integrationId = newIntegration.id;
+      }
+
+      // Load integration for sync
+      const { data: integration } = await supabase
+        .from('integrations')
         .select('id, property_id, platform, avito_user_id, avito_item_id, avito_markup, is_active')
+        .eq('id', integrationId)
         .single();
 
-      if (error) throw error;
       if (!integration) {
-        throw new Error('Интеграция не найдена. Пожалуйста, подключите Avito заново.');
+        throw new Error('Интеграция не найдена после сохранения');
       }
 
       // Perform initial sync
@@ -610,8 +653,7 @@ export function AvitoConnectModal({
         className="mb-6"
         items={[
           { title: 'Подключить аккаунт Avito' },
-          { title: 'Введи номер аккаунта' },
-          { title: 'Введи ID объявления' },
+          { title: 'Введи номер аккаунта и ID объявления' },
         ]}
       />
 
@@ -640,79 +682,63 @@ export function AvitoConnectModal({
           </div>
         )}
 
-        {/* Step 1: User ID Input */}
+        {/* Step 1: User ID and Item ID Input (combined) */}
         {currentStep === 1 && (
           <div>
-            <p className="text-white mb-2 font-medium">Введите номер аккаунта Avito:</p>
-            <p className="text-sm text-slate-300 mb-4">
-              Номер аккаунта — короткий номер (например, <span className="text-teal-400 font-bold">4720770</span>).
-              Можно найти в настройках аккаунта Avito.
-            </p>
-            <Input
-              placeholder="Например: 4720770"
-              value={userId}
-              onChange={(e) => {
-                // Only allow numbers, max 8 digits
-                const value = e.target.value.replace(/\D/g, '').slice(0, 8);
-                setUserId(value);
-              }}
-              disabled={loading}
-              required
-              maxLength={8}
-            />
-            {!userId && (
-              <p className="text-xs text-red-400 mt-1">Номер аккаунта обязателен</p>
-            )}
-            {userId && (!/^[0-9]{6,8}$/.test(userId)) && (
-              <p className="text-xs text-red-400 mt-1">Номер аккаунта должен содержать 6-8 цифр</p>
-            )}
-            <div className="flex gap-2 mt-4">
-              <Button
-                type="primary"
-                onClick={() => {
-                  if (!userId || !/^[0-9]{6,8}$/.test(userId)) {
-                    message.error('Номер аккаунта должен содержать 6-8 цифр');
-                    return;
-                  }
-                  setCurrentStep(2);
+            <div className="mb-6">
+              <p className="text-white mb-2 font-medium">Номер аккаунта Avito:</p>
+              <p className="text-sm text-slate-300 mb-4">
+                Короткий номер аккаунта (например, <span className="text-teal-400 font-bold">4720770</span>).
+                Можно найти в настройках аккаунта Avito.
+              </p>
+              <Input
+                placeholder="Например: 4720770"
+                value={userId}
+                onChange={(e) => {
+                  // Only allow numbers, max 8 digits
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 8);
+                  setUserId(value);
                 }}
-                disabled={!userId || !/^[0-9]{6,8}$/.test(userId)}
-              >
-                Далее
-              </Button>
+                disabled={loading}
+                required
+                maxLength={8}
+              />
+              {!userId && (
+                <p className="text-xs text-red-400 mt-1">Номер аккаунта обязателен</p>
+              )}
+              {userId && (!/^[0-9]{6,8}$/.test(userId)) && (
+                <p className="text-xs text-red-400 mt-1">Номер аккаунта должен содержать 6-8 цифр</p>
+              )}
             </div>
-          </div>
-        )}
 
-        {/* Step 2: Item ID Input */}
-        {currentStep === 2 && (
-          <div>
-            <p className="text-white mb-2 font-medium">Введите ID объявления на Avito:</p>
-            <p className="text-sm text-slate-300 mb-4">
-              ID объявления должен содержать 10-11 цифр. ID можно найти в URL объявления: avito.ru/moskva/kvartiry/
-              <span className="text-teal-400 font-bold">2336174775</span>
-            </p>
-            <Input
-              placeholder="Например: 2336174775"
-              value={itemId}
-              onChange={(e) => {
-                // Only allow numbers, max 12 digits
-                const value = e.target.value.replace(/\D/g, '').slice(0, 12);
-                setItemId(value);
-              }}
-              onPressEnter={handleItemIdValidate}
-              disabled={validatingItemId}
-              required
-              maxLength={12}
-              pattern="[0-9]{10,12}"
-            />
-            {!itemId && (
-              <p className="text-xs text-red-400 mt-1">ID объявления обязателен</p>
-            )}
-            {itemId && !/^[0-9]{10,12}$/.test(itemId) && (
-              <p className="text-xs text-red-400 mt-1">ID объявления должен содержать 10-12 цифр</p>
-            )}
-            <div className="mt-4">
+            <div className="mb-6">
+              <p className="text-white mb-2 font-medium">ID объявления на Avito:</p>
+              <p className="text-sm text-slate-300 mb-4">
+                ID объявления должен содержать 10-12 цифр. ID можно найти в URL объявления: avito.ru/moskva/kvartiry/
+                <span className="text-teal-400 font-bold">2336174775</span>
+              </p>
+              <Input
+                placeholder="Например: 2336174775"
+                value={itemId}
+                onChange={(e) => {
+                  // Only allow numbers, max 12 digits
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 12);
+                  setItemId(value);
+                }}
+                disabled={loading || validatingItemId}
+                required
+                maxLength={12}
+                pattern="[0-9]{10,12}"
+              />
+              {!itemId && (
+                <p className="text-xs text-red-400 mt-1">ID объявления обязателен</p>
+              )}
+              {itemId && !/^[0-9]{10,12}$/.test(itemId) && (
+                <p className="text-xs text-red-400 mt-1">ID объявления должен содержать 10-12 цифр</p>
+              )}
+            </div>
+
+            <div className="mb-6">
               <p className="text-white mb-2 font-medium">Наценка для компенсации комиссии:</p>
               <p className="text-sm text-slate-300 mb-4">
                 Цена на Avito = базовая цена + наценка (%)
@@ -727,6 +753,7 @@ export function AvitoConnectModal({
                 parser={(value) => parseFloat(value?.replace('%', '') || '0')}
               />
             </div>
+
             <div className="flex gap-2 mt-4">
               <Button
                 type="primary"
