@@ -1398,6 +1398,7 @@ Deno.serve(async (req: Request) => {
                 itemId: itemId,
                 response: responseData,
               });
+              pricesPushSuccess = true;
             }
           } catch (fetchError) {
               // Network error or other fetch failure
