@@ -149,11 +149,11 @@ export function Calendar({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Загружаем без сортировки, чтобы избежать ошибки если sort_order колонка не существует
       const { data, error } = await supabase
         .from('property_groups')
         .select('*')
-        .eq('user_id', user.id)
-        .order('sort_order', { ascending: true });
+        .eq('user_id', user.id);
 
       if (error) {
         // Если таблица не существует (миграция не применена), просто работаем без групп
@@ -1297,12 +1297,20 @@ export function Calendar({
                                       .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
                                     try {
+                                      // Подготавливаем данные для обновления
+                                      const updateData: { group_id: string | null; sort_order?: number } = {
+                                        group_id: groupId,
+                                      };
+                                      
+                                      // Добавляем sort_order только если колонка существует
+                                      // Проверяем наличие sort_order в property объекте
+                                      if ('sort_order' in property && typeof property.sort_order === 'number') {
+                                        updateData.sort_order = groupId ? targetGroupProperties.length : property.sort_order;
+                                      }
+                                      
                                       const { error: updateError } = await supabase
                                         .from('properties')
-                                        .update({
-                                          group_id: groupId,
-                                          sort_order: groupId ? targetGroupProperties.length : (property.sort_order || 0),
-                                        })
+                                        .update(updateData)
                                         .eq('id', propertyId);
 
                                       if (updateError) {
