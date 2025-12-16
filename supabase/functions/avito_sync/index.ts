@@ -1116,35 +1116,7 @@ Deno.serve(async (req: Request) => {
                 
                 accessToken = refreshData.access_token;
 
-                // Encrypt new tokens before saving
-                let encryptedAccessToken = accessToken;
-                let encryptedRefreshToken = refreshData.refresh_token;
-
-                try {
-                  const { data: encryptedAccess, error: encryptAccessError } = await supabase.rpc('encrypt_avito_token', {
-                    token: accessToken,
-                  });
-                  if (encryptedAccess && !encryptAccessError) {
-                    encryptedAccessToken = encryptedAccess;
-                  }
-                } catch {
-                  console.warn("encrypt_avito_token RPC not available for refresh, using plain token");
-                }
-
-                if (refreshData.refresh_token) {
-                  try {
-                    const { data: encryptedRefresh, error: encryptRefreshError } = await supabase.rpc('encrypt_avito_token', {
-                      token: refreshData.refresh_token,
-                    });
-                    if (encryptedRefresh && !encryptRefreshError) {
-                      encryptedRefreshToken = encryptedRefresh;
-                    }
-                  } catch {
-                    console.warn("encrypt_avito_token RPC not available for refresh token, using plain token");
-                  }
-                }
-
-                // Update token in database
+                // Update token in database (plain text for testing, vault encryption later)
                 const expiresIn = refreshData.expires_in || 3600;
                 const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
 
@@ -1153,13 +1125,13 @@ Deno.serve(async (req: Request) => {
                   token_expires_at: string;
                   refresh_token_encrypted?: string;
                 } = {
-                  access_token_encrypted: encryptedAccessToken,
+                  access_token_encrypted: accessToken, // Plain text for testing
                   token_expires_at: tokenExpiresAt.toISOString(),
                 };
 
                 // Update refresh_token if provided
-                if (encryptedRefreshToken) {
-                  updateData.refresh_token_encrypted = encryptedRefreshToken;
+                if (refreshData.refresh_token) {
+                  updateData.refresh_token_encrypted = refreshData.refresh_token; // Plain text for testing
                 }
 
                 const { error: updateError } = await supabase

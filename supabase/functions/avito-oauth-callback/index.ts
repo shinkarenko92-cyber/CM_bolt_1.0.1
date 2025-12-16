@@ -207,49 +207,8 @@ Deno.serve(async (req: Request) => {
 
     const integrationId = existingIntegration?.id;
 
-    // Encrypt tokens using RPC function (or plain if function doesn't exist)
-    let encryptedAccessToken = tokenData.access_token;
-    let encryptedRefreshToken = tokenData.refresh_token;
-
-    try {
-      const { data: encryptedAccess, error: encryptAccessError } = await supabase.rpc('encrypt_avito_token', {
-        token: tokenData.access_token,
-      });
-      if (encryptedAccess && !encryptAccessError) {
-        encryptedAccessToken = encryptedAccess;
-        console.log("Access token encrypted via RPC");
-      } else {
-        console.warn("encrypt_avito_token RPC failed or returned null, using plain token", {
-          error: encryptAccessError,
-        });
-      }
-    } catch (error) {
-      console.warn("encrypt_avito_token RPC not available, using plain token", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-
-    if (tokenData.refresh_token) {
-      try {
-        const { data: encryptedRefresh, error: encryptRefreshError } = await supabase.rpc('encrypt_avito_token', {
-          token: tokenData.refresh_token,
-        });
-        if (encryptedRefresh && !encryptRefreshError) {
-          encryptedRefreshToken = encryptedRefresh;
-          console.log("Refresh token encrypted via RPC");
-        } else {
-          console.warn("encrypt_avito_token RPC failed for refresh token, using plain token", {
-            error: encryptRefreshError,
-          });
-        }
-      } catch (error) {
-        console.warn("encrypt_avito_token RPC not available for refresh token, using plain token", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-
-    // Prepare update data with encrypted tokens
+    // Prepare update data with plain tokens (for testing, vault encryption later)
+    // token_expires_at = NOW() + INTERVAL '1 second' * token.expires_in
     const updateData: {
       access_token_encrypted: string;
       refresh_token_encrypted?: string;
@@ -257,15 +216,15 @@ Deno.serve(async (req: Request) => {
       is_active: boolean;
       is_enabled: boolean;
     } = {
-      access_token_encrypted: encryptedAccessToken,
+      access_token_encrypted: tokenData.access_token, // Plain text for testing
       token_expires_at: tokenExpiresAt.toISOString(),
       is_active: true,
       is_enabled: true,
     };
 
     // Add refresh_token if provided
-    if (encryptedRefreshToken) {
-      updateData.refresh_token_encrypted = encryptedRefreshToken;
+    if (tokenData.refresh_token) {
+      updateData.refresh_token_encrypted = tokenData.refresh_token; // Plain text for testing
     }
 
     let integration;
@@ -350,7 +309,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    console.log("Token saved for integration", integration.id);
+    console.log("Tokens saved for integration", integration.id);
 
     // Return success (no accountId needed)
     return new Response(
