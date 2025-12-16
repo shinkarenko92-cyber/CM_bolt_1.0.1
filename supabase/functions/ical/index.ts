@@ -24,7 +24,7 @@ function formatICalDate(date: Date): string {
 }
 
 // Generate iCal content
-function generateICal(bookings: Array<{ check_in: string; check_out: string; guest_name?: string | null }>, propertyName: string): string {
+function generateICal(bookings: Array<{ check_in: string; check_out: string; guest_name?: string | null }>): string {
   const now = new Date();
   const nowStr = formatICalDate(now);
   
@@ -87,7 +87,7 @@ Deno.serve(async (req: Request) => {
   try {
     // Parse property_id from URL: /ical/{property_id}.ics
     const url = new URL(req.url);
-    const pathMatch = url.pathname.match(/^\/ical\/([^\/]+)\.ics$/);
+    const pathMatch = url.pathname.match(/^\/ical\/([^/]+)\.ics$/);
     
     if (!pathMatch) {
       return new Response(
@@ -159,7 +159,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Generate iCal
-    const icalContent = generateICal(bookings || [], property.name || 'Property');
+    const icalContent = generateICal(bookings || []);
 
     return new Response(icalContent, {
       status: 200,
