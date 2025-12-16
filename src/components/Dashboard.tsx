@@ -996,10 +996,14 @@ export function Dashboard() {
         ) : currentView === 'properties' ? (
           // ВСЕГДА передаем properties в PropertiesView, даже если groups error
           (() => {
-            console.log('Dashboard: Rendering PropertiesView', { propertiesCount: properties.length });
+            console.log('Dashboard: Rendering PropertiesView', { 
+              propertiesCount: properties.length,
+              properties: properties.map(p => ({ id: p.id, name: p.name }))
+            });
+            // ВСЕГДА рендерим PropertiesView, даже если properties пустой (покажет "нет объектов")
             return (
               <PropertiesView
-                properties={properties}
+                properties={properties || []}
                 onAdd={handleAddProperty}
                 onUpdate={handleUpdateProperty}
                 onDelete={handleDeleteProperty}
