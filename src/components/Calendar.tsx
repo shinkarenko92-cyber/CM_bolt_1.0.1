@@ -733,6 +733,15 @@ export function Calendar({
     const grouped: GroupedProperties[] = [];
     const groupsMap = new Map<string, PropertyGroup>();
     
+    // Если groups не загружены (404 или другая ошибка), все объекты идут в "Без группы"
+    if (propertyGroups.length === 0) {
+      const allProperties = properties.sort((a, b) => a.sort_order - b.sort_order);
+      if (allProperties.length > 0) {
+        grouped.push({ group: null, properties: allProperties });
+      }
+      return grouped;
+    }
+    
     propertyGroups.forEach(group => {
       groupsMap.set(group.id, group);
     });
