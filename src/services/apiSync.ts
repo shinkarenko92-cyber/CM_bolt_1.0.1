@@ -148,8 +148,8 @@ export async function syncAvitoIntegration(
   // Handle Supabase function invocation error
   if (syncError) {
     // Check for "Объявление не найдено" error
-    const errorMessage = syncError.message || 'Ошибка синхронизации с Avito';
-    if (errorMessage.includes('Объявление не найдено') || errorMessage.includes('404') || errorMessage.includes('не найдено')) {
+    const syncErrorMessage = syncError.message || 'Ошибка синхронизации с Avito';
+    if (syncErrorMessage.includes('Объявление не найдено') || syncErrorMessage.includes('404') || syncErrorMessage.includes('не найдено')) {
       return { 
         success: false, 
         message: 'Проверь ID объявления — это длинный номер из URL Avito (10-12 цифр)',
