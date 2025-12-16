@@ -87,8 +87,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Parse state to get property_id
-    let stateData: { property_id?: string; timestamp?: number } | null = null;
+    // Parse state to get property_id and/or integration_id
+    let stateData: { property_id?: string; integration_id?: string; timestamp?: number } | null = null;
     try {
       stateData = JSON.parse(atob(state));
     } catch (stateError: unknown) {
@@ -100,14 +100,15 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    if (!stateData?.property_id) {
+    if (!stateData?.property_id && !stateData?.integration_id) {
       return new Response(
-        JSON.stringify({ error: "Invalid state: property_id not found" }),
+        JSON.stringify({ error: "Invalid state: property_id or integration_id not found" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const propertyId = stateData.property_id;
+    const integrationIdFromState = stateData.integration_id;
     const redirectUri = redirect_uri || `${new URL(req.url).origin}/auth/avito-callback`;
 
     console.log("Processing OAuth callback", {
@@ -184,28 +185,33 @@ Deno.serve(async (req: Request) => {
       tokenExpiresAt: tokenExpiresAt.toISOString(),
     });
 
-    // First, find existing integration by property_id and platform
-    const { data: existingIntegration, error: findError } = await supabase
-      .from("integrations")
-      .select("id")
-      .eq("property_id", propertyId)
-      .eq("platform", "avito")
-      .maybeSingle();
+    // Get integration_id: from state if provided, otherwise find by property_id
+    let integrationId: string | undefined = integrationIdFromState;
 
-    if (findError && findError.code !== 'PGRST116') { // PGRST116 = not found, which is OK
-      console.error("Error finding integration:", {
-        errorCode: findError.code,
-        errorMessage: findError.message,
-      });
-      return new Response(
-        JSON.stringify({ 
-          error: `Ошибка при поиске интеграции: ${findError.message}` 
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (!integrationId && propertyId) {
+      // Find existing integration by property_id and platform
+      const { data: existingIntegration, error: findError } = await supabase
+        .from("integrations")
+        .select("id")
+        .eq("property_id", propertyId)
+        .eq("platform", "avito")
+        .maybeSingle();
+
+      if (findError && findError.code !== 'PGRST116') { // PGRST116 = not found, which is OK
+        console.error("Error finding integration:", {
+          errorCode: findError.code,
+          errorMessage: findError.message,
+        });
+        return new Response(
+          JSON.stringify({ 
+            error: `Ошибка при поиске интеграции: ${findError.message}` 
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      integrationId = existingIntegration?.id;
     }
-
-    const integrationId = existingIntegration?.id;
 
     // Prepare update data with plain tokens (for testing, vault encryption later)
     // token_expires_at = NOW() + INTERVAL '1 second' * token.expires_in
@@ -231,7 +237,7 @@ Deno.serve(async (req: Request) => {
     let saveError;
 
     if (integrationId) {
-      // Update existing integration
+      // Update existing integration by id (from state)
       console.log("Updating existing integration", { integrationId });
       const { data, error } = await supabase
         .from("integrations")
@@ -242,8 +248,8 @@ Deno.serve(async (req: Request) => {
       
       integration = data;
       saveError = error;
-    } else {
-      // Create new integration
+    } else if (propertyId) {
+      // Create new integration if no integration_id found
       console.log("Creating new integration");
       const upsertData = {
         property_id: propertyId,
@@ -259,6 +265,13 @@ Deno.serve(async (req: Request) => {
       
       integration = data;
       saveError = error;
+    } else {
+      return new Response(
+        JSON.stringify({ 
+          error: "Cannot save integration: neither integration_id nor property_id provided" 
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     if (saveError) {
