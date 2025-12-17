@@ -775,7 +775,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                                 const icalUrl = ical.url;
                                 try {
                                   if (ical.isLocalhost) {
-                                    toast.warning('iCal работает только в prod/staging (Avito не тянет localhost)');
+                                    toast('iCal работает только в prod/staging (Avito не тянет localhost)', { icon: '⚠️' });
                                   }
                                   await navigator.clipboard.writeText(icalUrl);
                                   toast.success('URL скопирован');

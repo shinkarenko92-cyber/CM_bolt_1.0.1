@@ -459,7 +459,7 @@ export function AvitoConnectModal({
       const { url: icalUrlValue, isLocalhost } = getIcalUrl(property.id);
       setIcalUrl(icalUrlValue);
       if (isLocalhost) {
-        toast.warning('iCal работает только в prod/staging (Avito не тянет localhost)');
+        toast('iCal работает только в prod/staging (Avito не тянет localhost)', { icon: '⚠️' });
       }
 
       // Show success toast
@@ -758,7 +758,7 @@ export function AvitoConnectModal({
                       try {
                         const { isLocalhost } = getIcalUrl(property.id);
                         if (isLocalhost) {
-                          toast.warning('iCal работает только в prod/staging (Avito не тянет localhost)');
+                          toast('iCal работает только в prod/staging (Avito не тянет localhost)', { icon: '⚠️' });
                         }
                         await navigator.clipboard.writeText(icalUrl);
                         message.success('iCal URL скопирован в буфер обмена');
