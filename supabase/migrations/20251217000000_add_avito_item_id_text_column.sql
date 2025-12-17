@@ -5,22 +5,56 @@
 ALTER TABLE integrations 
 ADD COLUMN IF NOT EXISTS avito_item_id TEXT;
 
--- Step 2: Migrate data from avito_item_id_text if available
-UPDATE integrations 
-SET avito_item_id = avito_item_id_text
-WHERE avito_item_id IS NULL 
-  AND avito_item_id_text IS NOT NULL
-  AND platform = 'avito';
+-- Step 2-3: Migrate data into avito_item_id only if it is a TEXT-compatible column.
+-- In some older schemas, avito_item_id is BIGINT (from earlier migration). In that case, skip to avoid type errors.
+DO $$
+DECLARE
+  item_id_type TEXT;
+  has_item_id_text BOOLEAN;
+BEGIN
+  SELECT data_type INTO item_id_type
+  FROM information_schema.columns
+  WHERE table_schema = 'public'
+    AND table_name = 'integrations'
+    AND column_name = 'avito_item_id';
 
--- Step 3: If avito_item_id is still NULL, try to get it from avito_account_id
--- (in case old records had item_id stored in avito_account_id)
-UPDATE integrations 
-SET avito_item_id = avito_account_id
-WHERE avito_item_id IS NULL 
-  AND avito_account_id IS NOT NULL
-  AND platform = 'avito'
-  -- Only if avito_account_id looks like a numeric item_id (not an account_id which is usually shorter)
-  AND LENGTH(avito_account_id) > 6;
+  SELECT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'integrations'
+      AND column_name = 'avito_item_id_text'
+  ) INTO has_item_id_text;
+
+  IF item_id_type IS NULL THEN
+    RAISE NOTICE 'Skipping avito_item_id migration: integrations.avito_item_id column not found';
+    RETURN;
+  END IF;
+
+  IF item_id_type NOT IN ('text', 'character varying') THEN
+    RAISE NOTICE 'Skipping avito_item_id migration: integrations.avito_item_id is type %, not text', item_id_type;
+    RETURN;
+  END IF;
+
+  -- Step 2: Migrate data from avito_item_id_text if available
+  IF has_item_id_text THEN
+    UPDATE integrations
+    SET avito_item_id = avito_item_id_text
+    WHERE avito_item_id IS NULL
+      AND avito_item_id_text IS NOT NULL
+      AND avito_item_id_text != ''
+      AND platform = 'avito';
+  END IF;
+
+  -- Step 3: If avito_item_id is still NULL, try to get it from avito_account_id
+  UPDATE integrations
+  SET avito_item_id = avito_account_id
+  WHERE avito_item_id IS NULL
+    AND avito_account_id IS NOT NULL
+    AND platform = 'avito'
+    -- Only if avito_account_id looks like a numeric item_id (not an account_id which is usually shorter)
+    AND LENGTH(avito_account_id) > 6;
+END $$;
 
 -- Add comment
 COMMENT ON COLUMN integrations.avito_item_id IS 'Avito item ID (advertisement ID) as TEXT - use this for API calls to /items/{item_id}';
