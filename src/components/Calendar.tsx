@@ -118,7 +118,6 @@ export function Calendar({
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), today.getDate());
   });
-  const [headerScrollLeft, setHeaderScrollLeft] = useState(0);
   
   const initialScrollDone = useRef(false);
 
@@ -178,7 +177,6 @@ export function Calendar({
       scrollContainer.scrollTo({ left: scrollLeft, behavior: 'auto' });
     }
 
-    setHeaderScrollLeft(scrollLeft);
     setVisibleDate(centerDate);
     initialScrollDone.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -193,8 +191,6 @@ export function Calendar({
       if (!initialScrollDone.current) return;
       
       const { scrollLeft, clientWidth } = scrollContainer;
-      
-      setHeaderScrollLeft(scrollLeft);
       
       const startIndex = Math.max(0, Math.round(scrollLeft / CELL_WIDTH));
       const daysInView = Math.max(1, Math.floor(clientWidth / CELL_WIDTH));
@@ -815,20 +811,16 @@ export function Calendar({
         />
 
         <div className="flex-1 flex flex-col overflow-hidden" ref={calendarRef}>
-          <div className="flex border-b border-slate-700 bg-slate-800 sticky top-0 z-20">
-            <div className="w-64 flex-shrink-0 border-r border-slate-700 bg-slate-800">
-              <div className="h-14 flex items-center justify-center">
-                <span className="text-sm text-slate-400">Объекты</span>
+          {/* ВАЖНО: overflow-auto позволяет прокручивать даты, но объекты должны оставаться видимыми */}
+          <div className="flex-1 overflow-auto" ref={scrollContainerRef}>
+            {/* Dates header row: lives inside the same scroll container as the grid to avoid scroll-sync lag */}
+            <div className="flex border-b border-slate-700 bg-slate-800 sticky top-0 z-20 min-w-max">
+              <div className="w-64 flex-shrink-0 sticky left-0 z-30 border-r border-slate-700 bg-slate-800">
+                <div className="h-14 flex items-center justify-center">
+                  <span className="text-sm text-slate-400">Объекты</span>
+                </div>
               </div>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <div 
-                className="flex" 
-                style={{ 
-                  transform: `translateX(-${headerScrollLeft}px)`,
-                  width: `${dates.length * CELL_WIDTH}px`
-                }}
-              >
+              <div className="flex" style={{ width: `${dates.length * CELL_WIDTH}px` }}>
                 {dates.map((date, i) => {
                   const today = new Date();
                   const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -855,10 +847,7 @@ export function Calendar({
                 })}
               </div>
             </div>
-          </div>
 
-          {/* ВАЖНО: overflow-auto позволяет прокручивать даты, но объекты должны оставаться видимыми */}
-          <div className="flex-1 overflow-auto" ref={scrollContainerRef}>
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}

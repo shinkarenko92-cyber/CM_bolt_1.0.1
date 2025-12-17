@@ -49,11 +49,11 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
 
       <div className={`
         fixed md:relative inset-y-0 left-0 z-40
-        w-64 bg-slate-900 border-r border-slate-800 flex flex-col
+        w-64 bg-slate-900 border-r border-slate-700 flex flex-col
         transform transition-transform duration-200 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
-        <div className="p-4 md:p-6 border-b border-slate-800">
+        <div className="p-4 md:p-6 border-b border-slate-700">
           <div className="flex items-center gap-3 pl-8 md:pl-0">
             <div className="w-8 h-8 md:w-10 md:h-10 bg-teal-600 rounded-lg flex items-center justify-center">
               <Calendar className="w-4 h-4 md:w-6 md:h-6 text-white" />
@@ -88,7 +88,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
           })}
         </nav>
 
-        <div className="p-3 md:p-4 border-t border-slate-800">
+        <div className="p-3 md:p-4 border-t border-slate-700">
           <button
             onClick={() => signOut()}
             data-testid="button-signout"
