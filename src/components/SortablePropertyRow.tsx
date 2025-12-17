@@ -48,7 +48,9 @@ export function SortablePropertyRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex border-b border-slate-700 relative"
+      // Ensure the row container can expand to the full grid width; otherwise sticky gets constrained
+      // by the parent's width and appears to "slide" right after some horizontal scrolling.
+      className="flex min-w-max border-b border-slate-700 relative"
     >
       <div 
         className="w-64 flex-shrink-0 sticky left-0 z-30 bg-slate-800 border-r border-slate-700 flex items-center px-4 gap-2"
