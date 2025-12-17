@@ -20,7 +20,7 @@ export function getIcalUrl(propertyId: string): IcalUrlResult {
   const origin = hasWindow ? window.location.origin : "";
   const hostname = hasWindow ? window.location.hostname : "";
 
-  const supabaseUrl = (import.meta as any)?.env?.VITE_SUPABASE_URL as string | undefined;
+  const supabaseUrl = (import.meta.env?.VITE_SUPABASE_URL as string | undefined) ?? undefined;
 
   // Prefer current origin for any environment (prod/staging/localhost).
   let url =

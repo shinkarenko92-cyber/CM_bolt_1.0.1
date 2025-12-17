@@ -44,10 +44,11 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   const [isEditingItemId, setIsEditingItemId] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string>('');
 
+  const propertyId = property?.id;
   const ical = useMemo(() => {
-    if (!property) return { url: '', isLocalhost: false };
-    return getIcalUrl(property.id);
-  }, [property?.id]);
+    if (!propertyId) return { url: '', isLocalhost: false };
+    return getIcalUrl(propertyId);
+  }, [propertyId]);
 
   const loadAvitoIntegration = useCallback(async () => {
     if (!property) return;
