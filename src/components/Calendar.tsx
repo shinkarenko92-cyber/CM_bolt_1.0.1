@@ -982,7 +982,7 @@ export function Calendar({
                                     >
                                       {!isOccupied && (
                                         <div className="h-11 flex items-center justify-center text-center px-1">
-                                          <div className="text-[10px] font-medium text-slate-200 tabular-nums truncate">
+                                          <div className="text-[10px] font-medium text-slate-300 tabular-nums truncate">
                                             {displayPrice}
                                           </div>
                                         </div>

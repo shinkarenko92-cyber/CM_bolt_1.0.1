@@ -117,7 +117,7 @@ export function RateCell({
       className="px-2 py-1 text-center cursor-pointer hover:bg-slate-700/50 transition-colors h-full flex flex-col justify-center"
       title="Double-click to edit rate"
     >
-      <div className="text-xs font-medium text-slate-200 tabular-nums">
+      <div className="text-xs font-medium text-slate-400 tabular-nums">
         {displayPrice} {displayCurrency}
       </div>
       <div className="text-[10px] text-slate-400 font-medium tabular-nums mt-0.5">

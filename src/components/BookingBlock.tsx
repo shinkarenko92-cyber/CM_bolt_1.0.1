@@ -162,7 +162,7 @@ export function BookingBlock({
           />
         )}
         <div
-          className={`truncate text-[11px] font-medium ${
+          className={`truncate text-[11px] font-medium font-roboto ${
             hasGuestName ? 'text-white' : 'text-white/90'
           }`}
         >

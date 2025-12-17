@@ -7,6 +7,11 @@ html, body {
     Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
 }
 
+.font-roboto {
+  font-family: 'Roboto', ui-sans-serif, system-ui, -apple-system, Segoe UI, 'Manrope',
+    Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
+}
+
 :root[data-theme='light'] {
   --bg-primary: #ffffff;
   --bg-secondary: #f8fafc;
