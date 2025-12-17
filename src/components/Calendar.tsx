@@ -899,7 +899,8 @@ export function Calendar({
                         >
                                   <div 
                                     className="flex-shrink-0"
-                                    style={{ width: `${dates.length * CELL_WIDTH}px`, height: `${totalRowHeight}px`, minWidth: `${256 + dates.length * CELL_WIDTH}px` }}
+                                    // Keep grid width aligned with header. Adding +256px here causes a 4-day (256px) visual offset.
+                                    style={{ width: `${dates.length * CELL_WIDTH}px`, height: `${totalRowHeight}px`, minWidth: `${dates.length * CELL_WIDTH}px` }}
                                   >
                                     {isExpanded ? (
                         <div className="flex flex-col h-full">
