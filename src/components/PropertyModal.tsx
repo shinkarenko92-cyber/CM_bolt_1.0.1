@@ -9,6 +9,7 @@ import { AvitoConnectModal } from './AvitoConnectModal';
 import { getOAuthSuccess, getOAuthError, parseOAuthState } from '../services/avito';
 import { syncAvitoIntegration, AvitoSyncError } from '../services/apiSync';
 import { showAvitoErrors } from '../services/avitoErrors';
+import { getIcalUrl } from '../utils/icalUrl';
 
 interface PropertyModalProps {
   isOpen: boolean;
@@ -42,6 +43,11 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   const [newMarkup, setNewMarkup] = useState<number>(15);
   const [isEditingItemId, setIsEditingItemId] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string>('');
+
+  const ical = useMemo(() => {
+    if (!property) return { url: '', isLocalhost: false };
+    return getIcalUrl(property.id);
+  }, [property?.id]);
 
   const loadAvitoIntegration = useCallback(async () => {
     if (!property) return;
@@ -759,14 +765,17 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                             <input
                               type="text"
                               readOnly
-                              value={`https://app.roomi.pro/functions/v1/ical/${property.id}.ics`}
+                              value={ical.url}
                               className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm font-mono"
                             />
                             <button
                               type="button"
                               onClick={async () => {
-                                const icalUrl = `https://app.roomi.pro/functions/v1/ical/${property.id}.ics`;
+                                const icalUrl = ical.url;
                                 try {
+                                  if (ical.isLocalhost) {
+                                    toast.warning('iCal работает только в prod/staging (Avito не тянет localhost)');
+                                  }
                                   await navigator.clipboard.writeText(icalUrl);
                                   toast.success('URL скопирован');
                                 } catch (err) {
@@ -783,12 +792,9 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                         </div>
 
                         <div className="bg-slate-700/50 rounded p-3 border border-slate-600">
-                          <p className="text-xs text-slate-300 font-medium mb-2">Инструкция:</p>
-                          <ol className="text-xs text-slate-400 space-y-1 list-decimal list-inside">
-                            <li>Зайди в Avito → объявление → "Календарь доступности"</li>
-                            <li>"Импорт календаря" → вставь URL</li>
-                            <li>Сохрани — даты из Roomi закроются автоматически (обновление каждые 15-30 мин)</li>
-                          </ol>
+                          <p className="text-xs text-slate-300">
+                            Вставь этот URL в Avito → Календарь доступности → Импорт iCal (один раз — и даты закрываются автоматически)
+                          </p>
                         </div>
                       </div>
                       

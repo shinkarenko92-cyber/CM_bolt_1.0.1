@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Modal, Steps, Button, Input, InputNumber, Spin, message } from 'antd';
 import { CheckCircleOutlined, LoadingOutlined, CopyOutlined } from '@ant-design/icons';
 import { Property, supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 import {
   generateOAuthUrl,
   parseOAuthState,
@@ -19,6 +20,7 @@ import {
   clearOAuthSuccess,
   performInitialSync,
 } from '../services/avito';
+import { getIcalUrl } from '../utils/icalUrl';
 
 interface AvitoConnectModalProps {
   isOpen: boolean;
@@ -454,10 +456,11 @@ export function AvitoConnectModal({
       clearConnectionProgress(property.id);
 
       // Show iCal URL for date blocking fallback
-      // Use Supabase Edge Function URL: {supabaseUrl}/functions/v1/ical/{property_id}.ics
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const icalUrlValue = `${supabaseUrl}/functions/v1/ical/${property.id}.ics`;
+      const { url: icalUrlValue, isLocalhost } = getIcalUrl(property.id);
       setIcalUrl(icalUrlValue);
+      if (isLocalhost) {
+        toast.warning('iCal работает только в prod/staging (Avito не тянет localhost)');
+      }
 
       // Show success toast
       message.success('Цены обновлены в Avito 🚀');
@@ -753,6 +756,10 @@ export function AvitoConnectModal({
                     icon={<CopyOutlined />}
                     onClick={async () => {
                       try {
+                        const { isLocalhost } = getIcalUrl(property.id);
+                        if (isLocalhost) {
+                          toast.warning('iCal работает только в prod/staging (Avito не тянет localhost)');
+                        }
                         await navigator.clipboard.writeText(icalUrl);
                         message.success('iCal URL скопирован в буфер обмена');
                       } catch (err) {
@@ -768,12 +775,9 @@ export function AvitoConnectModal({
               </div>
 
               <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded">
-                <p className="text-white font-medium mb-2">Инструкция (3 шага):</p>
-                <ol className="text-sm text-slate-300 space-y-1 list-decimal list-inside">
-                  <li>Скопируй iCal URL выше</li>
-                  <li>Открой Avito → "Календарь доступности" → "Импорт iCal"</li>
-                  <li>Вставь скопированный URL и сохрани</li>
-                </ol>
+                <p className="text-sm text-slate-300">
+                  Вставь этот URL в Avito → Календарь доступности → Импорт iCal (один раз — и даты закрываются автоматически)
+                </p>
               </div>
 
               <div className="flex justify-end mt-6">
