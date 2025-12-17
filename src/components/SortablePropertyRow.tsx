@@ -27,9 +27,20 @@ export function SortablePropertyRow({
     isDragging,
   } = useSortable({ id: property.id });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+  // IMPORTANT:
+  // `position: sticky` doesn't work inside an element that has a CSS transform.
+  // DnD-kit applies transform even when it's effectively "zero", which breaks the fixed left column.
+  // Only set transform when it's actually moving/scaling (e.g. while dragging).
+  const hasActiveTransform =
+    !!transform &&
+    (transform.x !== 0 ||
+      transform.y !== 0 ||
+      transform.scaleX !== 1 ||
+      transform.scaleY !== 1);
+
+  const style: React.CSSProperties = {
+    transform: hasActiveTransform ? CSS.Transform.toString(transform) : undefined,
+    transition: hasActiveTransform ? transition : undefined,
     opacity: isDragging ? 0.5 : 1,
   };
 
