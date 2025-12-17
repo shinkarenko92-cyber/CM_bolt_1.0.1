@@ -13,7 +13,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-// Helper to format date for iCal (YYYYMMDDTHHMMSSZ)
+// Helper to format date-time for iCal (YYYYMMDDTHHMMSSZ)
 function formatICalDate(date: Date): string {
   const year = date.getUTCFullYear();
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -22,6 +22,13 @@ function formatICalDate(date: Date): string {
   const minutes = String(date.getUTCMinutes()).padStart(2, '0');
   const seconds = String(date.getUTCSeconds()).padStart(2, '0');
   return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
+}
+
+// Helper to format a YYYY-MM-DD date into iCal DATE (YYYYMMDD)
+function formatICalDateOnly(dateStr: string): string {
+  // Accept both YYYY-MM-DD and full ISO strings
+  const d = dateStr.split("T")[0];
+  return d.replaceAll("-", "");
 }
 
 // Generate iCal content
@@ -36,34 +43,34 @@ function generateICal(bookings: Array<{ check_in: string; check_out: string; gue
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'X-WR-CALNAME:Roomi - Занятость',
-    'X-WR-TIMEZONE:Europe/Moscow',
+    // Avito import is typically strict: use all-day DATE events below, timezone becomes irrelevant.
+    'X-WR-TIMEZONE:UTC',
     'X-PUBLISHED-TTL:PT5M', // Refresh every 5 minutes
     'REFRESH-INTERVAL;VALUE=DURATION:PT1M', // Refresh interval: 1 minute (if supported)
   ].join('\r\n') + '\r\n';
 
   // Add VEVENT for each booking (BUSY)
   for (const booking of bookings) {
-    const checkIn = new Date(booking.check_in);
-    const checkOut = new Date(booking.check_out);
-    
-    // Set time to start of day for check-in (00:00:00)
-    checkIn.setUTCHours(0, 0, 0, 0);
-    // Set time to end of day for check-out (23:59:59)
-    checkOut.setUTCHours(23, 59, 59, 999);
-    
-    const dtStart = formatICalDate(checkIn);
-    const dtEnd = formatICalDate(checkOut);
-    const summary = `Занято (Roomi)${booking.guest_name ? ` - ${booking.guest_name}` : ''}`;
+    // Avito works best with all-day events:
+    // DTSTART;VALUE=DATE = check-in date
+    // DTEND;VALUE=DATE = check-out date (exclusive)
+    const dtStartDate = formatICalDateOnly(booking.check_in);
+    const dtEndDate = formatICalDateOnly(booking.check_out);
+    const summary = 'Занято'; // keep short & compatible
+
+    // Stable UID helps Avito detect updates
+    const uid = `${dtStartDate}-${dtEndDate}@roomi.pro`;
     
     ical += [
       'BEGIN:VEVENT',
-      `UID:${booking.check_in}-${booking.check_out}-${Math.random().toString(36).substring(7)}@roomi.pro`,
+      `UID:${uid}`,
       `DTSTAMP:${nowStr}`,
-      `DTSTART:${dtStart}`,
-      `DTEND:${dtEnd}`,
+      `DTSTART;VALUE=DATE:${dtStartDate}`,
+      `DTEND;VALUE=DATE:${dtEndDate}`,
       `SUMMARY:${summary}`,
       'STATUS:CONFIRMED',
       'TRANSP:OPAQUE', // BUSY
+      'CLASS:PRIVATE',
       'END:VEVENT',
     ].join('\r\n') + '\r\n';
   }
@@ -94,21 +101,15 @@ Deno.serve(async (req: Request) => {
     const url = new URL(req.url);
     console.log("iCal: Request URL", { url: req.url, pathname: url.pathname });
     
-    // Try different path formats
+    // Try different path formats (Avito may append params or trailing slash)
     let propertyId: string | null = null;
     
-    // Format 1: /functions/v1/ical/{property_id}.ics (full path)
-    let pathMatch = url.pathname.match(/\/functions\/v1\/ical\/([^/]+)\.ics$/);
-    if (pathMatch && pathMatch[1]) {
+    const normalizedPath = url.pathname.replace(/\/+$/, "");
+
+    // Format 1/2: .../ical/{property_id}.ics or .../functions/v1/ical/{property_id}.ics
+    const pathMatch = normalizedPath.match(/\/ical\/([^/]+?)(?:\.ics)?$/);
+    if (pathMatch?.[1]) {
       propertyId = pathMatch[1];
-    }
-    
-    // Format 2: /ical/{property_id}.ics (relative path)
-    if (!propertyId) {
-      pathMatch = url.pathname.match(/\/ical\/([^/]+)\.ics$/);
-      if (pathMatch && pathMatch[1]) {
-        propertyId = pathMatch[1];
-      }
     }
     
     // Format 3: Query parameter as fallback
@@ -202,7 +203,8 @@ Deno.serve(async (req: Request) => {
       headers: {
         ...corsHeaders,
         "Content-Type": "text/calendar; charset=utf-8",
-        "Content-Disposition": `attachment; filename="roomi-${propertyId}.ics"`,
+        // Inline works better for some importers (Avito will fetch it server-side anyway)
+        "Content-Disposition": `inline; filename="roomi-${propertyId}.ics"`,
         "Cache-Control": "no-cache, no-store, must-revalidate", // Prevent caching for faster updates
         "Pragma": "no-cache",
         "Expires": "0",
