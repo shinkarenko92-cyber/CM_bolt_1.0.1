@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, Settings, ChevronDown, ChevronRight, Home } from 'lucide-react';
+import { Plus, Settings, ChevronDown, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Property, Booking, PropertyRate, PropertyGroup, supabase } from '../lib/supabase';
+import { Property, Booking, PropertyRate, supabase } from '../lib/supabase';
 import { CalendarHeader } from './CalendarHeader';
 import { BookingBlock } from './BookingBlock';
 import { ChangeConditionsModal } from './ChangeConditionsModal';
-import { PropertyGroupHeader } from './PropertyGroupHeader';
 import { SortablePropertyRow } from './SortablePropertyRow';
 import {
   DndContext,
@@ -45,10 +44,7 @@ type DragState = {
   originalPropertyId: string | null;
 };
 
-type GroupedProperties = {
-  group: PropertyGroup | null; // null для объектов без группы
-  properties: Property[];
-};
+// Property groups removed: calendar uses a flat list of properties
 
 export function Calendar({
   properties,
@@ -70,8 +66,6 @@ export function Calendar({
   const [expandedProperties, setExpandedProperties] = useState<Set<string>>(
     new Set(properties.map(p => p.id))
   );
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [propertyGroups, setPropertyGroups] = useState<PropertyGroup[]>([]);
   const [propertyRates, setPropertyRates] = useState<Map<string, PropertyRate[]>>(new Map());
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dateSelection, setDateSelection] = useState<DateSelection>({
@@ -95,8 +89,6 @@ export function Calendar({
     minStay: number;
     currency: string;
   } | null>(null);
-  const [showNewGroupModal, setShowNewGroupModal] = useState(false);
-  const [newGroupName, setNewGroupName] = useState('');
   const calendarRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const seenPropertyIds = useRef<Set<string>>(new Set());
@@ -134,77 +126,12 @@ export function Calendar({
     })
   );
 
-  // Загрузка групп объектов
-  useEffect(() => {
-    loadPropertyGroups();
-  }, []);
+  // Группы объявлений удалены: ничего не загружаем
 
   useEffect(() => {
     loadPropertyRates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [properties]);
-
-  const loadPropertyGroups = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Загружаем без сортировки, чтобы избежать ошибки если sort_order колонка не существует
-      const { data, error } = await supabase
-        .from('property_groups')
-        .select('*')
-        .eq('user_id', user.id);
-
-      if (error) {
-        // Если таблица не существует (миграция не применена), просто работаем без групп
-        if (error.code === 'PGRST205' || 
-            error.code === '42P01' || 
-            error.code === '404' ||
-            error.message?.includes('Could not find the table') ||
-            error.message?.includes('relation') ||
-            error.message?.includes('does not exist') ||
-            error.message?.includes('table not found')) {
-          console.log('Groups not found - showing properties without groups');
-          setPropertyGroups([]);
-          // Явно добавляем 'ungrouped' в expandedGroups для группы "Без группы"
-          setExpandedGroups(new Set(['ungrouped']));
-          return;
-        }
-        // Для других ошибок тоже работаем без групп (fallback)
-        console.log('Groups not found - showing properties without groups', error);
-        setPropertyGroups([]);
-        // Явно добавляем 'ungrouped' в expandedGroups для группы "Без группы"
-        setExpandedGroups(new Set(['ungrouped']));
-        return;
-      }
-      
-      setPropertyGroups(data || []);
-      
-      // Разворачиваем все группы по умолчанию
-      if (data) {
-        setExpandedGroups(new Set(data.map(g => g.id)));
-      } else {
-        // Если data пустой, добавляем 'ungrouped' для группы "Без группы"
-        setExpandedGroups(new Set(['ungrouped']));
-      }
-    } catch (error) {
-      // Не логируем ошибку, если таблица просто не существует
-      const errorObj = error as { code?: string; message?: string };
-      if (errorObj?.code === 'PGRST205' || 
-          errorObj?.code === '42P01' || 
-          errorObj?.code === '404' ||
-          errorObj?.message?.includes('Could not find the table') ||
-          errorObj?.message?.includes('table not found')) {
-        console.log('Groups not found - showing properties without groups');
-      } else {
-        console.log('Groups not found - showing properties without groups', error);
-      }
-      // Не падаем, просто работаем без групп
-      setPropertyGroups([]);
-      // Явно добавляем 'ungrouped' в expandedGroups для группы "Без группы"
-      setExpandedGroups(new Set(['ungrouped']));
-    }
-  };
 
   // Автоматически разворачиваем только действительно новые объекты при их загрузке
   // seenPropertyIds отслеживает все объекты, которые мы когда-либо видели
@@ -229,23 +156,13 @@ export function Calendar({
     }
   }, [properties]);
 
-  // Убеждаемся, что группа "Без группы" развернута, когда propertyGroups пуст
-  useEffect(() => {
-    if (propertyGroups.length === 0 && properties.length > 0) {
-      setExpandedGroups(prev => {
-        const newSet = new Set(prev);
-        newSet.add('ungrouped');
-        return newSet;
-      });
-    }
-  }, [propertyGroups.length, properties.length]);
+  // Группы удалены: expandedGroups не используется
 
   // При изменении текущей базовой даты центрируем скролл и обновляем "видимую" дату
   // ВАЖНО: НЕ сбрасываем expandedGroups или expandedProperties при изменении дат
   useEffect(() => {
     console.log('Calendar: currentDate changed, updating scroll position', {
       currentDateTimestamp,
-      expandedGroupsSize: expandedGroups.size,
       expandedPropertiesSize: expandedProperties.size,
       propertiesCount: properties.length,
     });
@@ -758,69 +675,15 @@ export function Calendar({
     return bookings.some(b => b.property_id === propertyId && isDateInRange(date, b.check_in, b.check_out));
   };
 
-  // Группировка properties по группам
-  // ВАЖНО: groupedProperties НЕ зависит от dates - объекты должны отображаться всегда
-  const groupedProperties = useMemo(() => {
-    console.log('groupedProperties useMemo: recalculating', {
-      propertiesCount: properties.length,
-      propertyGroupsCount: propertyGroups.length,
-      timestamp: new Date().toISOString(),
+  // Плоский список объектов (группы удалены)
+  const sortedProperties = useMemo(() => {
+    return [...properties].sort((a, b) => {
+      const aSort = typeof a.sort_order === 'number' ? a.sort_order : Number.MAX_SAFE_INTEGER;
+      const bSort = typeof b.sort_order === 'number' ? b.sort_order : Number.MAX_SAFE_INTEGER;
+      if (aSort !== bSort) return aSort - bSort;
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     });
-    
-    const grouped: GroupedProperties[] = [];
-    const groupsMap = new Map<string, PropertyGroup>();
-    
-    // Если groups не загружены (404 или другая ошибка), все объекты идут в "Без группы"
-    if (propertyGroups.length === 0) {
-      console.log('Groups not found - showing properties without groups', { propertiesCount: properties.length });
-      const allProperties = properties.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-      // ВСЕГДА возвращаем массив с объектами, даже если properties пустой (для консистентности)
-      if (allProperties.length > 0) {
-        grouped.push({ group: null, properties: allProperties });
-      }
-      // Если properties пустой, возвращаем пустой массив (но это не должно скрывать UI)
-      console.log('groupedProperties useMemo: returning ungrouped properties', {
-        groupedCount: grouped.length,
-        propertiesInGroup: grouped[0]?.properties.length || 0,
-      });
-      return grouped;
-    }
-    
-    propertyGroups.forEach(group => {
-      groupsMap.set(group.id, group);
-    });
-
-    // Создаем записи для каждой группы
-    const sortedGroups = [...propertyGroups].sort((a, b) => a.sort_order - b.sort_order);
-    sortedGroups.forEach(group => {
-      const groupProperties = properties
-        .filter(p => p.group_id === group.id)
-        .sort((a, b) => a.sort_order - b.sort_order);
-      
-      if (groupProperties.length > 0) {
-        grouped.push({ group, properties: groupProperties });
-      }
-    });
-
-    // Добавляем объекты без группы
-    const ungroupedProperties = properties
-      .filter(p => !p.group_id)
-      .sort((a, b) => a.sort_order - b.sort_order);
-    
-    if (ungroupedProperties.length > 0) {
-      grouped.push({ group: null, properties: ungroupedProperties });
-    }
-
-    console.log('groupedProperties useMemo: returning grouped result', {
-      totalGroups: grouped.length,
-      groupsWithProperties: grouped.map(g => ({
-        groupName: g.group?.name || 'Без группы',
-        propertiesCount: g.properties.length,
-      })),
-    });
-
-    return grouped;
-  }, [properties, propertyGroups]); // ВАЖНО: НЕ включаем dates в зависимости - объекты должны отображаться всегда
+  }, [properties]);
 
   // Обработка drag & drop для групп и объектов
   const handleDragStart = (event: DragStartEvent) => {
@@ -836,20 +699,8 @@ export function Calendar({
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    // Определяем, что перетаскиваем: группу или объект
-    const isGroup = propertyGroups.some(g => g.id === activeId);
-    const isOverGroup = propertyGroups.some(g => g.id === overId);
-
-    if (isGroup && isOverGroup) {
-      // Перемещение группы
-      await handleGroupReorder(activeId, overId);
-    } else if (!isGroup && !isOverGroup) {
-      // Перемещение объекта внутри/между группами
-      await handlePropertyReorder(activeId, overId);
-    } else if (!isGroup && isOverGroup) {
-      // Перемещение объекта в группу
-      await handlePropertyMoveToGroup(activeId, overId);
-    }
+    // Группы удалены: плоский reorder объектов
+    await handlePropertyReorder(activeId, overId);
 
     // Обновляем список properties через callback
     if (onPropertiesUpdate && properties.length > 0) {
@@ -883,183 +734,30 @@ export function Calendar({
     }
   };
 
-  const handleGroupReorder = async (activeId: string, overId: string) => {
-    const activeIndex = propertyGroups.findIndex(g => g.id === activeId);
-    const overIndex = propertyGroups.findIndex(g => g.id === overId);
-
+  const handlePropertyReorder = async (activeId: string, overId: string) => {
+    const activeIndex = sortedProperties.findIndex(p => p.id === activeId);
+    const overIndex = sortedProperties.findIndex(p => p.id === overId);
     if (activeIndex === -1 || overIndex === -1) return;
 
-    const newGroups = arrayMove(propertyGroups, activeIndex, overIndex);
-    
-    // Обновляем sort_order в БД
-    const updates = newGroups.map((group, index) => ({
-      id: group.id,
-      sort_order: index,
-    }));
+    const reordered = arrayMove(sortedProperties, activeIndex, overIndex);
 
-    for (const update of updates) {
-      const { error } = await supabase
-        .from('property_groups')
-        .update({ sort_order: update.sort_order })
-        .eq('id', update.id);
-      
-      if (error) {
-        console.error(`Error updating sort_order for group ${update.id}:`, error);
-      }
-    }
+    for (let i = 0; i < reordered.length; i++) {
+      try {
+        const { error } = await supabase
+          .from('properties')
+          .update({ sort_order: i })
+          .eq('id', reordered[i].id);
 
-    setPropertyGroups(newGroups);
-  };
-
-  const handlePropertyReorder = async (activeId: string, overId: string) => {
-    const activeProperty = properties.find(p => p.id === activeId);
-    const overProperty = properties.find(p => p.id === overId);
-
-    if (!activeProperty || !overProperty) return;
-
-    // Если объекты в одной группе (или оба без группы)
-    if (activeProperty.group_id === overProperty.group_id) {
-      const sameGroupProperties = properties
-        .filter(p => p.group_id === activeProperty.group_id)
-        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-
-      const activeIndex = sameGroupProperties.findIndex(p => p.id === activeId);
-      const overIndex = sameGroupProperties.findIndex(p => p.id === overId);
-
-      if (activeIndex === -1 || overIndex === -1) return;
-
-      const reordered = arrayMove(sameGroupProperties, activeIndex, overIndex);
-      
-      // Обновляем sort_order в БД
-      for (let i = 0; i < reordered.length; i++) {
-        try {
-          const { error } = await supabase
-            .from('properties')
-            .update({ sort_order: i })
-            .eq('id', reordered[i].id);
-          
-          if (error) {
-            // Игнорируем ошибку PGRST204 (колонка не найдена) - миграция может быть не применена
-            if (error.code === 'PGRST204' || error.message?.includes("Could not find the 'sort_order' column")) {
-              console.warn(`sort_order column not found, skipping update for property ${reordered[i].id}`);
-            } else {
-              console.error(`Error updating sort_order for property ${reordered[i].id}:`, error);
-            }
-          }
-        } catch (err) {
-          // Игнорируем ошибки при обновлении sort_order, если колонка не существует
-          console.warn(`Failed to update sort_order for property ${reordered[i].id}:`, err);
-        }
-      }
-    } else {
-      // Перемещение между группами - меняем group_id и sort_order
-      const targetGroupProperties = properties
-        .filter(p => p.group_id === overProperty.group_id)
-        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-
-      const overIndex = targetGroupProperties.findIndex(p => p.id === overId);
-      
-      // Обновляем активный объект
-      const { error: activeError } = await supabase
-        .from('properties')
-        .update({
-          group_id: overProperty.group_id,
-          sort_order: overIndex,
-        })
-        .eq('id', activeId);
-
-      if (activeError) {
-        console.error(`Error updating active property ${activeId}:`, activeError);
-        return;
-      }
-
-      // Обновляем sort_order для остальных объектов в целевой группе
-      for (let i = 0; i < targetGroupProperties.length; i++) {
-        if (targetGroupProperties[i].id !== overId) {
-          try {
-            const { error } = await supabase
-              .from('properties')
-              .update({ sort_order: i >= overIndex ? i + 1 : i })
-              .eq('id', targetGroupProperties[i].id);
-            
-            if (error) {
-              // Игнорируем ошибку PGRST204 (колонка не найдена) - миграция может быть не применена
-              if (error.code === 'PGRST204' || error.message?.includes("Could not find the 'sort_order' column")) {
-                console.warn(`sort_order column not found, skipping update for property ${targetGroupProperties[i].id}`);
-              } else {
-                console.error(`Error updating sort_order for property ${targetGroupProperties[i].id}:`, error);
-              }
-            }
-          } catch (err) {
-            // Игнорируем ошибки при обновлении sort_order, если колонка не существует
-            console.warn(`Failed to update sort_order for property ${targetGroupProperties[i].id}:`, err);
+        if (error) {
+          if (error.code === 'PGRST204' || error.message?.includes("Could not find the 'sort_order' column")) {
+            console.warn(`sort_order column not found, skipping update for property ${reordered[i].id}`);
+          } else {
+            console.error(`Error updating sort_order for property ${reordered[i].id}:`, error);
           }
         }
+      } catch (err) {
+        console.warn(`Failed to update sort_order for property ${reordered[i].id}:`, err);
       }
-    }
-  };
-
-  const handlePropertyMoveToGroup = async (propertyId: string, groupId: string) => {
-    const targetGroupProperties = properties
-      .filter(p => p.group_id === groupId)
-      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-
-    const { error } = await supabase
-      .from('properties')
-      .update({
-        group_id: groupId,
-        sort_order: targetGroupProperties.length,
-      })
-      .eq('id', propertyId);
-    
-    if (error) {
-      console.error(`Error moving property ${propertyId} to group ${groupId}:`, error);
-      throw error;
-    }
-  };
-
-  const toggleGroupExpansion = (groupId: string) => {
-    setExpandedGroups(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(groupId)) {
-        newSet.delete(groupId);
-      } else {
-        newSet.add(groupId);
-      }
-      return newSet;
-    });
-  };
-
-  const handleCreateGroup = async () => {
-    if (!newGroupName.trim()) return;
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const maxSortOrder = propertyGroups.length > 0 
-        ? Math.max(...propertyGroups.map(g => g.sort_order))
-        : -1;
-
-      const { data, error } = await supabase
-        .from('property_groups')
-        .insert({
-          name: newGroupName.trim(),
-          user_id: user.id,
-          sort_order: maxSortOrder + 1,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setPropertyGroups([...propertyGroups, data]);
-      setExpandedGroups(prev => new Set([...prev, data.id]));
-      setShowNewGroupModal(false);
-      setNewGroupName('');
-    } catch (error) {
-      console.error('Error creating group:', error);
-      alert('Ошибка создания группы');
     }
   };
 
@@ -1067,13 +765,6 @@ export function Calendar({
     <div className="flex-1 flex flex-col overflow-hidden bg-slate-900">
       <div className="bg-slate-800 border-b border-slate-700 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowNewGroupModal(true)}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Новая группа
-          </button>
           <button
             onClick={() => onAddReservation('', '', '')}
             className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
@@ -1164,201 +855,48 @@ export function Calendar({
               onDragEnd={handleDragEnd}
             >
               <SortableContext
-                items={[...propertyGroups.map(g => g.id), ...properties.map(p => p.id)]}
+                items={sortedProperties.map(p => p.id)}
                 strategy={verticalListSortingStrategy}
               >
                 {/* ВАЖНО: relative позиционирование для корректного отображения объектов при прокрутке */}
                 <div className="relative" style={{ minHeight: '100%' }}>
-                  {/* ВАЖНО: ВСЕГДА рендерим groupedProperties.map(), независимо от groups error или прокрутки дат */}
-                  {(() => {
-                    console.log('Calendar: Rendering groupedProperties', { 
-                      groupedPropertiesCount: groupedProperties.length,
-                      propertiesCount: properties.length,
-                      propertyGroupsCount: propertyGroups.length,
-                      datesCount: dates.length,
-                      currentDateTimestamp,
-                      expandedGroupsSize: expandedGroups.size,
+                  {sortedProperties.map((property) => {
+                    console.log('Rendering property:', { 
+                      propertyId: property.id, 
+                      propertyName: property.name 
                     });
-                    return null;
-                  })()}
-                  {/* ВАЖНО: groupedProperties не зависит от dates - объекты должны отображаться всегда */}
-                  {groupedProperties.map((grouped) => {
-                      const groupId = grouped.group?.id || 'ungrouped';
-                      const isGroupExpanded = grouped.group ? expandedGroups.has(groupId) : true;
-                      
-                      console.log('Rendering group:', { 
-                        groupId, 
-                        isGroupExpanded, 
-                        propertiesCount: grouped.properties.length,
-                        groupName: grouped.group?.name || 'Без группы'
+                    
+                    try {
+                      const propFirst = new Date(dates[0]);
+                      const propFirstVisibleDate = new Date(propFirst.getFullYear(), propFirst.getMonth(), propFirst.getDate(), 0, 0, 0, 0);
+                      const propLast = new Date(dates[dates.length - 1]);
+                      const propLastVisibleDate = new Date(propLast.getFullYear(), propLast.getMonth(), propLast.getDate(), 23, 59, 59, 999);
+
+                      const propBookings = bookings.filter((b) => {
+                        if (b.property_id !== property.id) return false;
+
+                        const checkInDate = new Date(b.check_in);
+                        const checkIn = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
+                        const checkOutDate = new Date(b.check_out);
+                        const checkOut = new Date(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate());
+
+                        return checkOut > propFirstVisibleDate && checkIn <= propLastVisibleDate;
                       });
-                      
+
+                      const isExpanded = expandedProperties.has(property.id);
+                      const bookingLayers = getBookingLayers(propBookings);
+                      const rowHeight = Math.max(44, bookingLayers.length * 32 + 16);
+                      const collapsedHeight = 48;
+                      const totalRowHeight = isExpanded ? 32 + rowHeight : collapsedHeight;
+
                       return (
-                      <div key={groupId} className="border-b border-slate-700">
-                        {grouped.group ? (
-                          <PropertyGroupHeader
-                            group={grouped.group}
-                            isExpanded={isGroupExpanded}
-                            onToggle={() => toggleGroupExpansion(groupId)}
-                            onEdit={() => {
-                              // TODO: Реализовать редактирование группы
-                              if (grouped.group) {
-                                console.log('Edit group', grouped.group);
-                              }
-                            }}
-                            onDelete={async () => {
-                              // TODO: Реализовать удаление группы
-                              if (!grouped.group) return;
-                              
-                              if (confirm(`Удалить группу "${grouped.group.name}"? Объекты будут перемещены в "Без группы".`)) {
-                                const groupId = grouped.group.id;
-                                await supabase
-                                  .from('properties')
-                                  .update({ group_id: null })
-                                  .eq('group_id', groupId);
-                                
-                                await supabase
-                                  .from('property_groups')
-                                  .delete()
-                                  .eq('id', groupId);
-                                
-                                await loadPropertyGroups();
-                              }
-                            }}
-                            propertiesCount={grouped.properties.length}
-                          />
-                        ) : (
-                          // Header for ungrouped properties
-                          <div className="bg-slate-600 text-white border-b border-slate-700 flex items-center px-4 gap-2 h-12 sticky top-0 z-40">
-                            <button
-                              onClick={() => toggleGroupExpansion(groupId)}
-                              className="flex-shrink-0 text-slate-300 hover:text-white transition-colors"
-                            >
-                              {isGroupExpanded ? (
-                                <ChevronDown className="w-4 h-4" />
-                              ) : (
-                                <ChevronRight className="w-4 h-4" />
-                              )}
-                            </button>
-                            <Home className="w-4 h-4 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium leading-tight truncate">
-                                Без группы
-                              </div>
-                              <div className="text-xs text-slate-300">
-                                {grouped.properties.length} {grouped.properties.length === 1 ? 'объект' : 'объектов'}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {isGroupExpanded && (
-                          <div>
-                            {grouped.properties.map((property) => {
-                              console.log('Rendering property:', { 
-                                propertyId: property.id, 
-                                propertyName: property.name 
-                              });
-                              
-                              try {
-                                const propFirst = new Date(dates[0]);
-                                const propFirstVisibleDate = new Date(propFirst.getFullYear(), propFirst.getMonth(), propFirst.getDate(), 0, 0, 0, 0);
-                                const propLast = new Date(dates[dates.length - 1]);
-                                const propLastVisibleDate = new Date(propLast.getFullYear(), propLast.getMonth(), propLast.getDate(), 23, 59, 59, 999);
-
-                                const propBookings = bookings.filter((b) => {
-                                  if (b.property_id !== property.id) return false;
-
-                                  const checkInDate = new Date(b.check_in);
-                                  const checkIn = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
-                                  const checkOutDate = new Date(b.check_out);
-                                  const checkOut = new Date(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate());
-
-                                  return checkOut > propFirstVisibleDate && checkIn <= propLastVisibleDate;
-                                });
-
-                                const isExpanded = expandedProperties.has(property.id);
-                                const bookingLayers = getBookingLayers(propBookings);
-                                const rowHeight = Math.max(44, bookingLayers.length * 32 + 16);
-                                const collapsedHeight = 48;
-                                const totalRowHeight = isExpanded ? 32 + rowHeight : collapsedHeight;
-
-                                return (
-                                  <SortablePropertyRow
-                                  key={property.id}
-                                  property={property}
-                                  isExpanded={isExpanded}
-                                  onToggle={() => togglePropertyExpansion(property.id)}
-                                  totalRowHeight={totalRowHeight}
-                                  groups={propertyGroups}
-                                  onMoveToGroup={async (propertyId, groupId) => {
-                                    const targetGroupProperties = properties
-                                      .filter(p => p.group_id === groupId)
-                                      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-
-                                    try {
-                                      // Подготавливаем данные для обновления
-                                      const updateData: { group_id: string | null; sort_order?: number } = {
-                                        group_id: groupId,
-                                      };
-                                      
-                                      // Добавляем sort_order только если колонка существует
-                                      // Проверяем наличие sort_order в property объекте
-                                      if ('sort_order' in property && typeof property.sort_order === 'number') {
-                                        updateData.sort_order = groupId ? targetGroupProperties.length : property.sort_order;
-                                      }
-                                      
-                                      const { error: updateError } = await supabase
-                                        .from('properties')
-                                        .update(updateData)
-                                        .eq('id', propertyId);
-
-                                      if (updateError) {
-                                        // Игнорируем ошибку PGRST204 (колонка не найдена) - миграция может быть не применена
-                                        if (updateError.code === 'PGRST204' || updateError.message?.includes("Could not find the 'sort_order' column")) {
-                                          console.warn(`sort_order column not found, skipping sort_order update for property ${propertyId}`);
-                                          // Продолжаем обновление group_id даже если sort_order не обновлен
-                                        } else {
-                                          console.error(`Error moving property ${propertyId} to group ${groupId}:`, updateError);
-                                          return;
-                                        }
-                                      }
-                                    } catch (err) {
-                                      // Игнорируем ошибки при обновлении sort_order, если колонка не существует
-                                      console.warn(`Failed to update sort_order for property ${propertyId}:`, err);
-                                    }
-
-                                    if (onPropertiesUpdate && properties.length > 0) {
-                                      try {
-                                        // Загружаем без сортировки, чтобы избежать ошибки PGRST204
-                                        const { data, error } = await supabase
-                                          .from('properties')
-                                          .select('*')
-                                          .in('id', properties.map(p => p.id));
-                                        
-                                        if (error) {
-                                          console.error('Error loading properties:', error);
-                                          return;
-                                        }
-                                        
-                                        if (data) {
-                                          // Сортируем вручную: сначала по sort_order (если есть), потом по created_at
-                                          const sorted = data.sort((a, b) => {
-                                            const aSort = ('sort_order' in a && typeof a.sort_order === 'number') ? a.sort_order : Number.MAX_SAFE_INTEGER;
-                                            const bSort = ('sort_order' in b && typeof b.sort_order === 'number') ? b.sort_order : Number.MAX_SAFE_INTEGER;
-                                            if (aSort !== bSort) {
-                                              return aSort - bSort;
-                                            }
-                                            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-                                          });
-                                          onPropertiesUpdate(sorted);
-                                        }
-                                      } catch (err) {
-                                        console.error('Error in onPropertiesUpdate:', err);
-                                      }
-                                    }
-                                  }}
-                                >
+                        <SortablePropertyRow
+                          key={property.id}
+                          property={property}
+                          isExpanded={isExpanded}
+                          onToggle={() => togglePropertyExpansion(property.id)}
+                          totalRowHeight={totalRowHeight}
+                        >
                                   <div 
                                     className="flex-shrink-0"
                                     style={{ width: `${dates.length * CELL_WIDTH}px`, height: `${totalRowHeight}px`, minWidth: `${256 + dates.length * CELL_WIDTH}px` }}
@@ -1481,50 +1019,32 @@ export function Calendar({
                         <div className="h-full bg-slate-800/50 border-b border-slate-700" />
                       )}
                                   </div>
-                                </SortablePropertyRow>
-                              );
-                              } catch (error) {
-                                console.error('Error rendering property:', property.id, error);
-                                return (
-                                  <div key={property.id} className="p-4 bg-red-900/20 text-red-400">
-                                    Ошибка отображения объекта: {property.name}
-                                  </div>
-                                );
-                              }
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
+                        </SortablePropertyRow>
+                      );
+                    } catch (error) {
+                      console.error('Error rendering property:', property.id, error);
+                      return (
+                        <div key={property.id} className="p-4 bg-red-900/20 text-red-400">
+                          Ошибка отображения объекта: {property.name}
+                        </div>
+                      );
+                    }
                   })}
 
-                  {/* ВАЖНО: Проверяем properties.length, а не groupedProperties.length, чтобы показывать сообщение только если действительно нет объектов */}
-                  {properties.length === 0 && groupedProperties.length === 0 && (
+                  {properties.length === 0 && (
                     <div className="text-center py-12">
                       <p className="text-slate-400">
                         Нет объектов. Добавьте первый объект для начала работы.
                       </p>
                     </div>
                   )}
-                  
-                  {/* ВАЖНО: Добавляем дополнительную проверку для диагностики */}
-                  {(() => {
-                    if (groupedProperties.length === 0 && properties.length > 0) {
-                      console.warn('Calendar: groupedProperties is empty but properties exist!', {
-                        propertiesCount: properties.length,
-                        propertyGroupsCount: propertyGroups.length,
-                      });
-                    }
-                    return null;
-                  })()}
                 </div>
               </SortableContext>
               
               <DragOverlay>
                 {activeId ? (
                   <div className="bg-slate-700 p-2 rounded shadow-lg">
-                    {propertyGroups.find(g => g.id === activeId)?.name || 
-                     properties.find(p => p.id === activeId)?.name || 
+                    {properties.find(p => p.id === activeId)?.name || 
                      'Перетаскивание'}
                   </div>
                 ) : null}
@@ -1549,46 +1069,7 @@ export function Calendar({
         />
       )}
 
-      {showNewGroupModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-slate-800 rounded-lg p-6 w-96">
-            <h2 className="text-xl font-semibold text-white mb-4">Новая группа</h2>
-            <input
-              type="text"
-              value={newGroupName}
-              onChange={(e) => setNewGroupName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleCreateGroup();
-                } else if (e.key === 'Escape') {
-                  setShowNewGroupModal(false);
-                  setNewGroupName('');
-                }
-              }}
-              placeholder="Название группы"
-              className="w-full px-4 py-2 bg-slate-700 text-white rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              autoFocus
-            />
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => {
-                  setShowNewGroupModal(false);
-                  setNewGroupName('');
-                }}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                Отмена
-              </button>
-              <button
-                onClick={handleCreateGroup}
-                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                Создать
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Группы объявлений удалены */}
     </div>
   );
 }
