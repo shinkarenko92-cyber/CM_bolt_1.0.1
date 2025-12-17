@@ -35,7 +35,6 @@ function formatICalMoscowMidnight(dateStr: string): string {
 function generateICal(bookings: Array<{ check_in: string; check_out: string; guest_name?: string | null }>, propertyId: string): string {
   const now = new Date();
   const nowStr = formatICalDate(now);
-  const tzid = "Europe/Moscow";
   
   let ical = [
     'BEGIN:VCALENDAR',
@@ -44,25 +43,16 @@ function generateICal(bookings: Array<{ check_in: string; check_out: string; gue
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'X-WR-CALNAME:Roomi - Занятость',
-    // Avito import can be strict about TZ handling. Provide a fixed VTIMEZONE for Europe/Moscow.
-    `X-WR-TIMEZONE:${tzid}`,
-    'BEGIN:VTIMEZONE',
-    `TZID:${tzid}`,
-    `X-LIC-LOCATION:${tzid}`,
-    'BEGIN:STANDARD',
-    'TZOFFSETFROM:+0300',
-    'TZOFFSETTO:+0300',
-    'TZNAME:MSK',
-    'DTSTART:19700101T000000',
-    'END:STANDARD',
-    'END:VTIMEZONE',
+    // Keep iCal максимально простым: Avito иногда валидирует/сохраняет хуже, если есть VTIMEZONE/TZID.
+    // Мы используем "floating" midnight (DTSTART/DTEND без TZID) — день выезда не блокируется.
+    'X-WR-TIMEZONE:Europe/Moscow',
     'X-PUBLISHED-TTL:PT5M', // Refresh every 5 minutes
     'REFRESH-INTERVAL;VALUE=DURATION:PT1M', // Refresh interval: 1 minute (if supported)
   ].join('\r\n') + '\r\n';
 
   // Add VEVENT for each booking (BUSY)
   for (const booking of bookings) {
-    // Use DATE-TIME intervals with explicit TZID at 00:00 local time.
+    // Use DATE-TIME intervals at 00:00 local time WITHOUT TZID.
     // This blocks nights correctly without blocking the checkout day itself:
     // check-in 17, check-out 20 => busy 17,18,19; day 20 stays free.
     const dtStart = formatICalMoscowMidnight(booking.check_in);
@@ -76,8 +66,8 @@ function generateICal(bookings: Array<{ check_in: string; check_out: string; gue
       'BEGIN:VEVENT',
       `UID:${uid}`,
       `DTSTAMP:${nowStr}`,
-      `DTSTART;TZID=${tzid}:${dtStart}`,
-      `DTEND;TZID=${tzid}:${dtEnd}`,
+      `DTSTART:${dtStart}`,
+      `DTEND:${dtEnd}`,
       `SUMMARY:${summary}`,
       'STATUS:CONFIRMED',
       'TRANSP:OPAQUE', // BUSY
