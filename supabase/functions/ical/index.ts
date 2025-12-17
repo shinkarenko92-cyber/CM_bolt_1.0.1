@@ -9,7 +9,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
@@ -32,7 +32,7 @@ function formatICalMoscowMidnight(dateStr: string): string {
 }
 
 // Generate iCal content
-function generateICal(bookings: Array<{ check_in: string; check_out: string; guest_name?: string | null }>): string {
+function generateICal(bookings: Array<{ check_in: string; check_out: string; guest_name?: string | null }>, propertyId: string): string {
   const now = new Date();
   const nowStr = formatICalDate(now);
   const tzid = "Europe/Moscow";
@@ -69,8 +69,8 @@ function generateICal(bookings: Array<{ check_in: string; check_out: string; gue
     const dtEnd = formatICalMoscowMidnight(booking.check_out);
     const summary = 'Занято'; // keep short & compatible
 
-    // Stable UID helps Avito detect updates
-    const uid = `${dtStart}-${dtEnd}@roomi.pro`;
+    // Stable UID helps Avito detect updates; include property to avoid cross-property collisions.
+    const uid = `${propertyId}-${dtStart}-${dtEnd}@roomi.pro`;
     
     ical += [
       'BEGIN:VEVENT',
@@ -96,7 +96,8 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  if (req.method !== "GET") {
+  // Some importers validate iCal URLs using HEAD requests. Support it.
+  if (req.method !== "GET" && req.method !== "HEAD") {
     return new Response(
       JSON.stringify({ error: "Method not allowed" }),
       {
@@ -140,7 +141,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log("iCal: Processing request", { property_id: propertyId, url: req.url });
+    console.log("iCal: Processing request", { method: req.method, property_id: propertyId, url: req.url });
 
     // Get Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -211,8 +212,25 @@ Deno.serve(async (req: Request) => {
 
     console.log("iCal generated for property_id:", propertyId, "fetched:", fetchedCount, "exported_events:", exportedBookings.length);
 
+    // HEAD should validate the URL without transferring the body.
+    if (req.method === "HEAD") {
+      return new Response(null, {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/calendar; charset=utf-8",
+          "Content-Disposition": `inline; filename="roomi-${propertyId}.ics"`,
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache",
+          "Expires": "0",
+          "X-Content-Type-Options": "nosniff",
+          "X-Roomi-iCal": "ok",
+        },
+      });
+    }
+
     // Generate iCal (even if no bookings - return empty calendar)
-    const icalContent = generateICal(exportedBookings);
+    const icalContent = generateICal(exportedBookings, propertyId);
 
     return new Response(icalContent, {
       status: 200,
