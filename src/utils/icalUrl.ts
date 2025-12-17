@@ -10,36 +10,41 @@ function isLocalhostHostname(hostname: string): boolean {
 /**
  * Generates iCal URL for a property.
  *
- * Primary: `${window.location.origin}/functions/v1/ical/${propertyId}.ics`
- * Fallback: if window is not available, tries `import.meta.env.VITE_SUPABASE_URL`.
+ * Primary (recommended for Avito): `${VITE_SUPABASE_URL}/functions/v1/ical/${propertyId}.ics`
+ * Fallback: `${window.location.origin}/functions/v1/ical/${propertyId}.ics`
  *
  * Note: Avito can't pull localhost urls; callers may show a warning when isLocalhost = true.
  */
 export function getIcalUrl(propertyId: string): IcalUrlResult {
   const hasWindow = typeof window !== "undefined";
   const origin = hasWindow ? window.location.origin : "";
-  const hostname = hasWindow ? window.location.hostname : "";
 
   const supabaseUrl = (import.meta.env?.VITE_SUPABASE_URL as string | undefined) ?? undefined;
 
-  // Prefer current origin for any environment (prod/staging/localhost).
-  let url =
-    origin
+  // Prefer direct Supabase Functions URL for maximum compatibility with Avito importers.
+  // (Some importers can be picky about proxies/rewrites.)
+  const url = supabaseUrl
+    ? `${supabaseUrl}/functions/v1/ical/${propertyId}.ics`
+    : origin
       ? `${origin}/functions/v1/ical/${propertyId}.ics`
-      : supabaseUrl
-        ? `${supabaseUrl}/functions/v1/ical/${propertyId}.ics`
-        : `/functions/v1/ical/${propertyId}.ics`;
-
-  // If some legacy path produced a supabase.co proxy URL, fallback to current origin.
-  if (origin && /\/\/.*\.supabase\.co\/functions\/v1\/ical\//.test(url)) {
-    url = `${origin}/functions/v1/ical/${propertyId}.ics`;
-  }
+      : `/functions/v1/ical/${propertyId}.ics`;
 
   console.log("iCal URL generated: " + url);
 
+  // Compute localhost based on the generated URL host (not the app host),
+  // so local dev doesn't show warnings if the URL is actually reachable.
+  let isLocalhost = false;
+  try {
+    const u = new URL(url, origin || "http://localhost");
+    isLocalhost = isLocalhostHostname(u.hostname);
+  } catch {
+    // Best-effort
+    isLocalhost = false;
+  }
+
   return {
     url,
-    isLocalhost: isLocalhostHostname(hostname),
+    isLocalhost,
   };
 }
 
