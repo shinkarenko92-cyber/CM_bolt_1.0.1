@@ -24,17 +24,18 @@ function formatICalDate(date: Date): string {
   return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
 }
 
-// Helper to format a YYYY-MM-DD date into iCal DATE (YYYYMMDD)
-function formatICalDateOnly(dateStr: string): string {
-  // Accept both YYYY-MM-DD and full ISO strings
-  const d = dateStr.split("T")[0];
-  return d.replaceAll("-", "");
+// Helper to format a YYYY-MM-DD date into iCal local DATE-TIME (YYYYMMDDT000000)
+// We intentionally use local "floating" midnight with TZID=Europe/Moscow for best Avito compatibility.
+function formatICalMoscowMidnight(dateStr: string): string {
+  const d = dateStr.split("T")[0]; // YYYY-MM-DD
+  return `${d.replaceAll("-", "")}T000000`;
 }
 
 // Generate iCal content
 function generateICal(bookings: Array<{ check_in: string; check_out: string; guest_name?: string | null }>): string {
   const now = new Date();
   const nowStr = formatICalDate(now);
+  const tzid = "Europe/Moscow";
   
   let ical = [
     'BEGIN:VCALENDAR',
@@ -43,30 +44,40 @@ function generateICal(bookings: Array<{ check_in: string; check_out: string; gue
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'X-WR-CALNAME:Roomi - Занятость',
-    // Avito import is typically strict: use all-day DATE events below, timezone becomes irrelevant.
-    'X-WR-TIMEZONE:UTC',
+    // Avito import can be strict about TZ handling. Provide a fixed VTIMEZONE for Europe/Moscow.
+    `X-WR-TIMEZONE:${tzid}`,
+    'BEGIN:VTIMEZONE',
+    `TZID:${tzid}`,
+    `X-LIC-LOCATION:${tzid}`,
+    'BEGIN:STANDARD',
+    'TZOFFSETFROM:+0300',
+    'TZOFFSETTO:+0300',
+    'TZNAME:MSK',
+    'DTSTART:19700101T000000',
+    'END:STANDARD',
+    'END:VTIMEZONE',
     'X-PUBLISHED-TTL:PT5M', // Refresh every 5 minutes
     'REFRESH-INTERVAL;VALUE=DURATION:PT1M', // Refresh interval: 1 minute (if supported)
   ].join('\r\n') + '\r\n';
 
   // Add VEVENT for each booking (BUSY)
   for (const booking of bookings) {
-    // Avito works best with all-day events:
-    // DTSTART;VALUE=DATE = check-in date
-    // DTEND;VALUE=DATE = check-out date (exclusive)
-    const dtStartDate = formatICalDateOnly(booking.check_in);
-    const dtEndDate = formatICalDateOnly(booking.check_out);
+    // Use DATE-TIME intervals with explicit TZID at 00:00 local time.
+    // This blocks nights correctly without blocking the checkout day itself:
+    // check-in 17, check-out 20 => busy 17,18,19; day 20 stays free.
+    const dtStart = formatICalMoscowMidnight(booking.check_in);
+    const dtEnd = formatICalMoscowMidnight(booking.check_out);
     const summary = 'Занято'; // keep short & compatible
 
     // Stable UID helps Avito detect updates
-    const uid = `${dtStartDate}-${dtEndDate}@roomi.pro`;
+    const uid = `${dtStart}-${dtEnd}@roomi.pro`;
     
     ical += [
       'BEGIN:VEVENT',
       `UID:${uid}`,
       `DTSTAMP:${nowStr}`,
-      `DTSTART;VALUE=DATE:${dtStartDate}`,
-      `DTEND;VALUE=DATE:${dtEndDate}`,
+      `DTSTART;TZID=${tzid}:${dtStart}`,
+      `DTEND;TZID=${tzid}:${dtEnd}`,
       `SUMMARY:${summary}`,
       'STATUS:CONFIRMED',
       'TRANSP:OPAQUE', // BUSY
