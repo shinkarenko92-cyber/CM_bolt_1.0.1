@@ -161,7 +161,11 @@ export function BookingBlock({
             className="w-3 h-3 flex-shrink-0"
           />
         )}
-        <div className={`truncate ${hasGuestName ? 'font-bold text-white' : 'text-gray-600'} text-[11px]`}>
+        <div
+          className={`truncate text-[11px] font-medium ${
+            hasGuestName ? 'text-white' : 'text-white/90'
+          }`}
+        >
           {formatGuestDisplay(booking.guest_name, booking.guest_phone)}
         </div>
       </div>

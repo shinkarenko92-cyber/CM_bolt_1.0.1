@@ -54,6 +54,9 @@ export function Calendar({
   onBookingUpdate,
   onPropertiesUpdate,
 }: CalendarProps) {
+  // We want the left edge to show 2 days before the anchor day (today / selected date).
+  // With 60 days window where anchor is at index centerOffset, we scroll to (centerOffset - 2).
+  const DAYS_BEFORE_TODAY_VISIBLE = 2;
   const [currentDate, setCurrentDate] = useState(() => {
     const today = new Date();
     const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -168,7 +171,7 @@ export function Calendar({
     });
     
     const centerOffset = Math.floor(60 / 2);
-    const scrollLeft = centerOffset * CELL_WIDTH;
+    const scrollLeft = Math.max(0, (centerOffset - DAYS_BEFORE_TODAY_VISIBLE) * CELL_WIDTH);
 
     const scrollContainer = scrollContainerRef.current;
     if (scrollContainer) {
@@ -490,6 +493,14 @@ export function Calendar({
     newStartDate.setDate(newStartDate.getDate() - centerOffset);
 
     setCurrentDate(newStartDate);
+
+    // Even if currentDateTimestamp doesn't change (same start date), we still want to scroll.
+    // Otherwise "Сегодня" appears to do nothing.
+    const targetScrollLeft = Math.max(0, (centerOffset - DAYS_BEFORE_TODAY_VISIBLE) * CELL_WIDTH);
+    requestAnimationFrame(() => {
+      const sc = scrollContainerRef.current;
+      if (sc) sc.scrollTo({ left: targetScrollLeft, behavior: 'auto' });
+    });
   };
 
   const goToDate = (targetDate: Date) => {
@@ -928,7 +939,7 @@ export function Calendar({
                                       setShowConditionsModal(true);
                                     }}
                                   >
-                                    <div className="text-[10px] font-medium text-slate-500">
+                                    <div className="text-[10px] font-medium text-slate-300 tabular-nums">
                                       {displayMinStay}
                                     </div>
                                   </div>
@@ -971,7 +982,7 @@ export function Calendar({
                                     >
                                       {!isOccupied && (
                                         <div className="h-11 flex items-center justify-center text-center px-1">
-                                          <div className="text-[10px] font-medium text-slate-400 truncate">
+                                          <div className="text-[10px] font-medium text-slate-200 tabular-nums truncate">
                                             {displayPrice}
                                           </div>
                                         </div>
