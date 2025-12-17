@@ -32,7 +32,15 @@ function formatICalMoscowMidnight(dateStr: string): string {
 }
 
 // Generate iCal content
-function generateICal(bookings: Array<{ check_in: string; check_out: string; guest_name?: string | null }>, propertyId: string): string {
+type BookingRow = {
+  id: string;
+  check_in: string;
+  check_out: string;
+  guest_name?: string | null;
+  updated_at?: string | null;
+};
+
+function generateICal(bookings: BookingRow[], propertyId: string): string {
   const now = new Date();
   const nowStr = formatICalDate(now);
   
@@ -59,13 +67,17 @@ function generateICal(bookings: Array<{ check_in: string; check_out: string; gue
     const dtEnd = formatICalMoscowMidnight(booking.check_out);
     const summary = 'Занято'; // keep short & compatible
 
-    // Stable UID helps Avito detect updates; include property to avoid cross-property collisions.
-    const uid = `${propertyId}-${dtStart}-${dtEnd}@roomi.pro`;
+    // Stable UID helps Avito detect updates.
+    // IMPORTANT: use booking.id so when a booking is deleted/recreated (new id),
+    // Avito sees a truly "new" external event and is more likely to auto-cancel pending requests.
+    const uid = `${propertyId}-${booking.id}@roomi.pro`;
+    const lastModified = booking.updated_at ? formatICalDate(new Date(booking.updated_at)) : nowStr;
     
     ical += [
       'BEGIN:VEVENT',
       `UID:${uid}`,
       `DTSTAMP:${nowStr}`,
+      `LAST-MODIFIED:${lastModified}`,
       `DTSTART:${dtStart}`,
       `DTEND:${dtEnd}`,
       `SUMMARY:${summary}`,
@@ -177,7 +189,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: bookings, error: bookingsError } = await supabase
       .from("bookings")
-      .select("check_in, check_out, guest_name, source")
+      .select("id, check_in, check_out, guest_name, source, updated_at")
       .eq("property_id", propertyId)
       .gte("check_out", todayStr) // Only future bookings (check_out >= today) - BUSY events
       .neq("status", "cancelled") // Exclude cancelled bookings - they don't block dates
@@ -220,7 +232,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Generate iCal (even if no bookings - return empty calendar)
-    const icalContent = generateICal(exportedBookings, propertyId);
+    const icalContent = generateICal(exportedBookings as BookingRow[], propertyId);
 
     return new Response(icalContent, {
       status: 200,
