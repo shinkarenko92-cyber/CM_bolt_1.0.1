@@ -175,7 +175,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: bookings, error: bookingsError } = await supabase
       .from("bookings")
-      .select("check_in, check_out, guest_name")
+      .select("check_in, check_out, guest_name, source")
       .eq("property_id", propertyId)
       .gte("check_out", todayStr) // Only future bookings (check_out >= today) - BUSY events
       .neq("status", "cancelled") // Exclude cancelled bookings - they don't block dates
@@ -192,11 +192,16 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const bookingsCount = bookings?.length || 0;
-    console.log("iCal generated for property_id:", propertyId, "events:", bookingsCount);
+    const fetchedCount = bookings?.length || 0;
+
+    // Avito should not receive its own bookings back via iCal; we only export blocks from other sources.
+    const exportedBookings =
+      (bookings || []).filter((b: { source?: string | null }) => (b.source ?? "").toLowerCase() !== "avito");
+
+    console.log("iCal generated for property_id:", propertyId, "fetched:", fetchedCount, "exported_events:", exportedBookings.length);
 
     // Generate iCal (even if no bookings - return empty calendar)
-    const icalContent = generateICal(bookings || []);
+    const icalContent = generateICal(exportedBookings);
 
     return new Response(icalContent, {
       status: 200,
