@@ -13,6 +13,22 @@ DECLARE
   v_prop3_id uuid;
   v_prop4_id uuid;
 BEGIN
+  -- This migration is for local/dev demo data. It must never break remote migration runs.
+  -- If the schema isn't ready (tables/columns not created yet), safely no-op.
+  IF to_regclass('public.profiles') IS NULL
+     OR to_regclass('public.properties') IS NULL
+     OR to_regclass('public.bookings') IS NULL
+     OR NOT EXISTS (
+       SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'profiles'
+         AND column_name = 'subscription_tier'
+     )
+  THEN
+    RAISE NOTICE 'Skipping test data migration: required tables/columns are not present yet.';
+    RETURN;
+  END IF;
   
   -- First, check if profile exists, if not create it
   INSERT INTO profiles (id, full_name, email, subscription_tier, created_at, updated_at)
