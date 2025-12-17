@@ -7,6 +7,10 @@ on:
         description: 'Prompt для генерации файлов через Claude'
         required: false
         default: 'Сгенерируй markdown документацию для проекта Roomi Pro.'
+      deploy_prod:
+        description: 'Deploy to Vercel production (manual only)'
+        required: false
+        default: 'false'
   push:
     branches: [ main ]
   pull_request:
@@ -91,7 +95,9 @@ jobs:
 
   deploy:
     needs: test-and-build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Vercel Hobby/Free has strict deployment limits. Also, if Vercel Git Integration is enabled,
+    # this job duplicates deployments (counts twice). Keep deploy manual-only.
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_prod == 'true'
     runs-on: ubuntu-latest
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
