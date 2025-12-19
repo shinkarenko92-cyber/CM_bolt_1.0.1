@@ -957,7 +957,6 @@ export function Calendar({
                                 const rate = getRateForDate(property.id, date);
                                 const displayMinStay = rate?.min_stay || property.minimum_booking_days;
                                 const dateString = date.toISOString().split('T')[0];
-                                const displayPrice = Math.round(rate?.daily_price || property.base_price);
                                 const isPopoverOpen = minStayPopoverOpen?.propertyId === property.id && minStayPopoverOpen?.date === dateString;
 
                                 return (
