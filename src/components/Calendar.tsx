@@ -7,7 +7,6 @@ import { Property, Booking, PropertyRate, supabase } from '../lib/supabase';
 import { CalendarHeader } from './CalendarHeader';
 import { BookingBlock } from './BookingBlock';
 import { ChangeConditionsModal } from './ChangeConditionsModal';
-import { MinStayModal } from './MinStayModal';
 import { SortablePropertyRow } from './SortablePropertyRow';
 import {
   DndContext,
@@ -98,13 +97,6 @@ export function Calendar({
     currency: string;
   } | null>(null);
   const [minStayPopoverOpen, setMinStayPopoverOpen] = useState<{ propertyId: string; date: string } | null>(null);
-  const [showMinStayModal, setShowMinStayModal] = useState(false);
-  const [minStayModalData, setMinStayModalData] = useState<{
-    propertyId: string;
-    startDate: string;
-    endDate: string;
-    minStay: number;
-  } | null>(null);
   const [minStayValue, setMinStayValue] = useState<number>(1);
   const [isSavingMinStay, setIsSavingMinStay] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -708,87 +700,19 @@ export function Calendar({
           endDate: null,
         });
       } else {
-        // Обе даты выбраны - открываем модальное окно для редактирования min stay
-        const property = properties.find(p => p.id === propertyId);
-        const rate = getRateForDate(propertyId, start);
-        const displayMinStay = rate?.min_stay || property?.minimum_booking_days || 1;
-        
+        // Обе даты выбраны - сразу открываем форму бронирования
         setDateSelection({
           propertyId,
           startDate: dateSelection.startDate,
           endDate: dateString,
         });
 
-        // Открываем модальное окно для редактирования min stay
-        setMinStayModalData({
-          propertyId,
-          startDate: dateSelection.startDate,
-          endDate: dateString,
-          minStay: displayMinStay,
-        });
-        setShowMinStayModal(true);
+        // check_out должен быть exclusive - добавляем 1 день к последней выбранной дате
+        const checkOutDate = addDays(end, 1);
+        const checkOutString = format(checkOutDate, 'yyyy-MM-dd');
+
+        onAddReservation(propertyId, dateSelection.startDate, checkOutString);
       }
-    }
-  };
-
-  const handleMinStayModalSave = async (minStay: number) => {
-    if (!minStayModalData) return;
-
-    const { propertyId, startDate, endDate } = minStayModalData;
-    const property = properties.find(p => p.id === propertyId);
-    if (!property) return;
-
-    // Обновляем min_stay для всех дат в диапазоне
-    const start = parseISO(startDate);
-    const end = parseISO(endDate);
-    const dates: string[] = [];
-    
-    for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
-      dates.push(format(d, 'yyyy-MM-dd'));
-    }
-
-    try {
-      // Получаем текущие rates для дат
-      const { data: existingRates } = await supabase
-        .from('property_rates')
-        .select('*')
-        .eq('property_id', propertyId)
-        .in('date', dates);
-
-      const rateRecords = dates.map((date) => {
-        const existingRate = existingRates?.find(r => r.date === date);
-        return {
-          property_id: propertyId,
-          date,
-          daily_price: existingRate?.daily_price || property.base_price,
-          min_stay: minStay,
-          currency: existingRate?.currency || property.currency,
-        };
-      });
-
-      const { error } = await supabase
-        .from('property_rates')
-        .upsert(rateRecords, {
-          onConflict: 'property_id,date',
-        });
-
-      if (error) throw error;
-
-      // Обновляем rates в состоянии
-      await loadPropertyRates();
-
-      // Закрываем модальное окно и открываем форму бронирования
-      setShowMinStayModal(false);
-      setMinStayModalData(null);
-
-      // check_out должен быть exclusive - добавляем 1 день к последней выбранной дате
-      const checkOutDate = addDays(parseISO(endDate), 1);
-      const checkOutString = format(checkOutDate, 'yyyy-MM-dd');
-
-      onAddReservation(propertyId, startDate, checkOutString);
-    } catch (error) {
-      console.error('Error saving min stay:', error);
-      toast.error('Ошибка при сохранении минимального срока');
     }
   };
 
@@ -1244,22 +1168,6 @@ export function Calendar({
           currentMinStay={conditionsModalData.minStay}
           currency={conditionsModalData.currency}
           properties={properties}
-        />
-      )}
-
-      {showMinStayModal && minStayModalData && (
-        <MinStayModal
-          isOpen={showMinStayModal}
-          onClose={() => {
-            setShowMinStayModal(false);
-            setMinStayModalData(null);
-            resetDateSelection();
-          }}
-          onSave={handleMinStayModalSave}
-          propertyId={minStayModalData.propertyId}
-          startDate={minStayModalData.startDate}
-          endDate={minStayModalData.endDate}
-          currentMinStay={minStayModalData.minStay}
         />
       )}
 
