@@ -57,6 +57,7 @@ export function Calendar({
   onEditReservation,
   onBookingUpdate,
   onPropertiesUpdate,
+  onDateSelectionReset,
 }: CalendarProps) {
   // We want the left edge to show 2 days before the anchor day (today / selected date).
   // With 60 days window where anchor is at index centerOffset, we scroll to (centerOffset - 2).
