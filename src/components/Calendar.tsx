@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, Settings } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Popover, InputNumber, Button } from 'antd';
-import { parseISO, format, addDays, isAfter, isBefore, isSameDay } from 'date-fns';
+import { parseISO, format, addDays, isBefore, isSameDay } from 'date-fns';
 import { Property, Booking, PropertyRate, supabase } from '../lib/supabase';
 import { CalendarHeader } from './CalendarHeader';
 import { BookingBlock } from './BookingBlock';
@@ -809,12 +809,13 @@ export function Calendar({
   // Expose resetDateSelection to parent via window
   useEffect(() => {
     if (onDateSelectionReset) {
-      (window as any).__calendarResetDateSelection = resetDateSelection;
+      (window as Window & { __calendarResetDateSelection?: () => void }).__calendarResetDateSelection = resetDateSelection;
     }
     return () => {
-      delete (window as any).__calendarResetDateSelection;
+      delete (window as Window & { __calendarResetDateSelection?: () => void }).__calendarResetDateSelection;
     };
-  }, [onDateSelectionReset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getRateForDate = (propertyId: string, date: Date): PropertyRate | null => {
     const rates = propertyRates.get(propertyId) || [];

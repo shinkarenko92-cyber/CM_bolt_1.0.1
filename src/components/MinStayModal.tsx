@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Modal, InputNumber, Button } from 'antd';
-import { useTranslation } from 'react-i18next';
+import { Modal, InputNumber } from 'antd';
 
 interface MinStayModalProps {
   isOpen: boolean;
@@ -20,7 +19,6 @@ export function MinStayModal({
   endDate,
   currentMinStay,
 }: MinStayModalProps) {
-  const { t } = useTranslation();
   const [minStay, setMinStay] = useState<number>(currentMinStay);
   const [loading, setLoading] = useState(false);
 

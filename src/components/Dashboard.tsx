@@ -1063,8 +1063,9 @@ export function Dashboard() {
                 setSelectedPropertyIds([]);
                 setPrefilledDates(null);
                 // Reset date selection in Calendar via window function
-                if ((window as any).__calendarResetDateSelection) {
-                  (window as any).__calendarResetDateSelection();
+                const resetFn = (window as Window & { __calendarResetDateSelection?: () => void }).__calendarResetDateSelection;
+                if (resetFn) {
+                  resetFn();
                 }
               }}
               properties={properties}
