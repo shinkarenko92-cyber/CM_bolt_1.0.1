@@ -1052,6 +1052,9 @@ export function Dashboard() {
               onPropertiesUpdate={(updatedProperties) => {
                 setProperties(updatedProperties);
               }}
+              onDateSelectionReset={() => {
+                // Callback for date selection reset (optional)
+              }}
             />
             <AddReservationModal
               isOpen={isAddModalOpen}
@@ -1059,6 +1062,10 @@ export function Dashboard() {
                 setIsAddModalOpen(false);
                 setSelectedPropertyIds([]);
                 setPrefilledDates(null);
+                // Reset date selection in Calendar via window function
+                if ((window as any).__calendarResetDateSelection) {
+                  (window as any).__calendarResetDateSelection();
+                }
               }}
               properties={properties}
               selectedProperties={selectedPropertyIds}

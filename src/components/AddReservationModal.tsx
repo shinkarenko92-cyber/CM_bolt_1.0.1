@@ -81,13 +81,27 @@ export function AddReservationModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.property_id, formData.check_in, formData.check_out]);
 
-  // Обновляем текущие условия при изменении дат или property
+  // Обновляем текущие условия при изменении дат или property и автоматически заполняем цены
   useEffect(() => {
-    if (formData.property_id && formData.check_in && formData.check_out) {
+    if (formData.property_id && formData.check_in && formData.check_out && !calculatingPrice) {
       getCurrentConditions(formData.property_id, formData.check_in, formData.check_out)
         .then((conditions) => {
           setCurrentDailyPrice(conditions.dailyPrice);
           setCurrentMinStay(conditions.minStay);
+          
+          // Автоматически заполняем цены из календаря
+          const nights = calculateNights(formData.check_in, formData.check_out);
+          if (nights > 0) {
+            const extraServices = parseFloat(formData.extra_services_amount) || 0;
+            const totalPrice = Math.round(conditions.dailyPrice * nights + extraServices);
+            const pricePerNight = Math.round(conditions.dailyPrice);
+            
+            setFormData(prev => ({
+              ...prev,
+              price_per_night: pricePerNight.toString(),
+              total_price: totalPrice.toString(),
+            }));
+          }
         })
         .catch((error) => {
           console.error('Error loading property rates:', error);
@@ -96,11 +110,25 @@ export function AddReservationModal({
           if (property) {
             setCurrentDailyPrice(property.base_price || 0);
             setCurrentMinStay(property.minimum_booking_days || 1);
+            
+            // Заполняем цены из base_price
+            const nights = calculateNights(formData.check_in, formData.check_out);
+            if (nights > 0) {
+              const extraServices = parseFloat(formData.extra_services_amount) || 0;
+              const totalPrice = Math.round((property.base_price || 0) * nights + extraServices);
+              const pricePerNight = Math.round(property.base_price || 0);
+              
+              setFormData(prev => ({
+                ...prev,
+                price_per_night: pricePerNight.toString(),
+                total_price: totalPrice.toString(),
+              }));
+            }
           }
         });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.property_id, formData.check_in, formData.check_out]);
+  }, [formData.property_id, formData.check_in, formData.check_out, formData.extra_services_amount]);
 
   // Пересчет total_price при изменении price_per_night или extra_services_amount
   useEffect(() => {
