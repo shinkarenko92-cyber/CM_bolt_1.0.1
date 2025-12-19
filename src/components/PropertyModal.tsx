@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { X, Calendar, Copy } from 'lucide-react';
-import { Badge, Button, Input, InputNumber, Modal, message } from 'antd';
+import { X, Calendar, Copy, Trash2 } from 'lucide-react';
+import { Badge, Button, Input, InputNumber, Modal, message, Select } from 'antd';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { Property, PropertyIntegration } from '../lib/supabase';
@@ -41,6 +41,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   const [isAvitoModalOpen, setIsAvitoModalOpen] = useState(false);
   const [isEditMarkupModalOpen, setIsEditMarkupModalOpen] = useState(false);
   const [newMarkup, setNewMarkup] = useState<number>(15);
+  const [newMarkupType, setNewMarkupType] = useState<'percent' | 'rub'>('percent');
   const [isEditingItemId, setIsEditingItemId] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string>('');
 
@@ -74,7 +75,14 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     
     setAvitoIntegration(data);
     if (data?.avito_markup) {
-      setNewMarkup(data.avito_markup);
+      const markupValue = data.avito_markup;
+      if (markupValue < 0) {
+        setNewMarkupType('rub');
+        setNewMarkup(Math.abs(markupValue));
+      } else {
+        setNewMarkupType('percent');
+        setNewMarkup(markupValue);
+      }
     }
     
     // Show warning if old integration (missing avito_item_id)
@@ -247,7 +255,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     try {
       const { error } = await supabase
         .from('integrations')
-        .update({ avito_markup: newMarkup })
+        .update({ avito_markup: newMarkupType === 'rub' ? -newMarkup : newMarkup })
         .eq('id', avitoIntegration.id);
       
       if (error) throw error;
@@ -846,7 +854,11 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                           <Button onClick={handleDisconnectAvito}>
                             Отключить
                           </Button>
-                          <Button danger onClick={handleDeleteAvito}>
+                          <Button 
+                            onClick={handleDeleteAvito}
+                            className="bg-red-600 hover:bg-red-700 text-white border-red-600"
+                            icon={<Trash2 className="w-4 h-4" />}
+                          >
                             Удалить
                           </Button>
                         </div>
@@ -883,9 +895,10 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                 <button
                   type="button"
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded transition"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition flex items-center gap-2"
                   disabled={loading}
                 >
+                  <Trash2 className="w-4 h-4" />
                   Удалить
                 </button>
               )}
@@ -932,19 +945,37 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
           cancelText="Отмена"
         >
           <div className="py-4">
-            <label className="block text-sm text-slate-300 mb-2">Наценка (%)</label>
-            <InputNumber
-              style={{ width: '100%' }}
-              min={0}
-              max={100}
-              value={newMarkup}
-              onChange={(value) => setNewMarkup(value !== null && value !== undefined ? value : 15)}
-              formatter={(value) => `${value}%`}
-              parser={(value) => parseFloat(value?.replace('%', '') || '0')}
-            />
-            <p className="text-xs text-slate-500 mt-2">
-              Цена на Avito = базовая цена + {newMarkup}%
-            </p>
+            <label className="block text-sm text-slate-300 mb-2">Наценка</label>
+            <div className="flex gap-2 mb-2">
+              <Select
+                value={newMarkupType}
+                onChange={setNewMarkupType}
+                style={{ width: 100 }}
+                options={[
+                  { label: '%', value: 'percent' },
+                  { label: 'Руб', value: 'rub' },
+                ]}
+              />
+              <InputNumber
+                style={{ flex: 1 }}
+                min={0}
+                max={newMarkupType === 'percent' ? 100 : undefined}
+                value={newMarkup}
+                onChange={(value) => setNewMarkup(value !== null && value !== undefined ? value : (newMarkupType === 'percent' ? 15 : 0))}
+                formatter={(value) => newMarkupType === 'percent' ? `${value}%` : `${value} руб`}
+                parser={(value) => parseFloat(value?.replace(/[%\sруб]/g, '') || '0')}
+              />
+            </div>
+            <div className="mt-3 p-3 bg-slate-800 rounded border border-slate-700">
+              <p className="text-sm text-slate-300">
+                <span className="text-slate-400">Base 5000</span>
+                {newMarkupType === 'percent' ? (
+                  <span> + {newMarkup}% = <span className="text-white font-semibold">{Math.round(5000 * (1 + newMarkup / 100))}</span></span>
+                ) : (
+                  <span> + {newMarkup} руб = <span className="text-white font-semibold">{5000 + newMarkup}</span></span>
+                )}
+              </p>
+            </div>
           </div>
         </Modal>
       </div>

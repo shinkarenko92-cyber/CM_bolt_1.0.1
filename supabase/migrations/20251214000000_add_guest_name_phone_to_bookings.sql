@@ -24,3 +24,4 @@ COMMENT ON COLUMN bookings.guest_phone IS 'Guest phone number in international f
 
 
 
+

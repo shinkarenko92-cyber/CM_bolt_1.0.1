@@ -118,7 +118,7 @@ export function RateCell({
       title="Double-click to edit rate"
     >
       <div className="text-xs font-medium text-slate-400 tabular-nums">
-        {displayPrice} {displayCurrency}
+        {Math.round(displayPrice)} {displayCurrency}
       </div>
       <div className="text-[10px] text-slate-400 font-medium tabular-nums mt-0.5">
         {displayMinStay}

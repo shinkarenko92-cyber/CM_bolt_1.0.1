@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Modal, Steps, Button, Input, InputNumber, Spin, message } from 'antd';
+import { Modal, Steps, Button, Input, InputNumber, Spin, message, Select } from 'antd';
 import { CheckCircleOutlined, LoadingOutlined, CopyOutlined } from '@ant-design/icons';
 import { Property, supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
@@ -41,6 +41,8 @@ export function AvitoConnectModal({
   const [userId, setUserId] = useState<string>('');
   const [itemId, setItemId] = useState<string>('');
   const [markup, setMarkup] = useState<number>(15);
+  const [markupType, setMarkupType] = useState<'percent' | 'rub'>('percent');
+  const [markupType, setMarkupType] = useState<'percent' | 'rub'>('percent');
   const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [icalUrl, setIcalUrl] = useState<string>('');
@@ -397,7 +399,7 @@ export function AvitoConnectModal({
           .update({
             avito_user_id: userIdNumber,
             avito_item_id: itemIdNumber,
-            avito_markup: markup,
+            avito_markup: markupType === 'rub' ? -markup : markup,
             external_id: trimmedItemId,
             is_active: true,
           })
@@ -414,7 +416,7 @@ export function AvitoConnectModal({
             platform: 'avito',
             avito_user_id: userIdNumber,
             avito_item_id: itemIdNumber,
-            avito_markup: markup,
+            avito_markup: markupType === 'rub' ? -markup : markup,
             external_id: trimmedItemId,
             is_active: true,
           }, {
@@ -701,18 +703,36 @@ export function AvitoConnectModal({
 
             <div className="mb-6">
               <p className="text-white mb-2 font-medium">Наценка для компенсации комиссии:</p>
-              <p className="text-sm text-slate-300 mb-4">
-                Цена на Avito = базовая цена + наценка (%)
-              </p>
-              <InputNumber
-                style={{ width: '100%' }}
-                min={0}
-                max={100}
-                value={markup}
-                onChange={(value) => setMarkup(value !== null && value !== undefined ? value : 15)}
-                formatter={(value) => `${value}%`}
-                parser={(value) => parseFloat(value?.replace('%', '') || '0')}
-              />
+              <div className="flex gap-2 mb-2">
+                <Select
+                  value={markupType}
+                  onChange={setMarkupType}
+                  style={{ width: 100 }}
+                  options={[
+                    { label: '%', value: 'percent' },
+                    { label: 'Руб', value: 'rub' },
+                  ]}
+                />
+                <InputNumber
+                  style={{ flex: 1 }}
+                  min={0}
+                  max={markupType === 'percent' ? 100 : undefined}
+                  value={markup}
+                  onChange={(value) => setMarkup(value !== null && value !== undefined ? value : (markupType === 'percent' ? 15 : 0))}
+                  formatter={(value) => markupType === 'percent' ? `${value}%` : `${value} руб`}
+                  parser={(value) => parseFloat(value?.replace(/[%\sруб]/g, '') || '0')}
+                />
+              </div>
+              <div className="mt-3 p-3 bg-slate-800 rounded border border-slate-700">
+                <p className="text-sm text-slate-300">
+                  <span className="text-slate-400">Base 5000</span>
+                  {markupType === 'percent' ? (
+                    <span> + {markup}% = <span className="text-white font-semibold">{Math.round(5000 * (1 + markup / 100))}</span></span>
+                  ) : (
+                    <span> + {markup} руб = <span className="text-white font-semibold">{5000 + markup}</span></span>
+                  )}
+                </p>
+              </div>
             </div>
 
             <div className="flex gap-2 mt-4">

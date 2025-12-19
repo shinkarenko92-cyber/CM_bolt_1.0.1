@@ -187,7 +187,7 @@ export function BookingBlock({
           </div>
           <div>
             <span className="text-slate-400">Цена:</span>{' '}
-            {booking.total_price} {booking.currency}
+            {Math.round(booking.total_price)} {booking.currency}
           </div>
           {booking.guest_phone && (
             <div className="flex items-center gap-2">

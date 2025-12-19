@@ -44,6 +44,7 @@ export type Booking = {
   currency: string;
   status: string;
   notes: string | null;
+  extra_services_amount?: number; // Additional services cost in rubles (integer)
   created_at: string;
   updated_at: string;
 };

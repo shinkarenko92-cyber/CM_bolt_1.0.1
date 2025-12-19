@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, Settings } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { Popover, InputNumber, Button } from 'antd';
 import { Property, Booking, PropertyRate, supabase } from '../lib/supabase';
 import { CalendarHeader } from './CalendarHeader';
 import { BookingBlock } from './BookingBlock';
@@ -92,6 +93,9 @@ export function Calendar({
     minStay: number;
     currency: string;
   } | null>(null);
+  const [minStayPopoverOpen, setMinStayPopoverOpen] = useState<{ propertyId: string; date: string } | null>(null);
+  const [minStayValue, setMinStayValue] = useState<number>(1);
+  const [isSavingMinStay, setIsSavingMinStay] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const seenPropertyIds = useRef<Set<string>>(new Set());
@@ -470,6 +474,49 @@ export function Calendar({
     }
   };
 
+  const handleSaveMinStay = async (propertyId: string, date: string, minStay: number) => {
+    if (minStay < 1) {
+      toast.error('Минимальный срок должен быть не менее 1 дня');
+      return;
+    }
+
+    setIsSavingMinStay(true);
+    try {
+      const property = properties.find(p => p.id === propertyId);
+      if (!property) {
+        toast.error('Объект не найден');
+        return;
+      }
+
+      const rate = getRateForDate(propertyId, new Date(date));
+      const rateRecord = {
+        property_id: propertyId,
+        date,
+        daily_price: rate?.daily_price || property.base_price,
+        min_stay: minStay,
+        currency: rate?.currency || property.currency,
+      };
+
+      const { error } = await supabase
+        .from('property_rates')
+        .upsert(rateRecord, {
+          onConflict: 'property_id,date',
+        });
+
+      if (error) throw error;
+
+      // Refresh rates
+      await loadPropertyRates();
+      setMinStayPopoverOpen(null);
+      toast.success('Минимальный срок обновлен');
+    } catch (error) {
+      console.error('Error saving min stay:', error);
+      toast.error('Ошибка при сохранении минимального срока');
+    } finally {
+      setIsSavingMinStay(false);
+    }
+  };
+
   const togglePropertyExpansion = (propertyId: string) => {
     const newExpanded = new Set(expandedProperties);
     if (newExpanded.has(propertyId)) {
@@ -707,23 +754,23 @@ export function Calendar({
     const overId = over.id as string;
 
     // Группы удалены: плоский reorder объектов
-    await handlePropertyReorder(activeId, overId);
+      await handlePropertyReorder(activeId, overId);
 
     // Обновляем список properties через callback
     if (onPropertiesUpdate && properties.length > 0) {
       try {
         // Сначала пытаемся загрузить без сортировки, чтобы избежать ошибки PGRST204
         const { data, error } = await supabase
-          .from('properties')
-          .select('*')
+        .from('properties')
+        .select('*')
           .in('id', properties.map(p => p.id));
         
         if (error) {
           console.error('Error loading properties:', error);
           return;
         }
-        
-        if (data) {
+      
+      if (data) {
           // Сортируем вручную: сначала по sort_order (если есть), потом по created_at
           const sorted = data.sort((a, b) => {
             const aSort = ('sort_order' in a && typeof a.sort_order === 'number') ? a.sort_order : Number.MAX_SAFE_INTEGER;
@@ -744,11 +791,11 @@ export function Calendar({
   const handlePropertyReorder = async (activeId: string, overId: string) => {
     const activeIndex = sortedProperties.findIndex(p => p.id === activeId);
     const overIndex = sortedProperties.findIndex(p => p.id === overId);
-    if (activeIndex === -1 || overIndex === -1) return;
+      if (activeIndex === -1 || overIndex === -1) return;
 
     const reordered = arrayMove(sortedProperties, activeIndex, overIndex);
-
-    for (let i = 0; i < reordered.length; i++) {
+      
+      for (let i = 0; i < reordered.length; i++) {
       try {
         const { error } = await supabase
           .from('properties')
@@ -816,10 +863,10 @@ export function Calendar({
             {/* Dates header row: lives inside the same scroll container as the grid to avoid scroll-sync lag */}
             <div className="flex border-b border-slate-700 bg-slate-800 sticky top-0 z-20 min-w-max">
               <div className="w-64 flex-shrink-0 sticky left-0 z-30 border-r border-slate-700 bg-slate-800">
-                <div className="h-14 flex items-center justify-center">
-                  <span className="text-sm text-slate-400">Объекты</span>
-                </div>
+              <div className="h-14 flex items-center justify-center">
+                <span className="text-sm text-slate-400">Объекты</span>
               </div>
+            </div>
               <div className="flex" style={{ width: `${dates.length * CELL_WIDTH}px` }}>
                 {dates.map((date, i) => {
                   const today = new Date();
@@ -845,8 +892,8 @@ export function Calendar({
                     </div>
                   );
                 })}
-              </div>
             </div>
+          </div>
 
             <DndContext
               sensors={sensors}
@@ -867,36 +914,36 @@ export function Calendar({
                     });
                     
                     try {
-                      const propFirst = new Date(dates[0]);
-                      const propFirstVisibleDate = new Date(propFirst.getFullYear(), propFirst.getMonth(), propFirst.getDate(), 0, 0, 0, 0);
-                      const propLast = new Date(dates[dates.length - 1]);
-                      const propLastVisibleDate = new Date(propLast.getFullYear(), propLast.getMonth(), propLast.getDate(), 23, 59, 59, 999);
+                              const propFirst = new Date(dates[0]);
+                              const propFirstVisibleDate = new Date(propFirst.getFullYear(), propFirst.getMonth(), propFirst.getDate(), 0, 0, 0, 0);
+                              const propLast = new Date(dates[dates.length - 1]);
+                              const propLastVisibleDate = new Date(propLast.getFullYear(), propLast.getMonth(), propLast.getDate(), 23, 59, 59, 999);
 
-                      const propBookings = bookings.filter((b) => {
-                        if (b.property_id !== property.id) return false;
+                              const propBookings = bookings.filter((b) => {
+                                if (b.property_id !== property.id) return false;
 
-                        const checkInDate = new Date(b.check_in);
-                        const checkIn = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
-                        const checkOutDate = new Date(b.check_out);
-                        const checkOut = new Date(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate());
+                                const checkInDate = new Date(b.check_in);
+                                const checkIn = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
+                                const checkOutDate = new Date(b.check_out);
+                                const checkOut = new Date(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate());
 
-                        return checkOut > propFirstVisibleDate && checkIn <= propLastVisibleDate;
-                      });
+                                return checkOut > propFirstVisibleDate && checkIn <= propLastVisibleDate;
+                              });
 
-                      const isExpanded = expandedProperties.has(property.id);
-                      const bookingLayers = getBookingLayers(propBookings);
-                      const rowHeight = Math.max(44, bookingLayers.length * 32 + 16);
-                      const collapsedHeight = 48;
-                      const totalRowHeight = isExpanded ? 32 + rowHeight : collapsedHeight;
+                              const isExpanded = expandedProperties.has(property.id);
+                              const bookingLayers = getBookingLayers(propBookings);
+                              const rowHeight = Math.max(44, bookingLayers.length * 32 + 16);
+                              const collapsedHeight = 48;
+                              const totalRowHeight = isExpanded ? 32 + rowHeight : collapsedHeight;
 
-                      return (
-                        <SortablePropertyRow
-                          key={property.id}
-                          property={property}
-                          isExpanded={isExpanded}
-                          onToggle={() => togglePropertyExpansion(property.id)}
-                          totalRowHeight={totalRowHeight}
-                        >
+                              return (
+                                <SortablePropertyRow
+                                  key={property.id}
+                                  property={property}
+                                  isExpanded={isExpanded}
+                                  onToggle={() => togglePropertyExpansion(property.id)}
+                                  totalRowHeight={totalRowHeight}
+                                >
                                   <div 
                                     className="flex-shrink-0"
                                     // Keep grid width aligned with header. Adding +256px here causes a 4-day (256px) visual offset.
@@ -910,28 +957,60 @@ export function Calendar({
                                 const rate = getRateForDate(property.id, date);
                                 const displayMinStay = rate?.min_stay || property.minimum_booking_days;
                                 const dateString = date.toISOString().split('T')[0];
-                                const displayPrice = rate?.daily_price || property.base_price;
+                                const displayPrice = Math.round(rate?.daily_price || property.base_price);
+                                const isPopoverOpen = minStayPopoverOpen?.propertyId === property.id && minStayPopoverOpen?.date === dateString;
 
                                 return (
-                                  <div
+                                  <Popover
                                     key={i}
-                                    className="w-16 flex-shrink-0 border-r border-slate-600 flex items-center justify-center cursor-pointer hover:bg-slate-700/50 transition-colors"
-                                    onClick={() => {
-                                      setConditionsModalData({
-                                        propertyId: property.id,
-                                        startDate: dateString,
-                                        endDate: dateString,
-                                        price: displayPrice,
-                                        minStay: displayMinStay,
-                                        currency: property.currency,
-                                      });
-                                      setShowConditionsModal(true);
+                                    open={isPopoverOpen}
+                                    onOpenChange={(open) => {
+                                      if (open) {
+                                        setMinStayPopoverOpen({ propertyId: property.id, date: dateString });
+                                        setMinStayValue(displayMinStay);
+                                      } else {
+                                        setMinStayPopoverOpen(null);
+                                      }
                                     }}
+                                    content={
+                                      <div className="p-2 space-y-2 min-w-[200px]">
+                                        <div className="text-sm text-white mb-2">Минимальный срок бронирования</div>
+                                        <InputNumber
+                                          value={minStayValue}
+                                          onChange={(value) => setMinStayValue(value || 1)}
+                                          min={1}
+                                          className="w-full"
+                                          autoFocus
+                                        />
+                                        <div className="flex gap-2 justify-end">
+                                          <Button
+                                            size="small"
+                                            onClick={() => setMinStayPopoverOpen(null)}
+                                          >
+                                            Отмена
+                                          </Button>
+                                          <Button
+                                            type="primary"
+                                            size="small"
+                                            loading={isSavingMinStay}
+                                            onClick={() => handleSaveMinStay(property.id, dateString, minStayValue)}
+                                          >
+                                            Сохранить
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    }
+                                    trigger="click"
+                                    placement="bottom"
                                   >
-                                    <div className="text-[10px] font-medium text-slate-300 tabular-nums">
-                                      {displayMinStay}
+                                    <div
+                                      className="w-16 flex-shrink-0 border-r border-slate-600 flex items-center justify-center cursor-pointer hover:bg-slate-700/50 transition-colors"
+                                    >
+                                      <div className="text-[10px] font-medium text-slate-300 tabular-nums">
+                                        {displayMinStay}
+                                      </div>
                                     </div>
-                                  </div>
+                                  </Popover>
                                 );
                               })}
                             </div>
@@ -956,7 +1035,7 @@ export function Calendar({
                                     dateString <= dateSelection.endDate;
                                   const isOccupied = isCellOccupied(property.id, date);
                                   const rate = getRateForDate(property.id, date);
-                                  const displayPrice = rate?.daily_price || property.base_price;
+                                  const displayPrice = Math.round(rate?.daily_price || property.base_price);
                                   const isDragOverThisCell = dragOverDates.has(dateString) && dragOverCell?.propertyId === property.id;
                                   const dragOverColor = isDragValid ? 'bg-green-500/30' : 'bg-red-500/30';
 
@@ -1020,15 +1099,15 @@ export function Calendar({
                         <div className="h-full bg-slate-800/50 border-b border-slate-700" />
                       )}
                                   </div>
-                        </SortablePropertyRow>
-                      );
+                                </SortablePropertyRow>
+                              );
                     } catch (error) {
                       console.error('Error rendering property:', property.id, error);
                       return (
                         <div key={property.id} className="p-4 bg-red-900/20 text-red-400">
                           Ошибка отображения объекта: {property.name}
-                        </div>
-                      );
+                      </div>
+                    );
                     }
                   })}
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { differenceInDays, parseISO } from 'date-fns';
 import { Property, supabase } from '../lib/supabase';
 import { ChangeConditionsModal } from './ChangeConditionsModal';
 
@@ -21,6 +22,7 @@ interface AddReservationModalProps {
     source: string;
     guests_count: number;
     notes?: string | null;
+    extra_services_amount?: number;
   }) => Promise<void>;
   selectedProperties?: string[];
   prefilledDates?: { propertyId: string; checkIn: string; checkOut: string } | null;
@@ -44,6 +46,7 @@ export function AddReservationModal({
     check_out: '',
     price_per_night: '',
     total_price: '',
+    extra_services_amount: '0',
     currency: 'RUB',
     status: 'confirmed',
     source: 'manual',
@@ -99,21 +102,39 @@ export function AddReservationModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.property_id, formData.check_in, formData.check_out]);
 
-  // Пересчет total_price при изменении price_per_night (только если не идет автоматический расчет)
+  // Пересчет total_price при изменении price_per_night или extra_services_amount
   useEffect(() => {
     if (!calculatingPrice && formData.price_per_night && formData.check_in && formData.check_out) {
       const nights = calculateNights(formData.check_in, formData.check_out);
       if (nights > 0) {
         const pricePerNight = parseFloat(formData.price_per_night) || 0;
-        const newTotalPrice = (pricePerNight * nights).toFixed(2);
+        const extraServices = parseFloat(formData.extra_services_amount) || 0;
+        const newTotalPrice = Math.round(pricePerNight * nights + extraServices);
         setFormData(prev => ({
           ...prev,
-          total_price: newTotalPrice,
+          total_price: newTotalPrice.toString(),
         }));
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.price_per_night, calculatingPrice]);
+  }, [formData.price_per_night, formData.extra_services_amount, calculatingPrice]);
+
+  // Пересчет price_per_night при изменении total_price (если меняем total вручную)
+  useEffect(() => {
+    if (!calculatingPrice && formData.total_price && formData.check_in && formData.check_out) {
+      const nights = calculateNights(formData.check_in, formData.check_out);
+      if (nights > 0) {
+        const totalPrice = parseFloat(formData.total_price) || 0;
+        const extraServices = parseFloat(formData.extra_services_amount) || 0;
+        const newDailyPrice = Math.round((totalPrice - extraServices) / nights);
+        setFormData(prev => ({
+          ...prev,
+          price_per_night: newDailyPrice.toString(),
+        }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.total_price, calculatingPrice]);
 
   const getCurrentConditions = async (propertyId: string, checkIn: string, checkOut: string) => {
     if (!propertyId || !checkIn || !checkOut) {
@@ -192,14 +213,13 @@ export function AddReservationModal({
     }
   };
 
-  // Вычисление количества ночей
+  // Вычисление количества ночей (check_out exclusive)
   const calculateNights = (checkIn: string, checkOut: string): number => {
     if (!checkIn || !checkOut) return 0;
-    const checkInDate = new Date(checkIn);
-    const checkOutDate = new Date(checkOut);
+    const checkInDate = parseISO(checkIn);
+    const checkOutDate = parseISO(checkOut);
     if (checkOutDate <= checkInDate) return 0;
-    const diffTime = checkOutDate.getTime() - checkInDate.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return differenceInDays(checkOutDate, checkInDate);
   };
 
   const calculatePrice = async (propertyId: string, checkIn: string, checkOut: string) => {
@@ -223,12 +243,13 @@ export function AddReservationModal({
       if (data !== null) {
         const property = properties.find(p => p.id === propertyId);
         const nights = calculateNights(checkIn, checkOut);
-        const pricePerNight = nights > 0 ? data / nights : 0;
+        const extraServices = parseFloat(formData.extra_services_amount) || 0;
+        const pricePerNight = nights > 0 ? (data - extraServices) / nights : 0;
         
         setFormData(prev => ({
           ...prev,
-          total_price: data.toString(),
-          price_per_night: pricePerNight.toFixed(2),
+          total_price: Math.round(data).toString(),
+          price_per_night: Math.round(pricePerNight).toString(),
           currency: property?.currency || 'RUB',
         }));
       }
@@ -255,8 +276,8 @@ export function AddReservationModal({
         return;
       }
 
-      const checkInDate = new Date(formData.check_in);
-      const checkOutDate = new Date(formData.check_out);
+      const checkInDate = parseISO(formData.check_in);
+      const checkOutDate = parseISO(formData.check_out);
 
       if (checkOutDate <= checkInDate) {
         setError('Check-out date must be after check-in date');
@@ -270,12 +291,13 @@ export function AddReservationModal({
         guest_phone: formData.guest_phone || '',
         check_in: formData.check_in,
         check_out: formData.check_out,
-        total_price: parseFloat(formData.total_price) || 0,
+        total_price: Math.round(parseFloat(formData.total_price) || 0),
         currency: formData.currency,
         status: formData.status,
         source: formData.source,
         guests_count: parseInt(formData.guests_count) || 1,
         notes: formData.notes || null,
+        extra_services_amount: parseInt(formData.extra_services_amount) || 0,
       });
 
       setFormData({
@@ -491,14 +513,31 @@ export function AddReservationModal({
               </label>
               <input
                 type="number"
-                step="0.01"
+                step="1"
                 value={formData.total_price}
                 onChange={(e) =>
                   setFormData({ ...formData, total_price: e.target.value })
                 }
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                placeholder="0.00"
+                placeholder="0"
                 disabled={calculatingPrice}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Доп. услуги (руб)
+              </label>
+              <input
+                type="number"
+                step="1"
+                min="0"
+                value={formData.extra_services_amount}
+                onChange={(e) =>
+                  setFormData({ ...formData, extra_services_amount: e.target.value })
+                }
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                placeholder="0"
               />
             </div>
 

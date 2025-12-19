@@ -18,6 +18,7 @@
     "@types/fast-levenshtein": "^0.0.4",
     "antd": "^6.1.0",
     "canvas-confetti": "^1.9.4",
+    "date-fns": "^4.1.0",
     "fast-levenshtein": "^3.0.0",
     "i18next": "^23.11.5",
     "lucide-react": "^0.344.0",

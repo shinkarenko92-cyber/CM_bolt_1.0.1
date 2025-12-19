@@ -838,19 +838,19 @@ Deno.serve(async (req: Request) => {
           markup_type: string;
           markup_value: number;
         } = {
-          property_id,
-          platform: "avito",
+            property_id,
+            platform: "avito",
           external_id: itemIdString,
-          avito_account_id,
+            avito_account_id,
           avito_item_id: itemIdString, // Store as TEXT for API calls
-          avito_markup: avito_markup !== null && avito_markup !== undefined ? parseFloat(avito_markup) : 15.0,
-          // Token will be encrypted by Vault trigger (create trigger in migration)
-          access_token_encrypted: access_token,
-          token_expires_at: tokenExpiresAt.toISOString(),
-          is_active: true,
-          is_enabled: true,
-          markup_type: "percent",
-          markup_value: avito_markup !== null && avito_markup !== undefined ? parseFloat(avito_markup) : 15.0,
+            avito_markup: avito_markup !== null && avito_markup !== undefined ? parseFloat(avito_markup) : 15.0,
+            // Token will be encrypted by Vault trigger (create trigger in migration)
+            access_token_encrypted: access_token,
+            token_expires_at: tokenExpiresAt.toISOString(),
+            is_active: true,
+            is_enabled: true,
+            markup_type: "percent",
+            markup_value: avito_markup !== null && avito_markup !== undefined ? parseFloat(avito_markup) : 15.0,
         };
 
         // Add refresh_token if provided
@@ -891,7 +891,7 @@ Deno.serve(async (req: Request) => {
       case "initial-sync":
       case "sync": {
         try {
-          const { integration_id, exclude_booking_id } = params;
+        const { integration_id, exclude_booking_id } = params;
 
           console.log("Sync started", {
             integration_id,
@@ -899,15 +899,15 @@ Deno.serve(async (req: Request) => {
             action: params.action || 'sync',
           });
 
-          // Get integration with decrypted token
-          const { data: integration, error: intError } = await supabase
-            .from("integrations")
+        // Get integration with decrypted token
+        const { data: integration, error: intError } = await supabase
+          .from("integrations")
             .select("id, property_id, platform, avito_user_id, avito_account_id, avito_item_id, avito_markup, access_token_encrypted, refresh_token_encrypted, token_expires_at, is_active, last_sync_at, sync_interval_seconds")
-            .eq("id", integration_id)
-            .eq("is_active", true)
-            .single();
+          .eq("id", integration_id)
+          .eq("is_active", true)
+          .single();
 
-          if (intError || !integration) {
+        if (intError || !integration) {
             console.error("Integration not found or inactive", {
               integration_id,
               error: intError,
@@ -1253,9 +1253,12 @@ Deno.serve(async (req: Request) => {
           .eq("status", "confirmed");
 
         // Calculate prices with markup
+        // Negative values = rub, positive = %
         const basePrice = property?.base_price || 0;
         const markup = integration.avito_markup !== null && integration.avito_markup !== undefined ? integration.avito_markup : 15;
-        const priceWithMarkup = Math.round(basePrice * (1 + markup / 100));
+        const priceWithMarkup = markup < 0 
+          ? Math.round(basePrice + Math.abs(markup))  // Fixed rub markup
+          : Math.round(basePrice * (1 + markup / 100));  // Percentage markup
 
         // Prepare blocked dates from bookings
         // Используем реальные check_in и check_out для создания бронирований
@@ -1433,17 +1436,17 @@ Deno.serve(async (req: Request) => {
             });
             let pricesResponse = await fetchWithRetry(
               `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/prices?skip_error=true`,
-              {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${accessToken}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  prices: pricesToUpdate,
-                }),
-              }
-            );
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                prices: pricesToUpdate,
+              }),
+            }
+          );
 
             // Handle 401 and retry with refreshed token
             if (pricesResponse.status === 401) {
@@ -1464,56 +1467,56 @@ Deno.serve(async (req: Request) => {
               );
             }
 
-            if (!pricesResponse.ok) {
-              // Handle 404 - item not found
-              if (pricesResponse.status === 404) {
-                const errorMessage = "Объявление не найдено в Avito. Проверь ID объявления — должен быть длинный номер вроде 2336174775";
-                syncErrors.push({
-                  operation: 'price_update',
-                  statusCode: 404,
-                  message: errorMessage,
-                  details: { item_id: itemId },
-                });
-                console.error("Avito item not found (404)", { item_id: itemId, response_status: pricesResponse.status });
-              } else {
-                const errorText = await pricesResponse.text().catch(() => 'Failed to read error response');
-                let errorDetails: unknown = errorText;
-                let errorCode: string | undefined;
-                let errorMessage = `Failed to update prices: ${pricesResponse.status} ${pricesResponse.statusText}`;
-
-                try {
-                  const errorJson = JSON.parse(errorText);
-                  errorDetails = errorJson;
-                  errorMessage = errorJson.message || errorJson.error?.message || errorMessage;
-                  errorCode = errorJson.error?.code || errorJson.code;
-                } catch {
-                  // Если не JSON, используем текст как есть
-                }
-
-                syncErrors.push({
-                  operation: 'price_update',
-                  statusCode: pricesResponse.status,
-                  errorCode,
-                  message: errorMessage,
-                  details: errorDetails,
-                });
-
-                console.error("Failed to update Avito prices", {
-                  status: pricesResponse.status,
-                  statusText: pricesResponse.statusText,
-                  error: errorText,
-                  itemId: itemId,
-                });
-                // Не бросаем ошибку, продолжаем синхронизацию
-                console.warn("Price update failed, but continuing with bookings sync");
-              }
-            } else {
-              const responseData = await pricesResponse.json().catch(() => null);
-              console.log("Avito prices updated successfully", {
-                periodsCount: pricesToUpdate.length,
-                itemId: itemId,
-                response: responseData,
+          if (!pricesResponse.ok) {
+            // Handle 404 - item not found
+            if (pricesResponse.status === 404) {
+              const errorMessage = "Объявление не найдено в Avito. Проверь ID объявления — должен быть длинный номер вроде 2336174775";
+              syncErrors.push({
+                operation: 'price_update',
+                statusCode: 404,
+                message: errorMessage,
+                details: { item_id: itemId },
               });
+                console.error("Avito item not found (404)", { item_id: itemId, response_status: pricesResponse.status });
+            } else {
+                const errorText = await pricesResponse.text().catch(() => 'Failed to read error response');
+              let errorDetails: unknown = errorText;
+              let errorCode: string | undefined;
+              let errorMessage = `Failed to update prices: ${pricesResponse.status} ${pricesResponse.statusText}`;
+
+              try {
+                const errorJson = JSON.parse(errorText);
+                errorDetails = errorJson;
+                errorMessage = errorJson.message || errorJson.error?.message || errorMessage;
+                errorCode = errorJson.error?.code || errorJson.code;
+              } catch {
+                // Если не JSON, используем текст как есть
+              }
+
+              syncErrors.push({
+                operation: 'price_update',
+                statusCode: pricesResponse.status,
+                errorCode,
+                message: errorMessage,
+                details: errorDetails,
+              });
+
+              console.error("Failed to update Avito prices", {
+                status: pricesResponse.status,
+                statusText: pricesResponse.statusText,
+                error: errorText,
+                  itemId: itemId,
+              });
+              // Не бросаем ошибку, продолжаем синхронизацию
+              console.warn("Price update failed, but continuing with bookings sync");
+            }
+          } else {
+            const responseData = await pricesResponse.json().catch(() => null);
+            console.log("Avito prices updated successfully", {
+              periodsCount: pricesToUpdate.length,
+                itemId: itemId,
+              response: responseData,
+            });
               pricesPushSuccess = true;
             }
           } catch (fetchError) {
@@ -1529,15 +1532,15 @@ Deno.serve(async (req: Request) => {
                 details: { item_id: itemId },
               });
               // Continue with other operations
-            }
-          } else {
-            console.log("No prices to update (pricesToUpdate is empty)", {
-              hasPropertyRates: !!propertyRates,
-              propertyRatesCount: propertyRates?.length || 0,
-              basePrice: property?.base_price,
-              priceWithMarkup,
-            });
           }
+        } else {
+          console.log("No prices to update (pricesToUpdate is empty)", {
+            hasPropertyRates: !!propertyRates,
+            propertyRatesCount: propertyRates?.length || 0,
+            basePrice: property?.base_price,
+            priceWithMarkup,
+          });
+        }
 
         // 2. Обновление базовых параметров через PATCH /realty/v1/accounts/{user_id}/items/{item_id}
         // Формат: { night_price, minimal_duration, extra_guest_fee?, extra_guest_threshold?, instant?, refund?, discount? }
@@ -1562,19 +1565,19 @@ Deno.serve(async (req: Request) => {
               `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}`,
               {
                 method: "PATCH",
-                headers: {
-                  Authorization: `Bearer ${accessToken}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  night_price: priceWithMarkup,
-                  minimal_duration: property?.minimum_booking_days || 1,
-                  // TODO: Добавить поддержку extra_guest_fee и extra_guest_threshold когда поля будут в БД
-                  // extra_guest_fee: property?.extra_guest_fee,
-                  // extra_guest_threshold: property?.extra_guest_threshold,
-                }),
-              }
-            );
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              night_price: priceWithMarkup,
+              minimal_duration: property?.minimum_booking_days || 1,
+              // TODO: Добавить поддержку extra_guest_fee и extra_guest_threshold когда поля будут в БД
+              // extra_guest_fee: property?.extra_guest_fee,
+              // extra_guest_threshold: property?.extra_guest_threshold,
+            }),
+          }
+        );
 
             // Handle 401 and retry with refreshed token
             if (baseParamsResponse.status === 401) {
@@ -1596,55 +1599,55 @@ Deno.serve(async (req: Request) => {
               );
             }
 
-            if (!baseParamsResponse.ok) {
-              // Handle 404 - item not found
-              if (baseParamsResponse.status === 404) {
-                const errorMessage = "Объявление не найдено в Avito. Проверь ID объявления — должен быть длинный номер вроде 2336174775";
-                syncErrors.push({
-                  operation: 'base_params_update',
-                  statusCode: 404,
-                  message: errorMessage,
-                  details: { item_id: itemId },
-                });
+        if (!baseParamsResponse.ok) {
+          // Handle 404 - item not found
+          if (baseParamsResponse.status === 404) {
+            const errorMessage = "Объявление не найдено в Avito. Проверь ID объявления — должен быть длинный номер вроде 2336174775";
+            syncErrors.push({
+              operation: 'base_params_update',
+              statusCode: 404,
+              message: errorMessage,
+              details: { item_id: itemId },
+            });
                 console.error("Avito item not found (404)", { item_id: itemId, response_status: baseParamsResponse.status });
-              } else {
+          } else {
                 const errorText = await baseParamsResponse.text().catch(() => 'Failed to read error response');
-                let errorDetails: unknown = errorText;
-                let errorCode: string | undefined;
-                let errorMessage = `Failed to update base parameters: ${baseParamsResponse.status} ${baseParamsResponse.statusText}`;
+            let errorDetails: unknown = errorText;
+            let errorCode: string | undefined;
+            let errorMessage = `Failed to update base parameters: ${baseParamsResponse.status} ${baseParamsResponse.statusText}`;
 
-                try {
-                  const errorJson = JSON.parse(errorText);
-                  errorDetails = errorJson;
-                  errorMessage = errorJson.message || errorJson.error?.message || errorMessage;
-                  errorCode = errorJson.error?.code || errorJson.code;
-                } catch {
-                  // Если не JSON, используем текст как есть
-                }
+            try {
+              const errorJson = JSON.parse(errorText);
+              errorDetails = errorJson;
+              errorMessage = errorJson.message || errorJson.error?.message || errorMessage;
+              errorCode = errorJson.error?.code || errorJson.code;
+            } catch {
+              // Если не JSON, используем текст как есть
+            }
 
-                syncErrors.push({
-                  operation: 'base_params_update',
-                  statusCode: baseParamsResponse.status,
-                  errorCode,
-                  message: errorMessage,
-                  details: errorDetails,
-                });
+            syncErrors.push({
+              operation: 'base_params_update',
+              statusCode: baseParamsResponse.status,
+              errorCode,
+              message: errorMessage,
+              details: errorDetails,
+            });
 
-                console.error("Failed to update Avito base parameters", {
-                  status: baseParamsResponse.status,
-                  statusText: baseParamsResponse.statusText,
-                  error: errorText,
+            console.error("Failed to update Avito base parameters", {
+              status: baseParamsResponse.status,
+              statusText: baseParamsResponse.statusText,
+              error: errorText,
                   itemId: itemId,
-                });
-                // Не бросаем ошибку, продолжаем синхронизацию
-                console.warn("Base parameters update failed, but continuing with bookings sync");
-              }
-            } else {
-              const responseData = await baseParamsResponse.json().catch(() => null);
-              console.log("Avito base parameters updated successfully", {
+            });
+            // Не бросаем ошибку, продолжаем синхронизацию
+            console.warn("Base parameters update failed, but continuing with bookings sync");
+          }
+        } else {
+            const responseData = await baseParamsResponse.json().catch(() => null);
+            console.log("Avito base parameters updated successfully", {
                 itemId: itemId,
-                response: responseData,
-              });
+              response: responseData,
+            });
             }
           } catch (fetchError) {
             // Network error or other fetch failure
@@ -1704,18 +1707,18 @@ Deno.serve(async (req: Request) => {
             });
             let bookingsUpdateResponse = await fetchWithRetry(
               `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/intervals`,
-              {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${accessToken}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  item_id: itemId,
-                  intervals: intervalsToSend,
-                }),
-              }
-            );
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                item_id: itemId,
+                intervals: intervalsToSend,
+              }),
+            }
+          );
 
             // Handle 401 and retry with refreshed token
             if (bookingsUpdateResponse.status === 401) {
@@ -1737,9 +1740,9 @@ Deno.serve(async (req: Request) => {
               );
             }
 
-            if (!bookingsUpdateResponse.ok) {
+          if (!bookingsUpdateResponse.ok) {
               const errorText = await bookingsUpdateResponse.text().catch(() => 'Failed to read error response');
-              const errorStatus = bookingsUpdateResponse.status;
+            const errorStatus = bookingsUpdateResponse.status;
             
             // Handle 404 - intervals push skipped (activation required)
             if (errorStatus === 404) {
@@ -1819,16 +1822,16 @@ Deno.serve(async (req: Request) => {
 
               // Log success to avito_logs
               try {
-                await supabase.from("avito_logs").insert({
-                  integration_id: integration.id,
-                  property_id: integration.property_id,
-                  action: exclude_booking_id ? "open_dates_after_delete" : "sync_intervals",
-                  status: "success",
-                  details: {
-                    intervals_count: intervalsToSend.length,
-                    excluded_booking_id: exclude_booking_id || null,
-                  },
-                });
+              await supabase.from("avito_logs").insert({
+                integration_id: integration.id,
+                property_id: integration.property_id,
+                action: exclude_booking_id ? "open_dates_after_delete" : "sync_intervals",
+                status: "success",
+                details: {
+                  intervals_count: intervalsToSend.length,
+                  excluded_booking_id: exclude_booking_id || null,
+                },
+              });
               } catch (logError) {
                 console.error("Failed to log success", { error: logError });
               }
@@ -1853,7 +1856,7 @@ Deno.serve(async (req: Request) => {
             details: { item_id: itemId },
           });
           // Continue with other operations
-        }
+          }
         } else {
           // No bookings to block - send empty intervals to open all dates
           // This happens when all bookings are deleted or none are future
@@ -1863,45 +1866,45 @@ Deno.serve(async (req: Request) => {
             });
 
             try {
-              const openAllResponse = await fetchWithRetry(
+            const openAllResponse = await fetchWithRetry(
                 `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/intervals`,
-                {
-                  method: "POST",
-                  headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    "Content-Type": "application/json",
-                  },
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  "Content-Type": "application/json",
+                },
                 body: JSON.stringify({
                   item_id: itemId,
                   intervals: [], // Empty array opens all dates
                 }),
-                }
-              );
+              }
+            );
 
-              if (openAllResponse.ok) {
+            if (openAllResponse.ok) {
                 console.log("All dates opened in Avito after manual booking deletion", {
                   itemId: itemId,
                 });
-                
-                // Log success to avito_logs
+              
+              // Log success to avito_logs
                 try {
-                  await supabase.from("avito_logs").insert({
-                    integration_id: integration.id,
-                    property_id: integration.property_id,
-                    action: "open_all_dates_after_delete",
-                    status: "success",
-                    details: {
-                      excluded_booking_id: exclude_booking_id,
-                    },
-                  });
+              await supabase.from("avito_logs").insert({
+                integration_id: integration.id,
+                property_id: integration.property_id,
+                action: "open_all_dates_after_delete",
+                status: "success",
+                details: {
+                  excluded_booking_id: exclude_booking_id,
+                },
+              });
                 } catch (logError) {
                   console.error("Failed to log success", { error: logError });
                 }
-              } else {
+            } else {
                 const errorText = await openAllResponse.text().catch(() => 'Failed to read error response');
-                console.error("Failed to open all dates in Avito", {
-                  status: openAllResponse.status,
-                  error: errorText,
+              console.error("Failed to open all dates in Avito", {
+                status: openAllResponse.status,
+                error: errorText,
                   itemId: itemId,
                 });
                 syncErrors.push({
@@ -1943,7 +1946,7 @@ Deno.serve(async (req: Request) => {
         const dateStart = today.toISOString().split('T')[0]; // YYYY-MM-DD
         const dateEnd = oneYearLater.toISOString().split('T')[0]; // YYYY-MM-DD
 
-        console.log("Pulling bookings from Avito", {
+          console.log("Pulling bookings from Avito", {
           itemId,
           property_id: integration.property_id,
           date_start: dateStart,
@@ -1966,45 +1969,45 @@ Deno.serve(async (req: Request) => {
         // Use STR API endpoint with user_id: /realty/v1/accounts/{user_id}/items/{item_id}/bookings
         const fetchBookings = async (token: string): Promise<Response> => {
           try {
-            const response = await fetchWithRetry(
+          const response = await fetchWithRetry(
               `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}&with_unpaid=true&skip_error=true`,
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  "Content-Type": "application/json",
-                },
-              }
-            );
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
 
-            // If 401, refresh token and retry once
-            if (response.status === 401) {
+          // If 401, refresh token and retry once
+          if (response.status === 401) {
               console.log("Got 401, refreshing token and retrying...", {
                 item_id: itemId,
                 integration_id: integration.id,
               });
               
               try {
-                const refreshData = await refreshAccessToken(
-                  integration,
-                  avitoClientId,
-                  avitoClientSecret,
-                  supabase
-                );
-                
-                // Update token in database
-                const expiresIn = refreshData.expires_in || 3600;
-                const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
-                const updateData: {
-                  access_token_encrypted: string;
-                  token_expires_at: string;
-                  refresh_token_encrypted?: string;
-                } = {
-                  access_token_encrypted: refreshData.access_token,
-                  token_expires_at: tokenExpiresAt.toISOString(),
-                };
-                if (refreshData.refresh_token) {
-                  updateData.refresh_token_encrypted = refreshData.refresh_token;
-                }
+            const refreshData = await refreshAccessToken(
+              integration,
+              avitoClientId,
+              avitoClientSecret,
+              supabase
+            );
+            
+            // Update token in database
+            const expiresIn = refreshData.expires_in || 3600;
+            const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
+            const updateData: {
+              access_token_encrypted: string;
+              token_expires_at: string;
+              refresh_token_encrypted?: string;
+            } = {
+              access_token_encrypted: refreshData.access_token,
+              token_expires_at: tokenExpiresAt.toISOString(),
+            };
+            if (refreshData.refresh_token) {
+              updateData.refresh_token_encrypted = refreshData.refresh_token;
+            }
                 
                 const { error: updateError } = await supabase
                   .from("integrations")
@@ -2022,17 +2025,17 @@ Deno.serve(async (req: Request) => {
                     newExpiresAt: tokenExpiresAt.toISOString(),
                   });
                 }
-                
-                // Retry with new token
-                return await fetchWithRetry(
+            
+            // Retry with new token
+            return await fetchWithRetry(
                   `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}&with_unpaid=true&skip_error=true`,
-                  {
-                    headers: {
-                      Authorization: `Bearer ${refreshData.access_token}`,
-                      "Content-Type": "application/json",
-                    },
-                  }
-                );
+              {
+                headers: {
+                  Authorization: `Bearer ${refreshData.access_token}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            );
               } catch (refreshError) {
                 console.error("Failed to refresh token", {
                   error: refreshError instanceof Error ? refreshError.message : String(refreshError),
@@ -2040,9 +2043,9 @@ Deno.serve(async (req: Request) => {
                 });
                 throw refreshError;
               }
-            }
+          }
 
-            return response;
+          return response;
           } catch (fetchError) {
             console.error("Error fetching bookings from Avito", {
               error: fetchError instanceof Error ? fetchError.message : String(fetchError),
@@ -2450,11 +2453,11 @@ Deno.serve(async (req: Request) => {
                     });
                     skippedCount++;
                   } else {
-                    console.error("Failed to upsert booking from Avito", {
-                      booking,
-                      error: upsertError,
-                    });
-                    errorCount++;
+                  console.error("Failed to upsert booking from Avito", {
+                    booking,
+                    error: upsertError,
+                  });
+                  errorCount++;
                   }
                 } else {
                   // Check if this was an insert or update
@@ -2576,19 +2579,19 @@ Deno.serve(async (req: Request) => {
 
           // Log sync success to avito_logs
           try {
-            await supabase.from("avito_logs").insert({
-              integration_id: integration.id,
-              property_id: integration.property_id,
-              action: "sync_bookings",
-              status: "success",
-              details: {
-                total: avitoBookings.length,
-                created: createdCount,
-                skipped: skippedCount,
+          await supabase.from("avito_logs").insert({
+            integration_id: integration.id,
+            property_id: integration.property_id,
+            action: "sync_bookings",
+            status: "success",
+            details: {
+              total: avitoBookings.length,
+              created: createdCount,
+              skipped: skippedCount,
                 canceled: canceledCount,
-                errors: errorCount,
-              },
-            });
+              errors: errorCount,
+            },
+          });
           } catch (logError) {
             console.error("Failed to log bookings sync success", { error: logError });
           }
@@ -2623,18 +2626,18 @@ Deno.serve(async (req: Request) => {
 
           // Log error to avito_logs
           try {
-            await supabase.from("avito_logs").insert({
-              integration_id: integration.id,
-              property_id: integration.property_id,
-              action: "sync_bookings",
-              status: "error",
-              error: errorMessage,
-              details: {
-                statusCode: bookingsResponse.status,
-                errorCode,
-                details: errorDetails,
-              },
-            });
+          await supabase.from("avito_logs").insert({
+            integration_id: integration.id,
+            property_id: integration.property_id,
+            action: "sync_bookings",
+            status: "error",
+            error: errorMessage,
+            details: {
+              statusCode: bookingsResponse.status,
+              errorCode,
+              details: errorDetails,
+            },
+          });
           } catch (logError) {
             console.error("Failed to log bookings sync error", { error: logError });
           }
@@ -2643,15 +2646,15 @@ Deno.serve(async (req: Request) => {
           console.warn("Continuing sync despite bookings fetch failure");
         }
 
-          // Update last_sync_at and ensure is_active is true
+        // Update last_sync_at and ensure is_active is true
           try {
-            await supabase
-              .from("integrations")
-              .update({ 
-                last_sync_at: new Date().toISOString(),
-                is_active: true 
-              })
-              .eq("id", integration_id);
+        await supabase
+          .from("integrations")
+          .update({ 
+            last_sync_at: new Date().toISOString(),
+            is_active: true 
+          })
+          .eq("id", integration_id);
           } catch (updateError) {
             console.error("Failed to update last_sync_at", {
               integration_id,
@@ -2674,8 +2677,8 @@ Deno.serve(async (req: Request) => {
             pushSuccess,
           });
 
-          return new Response(
-            JSON.stringify({ 
+        return new Response(
+          JSON.stringify({ 
               hasError: !pushSuccess && syncErrors.length > 0,
               hasData: true,
               pushSuccess,
@@ -2686,9 +2689,9 @@ Deno.serve(async (req: Request) => {
             }),
             {
               status: 200,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
-          );
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
         } catch (error) {
           // Catch any unhandled errors in sync operation
           const errorMessage = error instanceof Error ? error.message : String(error);
