@@ -42,7 +42,6 @@ export function AvitoConnectModal({
   const [itemId, setItemId] = useState<string>('');
   const [markup, setMarkup] = useState<number>(15);
   const [markupType, setMarkupType] = useState<'percent' | 'rub'>('percent');
-  const [markupType, setMarkupType] = useState<'percent' | 'rub'>('percent');
   const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [icalUrl, setIcalUrl] = useState<string>('');

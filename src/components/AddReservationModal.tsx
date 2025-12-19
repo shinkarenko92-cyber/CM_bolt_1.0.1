@@ -309,6 +309,7 @@ export function AddReservationModal({
         check_out: '',
         price_per_night: '',
         total_price: '',
+        extra_services_amount: '0',
         currency: 'RUB',
         status: 'confirmed',
         source: 'manual',
