@@ -35,6 +35,7 @@ export function EditReservationModal({
     status: 'confirmed',
     guests_count: '1',
     notes: '',
+    extra_services_amount: '0',
   });
   const [originalPropertyId, setOriginalPropertyId] = useState('');
   const [showPriceModal, setShowPriceModal] = useState(false);
@@ -57,6 +58,12 @@ export function EditReservationModal({
         ? (booking.total_price / nights).toFixed(2) 
         : '';
       
+      const extraServices = booking.extra_services_amount || 0;
+      const basePrice = (booking.total_price || 0) - extraServices;
+      const correctedPricePerNight = nights > 0 && basePrice > 0 
+        ? (basePrice / nights).toFixed(2) 
+        : pricePerNight;
+      
       setFormData({
         property_id: booking.property_id || '',
         guest_name: booking.guest_name || '',
@@ -64,12 +71,13 @@ export function EditReservationModal({
         guest_phone: booking.guest_phone || '',
         check_in: booking.check_in || '',
         check_out: booking.check_out || '',
-        price_per_night: pricePerNight,
+        price_per_night: correctedPricePerNight,
         total_price: booking.total_price?.toString() || '',
         currency: booking.currency || 'RUB',
         status: booking.status || 'confirmed',
         guests_count: booking.guests_count?.toString() || '1',
         notes: booking.notes || '',
+        extra_services_amount: extraServices.toString(),
       });
       setOriginalPropertyId(booking.property_id);
     }
@@ -79,13 +87,15 @@ export function EditReservationModal({
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Пересчет total_price при изменении price_per_night
+  // Пересчет total_price при изменении price_per_night или extra_services_amount
   useEffect(() => {
     if (formData.price_per_night && formData.check_in && formData.check_out) {
       const nights = calculateNights(formData.check_in, formData.check_out);
       if (nights > 0) {
         const pricePerNight = parseFloat(formData.price_per_night) || 0;
-        const newTotalPrice = (pricePerNight * nights).toFixed(2);
+        const extraServices = parseFloat(formData.extra_services_amount) || 0;
+        const basePrice = pricePerNight * nights;
+        const newTotalPrice = (basePrice + extraServices).toFixed(2);
         setFormData(prev => ({
           ...prev,
           total_price: newTotalPrice,
@@ -93,7 +103,7 @@ export function EditReservationModal({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.price_per_night, formData.check_in, formData.check_out]);
+  }, [formData.price_per_night, formData.check_in, formData.check_out, formData.extra_services_amount]);
 
   if (!booking) return null;
 
@@ -139,10 +149,13 @@ export function EditReservationModal({
   const handleRecalculatePrice = () => {
     const newProperty = properties.find(p => p.id === formData.property_id);
     const nights = calculateNights(formData.check_in, formData.check_out);
-    const pricePerNight = nights > 0 ? (calculatedPrice / nights).toFixed(2) : '';
+    const extraServices = parseFloat(formData.extra_services_amount) || 0;
+    const basePrice = calculatedPrice;
+    const totalPrice = basePrice + extraServices;
+    const pricePerNight = nights > 0 ? (basePrice / nights).toFixed(2) : '';
     setFormData({
       ...formData,
-      total_price: calculatedPrice.toString(),
+      total_price: totalPrice.toString(),
       price_per_night: pricePerNight,
       currency: newProperty?.currency || formData.currency,
     });
@@ -159,7 +172,7 @@ export function EditReservationModal({
       const checkOutDate = new Date(formData.check_out);
 
       if (checkOutDate <= checkInDate) {
-        setError('Check-out date must be after check-in date');
+        setError(t('errors.checkOutBeforeCheckIn'));
         return;
       }
 
@@ -175,11 +188,12 @@ export function EditReservationModal({
         currency: formData.currency,
         status: formData.status,
         guests_count: parseInt(formData.guests_count) || 1,
+        extra_services_amount: parseInt(formData.extra_services_amount) || 0,
       } as Partial<Booking>);
 
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : t('errors.somethingWentWrong'));
     } finally {
       setLoading(false);
     }
@@ -193,13 +207,13 @@ export function EditReservationModal({
       await onDelete(booking.id);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : t('errors.somethingWentWrong'));
     } finally {
       setLoading(false);
     }
   };
 
-  const propertyName = properties.find((p) => p.id === booking.property_id)?.name || 'Unknown Property';
+  const propertyName = properties.find((p) => p.id === booking.property_id)?.name || t('common.unknown');
 
   if (!isOpen) return null;
 
@@ -227,7 +241,7 @@ export function EditReservationModal({
       >
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
           <div>
-            <h2 className="text-xl font-semibold text-white">Edit Reservation</h2>
+            <h2 className="text-xl font-semibold text-white">{t('modals.editReservation')}</h2>
             <p className="text-sm text-slate-400 mt-1">{propertyName}</p>
           </div>
           <button
@@ -240,21 +254,21 @@ export function EditReservationModal({
 
         {showDeleteConfirm ? (
           <div className="p-6 border-b border-slate-700">
-            <p className="text-white mb-4">Are you sure you want to delete this reservation?</p>
+            <p className="text-white mb-4">{t('modals.confirmDelete')}</p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 className="px-4 py-2 text-slate-300 hover:text-white transition"
                 disabled={loading}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleDelete}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition disabled:opacity-50"
                 disabled={loading}
               >
-                {loading ? 'Deleting...' : 'Delete'}
+                {loading ? t('modals.deleting') : t('common.delete')}
               </button>
             </div>
           </div>
@@ -267,9 +281,9 @@ export function EditReservationModal({
             )}
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Property
-              </label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  {t('modals.property')}
+                </label>
               <select
                 value={formData.property_id}
                 onChange={(e) => handlePropertyChange(e.target.value)}
@@ -287,7 +301,7 @@ export function EditReservationModal({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Guest Name
+                  {t('modals.guestName')}
                 </label>
                 <input
                   type="text"
@@ -302,7 +316,7 @@ export function EditReservationModal({
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Guest Email
+                  {t('modals.guestEmail')}
                 </label>
                 <input
                   type="email"
@@ -316,7 +330,7 @@ export function EditReservationModal({
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Guest Phone
+                  {t('modals.guestPhone')}
                 </label>
                 <input
                   type="tel"
@@ -330,7 +344,7 @@ export function EditReservationModal({
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Guests Count
+                  {t('modals.guestsCount')}
                 </label>
                 <input
                   type="number"
@@ -345,7 +359,7 @@ export function EditReservationModal({
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Check-in
+                  {t('modals.checkIn')}
                 </label>
                 <input
                   type="date"
@@ -360,7 +374,7 @@ export function EditReservationModal({
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Check-out
+                  {t('modals.checkOut')}
                 </label>
                 <input
                   type="date"
@@ -373,14 +387,20 @@ export function EditReservationModal({
                 />
               </div>
 
+              {formData.check_in && formData.check_out && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    {t('bookings.nights')}
+                  </label>
+                  <div className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white">
+                    {calculateNights(formData.check_in, formData.check_out)} {t('common.nights', { defaultValue: 'nights' })}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   {t('modals.pricePerNight', { defaultValue: 'Price per Night' })}
-                  {formData.check_in && formData.check_out && (
-                    <span className="text-slate-400 text-xs ml-2">
-                      ({calculateNights(formData.check_in, formData.check_out)} {t('common.nights', { defaultValue: 'nights' })})
-                    </span>
-                  )}
                 </label>
                 <input
                   type="number"
@@ -396,7 +416,7 @@ export function EditReservationModal({
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Total Price
+                  {t('modals.totalPrice')}
                 </label>
                 <input
                   type="number"
@@ -411,7 +431,38 @@ export function EditReservationModal({
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Currency
+                  {t('modals.extraServices', { defaultValue: 'Extra Services Amount' })}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={formData.extra_services_amount}
+                  onChange={(e) => {
+                    const extraServices = parseFloat(e.target.value) || 0;
+                    setFormData({ ...formData, extra_services_amount: e.target.value });
+                    // Пересчитываем total_price при изменении доп услуг
+                    if (formData.price_per_night && formData.check_in && formData.check_out) {
+                      const nights = calculateNights(formData.check_in, formData.check_out);
+                      if (nights > 0) {
+                        const pricePerNight = parseFloat(formData.price_per_night) || 0;
+                        const basePrice = pricePerNight * nights;
+                        const newTotalPrice = (basePrice + extraServices).toFixed(2);
+                        setFormData(prev => ({
+                          ...prev,
+                          extra_services_amount: e.target.value,
+                          total_price: newTotalPrice,
+                        }));
+                      }
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  {t('modals.currency')}
                 </label>
                 <select
                   value={formData.currency}
@@ -428,7 +479,7 @@ export function EditReservationModal({
 
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Status
+                  {t('modals.status')}
                 </label>
                 <select
                   value={formData.status}
@@ -437,9 +488,9 @@ export function EditReservationModal({
                   }
                   className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
                 >
-                  <option value="confirmed">Confirmed</option>
-                  <option value="pending">Pending</option>
-                  <option value="cancelled">Cancelled</option>
+                  <option value="confirmed">{t('bookings.confirmed')}</option>
+                  <option value="pending">{t('bookings.pending')}</option>
+                  <option value="cancelled">{t('bookings.cancelled')}</option>
                 </select>
               </div>
 
@@ -474,14 +525,14 @@ export function EditReservationModal({
                   className="px-4 py-2 text-slate-300 hover:text-white transition"
                   disabled={loading}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition disabled:opacity-50"
                   disabled={loading}
                 >
-                  {loading ? 'Saving...' : 'Save Changes'}
+                  {loading ? t('common.loading') : t('common.save')}
                 </button>
               </div>
             </div>

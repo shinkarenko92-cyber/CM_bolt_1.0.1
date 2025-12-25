@@ -147,9 +147,45 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     }, 0);
     const avgLengthOfStay = currentBookings.length > 0 ? totalNightsBooked / currentBookings.length : 0;
 
+    // Функция маппинга источников из Excel в стандартные
+    const mapSourceToStandard = (source: string): string => {
+      const normalized = source.toLowerCase().trim().replace(/\s+/g, '');
+      
+      // Маппинг русских и английских названий в стандартные
+      const sourceMap: { [key: string]: string } = {
+        'авито': 'avito',
+        'avito': 'avito',
+        'booking': 'booking',
+        'booking.com': 'booking',
+        'airbnb': 'airbnb',
+        'cian': 'cian',
+        'циан': 'cian',
+        'manual': 'manual',
+        'вручную': 'manual',
+        'excel_import': 'manual', // Если источник не распознан, используем manual вместо excel_import
+      };
+      
+      // Проверяем точное совпадение
+      if (sourceMap[normalized]) {
+        return sourceMap[normalized];
+      }
+      
+      // Проверяем частичное совпадение
+      for (const [key, value] of Object.entries(sourceMap)) {
+        if (normalized.includes(key) || key.includes(normalized)) {
+          return value;
+        }
+      }
+      
+      // Если источник не распознан и это не excel_import, возвращаем оригинал
+      // Если это excel_import, возвращаем manual
+      return source === 'excel_import' ? 'manual' : source;
+    };
+
     const sourceBreakdown = currentBookings.reduce((acc, booking) => {
       const revenue = convertToRUB(booking.total_price, booking.currency);
-      acc[booking.source] = (acc[booking.source] || 0) + revenue;
+      const mappedSource = mapSourceToStandard(booking.source);
+      acc[mappedSource] = (acc[mappedSource] || 0) + revenue;
       return acc;
     }, {} as { [key: string]: number });
 

@@ -79,7 +79,8 @@
     "confirmed": "Confirmed",
     "pending": "Pending",
     "cancelled": "Cancelled",
-    "found": "Found"
+    "found": "Found",
+    "nights": "Nights"
   },
   "properties": {
     "title": "Properties",
@@ -150,6 +151,7 @@
     "editReservation": "Edit Reservation",
     "deleteReservation": "Delete Reservation",
     "confirmDelete": "Are you sure you want to delete this reservation?",
+    "deleting": "Deleting...",
     "addProperty": "Add Property",
     "editProperty": "Edit Property",
     "deleteProperty": "Delete Property",
@@ -163,6 +165,18 @@
     "continue": "Continue",
     "goBack": "Go Back",
     "pricePerNight": "Price per Night",
+    "totalPrice": "Total Price",
+    "extraServices": "Extra Services Amount",
+    "property": "Property",
+    "guestName": "Guest Name",
+    "guestEmail": "Guest Email",
+    "guestPhone": "Guest Phone",
+    "guestsCount": "Guests Count",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "currency": "Currency",
+    "status": "Status",
+    "source": "Source",
     "notes": "Notes",
     "notesPlaceholder": "Add any additional notes..."
   },

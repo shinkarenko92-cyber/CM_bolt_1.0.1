@@ -147,9 +147,34 @@ export function parseExcelFile(file: File): Promise<ParseResult> {
               }
             }
 
-            // Парсим источник (channel)
-            const channelStr = String(row[7] || '').trim().toLowerCase();
-            const channel = channelStr || 'manual';
+            // Парсим источник (channel) - нормализуем название
+            const channelStr = String(row[7] || '').trim().toLowerCase().replace(/\s+/g, '');
+            
+            // Маппинг источников из Excel в стандартные
+            const sourceMap: { [key: string]: string } = {
+              'авито': 'avito',
+              'avito': 'avito',
+              'booking': 'booking',
+              'booking.com': 'booking',
+              'airbnb': 'airbnb',
+              'cian': 'cian',
+              'циан': 'cian',
+              'manual': 'manual',
+              'вручную': 'manual',
+            };
+            
+            // Проверяем точное совпадение
+            let channel = sourceMap[channelStr] || channelStr || 'manual';
+            
+            // Если не найдено точное совпадение, проверяем частичное
+            if (!sourceMap[channelStr]) {
+              for (const [key, value] of Object.entries(sourceMap)) {
+                if (channelStr.includes(key) || key.includes(channelStr)) {
+                  channel = value;
+                  break;
+                }
+              }
+            }
 
             bookings.push({
               property_name: propertyName,

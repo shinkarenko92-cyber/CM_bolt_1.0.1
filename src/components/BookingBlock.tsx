@@ -89,6 +89,13 @@ export function BookingBlock({
     return new Date(dateString).toLocaleDateString('ru-RU');
   };
 
+  const calculateNights = (checkIn: string, checkOut: string): number => {
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const diffTime = checkOutDate.getTime() - checkInDate.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
   // Функция форматирования отображения гостя в календаре
   const formatGuestDisplay = (name: string, phone: string | null): string => {
     if (hasGuestName) {
@@ -184,6 +191,10 @@ export function BookingBlock({
           <div>
             <span className="text-slate-400">Выезд:</span>{' '}
             {formatDate(booking.check_out)}
+          </div>
+          <div>
+            <span className="text-slate-400">Ночей:</span>{' '}
+            {calculateNights(booking.check_in, booking.check_out)}
           </div>
           <div>
             <span className="text-slate-400">Цена:</span>{' '}

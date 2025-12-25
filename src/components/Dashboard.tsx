@@ -175,13 +175,14 @@ export function Dashboard() {
         console.log('Property IDs:', propertyIds);
 
         if (propertyIds.length > 0) {
-          // Retry для bookings
+          // Retry для bookings - загружаем только подтвержденные брони (confirmed и paid)
           const bookingsResult = await retrySupabaseQuery<Booking[]>(
             async () => {
               const result = await supabase
                 .from('bookings')
                 .select('*')
                 .in('property_id', propertyIds)
+                .in('status', ['confirmed', 'paid'])
                 .order('check_in');
               return {
                 data: result.data,

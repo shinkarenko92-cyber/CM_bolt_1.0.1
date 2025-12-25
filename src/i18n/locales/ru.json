@@ -79,7 +79,8 @@
     "confirmed": "Подтверждено",
     "pending": "Ожидание",
     "cancelled": "Отменено",
-    "found": "Найдено"
+    "found": "Найдено",
+    "nights": "Ночей"
   },
   "properties": {
     "title": "Объекты недвижимости",
@@ -150,6 +151,7 @@
     "editReservation": "Редактировать бронирование",
     "deleteReservation": "Удалить бронирование",
     "confirmDelete": "Вы уверены, что хотите удалить это бронирование?",
+    "deleting": "Удаление...",
     "addProperty": "Добавить объект",
     "editProperty": "Редактировать объект",
     "deleteProperty": "Удалить объект",
@@ -163,6 +165,18 @@
     "continue": "Продолжить",
     "goBack": "Назад",
     "pricePerNight": "Цена за ночь",
+    "totalPrice": "Общая цена",
+    "extraServices": "Дополнительные услуги",
+    "property": "Объект",
+    "guestName": "Имя гостя",
+    "guestEmail": "Email гостя",
+    "guestPhone": "Телефон гостя",
+    "guestsCount": "Количество гостей",
+    "checkIn": "Заезд",
+    "checkOut": "Выезд",
+    "currency": "Валюта",
+    "status": "Статус",
+    "source": "Источник",
     "notes": "Примечания",
     "notesPlaceholder": "Добавьте любые дополнительные примечания..."
   },

@@ -34,3 +34,8 @@ COMMENT ON COLUMN integrations.avito_account_id IS 'Avito account ID (user_id) -
 -- Note: We keep both avito_item_id (BIGINT) and avito_item_id_text (TEXT) for backward compatibility
 -- In code, prefer avito_item_id_text for API calls
 
+
+
+
+
+

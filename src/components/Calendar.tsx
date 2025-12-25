@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, Settings } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Popover, InputNumber, Button } from 'antd';
-import { parseISO, format, addDays, isBefore, isSameDay } from 'date-fns';
+import { parseISO, format, isBefore, isSameDay } from 'date-fns';
 import { Property, Booking, PropertyRate, supabase } from '../lib/supabase';
 import { CalendarHeader } from './CalendarHeader';
 import { BookingBlock } from './BookingBlock';
@@ -96,9 +95,7 @@ export function Calendar({
     minStay: number;
     currency: string;
   } | null>(null);
-  const [minStayPopoverOpen, setMinStayPopoverOpen] = useState<{ propertyId: string; date: string } | null>(null);
-  const [minStayValue, setMinStayValue] = useState<number>(1);
-  const [isSavingMinStay, setIsSavingMinStay] = useState(false);
+  const [minStayDateSelection, setMinStayDateSelection] = useState<{ propertyId: string; startDate: string | null } | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const seenPropertyIds = useRef<Set<string>>(new Set());
@@ -477,48 +474,6 @@ export function Calendar({
     }
   };
 
-  const handleSaveMinStay = async (propertyId: string, date: string, minStay: number) => {
-    if (minStay < 1) {
-      toast.error('Минимальный срок должен быть не менее 1 дня');
-      return;
-    }
-
-    setIsSavingMinStay(true);
-    try {
-      const property = properties.find(p => p.id === propertyId);
-      if (!property) {
-        toast.error('Объект не найден');
-        return;
-      }
-
-      const rate = getRateForDate(propertyId, new Date(date));
-      const rateRecord = {
-        property_id: propertyId,
-        date,
-        daily_price: rate?.daily_price || property.base_price,
-        min_stay: minStay,
-        currency: rate?.currency || property.currency,
-      };
-
-      const { error } = await supabase
-        .from('property_rates')
-        .upsert(rateRecord, {
-          onConflict: 'property_id,date',
-        });
-
-      if (error) throw error;
-
-      // Refresh rates
-      await loadPropertyRates();
-      setMinStayPopoverOpen(null);
-      toast.success('Минимальный срок обновлен');
-    } catch (error) {
-      console.error('Error saving min stay:', error);
-      toast.error('Ошибка при сохранении минимального срока');
-    } finally {
-      setIsSavingMinStay(false);
-    }
-  };
 
   const togglePropertyExpansion = (propertyId: string) => {
     const newExpanded = new Set(expandedProperties);
@@ -707,11 +662,9 @@ export function Calendar({
           endDate: dateString,
         });
 
-        // check_out должен быть exclusive - добавляем 1 день к последней выбранной дате
-        const checkOutDate = addDays(end, 1);
-        const checkOutString = format(checkOutDate, 'yyyy-MM-dd');
-
-        onAddReservation(propertyId, dateSelection.startDate, checkOutString);
+        // check_out равен последней выбранной дате (включительно)
+        // Если выбрано 23-27, то check_out = 27 декабря
+        onAddReservation(propertyId, dateSelection.startDate, dateString);
       }
     }
   };
@@ -980,59 +933,52 @@ export function Calendar({
                                 const rate = getRateForDate(property.id, date);
                                 const displayMinStay = rate?.min_stay || property.minimum_booking_days;
                                 const dateString = date.toISOString().split('T')[0];
-                                const isPopoverOpen = minStayPopoverOpen?.propertyId === property.id && minStayPopoverOpen?.date === dateString;
+                                const isSelected = minStayDateSelection?.propertyId === property.id && minStayDateSelection?.startDate === dateString;
+                                const isInRange = minStayDateSelection?.propertyId === property.id &&
+                                  minStayDateSelection?.startDate &&
+                                  dateString >= minStayDateSelection.startDate;
+
+                                const handleMinStayClick = () => {
+                                  if (!minStayDateSelection || minStayDateSelection.propertyId !== property.id) {
+                                    // Первый клик - сохраняем дату как startDate
+                                    setMinStayDateSelection({ propertyId: property.id, startDate: dateString });
+                                  } else if (minStayDateSelection.startDate === dateString) {
+                                    // Клик на ту же дату - сбрасываем выбор
+                                    setMinStayDateSelection(null);
+                                  } else {
+                                    // Второй клик на другую дату - открываем ChangeConditionsModal
+                                    const startDate = minStayDateSelection.startDate;
+                                    if (startDate) {
+                                      const endDate = dateString;
+                                      const rate = getRateForDate(property.id, date);
+                                      const displayPrice = rate?.daily_price || property.base_price;
+                                      
+                                      setConditionsModalData({
+                                        propertyId: property.id,
+                                        startDate,
+                                        endDate,
+                                        price: displayPrice,
+                                        minStay: displayMinStay,
+                                        currency: property.currency,
+                                      });
+                                      setShowConditionsModal(true);
+                                      setMinStayDateSelection(null);
+                                    }
+                                  }
+                                };
 
                                 return (
-                                  <Popover
+                                  <div
                                     key={i}
-                                    open={isPopoverOpen}
-                                    onOpenChange={(open) => {
-                                      if (open) {
-                                        setMinStayPopoverOpen({ propertyId: property.id, date: dateString });
-                                        setMinStayValue(displayMinStay);
-                                      } else {
-                                        setMinStayPopoverOpen(null);
-                                      }
-                                    }}
-                                    content={
-                                      <div className="p-2 space-y-2 min-w-[200px]">
-                                        <div className="text-sm text-white mb-2">Минимальный срок бронирования</div>
-                                        <InputNumber
-                                          value={minStayValue}
-                                          onChange={(value) => setMinStayValue(value || 1)}
-                                          min={1}
-                                          className="w-full"
-                                          autoFocus
-                                        />
-                                        <div className="flex gap-2 justify-end">
-                                          <Button
-                                            size="small"
-                                            onClick={() => setMinStayPopoverOpen(null)}
-                                          >
-                                            Отмена
-                                          </Button>
-                                          <Button
-                                            type="primary"
-                                            size="small"
-                                            loading={isSavingMinStay}
-                                            onClick={() => handleSaveMinStay(property.id, dateString, minStayValue)}
-                                          >
-                                            Сохранить
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    }
-                                    trigger="click"
-                                    placement="bottom"
+                                    className={`w-16 flex-shrink-0 border-r border-slate-600 flex items-center justify-center cursor-pointer hover:bg-slate-700/50 transition-colors ${
+                                      isSelected ? 'bg-teal-500/20' : ''
+                                    } ${isInRange ? 'bg-blue-500/10' : ''}`}
+                                    onClick={handleMinStayClick}
                                   >
-                                    <div
-                                      className="w-16 flex-shrink-0 border-r border-slate-600 flex items-center justify-center cursor-pointer hover:bg-slate-700/50 transition-colors"
-                                    >
-                                      <div className="text-[10px] font-medium text-slate-300 tabular-nums">
-                                        {displayMinStay}
-                                      </div>
+                                    <div className="text-[10px] font-medium text-slate-300 tabular-nums">
+                                      {displayMinStay}
                                     </div>
-                                  </Popover>
+                                  </div>
                                 );
                               })}
                             </div>
@@ -1072,7 +1018,7 @@ export function Calendar({
                                     >
                                       {!isOccupied && (
                                         <div className="h-11 flex items-center justify-center text-center px-1">
-                                          <div className="text-[10px] font-medium text-slate-300 tabular-nums truncate">
+                                          <div className="text-[10px] font-medium text-slate-900 dark:text-slate-300 tabular-nums truncate">
                                             {displayPrice}
                                           </div>
                                         </div>

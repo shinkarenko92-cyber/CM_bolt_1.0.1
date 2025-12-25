@@ -272,11 +272,13 @@ export function AddReservationModal({
         const property = properties.find(p => p.id === propertyId);
         const nights = calculateNights(checkIn, checkOut);
         const extraServices = parseFloat(formData.extra_services_amount) || 0;
-        const pricePerNight = nights > 0 ? (data - extraServices) / nights : 0;
+        const basePrice = data; // цена без доп услуг
+        const totalPrice = basePrice + extraServices; // общая цена с доп услугами
+        const pricePerNight = nights > 0 ? basePrice / nights : 0;
         
         setFormData(prev => ({
           ...prev,
-          total_price: Math.round(data).toString(),
+          total_price: Math.round(totalPrice).toString(),
           price_per_night: Math.round(pricePerNight).toString(),
           currency: property?.currency || 'RUB',
         }));
