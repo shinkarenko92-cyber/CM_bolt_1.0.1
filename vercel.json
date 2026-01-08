@@ -5,24 +5,40 @@
       "destination": "https://kvauqrxihwdgclhwmzof.supabase.co/functions/v1/$1"
     },
     {
-      "source": "/app/(.*)",
-      "destination": "/$1"
-    },
-    {
-      "source": "/app",
-      "destination": "/"
-    },
-    {
       "source": "/auth/avito-callback",
-      "destination": "/"
+      "destination": "/app/"
     },
     {
-      "source": "/((?!app$|auth).*)",
-      "destination": "https://roomi-landing.vercel.app/$1"
+      "source": "/app/:path*",
+      "destination": "/app/:path*"
+    },
+    {
+      "source": "/landing/:path*",
+      "destination": "/landing/:path*"
     },
     {
       "source": "/",
-      "destination": "https://roomi-landing.vercel.app"
+      "destination": "/landing/"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/landing/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/app/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     }
   ],
   "cleanUrls": true,
