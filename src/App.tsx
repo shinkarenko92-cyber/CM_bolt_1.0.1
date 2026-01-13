@@ -10,10 +10,16 @@ function AppContent() {
 
   // Handle Avito OAuth callback
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:13',message:'OAuth callback check started',data:{pathname:window.location.pathname,search:window.location.search},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
     const params = new URLSearchParams(window.location.search);
     const path = window.location.pathname;
 
-    if (path === '/auth/avito-callback' || path === '/app/auth/avito-callback') {
+    if (path === '/auth/avito-callback') {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:18',message:'OAuth callback detected',data:{path,hasCode:!!params.get('code'),hasError:!!params.get('error')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
       console.log('App: OAuth callback detected', { path, search: window.location.search });
       
       const error = params.get('error');
@@ -57,7 +63,7 @@ function AppContent() {
 
       // Clean URL and redirect to home
       console.log('App: Cleaning URL and redirecting to home');
-      window.history.replaceState({}, '', '/app/');
+      window.history.replaceState({}, '', '/');
     }
   }, []);
 

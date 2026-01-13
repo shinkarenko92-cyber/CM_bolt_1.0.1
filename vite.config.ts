@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/app/',
+  base: '/',
   plugins: [react()],
   optimizeDeps: {
     exclude: ['lucide-react'],
@@ -14,7 +14,7 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
-    outDir: 'dist/app',
+    outDir: 'dist',
     emptyOutDir: true,
   },
 });

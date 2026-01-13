@@ -41,6 +41,9 @@ type NewReservation = {
 };
 
 export function Dashboard() {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:43',message:'Dashboard mounted',data:{pathname:window.location.pathname},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
   const { t } = useTranslation();
   const { user, isAdmin } = useAuth();
   const [currentView, setCurrentView] = useState('calendar');
@@ -133,15 +136,26 @@ export function Dashboard() {
   }, []);
 
   const loadData = useCallback(async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:135',message:'loadData called',data:{hasUser:!!user,userId:user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     if (!user) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:137',message:'loadData: no user, exiting',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       setLoading(false);
       return;
     }
 
     try {
       console.log('Loading data for user:', user.id);
-
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:144',message:'Getting session',data:{userId:user.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       const session = await supabase.auth.getSession();
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:146',message:'Session received',data:{hasSession:!!session.data.session,hasUser:!!session.data.session?.user},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       console.log('Session user ID:', session.data.session?.user?.id);
 
       // Retry для properties
@@ -164,9 +178,15 @@ export function Dashboard() {
         }
       );
       const { data: propertiesData, error: propsError } = propertiesResult;
-
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:166',message:'Properties query result',data:{hasData:!!propertiesData,hasError:!!propsError,dataCount:propertiesData?.length,errorMessage:propsError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       console.log('Properties error:', propsError);
       console.log('Properties data:', propertiesData);
+      
+      if (propsError) {
+        toast.error(`${t('errors.failedToLoadProperties')}: ${propsError.message}`);
+      }
 
       if (propertiesData) {
         console.log('Properties data loaded', { count: propertiesData.length, objects: propertiesData.map(p => ({ id: p.id, name: p.name })) });
@@ -197,9 +217,15 @@ export function Dashboard() {
             }
           );
           const { data: bookingsData, error: bookingsError } = bookingsResult;
-
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:199',message:'Bookings query result',data:{hasData:!!bookingsData,hasError:!!bookingsError,dataCount:bookingsData?.length,errorMessage:bookingsError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
           console.log('Bookings error:', bookingsError);
           console.log('Bookings data:', bookingsData);
+          
+          if (bookingsError) {
+            toast.error(`${t('errors.failedToLoadBookings')}: ${bookingsError.message}`);
+          }
 
           if (bookingsData) {
             console.log('Bookings loaded', { count: bookingsData.length });
@@ -234,8 +260,16 @@ export function Dashboard() {
         setUserProfile(profileData);
       }
     } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:236',message:'loadData error caught',data:{errorMessage:error instanceof Error?error.message:String(error),errorStack:error instanceof Error?error.stack:undefined},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
       console.error('Error loading data:', error);
+      const errorMessage = error instanceof Error ? error.message : t('errors.somethingWentWrong');
+      toast.error(`${t('errors.failedToLoadData')}: ${errorMessage}`);
     } finally {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:239',message:'loadData completed',data:{loading:false},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       setLoading(false);
     }
   }, [user, retrySupabaseQuery]);
@@ -275,6 +309,9 @@ export function Dashboard() {
 
   // Realtime subscription for new Avito bookings
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:276',message:'Realtime subscription setup',data:{hasUser:!!user},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     if (!user) return;
 
     const channel = supabase
@@ -288,6 +325,9 @@ export function Dashboard() {
           filter: 'source=eq.avito',
         },
         () => {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:284',message:'Realtime event received',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
           // Toast notification
           message.success('Лид с Avito!');
           
@@ -307,8 +347,14 @@ export function Dashboard() {
         }
       )
       .subscribe();
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:303',message:'Realtime channel subscribed',data:{channelName:'avito_bookings'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
 
     return () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:305',message:'Realtime channel cleanup',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       supabase.removeChannel(channel);
     };
   }, [user]); // Убрали loadData из зависимостей, используем ref
