@@ -533,7 +533,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: number) => [`${formatCurrency(value)} ₽`, t('analytics.revenue')]} />
+                      <Tooltip formatter={(value: number | undefined) => value !== undefined ? [`${formatCurrency(value)} ₽`, t('analytics.revenue')] : ['', '']} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -555,7 +555,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                     <XAxis type="number" stroke="#9ca3af" fontSize={12} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                     <YAxis dataKey="name" type="category" stroke="#9ca3af" fontSize={11} width={100} />
-                    <Tooltip formatter={(value: number) => [`${value}%`, t('analytics.occupancyRate')]} />
+                    <Tooltip formatter={(value: number | undefined) => value !== undefined ? [`${value}%`, t('analytics.occupancyRate')] : ['', '']} />
                     <Bar dataKey="occupancy" name={t('analytics.occupancyRate')} fill="#3b82f6" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
