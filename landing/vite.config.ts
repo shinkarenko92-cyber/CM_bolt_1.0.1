@@ -21,6 +21,6 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     outDir: "../dist/landing",
-    emptyOutDir: true,
+    emptyOutDir: true, // Очищать только landing директорию
   },
 }));

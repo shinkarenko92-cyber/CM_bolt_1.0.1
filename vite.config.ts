@@ -15,6 +15,6 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    emptyOutDir: true,
+    emptyOutDir: false, // Не очищать dist, так как landing уже там
   },
 });

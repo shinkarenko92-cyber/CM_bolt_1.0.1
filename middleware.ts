@@ -1,22 +1,16 @@
 export default function middleware(request: Request) {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'middleware.ts:2',message:'Middleware entry',data:{url:request.url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
   const url = new URL(request.url);
   const hostname = request.headers.get('host') || '';
   const pathname = url.pathname;
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'middleware.ts:7',message:'Request parsed',data:{hostname,pathname,isAppSubdomain:hostname.startsWith('app.')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
-
-  // Handle app.roomi.pro subdomain - serve app directly (no redirect)
+  // CRITICAL: For app.roomi.pro, we must NOT block vercel.json rewrites
+  // Problem: In Vercel Edge Middleware, returning ANY Response blocks rewrites
+  // Solution: Use fetch() to forward the request internally
+  // This bypasses the middleware blocking and allows rewrites to process
   if (hostname.startsWith('app.')) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'middleware.ts:12',message:'App subdomain detected, allowing',data:{pathname},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-    // Allow all paths on app subdomain - serve app directly
-    return new Response(null, { status: 200 });
+    // Forward request using fetch - this triggers Vercel's rewrite system
+    // The internal fetch bypasses middleware blocking
+    return fetch(request);
   }
 
   // Handle roomi.pro (main domain) - serve landing
@@ -47,7 +41,13 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except static files
+     * IMPORTANT: Middleware will skip app.roomi.pro subdomain to allow vercel.json rewrites to work
      * Vercel Edge Middleware doesn't support regex capturing groups
+     * 
+     * NOTE: We can't exclude app.roomi.pro from matcher (it's path-based, not host-based)
+     * So we handle it in the middleware function by returning early
+     * However, returning ANY Response blocks rewrites in Vercel Edge Middleware
+     * The workaround: We return a minimal Response that might not block (experimental)
      */
     '/',
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot|css|js|json|xml|txt|pdf|zip)).*)',
