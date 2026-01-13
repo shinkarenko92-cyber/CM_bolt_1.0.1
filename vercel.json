@@ -1,4 +1,6 @@
 {
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/functions/v1/(.*)",
@@ -6,7 +8,7 @@
     },
     {
       "source": "/auth/avito-callback",
-      "destination": "/app/"
+      "destination": "/app/index.html"
     },
     {
       "source": "/app/:path*",
@@ -18,7 +20,7 @@
     },
     {
       "source": "/",
-      "destination": "/landing/"
+      "destination": "/app/index.html"
     }
   ],
   "headers": [
