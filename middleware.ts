@@ -59,6 +59,19 @@ export default function middleware(request: Request) {
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot|css|js|json|xml|txt|pdf|zip)).*)',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - files with extensions: ico, png, jpg, jpeg, svg, gif, webp, woff, woff2, ttf, eot, css, js, json, xml, txt, pdf, zip
+     */
+    {
+      source: '/:path*',
+      missing: [
+        { type: 'header', key: 'x-middleware-rewrite' },
+      ],
+    },
   ],
 };
