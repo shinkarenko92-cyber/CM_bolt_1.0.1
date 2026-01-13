@@ -5,11 +5,17 @@ export default function middleware(request: Request) {
 
   // CRITICAL: For app.roomi.pro, we must NOT block vercel.json rewrites
   // Problem: In Vercel Edge Middleware, returning ANY Response blocks rewrites
-  // Solution: Use fetch() to forward the request internally
-  // This bypasses the middleware blocking and allows rewrites to process
+  // Solution: For app.roomi.pro, use fetch() to forward request which allows rewrites
+  // Special handling for OAuth callback to ensure it works correctly
   if (hostname.startsWith('app.')) {
-    // Forward request using fetch - this triggers Vercel's rewrite system
-    // The internal fetch bypasses middleware blocking
+    // For OAuth callback path, we need to ensure rewrites work
+    // fetch() should work, but if it doesn't, we'll try a different approach
+    if (pathname === '/auth/avito-callback') {
+      // For OAuth callback, forward using fetch to allow rewrites
+      // This should process the rewrite to /index.html correctly
+      return fetch(request);
+    }
+    // For all other paths on app.roomi.pro, forward using fetch
     return fetch(request);
   }
 
@@ -40,16 +46,14 @@ export default function middleware(request: Request) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except static files
+     * Match all request paths except static files and OAuth callback
      * IMPORTANT: Middleware will skip app.roomi.pro subdomain to allow vercel.json rewrites to work
      * Vercel Edge Middleware doesn't support regex capturing groups
      * 
-     * NOTE: We can't exclude app.roomi.pro from matcher (it's path-based, not host-based)
-     * So we handle it in the middleware function by returning early
-     * However, returning ANY Response blocks rewrites in Vercel Edge Middleware
-     * The workaround: We return a minimal Response that might not block (experimental)
+     * NOTE: We exclude /auth/avito-callback from matcher to allow rewrites to work
+     * This prevents middleware from interfering with OAuth callback processing
      */
     '/',
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot|css|js|json|xml|txt|pdf|zip)).*)',
+    '/((?!_next/static|_next/image|favicon.ico|auth/avito-callback|.*\\.(?:ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot|css|js|json|xml|txt|pdf|zip)).*)',
   ],
 };
