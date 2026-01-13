@@ -213,9 +213,10 @@ export function EditReservationModal({
     }
   };
 
-  const propertyName = properties.find((p) => p.id === booking.property_id)?.name || t('common.unknown');
-
   if (!isOpen) return null;
+  if (!booking) return null;
+
+  const propertyName = properties.find((p) => p.id === booking.property_id)?.name || t('common.unknown');
 
   return (
     <div 

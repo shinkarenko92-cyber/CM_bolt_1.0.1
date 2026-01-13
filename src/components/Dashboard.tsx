@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, Bell, User } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -65,6 +65,7 @@ export function Dashboard() {
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
   const [bookingsForDelete, setBookingsForDelete] = useState<Booking[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const oauthProcessedRef = useRef(false);
 
   // Helper function for retry logic
   type SupabaseQueryResult<T> = {
@@ -239,6 +240,12 @@ export function Dashboard() {
     }
   }, [user, retrySupabaseQuery]);
 
+  // Keep loadData ref up to date
+  const loadDataRef = useRef(loadData);
+  useEffect(() => {
+    loadDataRef.current = loadData;
+  }, [loadData]);
+
   useEffect(() => {
     loadData();
   }, [loadData]);
@@ -248,20 +255,23 @@ export function Dashboard() {
     const oauthSuccess = getOAuthSuccess();
     const oauthError = getOAuthError();
     
-    if (oauthSuccess || oauthError) {
+    if ((oauthSuccess || oauthError) && !oauthProcessedRef.current) {
       console.log('Dashboard: OAuth callback detected, switching to Properties view', {
         hasSuccess: !!oauthSuccess,
         hasError: !!oauthError,
-        currentView
       });
       
       // Переключаемся на вкладку Properties, чтобы PropertiesView мог обработать callback
-      if (currentView !== 'properties') {
-        console.log('Dashboard: Switching to Properties view to handle OAuth callback');
-        setCurrentView('properties');
-      }
+      setCurrentView((prevView) => {
+        if (prevView !== 'properties') {
+          console.log('Dashboard: Switching to Properties view to handle OAuth callback');
+          return 'properties';
+        }
+        return prevView;
+      });
+      oauthProcessedRef.current = true;
     }
-  }, [currentView]);
+  }, []); // Запускаем только при монтировании
 
   // Realtime subscription for new Avito bookings
   useEffect(() => {
@@ -293,7 +303,7 @@ export function Dashboard() {
           }
           
           // Refresh bookings
-          loadData();
+          loadDataRef.current();
         }
       )
       .subscribe();
@@ -301,7 +311,7 @@ export function Dashboard() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, loadData]);
+  }, [user]); // Убрали loadData из зависимостей, используем ref
 
   useEffect(() => {
     if (searchQuery.trim() === '') {

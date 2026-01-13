@@ -106,16 +106,23 @@ export async function syncAvitoIntegration(
     return { success: false, message: 'Интеграция не найдена или неактивна' };
   }
 
-  // GUARD: Check if item_id is set
+  // GUARD: Check if item_id is set and valid
   if (!integration.avito_item_id) {
-    const itemIdStr = String(integration.avito_item_id || '').trim();
-    if (!itemIdStr || itemIdStr.length < 10 || itemIdStr.length > 11 || !/^\d+$/.test(itemIdStr)) {
-      console.warn('syncAvitoIntegration: Missing or invalid item_id', {
-        propertyId,
-        avito_item_id: integration.avito_item_id,
-      });
-      return { success: false, message: 'Введи ID объявления на Avito (10-11 цифр)' };
-    }
+    console.warn('syncAvitoIntegration: Missing item_id', {
+      propertyId,
+      avito_item_id: integration.avito_item_id,
+    });
+    return { success: false, message: 'Введи ID объявления на Avito (10-11 цифр)' };
+  }
+
+  const itemIdStr = String(integration.avito_item_id).trim();
+  if (!itemIdStr || itemIdStr.length < 10 || itemIdStr.length > 11 || !/^\d+$/.test(itemIdStr)) {
+    console.warn('syncAvitoIntegration: Invalid item_id format', {
+      propertyId,
+      avito_item_id: integration.avito_item_id,
+      itemIdLength: itemIdStr.length,
+    });
+    return { success: false, message: 'Введи ID объявления на Avito (10-11 цифр)' };
   }
 
   // Note: Token expiration check is now handled in Edge Function with automatic refresh
