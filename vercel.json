@@ -12,20 +12,20 @@
     },
     {
       "source": "/app/:path*",
-      "destination": "/app/:path*"
+      "destination": "/app/index.html"
     },
     {
       "source": "/landing/:path*",
-      "destination": "/landing/:path*"
+      "destination": "/landing/index.html"
     },
     {
       "source": "/",
-      "destination": "/app/index.html"
+      "destination": "/landing/index.html"
     }
   ],
   "headers": [
     {
-      "source": "/landing/(.*)",
+      "source": "/landing/assets/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -34,7 +34,7 @@
       ]
     },
     {
-      "source": "/app/(.*)",
+      "source": "/app/assets/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

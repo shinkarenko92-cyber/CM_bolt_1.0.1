@@ -13,7 +13,7 @@ function AppContent() {
     const params = new URLSearchParams(window.location.search);
     const path = window.location.pathname;
 
-    if (path === '/auth/avito-callback') {
+    if (path === '/auth/avito-callback' || path === '/app/auth/avito-callback') {
       console.log('App: OAuth callback detected', { path, search: window.location.search });
       
       const error = params.get('error');
@@ -57,7 +57,7 @@ function AppContent() {
 
       // Clean URL and redirect to home
       console.log('App: Cleaning URL and redirecting to home');
-      window.history.replaceState({}, '', '/');
+      window.history.replaceState({}, '', '/app/');
     }
   }, []);
 
