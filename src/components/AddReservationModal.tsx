@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { differenceInDays, parseISO } from 'date-fns';
@@ -60,6 +60,11 @@ export function AddReservationModal({
   const [showConditionsModal, setShowConditionsModal] = useState(false);
   const [currentDailyPrice, setCurrentDailyPrice] = useState<number>(0);
   const [currentMinStay, setCurrentMinStay] = useState<number>(1);
+  // Refs для отслеживания источника изменений (предотвращение циклов)
+  const isUpdatingFromPricePerNight = useRef(false);
+  const isUpdatingFromTotalPrice = useRef(false);
+  const isUpdatingFromExtraServices = useRef(false);
+  const isUpdatingFromConditions = useRef(false);
 
   useEffect(() => {
     if (prefilledDates) {
@@ -81,84 +86,124 @@ export function AddReservationModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.property_id, formData.check_in, formData.check_out]);
 
-  // Обновляем текущие условия при изменении дат или property и автоматически заполняем цены
+  // Обновляем текущие условия при изменении дат или property (БЕЗ extra_services_amount!)
+  // Этот useEffect только загружает базовую цену за ночь и пересчитывает total_price с учетом текущих доп. услуг
   useEffect(() => {
     if (formData.property_id && formData.check_in && formData.check_out && !calculatingPrice) {
+      isUpdatingFromConditions.current = true;
       getCurrentConditions(formData.property_id, formData.check_in, formData.check_out)
         .then((conditions) => {
           setCurrentDailyPrice(conditions.dailyPrice);
           setCurrentMinStay(conditions.minStay);
           
-          // Автоматически заполняем цены из календаря
           const nights = calculateNights(formData.check_in, formData.check_out);
           if (nights > 0) {
-            const extraServices = parseFloat(formData.extra_services_amount) || 0;
-            const totalPrice = Math.round(conditions.dailyPrice * nights + extraServices);
             const pricePerNight = Math.round(conditions.dailyPrice);
+            const extraServices = parseFloat(formData.extra_services_amount) || 0;
+            const newTotalPrice = Math.round(pricePerNight * nights + extraServices);
             
             setFormData(prev => ({
               ...prev,
               price_per_night: pricePerNight.toString(),
-              total_price: totalPrice.toString(),
+              total_price: newTotalPrice.toString(),
             }));
           }
+          isUpdatingFromConditions.current = false;
         })
         .catch((error) => {
           console.error('Error loading property rates:', error);
-          // В случае ошибки используем базовые значения из property
           const property = properties.find(p => p.id === formData.property_id);
           if (property) {
             setCurrentDailyPrice(property.base_price || 0);
             setCurrentMinStay(property.minimum_booking_days || 1);
             
-            // Заполняем цены из base_price
             const nights = calculateNights(formData.check_in, formData.check_out);
             if (nights > 0) {
-              const extraServices = parseFloat(formData.extra_services_amount) || 0;
-              const totalPrice = Math.round((property.base_price || 0) * nights + extraServices);
               const pricePerNight = Math.round(property.base_price || 0);
+              const extraServices = parseFloat(formData.extra_services_amount) || 0;
+              const newTotalPrice = Math.round(pricePerNight * nights + extraServices);
               
               setFormData(prev => ({
                 ...prev,
                 price_per_night: pricePerNight.toString(),
-                total_price: totalPrice.toString(),
+                total_price: newTotalPrice.toString(),
               }));
             }
           }
+          isUpdatingFromConditions.current = false;
         });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.property_id, formData.check_in, formData.check_out, formData.extra_services_amount]);
+  }, [formData.property_id, formData.check_in, formData.check_out]);
 
   // Пересчет total_price при изменении price_per_night или extra_services_amount
+  // НЕ срабатывает если изменение идет от условий или от ручного изменения total_price
   useEffect(() => {
-    if (!calculatingPrice && formData.price_per_night && formData.check_in && formData.check_out) {
+    if (
+      !calculatingPrice && 
+      !isUpdatingFromConditions.current && 
+      !isUpdatingFromTotalPrice.current &&
+      formData.price_per_night && 
+      formData.check_in && 
+      formData.check_out
+    ) {
       const nights = calculateNights(formData.check_in, formData.check_out);
       if (nights > 0) {
         const pricePerNight = parseFloat(formData.price_per_night) || 0;
         const extraServices = parseFloat(formData.extra_services_amount) || 0;
         const newTotalPrice = Math.round(pricePerNight * nights + extraServices);
-        setFormData(prev => ({
-          ...prev,
-          total_price: newTotalPrice.toString(),
-        }));
+        
+        // Проверяем, действительно ли нужно обновлять (избегаем лишних обновлений)
+        const currentTotal = parseFloat(formData.total_price) || 0;
+        if (Math.abs(newTotalPrice - currentTotal) > 0.01) {
+          isUpdatingFromPricePerNight.current = true;
+          isUpdatingFromExtraServices.current = true;
+          setFormData(prev => ({
+            ...prev,
+            total_price: newTotalPrice.toString(),
+          }));
+          // Сбрасываем флаги после обновления
+          setTimeout(() => {
+            isUpdatingFromPricePerNight.current = false;
+            isUpdatingFromExtraServices.current = false;
+          }, 0);
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.price_per_night, formData.extra_services_amount, calculatingPrice]);
+  }, [formData.price_per_night, formData.extra_services_amount, formData.check_in, formData.check_out, calculatingPrice]);
 
   // Пересчет price_per_night при изменении total_price (если меняем total вручную)
+  // Срабатывает ТОЛЬКО когда пользователь вручную меняет total_price
+  // НЕ срабатывает при программном обновлении через другие useEffect
   useEffect(() => {
-    if (!calculatingPrice && formData.total_price && formData.check_in && formData.check_out) {
+    if (
+      !calculatingPrice && 
+      !isUpdatingFromConditions.current && 
+      !isUpdatingFromPricePerNight.current && 
+      !isUpdatingFromExtraServices.current &&
+      formData.total_price && 
+      formData.check_in && 
+      formData.check_out
+    ) {
       const nights = calculateNights(formData.check_in, formData.check_out);
       if (nights > 0) {
         const totalPrice = parseFloat(formData.total_price) || 0;
         const extraServices = parseFloat(formData.extra_services_amount) || 0;
         const newDailyPrice = Math.round((totalPrice - extraServices) / nights);
-        setFormData(prev => ({
-          ...prev,
-          price_per_night: newDailyPrice.toString(),
-        }));
+        
+        // Проверяем, действительно ли нужно обновлять
+        const currentPricePerNight = parseFloat(formData.price_per_night) || 0;
+        if (Math.abs(newDailyPrice - currentPricePerNight) > 0.01) {
+          isUpdatingFromTotalPrice.current = true;
+          setFormData(prev => ({
+            ...prev,
+            price_per_night: newDailyPrice.toString(),
+          }));
+          setTimeout(() => {
+            isUpdatingFromTotalPrice.current = false;
+          }, 0);
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -259,6 +304,7 @@ export function AddReservationModal({
     if (checkOutDate <= checkInDate) return;
 
     setCalculatingPrice(true);
+    isUpdatingFromConditions.current = true;
     try {
       const { data, error } = await supabase.rpc('calculate_booking_price', {
         p_property_id: propertyId,
@@ -271,6 +317,7 @@ export function AddReservationModal({
       if (data !== null) {
         const property = properties.find(p => p.id === propertyId);
         const nights = calculateNights(checkIn, checkOut);
+        // Используем текущее значение extra_services_amount из formData
         const extraServices = parseFloat(formData.extra_services_amount) || 0;
         const basePrice = data; // цена без доп услуг
         const totalPrice = basePrice + extraServices; // общая цена с доп услугами
@@ -292,6 +339,7 @@ export function AddReservationModal({
       console.error('Error calculating price:', err);
     } finally {
       setCalculatingPrice(false);
+      isUpdatingFromConditions.current = false;
     }
   };
 
