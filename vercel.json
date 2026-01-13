@@ -17,10 +17,6 @@
     {
       "source": "/landing/:path*",
       "destination": "/landing/index.html"
-    },
-    {
-      "source": "/",
-      "destination": "/landing/index.html"
     }
   ],
   "headers": [

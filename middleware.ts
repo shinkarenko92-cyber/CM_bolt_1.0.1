@@ -3,32 +3,31 @@ export default function middleware(request: Request) {
   const hostname = request.headers.get('host') || '';
   const pathname = url.pathname;
 
-  // Handle app.roomi.pro subdomain - rewrite to /app
+  // Handle app.roomi.pro subdomain - redirect to /app
   if (hostname.startsWith('app.')) {
     // If already on /app path or special paths, allow it
     if (pathname.startsWith('/app') || pathname.startsWith('/functions') || pathname.startsWith('/auth')) {
-      return new Response(null);
+      return;
     }
-    // Rewrite root and other paths to /app
-    const newUrl = new URL(request.url);
-    newUrl.pathname = `/app${pathname === '/' ? '' : pathname}`;
-    return fetch(newUrl, request);
+    // Redirect root and other paths to /app
+    const newUrl = new URL('/app/', url.origin);
+    if (pathname !== '/') {
+      newUrl.pathname = `/app${pathname}`;
+    }
+    return Response.redirect(newUrl, 307);
   }
 
   // Handle roomi.pro (main domain) - serve landing
   // If already on /landing or /app path, allow it
   if (pathname.startsWith('/landing') || pathname.startsWith('/app') || pathname.startsWith('/functions') || pathname.startsWith('/auth')) {
-    return new Response(null);
+    return;
   }
 
-  // Rewrite root to /landing
+  // Redirect root to /landing
   if (pathname === '/') {
-    const newUrl = new URL(request.url);
-    newUrl.pathname = '/landing/';
-    return fetch(newUrl, request);
+    const newUrl = new URL('/landing/', url.origin);
+    return Response.redirect(newUrl, 307);
   }
-
-  return new Response(null);
 }
 
 export const config = {
