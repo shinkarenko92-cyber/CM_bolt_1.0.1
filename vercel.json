@@ -21,7 +21,7 @@
   ],
   "headers": [
     {
-      "source": "/landing/assets/(.*)",
+      "source": "/landing/assets/:path*",
       "headers": [
         {
           "key": "Cache-Control",
@@ -30,7 +30,7 @@
       ]
     },
     {
-      "source": "/assets/(.*)",
+      "source": "/assets/:path*",
       "headers": [
         {
           "key": "Cache-Control",
