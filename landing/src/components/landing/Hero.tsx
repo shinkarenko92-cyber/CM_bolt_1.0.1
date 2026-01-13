@@ -10,9 +10,7 @@ export const Hero = () => {
               <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
               Канальный менеджер нового поколения
             </div>
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">Управляйте апартаментами c  Roomi
-            <br />
-              
+            <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">Управляйте апартаментами c Roomi
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto leading-relaxed">
               Roomi синхронизирует все каналы продаж, автоматизирует бронирования и 

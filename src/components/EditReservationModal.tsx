@@ -102,7 +102,6 @@ export function EditReservationModal({
         }));
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.price_per_night, formData.check_in, formData.check_out, formData.extra_services_amount]);
 
   if (!booking) return null;
