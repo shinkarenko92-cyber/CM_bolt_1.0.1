@@ -60,18 +60,10 @@ export default function middleware(request: Request) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - files with extensions: ico, png, jpg, jpeg, svg, gif, webp, woff, woff2, ttf, eot, css, js, json, xml, txt, pdf, zip
+     * Match all request paths except static files
+     * Vercel Edge Middleware doesn't support regex capturing groups
      */
-    {
-      source: '/:path*',
-      missing: [
-        { type: 'header', key: 'x-middleware-rewrite' },
-      ],
-    },
+    '/',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot|css|js|json|xml|txt|pdf|zip)).*)',
   ],
 };
