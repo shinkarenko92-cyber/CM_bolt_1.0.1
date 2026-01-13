@@ -7,34 +7,28 @@ export default function middleware(request: Request) {
   if (hostname.startsWith('app.')) {
     // If already on /app path or special paths, allow it
     if (pathname.startsWith('/app') || pathname.startsWith('/functions') || pathname.startsWith('/auth')) {
-      return;
+      return new Response(null);
     }
     // Rewrite root and other paths to /app
-    url.pathname = `/app${pathname === '/' ? '' : pathname}`;
-    return new Response(null, {
-      status: 200,
-      headers: {
-        'x-middleware-rewrite': url.pathname,
-      },
-    });
+    const newUrl = new URL(request.url);
+    newUrl.pathname = `/app${pathname === '/' ? '' : pathname}`;
+    return fetch(newUrl, request);
   }
 
   // Handle roomi.pro (main domain) - serve landing
   // If already on /landing or /app path, allow it
   if (pathname.startsWith('/landing') || pathname.startsWith('/app') || pathname.startsWith('/functions') || pathname.startsWith('/auth')) {
-    return;
+    return new Response(null);
   }
 
   // Rewrite root to /landing
   if (pathname === '/') {
-    url.pathname = '/landing/';
-    return new Response(null, {
-      status: 200,
-      headers: {
-        'x-middleware-rewrite': url.pathname,
-      },
-    });
+    const newUrl = new URL(request.url);
+    newUrl.pathname = '/landing/';
+    return fetch(newUrl, request);
   }
+
+  return new Response(null);
 }
 
 export const config = {
