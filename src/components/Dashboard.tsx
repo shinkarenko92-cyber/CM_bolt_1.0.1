@@ -23,6 +23,7 @@ import { syncWithExternalAPIs, syncAvitoIntegration } from '../services/apiSync'
 import { showAvitoErrors } from '../services/avitoErrors';
 import { DeletePropertyModal } from './DeletePropertyModal';
 import { ImportBookingsModal } from './ImportBookingsModal';
+import { logBookingChange, getBookingChanges } from '../services/bookingLog';
 
 type NewReservation = {
   property_id: string;
@@ -439,13 +440,30 @@ export function Dashboard() {
 
   const saveReservationToDatabase = async (reservation: NewReservation) => {
     try {
-      const { data, error } = await supabase.from('bookings').insert([reservation]).select();
+      // Add created_by field
+      const reservationWithAudit = {
+        ...reservation,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
+      };
+
+      const { data, error } = await supabase.from('bookings').insert([reservationWithAudit]).select();
 
       if (error) throw error;
 
       if (data && data.length > 0) {
-        setBookings([...bookings, data[0]]);
-        setFilteredBookings([...bookings, data[0]]);
+        const newBooking = data[0];
+        setBookings([...bookings, newBooking]);
+        setFilteredBookings([...bookings, newBooking]);
+        
+        // Log the creation
+        await logBookingChange(
+          newBooking.id,
+          newBooking.property_id,
+          'created',
+          undefined,
+          reservation.source || 'manual'
+        );
       }
       setIsAddModalOpen(false);
       setPrefilledDates(null);
@@ -520,13 +538,36 @@ export function Dashboard() {
 
   const handleUpdateReservation = async (id: string, data: Partial<Booking>) => {
     try {
-      const { error } = await supabase.from('bookings').update(data).eq('id', id);
+      // Find the old booking to compare changes
+      const oldBooking = bookings.find((b) => b.id === id);
+      
+      // Add updated_by field
+      const dataWithAudit = {
+        ...data,
+        updated_by: user?.id || null,
+      };
+
+      const { error } = await supabase.from('bookings').update(dataWithAudit).eq('id', id);
 
       if (error) throw error;
 
       const updatedBookings = bookings.map((b) =>
-        b.id === id ? { ...b, ...data } : b
+        b.id === id ? { ...b, ...dataWithAudit } : b
       );
+      
+      // Log the update if we have the old booking
+      if (oldBooking) {
+        const changes = getBookingChanges(oldBooking, dataWithAudit);
+        if (Object.keys(changes).length > 0) {
+          await logBookingChange(
+            id,
+            oldBooking.property_id,
+            'updated',
+            changes,
+            oldBooking.source || 'manual'
+          );
+        }
+      }
       setBookings(updatedBookings);
       setFilteredBookings(updatedBookings);
       toast.success(t('success.bookingUpdated'));
@@ -574,6 +615,8 @@ export function Dashboard() {
   };
 
   const handleDeleteReservation = async (id: string) => {
+    // Find the booking before deletion to log it
+    const bookingToDelete = bookings.find((b) => b.id === id);
     try {
       // Сохраняем данные брони перед удалением для синхронизации
       const booking = bookings.find(b => b.id === id);
@@ -588,6 +631,18 @@ export function Dashboard() {
       const updatedBookings = bookings.filter((b) => b.id !== id);
       setBookings(updatedBookings);
       setFilteredBookings(updatedBookings);
+      
+      // Log the deletion
+      if (bookingToDelete) {
+        await logBookingChange(
+          id,
+          bookingToDelete.property_id,
+          'deleted',
+          undefined,
+          bookingToDelete.source || 'manual'
+        );
+      }
+      
       toast.success(t('success.bookingDeleted'));
 
       // Sync to Avito after successful booking deletion

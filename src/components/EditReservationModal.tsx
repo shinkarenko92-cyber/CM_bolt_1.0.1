@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Booking, Property, supabase } from '../lib/supabase';
+import { Booking, Property, supabase, BookingLog } from '../lib/supabase';
 import { PriceRecalculationModal } from './PriceRecalculationModal';
+import { Timeline } from 'antd';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
 
 interface EditReservationModalProps {
   isOpen: boolean;
@@ -40,6 +43,8 @@ export function EditReservationModal({
   const [originalPropertyId, setOriginalPropertyId] = useState('');
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [calculatedPrice, setCalculatedPrice] = useState(0);
+  const [bookingLogs, setBookingLogs] = useState<BookingLog[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
   // Вычисление количества ночей
   const calculateNights = (checkIn: string, checkOut: string): number => {
@@ -80,8 +85,29 @@ export function EditReservationModal({
         extra_services_amount: extraServices.toString(),
       });
       setOriginalPropertyId(booking.property_id);
+      loadBookingLogs(booking.id);
     }
   }, [booking]);
+
+  const loadBookingLogs = async (bookingId: string) => {
+    if (!bookingId) return;
+    setLoadingLogs(true);
+    try {
+      const { data, error } = await supabase
+        .from('booking_logs')
+        .select('*')
+        .eq('booking_id', bookingId)
+        .order('timestamp', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      setBookingLogs(data || []);
+    } catch (err) {
+      console.error('Error loading booking logs:', err);
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -507,6 +533,79 @@ export function EditReservationModal({
                   placeholder={t('modals.notesPlaceholder', { defaultValue: 'Add any additional notes...' })}
                 />
               </div>
+            </div>
+
+            {/* История изменений */}
+            <div className="col-span-2 border-t border-slate-700 pt-6 mt-6">
+              <h3 className="text-lg font-medium text-white mb-4">История изменений</h3>
+              {loadingLogs ? (
+                <div className="text-slate-400">Загрузка...</div>
+              ) : bookingLogs.length === 0 ? (
+                <div className="text-slate-400">История изменений отсутствует</div>
+              ) : (
+                <Timeline
+                  items={bookingLogs.map((log) => {
+                    const actionLabels: Record<string, string> = {
+                      created: 'Создано',
+                      updated: 'Обновлено',
+                      deleted: 'Удалено',
+                      status_changed: 'Изменен статус',
+                    };
+                    
+                    const actionColors: Record<string, string> = {
+                      created: 'green',
+                      updated: 'blue',
+                      deleted: 'red',
+                      status_changed: 'orange',
+                    };
+
+                    const changesText = log.changes_json && Object.keys(log.changes_json).length > 0
+                      ? Object.entries(log.changes_json)
+                          .map(([field, change]) => {
+                            const fieldLabels: Record<string, string> = {
+                              guest_name: 'Имя гостя',
+                              guest_email: 'Email',
+                              guest_phone: 'Телефон',
+                              check_in: 'Заезд',
+                              check_out: 'Выезд',
+                              guests_count: 'Количество гостей',
+                              total_price: 'Цена',
+                              currency: 'Валюта',
+                              status: 'Статус',
+                              notes: 'Заметки',
+                              extra_services_amount: 'Доп. услуги',
+                              property_id: 'Объект',
+                            };
+                            const fieldLabel = fieldLabels[field] || field;
+                            const oldVal = change.old !== undefined ? String(change.old) : '—';
+                            const newVal = change.new !== undefined ? String(change.new) : '—';
+                            return `${fieldLabel}: ${oldVal} → ${newVal}`;
+                          })
+                          .join('; ')
+                      : null;
+
+                    return {
+                      color: actionColors[log.action] || 'blue',
+                      children: (
+                        <div className="text-white">
+                          <div className="font-medium mb-1">
+                            {actionLabels[log.action] || log.action}
+                            {log.source && (
+                              <span className="ml-2 text-xs text-slate-400">({log.source})</span>
+                            )}
+                          </div>
+                          {changesText && (
+                            <div className="text-sm text-slate-300 mb-1">{changesText}</div>
+                          )}
+                          <div className="text-xs text-slate-400">
+                            {format(new Date(log.timestamp), 'dd.MM.yyyy HH:mm', { locale: ru })}
+                          </div>
+                        </div>
+                      ),
+                    };
+                  })}
+                />
+              )}
             </div>
 
             <div className="flex gap-3 justify-between pt-4 border-t border-slate-700">

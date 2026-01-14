@@ -45,8 +45,22 @@ export type Booking = {
   status: string;
   notes: string | null;
   extra_services_amount?: number; // Additional services cost in rubles (integer)
+  created_by?: string | null; // User ID who created the booking
+  updated_by?: string | null; // User ID who last updated the booking
   created_at: string;
   updated_at: string;
+};
+
+export type BookingLog = {
+  id: string;
+  booking_id: string;
+  property_id: string;
+  user_id: string | null;
+  action: string; // 'created', 'updated', 'deleted', 'status_changed', etc.
+  changes_json: Record<string, { old?: unknown; new?: unknown }> | null;
+  source: string | null;
+  timestamp: string;
+  created_at: string;
 };
 
 export type Profile = {

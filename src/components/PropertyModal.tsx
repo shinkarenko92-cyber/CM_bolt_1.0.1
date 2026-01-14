@@ -1,15 +1,16 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { X, Calendar, Copy, Trash2 } from 'lucide-react';
-import { Badge, Button, Input, InputNumber, Modal, message, Select } from 'antd';
+import { Badge, Button, Input, InputNumber, Modal, message, Select, Tabs, Table } from 'antd';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { Property, PropertyIntegration } from '../lib/supabase';
+import { Property, PropertyIntegration, BookingLog } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { AvitoConnectModal } from './AvitoConnectModal';
 import { getOAuthSuccess, getOAuthError, parseOAuthState } from '../services/avito';
 import { syncAvitoIntegration, AvitoSyncError } from '../services/apiSync';
 import { showAvitoErrors } from '../services/avitoErrors';
 import { getIcalUrl } from '../utils/icalUrl';
+import { BookingLogsTable } from './BookingLogsTable';
 
 interface PropertyModalProps {
   isOpen: boolean;
@@ -44,6 +45,9 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   const [newMarkupType, setNewMarkupType] = useState<'percent' | 'rub'>('percent');
   const [isEditingItemId, setIsEditingItemId] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string>('');
+  const [activeTab, setActiveTab] = useState('main');
+  const [bookingLogs, setBookingLogs] = useState<BookingLog[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
   const propertyId = property?.id;
   const ical = useMemo(() => {
@@ -126,7 +130,31 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     setShowDeleteConfirm(false);
     setError(null);
     loadAvitoIntegration();
+    if (property) {
+      loadBookingLogs(property.id);
+    }
   }, [property, isOpen, loadAvitoIntegration]);
+
+  const loadBookingLogs = useCallback(async (propId: string) => {
+    if (!propId) return;
+    setLoadingLogs(true);
+    try {
+      const { data, error } = await supabase
+        .from('booking_logs')
+        .select('*')
+        .eq('property_id', propId)
+        .order('timestamp', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      setBookingLogs(data || []);
+    } catch (err) {
+      console.error('Error loading booking logs:', err);
+      message.error('Ошибка загрузки истории');
+    } finally {
+      setLoadingLogs(false);
+    }
+  }, []);
 
   // Автоматически открываем модальное окно Avito, если есть OAuth callback
   useEffect(() => {
@@ -542,7 +570,16 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <div className="p-6">
+            <Tabs
+              activeKey={activeTab}
+              onChange={setActiveTab}
+              items={[
+                {
+                  key: 'main',
+                  label: 'Основная информация',
+                  children: (
+                    <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <div className="p-3 bg-red-500/20 border border-red-500/50 rounded text-red-200 text-sm">
                 {error}
@@ -921,6 +958,30 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
               </div>
             </div>
           </form>
+                  ),
+                },
+                ...(property ? [{
+                  key: 'history',
+                  label: 'История',
+                  children: (
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-lg font-medium text-white">История бронирований</h3>
+                        <Button
+                          type="primary"
+                          onClick={() => property && loadBookingLogs(property.id)}
+                          loading={loadingLogs}
+                        >
+                          Обновить
+                        </Button>
+                      </div>
+                      <BookingLogsTable logs={bookingLogs} loading={loadingLogs} />
+                    </div>
+                  ),
+                }] : []),
+              ]}
+            />
+          </div>
         )}
 
         {/* Avito Connect Modal */}
