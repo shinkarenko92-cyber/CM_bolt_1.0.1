@@ -442,7 +442,7 @@ export function Dashboard() {
     try {
       // Add created_by and updated_by fields only if user exists
       // Note: These fields may not exist if migration hasn't been applied yet
-      const reservationWithAudit: any = {
+      const reservationWithAudit: NewReservation & { created_by?: string; updated_by?: string } = {
         ...reservation,
       };
       
@@ -548,13 +548,13 @@ export function Dashboard() {
       
       // Add updated_by field only if user exists
       // Note: This field may not exist if migration hasn't been applied yet
-      const dataWithAudit: Partial<Booking> = {
+      const dataWithAudit: Partial<Booking> & { updated_by?: string } = {
         ...data,
       };
       
       // Only add updated_by if user exists (migration applied)
       if (user?.id) {
-        (dataWithAudit as any).updated_by = user.id;
+        dataWithAudit.updated_by = user.id;
       }
 
       const { error } = await supabase.from('bookings').update(dataWithAudit).eq('id', id);
