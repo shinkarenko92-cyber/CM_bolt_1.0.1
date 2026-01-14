@@ -45,8 +45,14 @@ DECLARE
   v_source TEXT;
   v_property_id UUID;
 BEGIN
-  -- Get current user ID
-  v_user_id := auth.uid();
+  -- Get current user ID (from created_by/updated_by if available, otherwise from auth.uid())
+  IF TG_OP = 'INSERT' THEN
+    v_user_id := COALESCE(NEW.created_by, auth.uid());
+  ELSIF TG_OP = 'UPDATE' THEN
+    v_user_id := COALESCE(NEW.updated_by, OLD.updated_by, auth.uid());
+  ELSE
+    v_user_id := auth.uid();
+  END IF;
   
   -- Determine action type
   IF TG_OP = 'INSERT' THEN
