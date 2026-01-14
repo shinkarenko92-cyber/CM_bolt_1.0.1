@@ -13,23 +13,17 @@ export default function middleware(request: Request) {
     return fetch(request);
   }
 
-  // Handle roomi.pro (main domain) - serve landing
-  // If already on /landing or special paths, allow it
-  if (pathname.startsWith('/landing') || pathname.startsWith('/functions') || pathname.startsWith('/auth')) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'middleware.ts:30',message:'Already on landing/app path, allowing',data:{pathname},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
+  // Handle roomi.pro (main domain) - serve landing via rewrites
+  // Allow rewrites to handle routing - don't block them
+  // Special paths are handled by vercel.json rewrites
+  if (pathname.startsWith('/functions') || pathname.startsWith('/auth')) {
+    // Allow special paths to be handled by rewrites
     return new Response(null, { status: 200 });
   }
 
-  // Redirect root to /landing
-  if (pathname === '/') {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'middleware.ts:36',message:'Redirecting root to landing',data:{hostname},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-    const newUrl = new URL('/landing/', url.origin);
-    return Response.redirect(newUrl, 307);
-  }
+  // For root and other paths on roomi.pro, let rewrites handle it
+  // Root (/) will be rewritten to /landing/index.html by vercel.json
+  // This allows landing to be served at root without /landing in URL
 
   // #region agent log
   fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'middleware.ts:42',message:'No match, returning default',data:{pathname,hostname},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
