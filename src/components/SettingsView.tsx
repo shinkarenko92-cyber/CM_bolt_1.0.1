@@ -19,7 +19,6 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
   const { t, i18n } = useTranslation();
   const [exportDateRange, setExportDateRange] = useState('all');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const convertToRUB = (amount: number, currency: string) => {
     const rates: { [key: string]: number } = { RUB: 1, EUR: 100, USD: 92 };
@@ -190,12 +189,6 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
   const [deletionReason, setDeletionReason] = useState('');
 
   const handleRequestDeletion = async () => {
-    if (!isDeleteModalOpen) {
-      setIsDeleteModalOpen(true);
-      return;
-    }
-
-    setIsDeleting(true);
     try {
       const { error } = await supabase.from('deletion_requests').insert({
         user_id: (await supabase.auth.getUser()).data.user?.id,
@@ -206,12 +199,9 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
       if (error) throw error;
 
       toast.success(t('settings.deletionRequestSent', { defaultValue: 'Account deletion request sent. An administrator will review it shortly.' }));
-      setIsDeleteModalOpen(false);
       setDeletionReason('');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Ошибка при отправке запроса');
-    } finally {
-      setIsDeleting(false);
     }
   };
 

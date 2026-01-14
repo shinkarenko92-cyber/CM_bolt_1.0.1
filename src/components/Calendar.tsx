@@ -743,9 +743,9 @@ export function Calendar({
     return rates.find((r) => r.date === dateString) || null;
   };
 
-  const isCellOccupied = (propertyId: string, date: Date): boolean => {
+  const isCellOccupied = useCallback((propertyId: string, date: Date): boolean => {
     return bookings.some(b => b.property_id === propertyId && isDateInRange(date, b.check_in, b.check_out));
-  };
+  }, [bookings]);
 
   // Плоский список объектов (группы удалены)
   const sortedProperties = useMemo(() => {
