@@ -40,16 +40,14 @@ export default function middleware(request: Request) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except static files
+     * Match all request paths except static files and OAuth callback
      * IMPORTANT: Middleware will skip app.roomi.pro subdomain to allow vercel.json rewrites to work
      * Vercel Edge Middleware doesn't support regex capturing groups
      * 
-     * NOTE: We can't exclude app.roomi.pro from matcher (it's path-based, not host-based)
-     * So we handle it in the middleware function by returning early
-     * However, returning ANY Response blocks rewrites in Vercel Edge Middleware
-     * The workaround: Use fetch() to forward request which allows rewrites to process
+     * NOTE: We exclude /auth/avito-callback from matcher to prevent middleware from processing it
+     * This allows vercel.json rewrites to work directly without middleware interference
      */
     '/',
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot|css|js|json|xml|txt|pdf|zip)).*)',
+    '/((?!_next/static|_next/image|favicon.ico|auth/avito-callback|.*\\.(?:ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot|css|js|json|xml|txt|pdf|zip)).*)',
   ],
 };
