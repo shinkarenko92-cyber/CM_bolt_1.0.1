@@ -18,7 +18,6 @@ interface SettingsViewProps {
 export function SettingsView({ bookings, properties }: SettingsViewProps) {
   const { t, i18n } = useTranslation();
   const [exportDateRange, setExportDateRange] = useState('all');
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const convertToRUB = (amount: number, currency: string) => {
     const rates: { [key: string]: number } = { RUB: 1, EUR: 100, USD: 92 };
