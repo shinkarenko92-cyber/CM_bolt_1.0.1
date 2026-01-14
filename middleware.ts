@@ -5,18 +5,9 @@ export default function middleware(request: Request) {
 
   // CRITICAL: For app.roomi.pro, we must NOT block vercel.json rewrites
   // Problem: In Vercel Edge Middleware, returning ANY Response blocks rewrites
-  // Solution: For app.roomi.pro, don't process at all - let rewrites handle it
-  // Special case: OAuth callback must be excluded from middleware processing
+  // Solution: Use fetch() to forward the request internally
+  // This bypasses the middleware blocking and allows rewrites to process
   if (hostname.startsWith('app.')) {
-    // For app.roomi.pro, don't process - this allows vercel.json rewrites to work
-    // Returning undefined or not matching in matcher would be ideal, but we can't do that
-    // So we use fetch() but with a check to prevent infinite loops
-    // Check if this is already an internal fetch (has special header)
-    const isInternalFetch = request.headers.get('x-middleware-rewrite');
-    if (isInternalFetch) {
-      // This is already an internal fetch, don't process again
-      return new Response(null, { status: 200 });
-    }
     // Forward request using fetch - this triggers Vercel's rewrite system
     // The internal fetch bypasses middleware blocking
     return fetch(request);
@@ -49,12 +40,11 @@ export default function middleware(request: Request) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except static files and OAuth callback
-     * IMPORTANT: Exclude /auth/avito-callback to prevent middleware from processing it
-     * This allows vercel.json rewrites to work directly for OAuth callback
-     * For app.roomi.pro, middleware uses fetch(request) which should bypass processing
+     * Match all request paths except static files
+     * IMPORTANT: Middleware will skip app.roomi.pro subdomain to allow vercel.json rewrites to work
+     * Vercel Edge Middleware doesn't support regex capturing groups
      */
     '/',
-    '/((?!_next/static|_next/image|favicon.ico|auth/avito-callback|.*\\.(?:ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot|css|js|json|xml|txt|pdf|zip)).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot|css|js|json|xml|txt|pdf|zip)).*)',
   ],
 };
