@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { X, Calendar, Copy, Trash2 } from 'lucide-react';
-import { Badge, Button, Input, InputNumber, Modal, message, Select, Tabs, Table } from 'antd';
+import { Badge, Button, Input, InputNumber, Modal, message, Select, Tabs } from 'antd';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { Property, PropertyIntegration, BookingLog } from '../lib/supabase';
@@ -133,6 +133,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     if (property) {
       loadBookingLogs(property.id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [property, isOpen, loadAvitoIntegration]);
 
   const loadBookingLogs = useCallback(async (propId: string) => {

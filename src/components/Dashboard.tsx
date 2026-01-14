@@ -273,7 +273,7 @@ export function Dashboard() {
       // #endregion
       setLoading(false);
     }
-  }, [user, retrySupabaseQuery]);
+  }, [user, retrySupabaseQuery, t]);
 
   // Keep loadData ref up to date
   const loadDataRef = useRef(loadData);
