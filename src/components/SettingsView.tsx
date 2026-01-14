@@ -9,8 +9,6 @@ import {
   Trash2
 } from 'lucide-react';
 import { Booking, Property, supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
-import { ConfirmModal } from './ConfirmModal';
 
 interface SettingsViewProps {
   bookings: Booking[];
@@ -19,7 +17,6 @@ interface SettingsViewProps {
 
 export function SettingsView({ bookings, properties }: SettingsViewProps) {
   const { t, i18n } = useTranslation();
-  const { deleteAccount } = useAuth();
   const [exportDateRange, setExportDateRange] = useState('all');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);

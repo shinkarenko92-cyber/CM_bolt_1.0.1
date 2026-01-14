@@ -700,7 +700,7 @@ export function Calendar({
         }
       }
     }, 300); // 300ms debounce delay
-  }, [dateSelection, bookings, onAddReservation, onEditReservation]);
+  }, [dateSelection, bookings, onAddReservation, onEditReservation, isCellOccupied]);
 
   // Cleanup debounce on unmount
   useEffect(() => {
