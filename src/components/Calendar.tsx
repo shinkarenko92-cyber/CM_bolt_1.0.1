@@ -1060,7 +1060,7 @@ export function Calendar({
                                     >
                                       {!isOccupied && (
                                         <div className="h-11 flex items-center justify-center text-center px-1">
-                                          <div className="text-[10px] font-bold text-black dark:text-white tabular-nums truncate">
+                                          <div className="text-[10px] font-bold text-slate-300 dark:text-slate-300 tabular-nums truncate">
                                             {displayPrice}
                                           </div>
                                         </div>
