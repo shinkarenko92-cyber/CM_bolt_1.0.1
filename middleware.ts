@@ -5,12 +5,12 @@ export default function middleware(request: Request) {
 
   // CRITICAL: For app.roomi.pro, we must NOT block vercel.json rewrites
   // Problem: In Vercel Edge Middleware, returning ANY Response blocks rewrites
-  // Solution: Return minimal Response that allows rewrites to process
-  // This was working before - using Response(null, { status: 200 }) allows rewrites
+  // Solution: Use fetch() to forward the request internally
+  // This bypasses the middleware blocking and allows rewrites to process
   if (hostname.startsWith('app.')) {
-    // Allow all paths on app subdomain - serve app directly via rewrites
-    // This Response doesn't block rewrites in Vercel
-    return new Response(null, { status: 200 });
+    // Forward request using fetch - this triggers Vercel's rewrite system
+    // The internal fetch bypasses middleware blocking
+    return fetch(request);
   }
 
   // Handle roomi.pro (main domain) - serve landing
@@ -40,14 +40,12 @@ export default function middleware(request: Request) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except static files and OAuth callback
-     * IMPORTANT: Middleware will skip app.roomi.pro subdomain to allow vercel.json rewrites to work
-     * Vercel Edge Middleware doesn't support regex capturing groups
-     * 
-     * NOTE: We exclude /auth/avito-callback from matcher to prevent middleware from processing it
-     * This allows vercel.json rewrites to work directly without middleware interference
+     * Match all request paths except static files
+     * IMPORTANT: Middleware only processes roomi.pro (main domain), NOT app.roomi.pro
+     * For app.roomi.pro, middleware uses fetch(request) which bypasses processing
+     * This allows vercel.json rewrites to work for app.roomi.pro without interference
      */
     '/',
-    '/((?!_next/static|_next/image|favicon.ico|auth/avito-callback|.*\\.(?:ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot|css|js|json|xml|txt|pdf|zip)).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot|css|js|json|xml|txt|pdf|zip)).*)',
   ],
 };
