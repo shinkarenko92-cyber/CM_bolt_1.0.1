@@ -819,7 +819,7 @@ export function Calendar({
             console.error(`Error updating sort_order for property ${reordered[i].id}:`, error);
           }
         }
-      } catch (err) {
+      } catch {
         // Failed to update sort_order, continue with next property
       }
     }

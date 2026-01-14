@@ -114,11 +114,7 @@ export function Dashboard() {
           };
         }
         
-        // Логируем только первую попытку
-        if (attempt === 1) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          // Query error, retrying
-        }
+        // Query error, retrying
         
         // Ждем перед повторной попыткой
         await new Promise(resolve => setTimeout(resolve, delay * attempt));
@@ -134,7 +130,7 @@ export function Dashboard() {
     }
 
     try {
-      const session = await supabase.auth.getSession();
+      await supabase.auth.getSession();
 
       // Retry для properties
       const propertiesResult = await retrySupabaseQuery<Property[]>(

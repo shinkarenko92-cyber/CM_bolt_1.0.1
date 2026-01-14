@@ -200,7 +200,7 @@ export function AvitoConnectModal({
       setLoading(false);
       setIsProcessingOAuth(false);
     }
-  }, [property.id, isOpen, isProcessingOAuth]);
+  }, [property.id, isProcessingOAuth]);
 
   // Load progress on open and reset success state
   useEffect(() => {

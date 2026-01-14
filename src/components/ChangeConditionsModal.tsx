@@ -122,7 +122,7 @@ export function ChangeConditionsModal({
       if (upsertError) throw upsertError;
 
       // Auto-sync to Avito if integration is active
-      const { data: integration, error: integrationError } = await supabase
+      const { data: integration } = await supabase
         .from('integrations')
         .select('*')
         .eq('property_id', formData.selectedPropertyId)

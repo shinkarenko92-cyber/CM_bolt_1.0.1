@@ -58,7 +58,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   const loadAvitoIntegration = useCallback(async () => {
     if (!property) return;
     
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('integrations')
       .select('*')
       .eq('property_id', property.id)
@@ -339,7 +339,6 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     const isActive = avitoIntegration?.is_active;
     const tokenValid = !isTokenExpired;
     const showActive = isActive && tokenValid;
-    const hasIntegration = !!avitoIntegration;
     
     // Status check
     return showActive ? (
