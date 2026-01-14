@@ -558,7 +558,7 @@ export function EditReservationModal({
                     if (booking.created_at) {
                       events.push({
                         timestamp: booking.created_at,
-                        action: 'created',
+                        action: 'create',
                         source: booking.source || null,
                         isFromBooking: true,
                       });
@@ -568,7 +568,7 @@ export function EditReservationModal({
                     if (booking.updated_at && booking.updated_at !== booking.created_at) {
                       events.push({
                         timestamp: booking.updated_at,
-                        action: 'updated',
+                        action: 'update',
                         source: booking.source || null,
                         isFromBooking: true,
                       });
@@ -590,16 +590,22 @@ export function EditReservationModal({
 
                     return events.map((event) => {
                       const actionLabels: Record<string, string> = {
-                        created: 'Бронирование создано',
-                        updated: 'Бронирование обновлено',
-                        deleted: 'Бронирование удалено',
+                        create: 'Бронирование создано',
+                        update: 'Бронирование обновлено',
+                        delete: 'Бронирование удалено',
+                        created: 'Бронирование создано', // Legacy support
+                        updated: 'Бронирование обновлено', // Legacy support
+                        deleted: 'Бронирование удалено', // Legacy support
                         status_changed: 'Изменен статус',
                       };
                       
                       const actionColors: Record<string, string> = {
-                        created: 'green',
-                        updated: 'blue',
-                        deleted: 'red',
+                        create: 'green',
+                        update: 'blue',
+                        delete: 'red',
+                        created: 'green', // Legacy support
+                        updated: 'blue', // Legacy support
+                        deleted: 'red', // Legacy support
                         status_changed: 'orange',
                       };
 

@@ -140,9 +140,18 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     if (!propId) return;
     setLoadingLogs(true);
     try {
+      // Загружаем логи с join на bookings для получения информации о бронировании
       const { data, error } = await supabase
         .from('booking_logs')
-        .select('*')
+        .select(`
+          *,
+          bookings!inner(
+            id,
+            guest_name,
+            check_in,
+            check_out
+          )
+        `)
         .eq('property_id', propId)
         .order('timestamp', { ascending: false })
         .limit(100);

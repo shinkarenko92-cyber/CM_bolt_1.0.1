@@ -13,16 +13,22 @@ interface BookingLogsTableProps {
 }
 
 const actionColors: Record<string, string> = {
-  created: 'green',
-  updated: 'blue',
-  deleted: 'red',
+  create: 'green',
+  update: 'blue',
+  delete: 'red',
+  created: 'green', // Legacy support
+  updated: 'blue', // Legacy support
+  deleted: 'red', // Legacy support
   status_changed: 'orange',
 };
 
 const actionLabels: Record<string, string> = {
-  created: 'Создано',
-  updated: 'Обновлено',
-  deleted: 'Удалено',
+  create: 'Создано',
+  update: 'Обновлено',
+  delete: 'Удалено',
+  created: 'Создано', // Legacy support
+  updated: 'Обновлено', // Legacy support
+  deleted: 'Удалено', // Legacy support
   status_changed: 'Изменен статус',
 };
 
@@ -90,12 +96,26 @@ export function BookingLogsTable({ logs, loading }: BookingLogsTableProps) {
       key: 'timestamp',
       width: 180,
       sorter: (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+      defaultSortOrder: 'descend',
       render: (timestamp: string) => {
         try {
           return format(new Date(timestamp), 'dd.MM.yyyy HH:mm', { locale: ru });
         } catch {
           return timestamp;
         }
+      },
+    },
+    {
+      title: 'Пользователь',
+      dataIndex: 'user_id',
+      key: 'user_id',
+      width: 150,
+      render: (userId: string | null) => {
+        if (!userId) {
+          return <span className="text-slate-400">Система</span>;
+        }
+        // В будущем можно добавить загрузку профилей для отображения имени
+        return <span className="text-slate-300">{userId.substring(0, 8)}...</span>;
       },
     },
     {
