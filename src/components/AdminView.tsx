@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, Shield, UserX, UserCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { supabase, Profile, Property, Booking } from '../lib/supabase';
+import { supabase, Profile, Property, Booking, DeletionRequest } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { ConfirmModal } from './ConfirmModal';
 
@@ -22,10 +22,11 @@ type ConfirmAction = {
 export function AdminView() {
   const { t } = useTranslation();
   const { user, refreshProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'properties' | 'bookings'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'properties' | 'bookings' | 'deletionRequests'>('users');
   const [users, setUsers] = useState<Profile[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [deletionRequests, setDeletionRequests] = useState<DeletionRequest[]>([]);
   const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
     totalProperties: 0,
@@ -47,7 +48,7 @@ export function AdminView() {
   const loadAdminData = async () => {
     setLoading(true);
     try {
-      const [usersData, propertiesData, bookingsData] = await Promise.all([
+      const [usersData, propertiesData, bookingsData, deletionRequestsData] = await Promise.all([
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
         supabase
           .from('properties')
@@ -55,6 +56,7 @@ export function AdminView() {
           // Note: deleted_at filter temporarily removed
           .order('created_at', { ascending: false }),
         supabase.from('bookings').select('*').order('created_at', { ascending: false }),
+        supabase.from('deletion_requests').select('*').order('created_at', { ascending: false }),
       ]);
 
       if (usersData.data) {
@@ -75,10 +77,68 @@ export function AdminView() {
         setBookings(bookingsData.data);
         setStats(prev => ({ ...prev, totalBookings: bookingsData.data.length }));
       }
+
+      if (deletionRequestsData.data) {
+        setDeletionRequests(deletionRequestsData.data);
+      }
     } catch (error) {
       console.error('Error loading admin data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleApproveDeletion = async (requestId: string, userId: string) => {
+    setActionLoading(true);
+    try {
+      // Update deletion request status
+      const { error: updateError } = await supabase
+        .from('deletion_requests')
+        .update({
+          status: 'approved',
+          admin_id: user!.id,
+          processed_at: new Date().toISOString(),
+        })
+        .eq('id', requestId);
+
+      if (updateError) throw updateError;
+
+      // Delete the user account (this will cascade delete related data)
+      const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);
+
+      if (deleteError) throw deleteError;
+
+      toast.success(t('admin.deletionApproved', { defaultValue: 'Deletion request approved, account deleted' }));
+      await loadAdminData();
+    } catch (error) {
+      console.error('Error approving deletion:', error);
+      toast.error(error instanceof Error ? error.message : t('admin.actionFailed', { defaultValue: 'Action failed' }));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRejectDeletion = async (requestId: string) => {
+    setActionLoading(true);
+    try {
+      const { error } = await supabase
+        .from('deletion_requests')
+        .update({
+          status: 'rejected',
+          admin_id: user!.id,
+          processed_at: new Date().toISOString(),
+        })
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      toast.success(t('admin.deletionRejected', { defaultValue: 'Deletion request rejected' }));
+      await loadAdminData();
+    } catch (error) {
+      console.error('Error rejecting deletion:', error);
+      toast.error(error instanceof Error ? error.message : t('admin.actionFailed', { defaultValue: 'Action failed' }));
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -534,6 +594,25 @@ export function AdminView() {
               >
                 Bookings
               </button>
+              <button
+                onClick={() => {
+                  setActiveTab('deletionRequests');
+                  setCurrentPage(1);
+                  setSearchTerm('');
+                }}
+                className={`px-6 py-3 text-sm font-medium transition-colors relative ${
+                  activeTab === 'deletionRequests'
+                    ? 'bg-slate-700 text-white border-b-2 border-teal-500'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {t('admin.deletionRequests', { defaultValue: 'Deletion Requests' })}
+                {deletionRequests.filter(r => r.status === 'pending').length > 0 && (
+                  <span className="ml-2 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
+                    {deletionRequests.filter(r => r.status === 'pending').length}
+                  </span>
+                )}
+              </button>
             </nav>
           </div>
 
@@ -572,6 +651,7 @@ export function AdminView() {
             {activeTab === 'users' && renderUsersTable()}
             {activeTab === 'properties' && renderPropertiesTable()}
             {activeTab === 'bookings' && renderBookingsTable()}
+            {activeTab === 'deletionRequests' && renderDeletionRequestsTable()}
           </div>
         </div>
       </div>
@@ -607,4 +687,82 @@ export function AdminView() {
       />
     </div>
   );
+
+  const renderDeletionRequestsTable = () => {
+    const pendingRequests = deletionRequests.filter(r => r.status === 'pending');
+    const processedRequests = deletionRequests.filter(r => r.status !== 'pending');
+    const allRequests = [...pendingRequests, ...processedRequests];
+
+    if (allRequests.length === 0) {
+      return (
+        <div className="text-center py-12 text-slate-400">
+          {t('admin.deletionRequests', { defaultValue: 'Deletion Requests' })} не найдены
+        </div>
+      );
+    }
+
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="border-b border-slate-700">
+              <th className="pb-3 text-sm font-medium text-slate-300">User Email</th>
+              <th className="pb-3 text-sm font-medium text-slate-300">Reason</th>
+              <th className="pb-3 text-sm font-medium text-slate-300">Status</th>
+              <th className="pb-3 text-sm font-medium text-slate-300">Created</th>
+              <th className="pb-3 text-sm font-medium text-slate-300">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {allRequests.map((request) => {
+              const requestUser = users.find(u => u.id === request.user_id);
+              return (
+                <tr key={request.id} className="border-b border-slate-700/50">
+                  <td className="py-3 text-sm text-white">{requestUser?.email || request.user_id}</td>
+                  <td className="py-3 text-sm text-slate-300">{request.reason || '—'}</td>
+                  <td className="py-3 text-sm">
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      request.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                      request.status === 'approved' ? 'bg-green-500/20 text-green-400' :
+                      'bg-red-500/20 text-red-400'
+                    }`}>
+                      {request.status}
+                    </span>
+                  </td>
+                  <td className="py-3 text-sm text-slate-400">
+                    {new Date(request.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="py-3 text-sm">
+                    {request.status === 'pending' && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApproveDeletion(request.id, request.user_id)}
+                          disabled={actionLoading}
+                          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs transition-colors disabled:opacity-50"
+                        >
+                          {t('admin.approve', { defaultValue: 'Approve' })}
+                        </button>
+                        <button
+                          onClick={() => handleRejectDeletion(request.id)}
+                          disabled={actionLoading}
+                          className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs transition-colors disabled:opacity-50"
+                        >
+                          {t('admin.reject', { defaultValue: 'Reject' })}
+                        </button>
+                      </div>
+                    )}
+                    {request.status !== 'pending' && (
+                      <span className="text-slate-500 text-xs">
+                        {request.processed_at ? new Date(request.processed_at).toLocaleDateString() : '—'}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 }

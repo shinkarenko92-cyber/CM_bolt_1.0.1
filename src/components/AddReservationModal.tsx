@@ -66,6 +66,21 @@ export function AddReservationModal({
   const isUpdatingFromExtraServices = useRef(false);
   const isUpdatingFromConditions = useRef(false);
 
+  // Load property price when property_id changes
+  useEffect(() => {
+    if (formData.property_id && isOpen) {
+      const property = properties.find(p => p.id === formData.property_id);
+      if (property && !formData.price_per_night) {
+        // Set default price from property if not already set
+        setFormData(prev => ({
+          ...prev,
+          price_per_night: property.base_price?.toString() || '',
+          currency: property.currency || 'RUB',
+        }));
+      }
+    }
+  }, [formData.property_id, isOpen, properties, formData.price_per_night]);
+
   useEffect(() => {
     if (prefilledDates) {
       setFormData(prev => ({
@@ -564,6 +579,7 @@ export function AddReservationModal({
               />
             </div>
 
+            {/* 1. Цена за ночь */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
                 {t('modals.pricePerNight', { defaultValue: 'Price per Night' })}
@@ -586,26 +602,10 @@ export function AddReservationModal({
               />
             </div>
 
+            {/* 2. Дополнительные услуги */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Total Price {calculatingPrice && '(calculating...)'}
-              </label>
-              <input
-                type="number"
-                step="1"
-                value={formData.total_price}
-                onChange={(e) =>
-                  setFormData({ ...formData, total_price: e.target.value })
-                }
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                placeholder="0"
-                disabled={calculatingPrice}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Доп. услуги (руб)
+                {t('modals.additionalServices', { defaultValue: 'Additional Services' })} ({formData.currency})
               </label>
               <input
                 type="number"
@@ -617,6 +617,25 @@ export function AddReservationModal({
                 }
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
                 placeholder="0"
+              />
+            </div>
+
+            {/* 3. Total (заблокированное поле, рассчитывается автоматически) */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                {t('modals.totalPrice', { defaultValue: 'Total Price' })} {calculatingPrice && '(calculating...)'}
+              </label>
+              <input
+                type="number"
+                step="1"
+                value={formData.total_price}
+                onChange={(e) =>
+                  setFormData({ ...formData, total_price: e.target.value })
+                }
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                placeholder="0"
+                disabled={true}
+                readOnly
               />
             </div>
 
@@ -691,14 +710,14 @@ export function AddReservationModal({
               className="px-4 py-2 text-slate-300 hover:text-white transition"
               disabled={loading}
             >
-              Cancel
+              {t('common.cancel', { defaultValue: 'Cancel' })}
             </button>
             <button
               type="submit"
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition disabled:opacity-50"
               disabled={loading}
             >
-              {loading ? 'Saving...' : 'Save Reservation'}
+              {loading ? t('modals.saving', { defaultValue: 'Saving...' }) : t('modals.saveBooking', { defaultValue: 'Save booking' })}
             </button>
           </div>
         </form>

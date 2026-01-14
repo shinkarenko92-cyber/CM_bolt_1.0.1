@@ -8,7 +8,7 @@ import {
   FileText,
   Trash2
 } from 'lucide-react';
-import { Booking, Property } from '../lib/supabase';
+import { Booking, Property, supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { ConfirmModal } from './ConfirmModal';
 
@@ -190,14 +190,30 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
     URL.revokeObjectURL(url);
   };
 
-  const handleDeleteAccount = async () => {
+  const [deletionReason, setDeletionReason] = useState('');
+
+  const handleRequestDeletion = async () => {
+    if (!isDeleteModalOpen) {
+      setIsDeleteModalOpen(true);
+      return;
+    }
+
     setIsDeleting(true);
     try {
-      await deleteAccount();
-      toast.success('Аккаунт успешно удалён');
-      // После удаления пользователь будет автоматически разлогинен
+      const { error } = await supabase.from('deletion_requests').insert({
+        user_id: (await supabase.auth.getUser()).data.user?.id,
+        reason: deletionReason || null,
+        status: 'pending',
+      });
+
+      if (error) throw error;
+
+      toast.success(t('settings.deletionRequestSent', { defaultValue: 'Account deletion request sent. An administrator will review it shortly.' }));
+      setIsDeleteModalOpen(false);
+      setDeletionReason('');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Ошибка при удалении аккаунта');
+      toast.error(error instanceof Error ? error.message : 'Ошибка при отправке запроса');
+    } finally {
       setIsDeleting(false);
     }
   };
@@ -315,30 +331,27 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
           </div>
           
           <p className="text-slate-400 text-sm mb-4">
-            Удаление аккаунта приведёт к безвозвратному удалению всех ваших данных: 
-            объектов недвижимости, бронирований и настроек. Это действие нельзя отменить.
+            Для удаления аккаунта отправьте запрос администратору. 
+            После одобрения все ваши данные будут безвозвратно удалены.
           </p>
           
-          <button
-            onClick={() => setIsDeleteModalOpen(true)}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-          >
-            Удалить аккаунт
-          </button>
+          <div className="space-y-3">
+            <textarea
+              value={deletionReason}
+              onChange={(e) => setDeletionReason(e.target.value)}
+              placeholder={t('settings.deletionReason', { defaultValue: 'Reason for deletion (optional)' })}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white min-h-[80px] resize-y"
+            />
+            <button
+              onClick={handleRequestDeletion}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+            >
+              {t('settings.requestDeletion', { defaultValue: 'Request Account Deletion' })}
+            </button>
+          </div>
         </div>
       </div>
 
-      <ConfirmModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => !isDeleting && setIsDeleteModalOpen(false)}
-        onConfirm={handleDeleteAccount}
-        title="Удаление аккаунта"
-        message="Вы уверены, что хотите удалить свой аккаунт? Все ваши данные будут безвозвратно удалены. Это действие нельзя отменить."
-        confirmText="Да, удалить аккаунт"
-        cancelText="Отмена"
-        variant="danger"
-        loading={isDeleting}
-      />
     </div>
   );
 }

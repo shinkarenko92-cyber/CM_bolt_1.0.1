@@ -144,7 +144,14 @@
     "userPromoted": "User promoted to admin",
     "userActivated": "User activated",
     "userDeactivated": "User deactivated",
-    "actionFailed": "Action failed"
+    "actionFailed": "Action failed",
+    "deletionRequests": "Deletion Requests",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approveDeletion": "Approve Deletion",
+    "rejectDeletion": "Reject Deletion",
+    "deletionApproved": "Deletion request approved, account deleted",
+    "deletionRejected": "Deletion request rejected"
   },
   "modals": {
     "addReservation": "Add Reservation",
@@ -167,6 +174,7 @@
     "pricePerNight": "Price per Night",
     "totalPrice": "Total Price",
     "extraServices": "Extra Services Amount",
+    "additionalServices": "Additional Services",
     "property": "Property",
     "guestName": "Guest Name",
     "guestEmail": "Guest Email",
@@ -178,7 +186,9 @@
     "status": "Status",
     "source": "Source",
     "notes": "Notes",
-    "notesPlaceholder": "Add any additional notes..."
+    "notesPlaceholder": "Add any additional notes...",
+    "saveBooking": "Save booking",
+    "saving": "Saving..."
   },
   "settings": {
     "title": "Settings",
@@ -188,7 +198,10 @@
     "darkTheme": "Dark",
     "profile": "Profile",
     "notifications": "Notifications",
-    "integrations": "Integrations"
+    "integrations": "Integrations",
+    "requestDeletion": "Request Account Deletion",
+    "deletionRequestSent": "Account deletion request sent. An administrator will review it shortly.",
+    "deletionReason": "Reason for deletion (optional)"
   },
   "sources": {
     "manual": "Manual",
@@ -221,7 +234,9 @@
     "bookingDeleted": "Booking deleted",
     "propertyCreated": "Property created",
     "propertyUpdated": "Property updated",
-    "propertyDeleted": "Property deleted"
+    "propertyDeleted": "Property deleted",
+    "changesSaved": "Changes saved",
+    "roiAdded": "ROI +{{amount}} {{currency}} from markup"
   },
   "avito": {
     "errors": {

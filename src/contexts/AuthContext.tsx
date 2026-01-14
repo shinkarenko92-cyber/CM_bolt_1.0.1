@@ -145,13 +145,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const isFirstUser = count === 0;
 
-        // Create profile
+        // Create profile - default role is 'user', only first user gets 'admin'
         const { data: newProfile, error: profileError } = await supabase
           .from('profiles')
           .insert({
             id: result.data.user.id,
             email: result.data.user.email,
-            role: isFirstUser ? 'admin' : 'user',
+            role: isFirstUser ? 'admin' : 'user', // Default to 'user', only first user is 'admin'
             is_active: true,
           })
           .select()

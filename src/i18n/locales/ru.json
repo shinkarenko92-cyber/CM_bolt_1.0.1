@@ -144,7 +144,14 @@
     "userPromoted": "Пользователь повышен до администратора",
     "userActivated": "Пользователь активирован",
     "userDeactivated": "Пользователь деактивирован",
-    "actionFailed": "Не удалось выполнить действие"
+    "actionFailed": "Не удалось выполнить действие",
+    "deletionRequests": "Запросы на удаление",
+    "approve": "Одобрить",
+    "reject": "Отклонить",
+    "approveDeletion": "Одобрить удаление",
+    "rejectDeletion": "Отклонить удаление",
+    "deletionApproved": "Запрос на удаление одобрен, аккаунт удалён",
+    "deletionRejected": "Запрос на удаление отклонён"
   },
   "modals": {
     "addReservation": "Добавить бронирование",
@@ -167,6 +174,7 @@
     "pricePerNight": "Цена за ночь",
     "totalPrice": "Общая цена",
     "extraServices": "Дополнительные услуги",
+    "additionalServices": "Дополнительные услуги",
     "property": "Объект",
     "guestName": "Имя гостя",
     "guestEmail": "Email гостя",
@@ -178,7 +186,9 @@
     "status": "Статус",
     "source": "Источник",
     "notes": "Примечания",
-    "notesPlaceholder": "Добавьте любые дополнительные примечания..."
+    "notesPlaceholder": "Добавьте любые дополнительные примечания...",
+    "saveBooking": "Сохранить бронирование",
+    "saving": "Сохранение..."
   },
   "settings": {
     "title": "Настройки",
@@ -188,7 +198,10 @@
     "darkTheme": "Тёмная",
     "profile": "Профиль",
     "notifications": "Уведомления",
-    "integrations": "Интеграции"
+    "integrations": "Интеграции",
+    "requestDeletion": "Запросить удаление аккаунта",
+    "deletionRequestSent": "Запрос на удаление аккаунта отправлен. Администратор рассмотрит его в ближайшее время.",
+    "deletionReason": "Причина удаления (необязательно)"
   },
   "sources": {
     "manual": "Вручную",
@@ -224,7 +237,9 @@
     "bookingDeleted": "Бронирование удалено",
     "propertyCreated": "Объект создан",
     "propertyUpdated": "Объект обновлён",
-    "propertyDeleted": "Объект удалён"
+    "propertyDeleted": "Объект удалён",
+    "changesSaved": "Изменения сохранены",
+    "roiAdded": "ROI +{{amount}} {{currency}} от наценки"
   },
   "avito": {
     "errors": {

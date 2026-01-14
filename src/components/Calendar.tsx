@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Plus, Settings } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { parseISO, format, isBefore, isSameDay } from 'date-fns';
@@ -632,42 +632,84 @@ export function Calendar({
     return layers;
   };
 
-  const handleCellClick = (propertyId: string, date: Date) => {
-    // Используем локальную дату без времени для корректной работы
-    const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const dateString = format(localDate, 'yyyy-MM-dd');
+  // Debounce timer ref
+  const clickDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-    if (!dateSelection.startDate || dateSelection.propertyId !== propertyId) {
-      setDateSelection({
-        propertyId,
-        startDate: dateString,
-        endDate: null,
-      });
-    } else if (dateSelection.startDate && !dateSelection.endDate) {
-      const start = parseISO(dateSelection.startDate);
-      const end = localDate;
+  const handleCellClick = useCallback((propertyId: string, date: Date) => {
+    // Clear any pending debounce
+    if (clickDebounceRef.current) {
+      clearTimeout(clickDebounceRef.current);
+    }
 
-      if (isBefore(end, start) || isSameDay(end, start)) {
-        // Если выбранная дата раньше или равна начальной, делаем её новой начальной
+    // Debounce the click handler (300ms delay)
+    clickDebounceRef.current = setTimeout(() => {
+      // Используем локальную дату без времени для корректной работы
+      const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const dateString = format(localDate, 'yyyy-MM-dd');
+
+      // Check if this date is occupied by a booking
+      const isOccupied = isCellOccupied(propertyId, date);
+      
+      if (isOccupied) {
+        // If occupied, find the booking and open edit modal
+        const booking = bookings.find(b => {
+          if (b.property_id !== propertyId) return false;
+          const checkIn = new Date(b.check_in);
+          const checkOut = new Date(b.check_out);
+          const checkInDate = new Date(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate());
+          const checkOutDate = new Date(checkOut.getFullYear(), checkOut.getMonth(), checkOut.getDate());
+          const cellDate = new Date(localDate.getFullYear(), localDate.getMonth(), localDate.getDate());
+          return cellDate >= checkInDate && cellDate < checkOutDate;
+        });
+
+        if (booking) {
+          onEditReservation(booking);
+          return;
+        }
+      }
+
+      // If not occupied, proceed with date selection
+      if (!dateSelection.startDate || dateSelection.propertyId !== propertyId) {
         setDateSelection({
           propertyId,
           startDate: dateString,
           endDate: null,
         });
-      } else {
-        // Обе даты выбраны - сразу открываем форму бронирования
-        setDateSelection({
-          propertyId,
-          startDate: dateSelection.startDate,
-          endDate: dateString,
-        });
+      } else if (dateSelection.startDate && !dateSelection.endDate) {
+        const start = parseISO(dateSelection.startDate);
+        const end = localDate;
 
-        // check_out равен последней выбранной дате (включительно)
-        // Если выбрано 23-27, то check_out = 27 декабря
-        onAddReservation(propertyId, dateSelection.startDate, dateString);
+        if (isBefore(end, start) || isSameDay(end, start)) {
+          // Если выбранная дата раньше или равна начальной, делаем её новой начальной
+          setDateSelection({
+            propertyId,
+            startDate: dateString,
+            endDate: null,
+          });
+        } else {
+          // Обе даты выбраны - сразу открываем форму бронирования
+          setDateSelection({
+            propertyId,
+            startDate: dateSelection.startDate,
+            endDate: dateString,
+          });
+
+          // check_out равен последней выбранной дате (включительно)
+          // Если выбрано 23-27, то check_out = 27 декабря
+          onAddReservation(propertyId, dateSelection.startDate, dateString);
+        }
       }
-    }
-  };
+    }, 300); // 300ms debounce delay
+  }, [dateSelection, bookings, onAddReservation, onEditReservation]);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (clickDebounceRef.current) {
+        clearTimeout(clickDebounceRef.current);
+      }
+    };
+  }, []);
 
   const handleCloseConditionsModal = () => {
     setShowConditionsModal(false);
@@ -1018,7 +1060,7 @@ export function Calendar({
                                     >
                                       {!isOccupied && (
                                         <div className="h-11 flex items-center justify-center text-center px-1">
-                                          <div className="text-[10px] font-medium text-slate-900 dark:text-slate-300 tabular-nums truncate">
+                                          <div className="text-[10px] font-bold text-black dark:text-white tabular-nums truncate">
                                             {displayPrice}
                                           </div>
                                         </div>

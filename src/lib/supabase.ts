@@ -88,6 +88,18 @@ export type AdminAction = {
   created_at: string;
 };
 
+export type DeletionRequest = {
+  id: string;
+  user_id: string;
+  reason: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  admin_id: string | null;
+  admin_notes: string | null;
+  created_at: string;
+  processed_at: string | null;
+  updated_at: string;
+};
+
 export type PropertyRate = {
   id: string;
   property_id: string;
