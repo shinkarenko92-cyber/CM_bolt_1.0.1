@@ -548,7 +548,7 @@ export function Dashboard() {
       
       // Add updated_by field only if user exists
       // Note: This field may not exist if migration hasn't been applied yet
-      const dataWithAudit: Partial<Booking> & { updated_by?: string } = {
+      const dataWithAudit: Partial<Booking> & { updated_by?: string | null } = {
         ...data,
       };
       
