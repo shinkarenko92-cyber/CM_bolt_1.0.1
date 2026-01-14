@@ -440,12 +440,17 @@ export function Dashboard() {
 
   const saveReservationToDatabase = async (reservation: NewReservation) => {
     try {
-      // Add created_by field
-      const reservationWithAudit = {
+      // Add created_by and updated_by fields only if user exists
+      // Note: These fields may not exist if migration hasn't been applied yet
+      const reservationWithAudit: any = {
         ...reservation,
-        created_by: user?.id || null,
-        updated_by: user?.id || null,
       };
+      
+      // Only add audit fields if user exists (migration applied)
+      if (user?.id) {
+        reservationWithAudit.created_by = user.id;
+        reservationWithAudit.updated_by = user.id;
+      }
 
       const { data, error } = await supabase.from('bookings').insert([reservationWithAudit]).select();
 
@@ -541,11 +546,16 @@ export function Dashboard() {
       // Find the old booking to compare changes
       const oldBooking = bookings.find((b) => b.id === id);
       
-      // Add updated_by field
-      const dataWithAudit = {
+      // Add updated_by field only if user exists
+      // Note: This field may not exist if migration hasn't been applied yet
+      const dataWithAudit: Partial<Booking> = {
         ...data,
-        updated_by: user?.id || null,
       };
+      
+      // Only add updated_by if user exists (migration applied)
+      if (user?.id) {
+        (dataWithAudit as any).updated_by = user.id;
+      }
 
       const { error } = await supabase.from('bookings').update(dataWithAudit).eq('id', id);
 
