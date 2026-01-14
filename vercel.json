@@ -8,26 +8,6 @@
     },
     {
       "source": "/auth/avito-callback",
-      "destination": "/index.html",
-      "has": [
-        {
-          "type": "query",
-          "key": "code"
-        }
-      ]
-    },
-    {
-      "source": "/auth/avito-callback",
-      "destination": "/index.html",
-      "has": [
-        {
-          "type": "query",
-          "key": "error"
-        }
-      ]
-    },
-    {
-      "source": "/auth/avito-callback",
       "destination": "/index.html"
     },
     {
