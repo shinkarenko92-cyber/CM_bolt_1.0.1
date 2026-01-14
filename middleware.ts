@@ -5,12 +5,12 @@ export default function middleware(request: Request) {
 
   // CRITICAL: For app.roomi.pro, we must NOT block vercel.json rewrites
   // Problem: In Vercel Edge Middleware, returning ANY Response blocks rewrites
-  // Solution: Use fetch() to forward the request internally
-  // This bypasses the middleware blocking and allows rewrites to process
+  // Solution: Return minimal Response that allows rewrites to process
+  // This was working before - using Response(null, { status: 200 }) allows rewrites
   if (hostname.startsWith('app.')) {
-    // Forward request using fetch - this triggers Vercel's rewrite system
-    // The internal fetch bypasses middleware blocking
-    return fetch(request);
+    // Allow all paths on app subdomain - serve app directly via rewrites
+    // This Response doesn't block rewrites in Vercel
+    return new Response(null, { status: 200 });
   }
 
   // Handle roomi.pro (main domain) - serve landing
