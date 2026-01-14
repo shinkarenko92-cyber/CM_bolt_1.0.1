@@ -113,10 +113,20 @@ export function BookingLogsTable({ logs, loading }: BookingLogsTableProps) {
       title: 'Источник',
       dataIndex: 'source',
       key: 'source',
-      width: 100,
-      render: (source: string | null) => (
-        <Tag>{source || 'manual'}</Tag>
-      ),
+      width: 120,
+      render: (source: string | null) => {
+        const sourceLabels: Record<string, string> = {
+          manual: 'Ручное',
+          avito: 'Avito',
+          cian: 'ЦИАН',
+          booking: 'Booking.com',
+          airbnb: 'Airbnb',
+        };
+        const sourceText = source || 'manual';
+        return (
+          <Tag>{sourceLabels[sourceText] || sourceText}</Tag>
+        );
+      },
     },
     {
       title: 'Изменения',

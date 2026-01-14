@@ -540,70 +540,125 @@ export function EditReservationModal({
               <h3 className="text-lg font-medium text-white mb-4">История изменений</h3>
               {loadingLogs ? (
                 <div className="text-slate-400">Загрузка...</div>
-              ) : bookingLogs.length === 0 ? (
+              ) : !booking ? (
                 <div className="text-slate-400">История изменений отсутствует</div>
               ) : (
                 <Timeline
-                  items={bookingLogs.map((log) => {
-                    const actionLabels: Record<string, string> = {
-                      created: 'Создано',
-                      updated: 'Обновлено',
-                      deleted: 'Удалено',
-                      status_changed: 'Изменен статус',
-                    };
-                    
-                    const actionColors: Record<string, string> = {
-                      created: 'green',
-                      updated: 'blue',
-                      deleted: 'red',
-                      status_changed: 'orange',
-                    };
+                  items={(() => {
+                    // Создаем объединенный массив событий из booking и logs
+                    const events: Array<{
+                      timestamp: string;
+                      action: string;
+                      source: string | null;
+                      changes?: Record<string, { old?: unknown; new?: unknown }> | null;
+                      isFromBooking?: boolean;
+                    }> = [];
 
-                    const changesText = log.changes_json && Object.keys(log.changes_json).length > 0
-                      ? Object.entries(log.changes_json)
-                          .map(([field, change]) => {
-                            const fieldLabels: Record<string, string> = {
-                              guest_name: 'Имя гостя',
-                              guest_email: 'Email',
-                              guest_phone: 'Телефон',
-                              check_in: 'Заезд',
-                              check_out: 'Выезд',
-                              guests_count: 'Количество гостей',
-                              total_price: 'Цена',
-                              currency: 'Валюта',
-                              status: 'Статус',
-                              notes: 'Заметки',
-                              extra_services_amount: 'Доп. услуги',
-                              property_id: 'Объект',
-                            };
-                            const fieldLabel = fieldLabels[field] || field;
-                            const oldVal = change.old !== undefined ? String(change.old) : '—';
-                            const newVal = change.new !== undefined ? String(change.new) : '—';
-                            return `${fieldLabel}: ${oldVal} → ${newVal}`;
-                          })
-                          .join('; ')
-                      : null;
+                    // Добавляем событие создания (если есть created_at)
+                    if (booking.created_at) {
+                      events.push({
+                        timestamp: booking.created_at,
+                        action: 'created',
+                        source: booking.source || null,
+                        isFromBooking: true,
+                      });
+                    }
 
-                    return {
-                      color: actionColors[log.action] || 'blue',
-                      children: (
-                        <div className="text-white">
-                          <div className="font-medium mb-1">
-                            {actionLabels[log.action] || log.action}
-                            {log.source && (
-                              <span className="ml-2 text-xs text-slate-400">({log.source})</span>
+                    // Добавляем событие последнего обновления (если updated_at отличается от created_at)
+                    if (booking.updated_at && booking.updated_at !== booking.created_at) {
+                      events.push({
+                        timestamp: booking.updated_at,
+                        action: 'updated',
+                        source: booking.source || null,
+                        isFromBooking: true,
+                      });
+                    }
+
+                    // Добавляем логи из booking_logs
+                    bookingLogs.forEach((log) => {
+                      events.push({
+                        timestamp: log.timestamp,
+                        action: log.action,
+                        source: log.source,
+                        changes: log.changes_json,
+                        isFromBooking: false,
+                      });
+                    });
+
+                    // Сортируем по дате (новые сверху)
+                    events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+                    return events.map((event) => {
+                      const actionLabels: Record<string, string> = {
+                        created: 'Бронирование создано',
+                        updated: 'Бронирование обновлено',
+                        deleted: 'Бронирование удалено',
+                        status_changed: 'Изменен статус',
+                      };
+                      
+                      const actionColors: Record<string, string> = {
+                        created: 'green',
+                        updated: 'blue',
+                        deleted: 'red',
+                        status_changed: 'orange',
+                      };
+
+                      const changesText = event.changes && Object.keys(event.changes).length > 0
+                        ? Object.entries(event.changes)
+                            .map(([field, change]) => {
+                              const fieldLabels: Record<string, string> = {
+                                guest_name: 'Имя гостя',
+                                guest_email: 'Email',
+                                guest_phone: 'Телефон',
+                                check_in: 'Заезд',
+                                check_out: 'Выезд',
+                                guests_count: 'Количество гостей',
+                                total_price: 'Цена',
+                                currency: 'Валюта',
+                                status: 'Статус',
+                                notes: 'Заметки',
+                                extra_services_amount: 'Доп. услуги',
+                                property_id: 'Объект',
+                              };
+                              const fieldLabel = fieldLabels[field] || field;
+                              const oldVal = change.old !== undefined ? String(change.old) : '—';
+                              const newVal = change.new !== undefined ? String(change.new) : '—';
+                              return `${fieldLabel}: ${oldVal} → ${newVal}`;
+                            })
+                            .join('; ')
+                        : null;
+
+                      const sourceLabels: Record<string, string> = {
+                        manual: 'Ручное создание',
+                        avito: 'Avito',
+                        cian: 'ЦИАН',
+                        booking: 'Booking.com',
+                        airbnb: 'Airbnb',
+                      };
+
+                      return {
+                        color: actionColors[event.action] || 'blue',
+                        children: (
+                          <div className="text-white">
+                            <div className="font-medium mb-1">
+                              {actionLabels[event.action] || event.action}
+                            </div>
+                            {event.source && (
+                              <div className="text-sm text-slate-300 mb-1">
+                                Источник: <span className="font-medium">{sourceLabels[event.source] || event.source}</span>
+                              </div>
                             )}
+                            {changesText && (
+                              <div className="text-sm text-slate-300 mb-1">{changesText}</div>
+                            )}
+                            <div className="text-xs text-slate-400">
+                              {format(new Date(event.timestamp), 'dd.MM.yyyy HH:mm', { locale: ru })}
+                            </div>
                           </div>
-                          {changesText && (
-                            <div className="text-sm text-slate-300 mb-1">{changesText}</div>
-                          )}
-                          <div className="text-xs text-slate-400">
-                            {format(new Date(log.timestamp), 'dd.MM.yyyy HH:mm', { locale: ru })}
-                          </div>
-                        </div>
-                      ),
-                    };
-                  })}
+                        ),
+                      };
+                    });
+                  })()}
                 />
               )}
             </div>
