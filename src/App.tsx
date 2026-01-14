@@ -20,20 +20,10 @@ function AppContent() {
       // #region agent log
       fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:18',message:'OAuth callback detected',data:{path,hasCode:!!params.get('code'),hasError:!!params.get('error')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
       // #endregion
-      console.log('App: OAuth callback detected', { path, search: window.location.search });
-      
       const error = params.get('error');
       const errorDescription = params.get('error_description');
       const code = params.get('code');
       const state = params.get('state');
-
-      console.log('App: OAuth callback parameters', {
-        hasError: !!error,
-        hasCode: !!code,
-        hasState: !!state,
-        error,
-        errorDescription
-      });
 
       if (error) {
         // Store error for modal to display
@@ -41,28 +31,14 @@ function AppContent() {
           error,
           error_description: errorDescription || 'Неизвестная ошибка',
         };
-        console.log('App: Storing OAuth error in localStorage', errorData);
         localStorage.setItem('avito_oauth_error', JSON.stringify(errorData));
       } else if (code && state) {
         // Store success for modal to process
         const successData = { code, state };
-        console.log('App: Storing OAuth success in localStorage', {
-          hasCode: !!code,
-          hasState: !!state,
-          codeLength: code.length,
-          stateLength: state.length
-        });
         localStorage.setItem('avito_oauth_success', JSON.stringify(successData));
-      } else {
-        console.warn('App: OAuth callback missing required parameters', {
-          hasCode: !!code,
-          hasState: !!state,
-          hasError: !!error
-        });
       }
 
       // Clean URL and redirect to home
-      console.log('App: Cleaning URL and redirecting to home');
       window.history.replaceState({}, '', '/');
     }
   }, []);

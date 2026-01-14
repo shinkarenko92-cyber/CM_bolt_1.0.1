@@ -110,7 +110,6 @@ export function Calendar({
       date.setDate(date.getDate() + i);
       return date;
     });
-    console.log('Calendar dates:', datesArray.length);
     return datesArray;
   }, [currentDateTimestamp, daysToShow]);
 
@@ -167,22 +166,19 @@ export function Calendar({
   // При изменении текущей базовой даты центрируем скролл и обновляем "видимую" дату
   // ВАЖНО: НЕ сбрасываем expandedGroups или expandedProperties при изменении дат
   useEffect(() => {
-    console.log('Calendar: currentDate changed, updating scroll position', {
-      currentDateTimestamp,
-      expandedPropertiesSize: expandedProperties.size,
-      propertiesCount: properties.length,
-    });
-    
-    const centerOffset = Math.floor(60 / 2);
-    const scrollLeft = Math.max(0, (centerOffset - DAYS_BEFORE_TODAY_VISIBLE) * CELL_WIDTH);
+    // Update scroll position when currentDate changes
+    if (currentDateTimestamp) {
+      const centerOffset = Math.floor(60 / 2);
+      const scrollLeft = Math.max(0, (centerOffset - DAYS_BEFORE_TODAY_VISIBLE) * CELL_WIDTH);
 
-    const scrollContainer = scrollContainerRef.current;
-    if (scrollContainer) {
-      scrollContainer.scrollTo({ left: scrollLeft, behavior: 'auto' });
+      const scrollContainer = scrollContainerRef.current;
+      if (scrollContainer) {
+        scrollContainer.scrollTo({ left: scrollLeft, behavior: 'auto' });
+      }
+
+      setVisibleDate(centerDate);
+      initialScrollDone.current = true;
     }
-
-    setVisibleDate(centerDate);
-    initialScrollDone.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDateTimestamp]);
 
@@ -436,13 +432,11 @@ export function Calendar({
         
         // Retry logic
         if (retryCount < maxRetries) {
-          console.log(`Retrying loadPropertyRates (attempt ${retryCount + 1}/${maxRetries})...`);
           await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1)));
           return loadPropertyRates(retryCount + 1);
         }
         
         // After max retries, show warning and use empty rates
-        console.warn('Failed to load property rates after retries, using empty rates');
         toast.error('Цены не загружены, попробуй позже');
         setPropertyRates(new Map());
         return;
@@ -460,14 +454,12 @@ export function Calendar({
       
       // Retry logic for network errors
       if (retryCount < maxRetries && error instanceof TypeError && error.message.includes('fetch')) {
-        console.log(`Retrying loadPropertyRates after network error (attempt ${retryCount + 1}/${maxRetries})...`);
         await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1)));
         return loadPropertyRates(retryCount + 1);
       }
       
       // After max retries or non-retryable error, show warning and use empty rates
       if (retryCount >= maxRetries) {
-        console.warn('Failed to load property rates after retries, using empty rates');
         toast.error('Цены не загружены, попробуй позже');
       }
       setPropertyRates(new Map());
@@ -822,13 +814,13 @@ export function Calendar({
 
         if (error) {
           if (error.code === 'PGRST204' || error.message?.includes("Could not find the 'sort_order' column")) {
-            console.warn(`sort_order column not found, skipping update for property ${reordered[i].id}`);
+            // sort_order column not found, skipping update
           } else {
             console.error(`Error updating sort_order for property ${reordered[i].id}:`, error);
           }
         }
       } catch (err) {
-        console.warn(`Failed to update sort_order for property ${reordered[i].id}:`, err);
+        // Failed to update sort_order, continue with next property
       }
     }
   };
@@ -926,11 +918,6 @@ export function Calendar({
                 {/* ВАЖНО: relative позиционирование для корректного отображения объектов при прокрутке */}
                 <div className="relative" style={{ minHeight: '100%' }}>
                   {sortedProperties.map((property) => {
-                    console.log('Rendering property:', { 
-                      propertyId: property.id, 
-                      propertyName: property.name 
-                    });
-                    
                     try {
                               const propFirst = new Date(dates[0]);
                               const propFirstVisibleDate = new Date(propFirst.getFullYear(), propFirst.getMonth(), propFirst.getDate(), 0, 0, 0, 0);
@@ -1116,8 +1103,8 @@ export function Calendar({
                       return (
                         <div key={property.id} className="p-4 bg-red-900/20 text-red-400">
                           Ошибка отображения объекта: {property.name}
-                      </div>
-                    );
+                        </div>
+                      );
                     }
                   })}
 

@@ -65,18 +65,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       .eq('platform', 'avito')
       .maybeSingle();
     
-    console.log('PropertyModal: loadAvitoIntegration', {
-      property_id: property.id,
-      hasData: !!data,
-      error,
-      integration: data ? {
-        id: data.id,
-        is_active: data.is_active,
-        token_expires_at: data.token_expires_at,
-        last_sync_at: data.last_sync_at,
-      } : null,
-    });
-    
+    // Load Avito integration
     setAvitoIntegration(data);
     if (data?.avito_markup) {
       const markupValue = data.avito_markup;
@@ -91,10 +80,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     
     // Show warning if old integration (missing avito_item_id)
     if (data && data.is_active && !data.avito_item_id) {
-      console.warn('PropertyModal: Old integration detected - missing avito_item_id', {
-        integration_id: data.id,
-        property_id: property?.id,
-      });
+      // Old integration detected - missing avito_item_id
       // Warning will be shown in UI
     }
   }, [property]);
@@ -177,43 +163,23 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       return;
     }
     
-    console.log('PropertyModal: Checking for OAuth callback', {
-      propertyId: property.id,
-      propertyName: property.name,
-      isAvitoModalOpen
-    });
-    
+    // Check for OAuth callback
     if (oauthSuccess) {
       // Проверяем, что state соответствует текущему property
       try {
         const stateData = parseOAuthState(oauthSuccess.state);
-        console.log('PropertyModal: Parsed OAuth state', {
-          stateData,
-          propertyId: property.id,
-          matches: stateData?.property_id === property.id
-        });
         
         if (stateData && stateData.property_id === property.id) {
-          console.log('PropertyModal: OAuth callback detected for property, opening Avito modal', {
-            propertyId: property.id,
-            propertyName: property.name
-          });
+          // OAuth callback detected for property, opening Avito modal
           setIsAvitoModalOpen(true);
         } else if (stateData && stateData.property_id !== property.id) {
-          console.log('PropertyModal: OAuth callback is for different property', {
-            callbackPropertyId: stateData.property_id,
-            currentPropertyId: property.id
-          });
+          // OAuth callback is for different property
         }
       } catch (error) {
         console.error('PropertyModal: Error parsing OAuth state:', error);
       }
     } else if (oauthError) {
       // Если есть ошибка OAuth, тоже открываем модальное окно, чтобы показать ошибку
-      console.log('PropertyModal: OAuth error detected, opening Avito modal', {
-        error: oauthError.error,
-        errorDescription: oauthError.error_description
-      });
       setIsAvitoModalOpen(true);
     }
   }, [property, isOpen, isAvitoModalOpen]); // Include isAvitoModalOpen with early exit to prevent unnecessary processing
@@ -364,15 +330,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     const now = new Date();
     const expired = expiresAt.getTime() <= now.getTime();
     
-    console.log('PropertyModal: isTokenExpired', {
-      token_expires_at: avitoIntegration.token_expires_at,
-      expiresAtString,
-      expiresAt: expiresAt.toISOString(),
-      now: now.toISOString(),
-      expired,
-      timeDiff: expiresAt.getTime() - now.getTime(), // Разница в миллисекундах
-    });
-    
+    // Check if token is expired
     return expired;
   }, [avitoIntegration?.token_expires_at]);
 
@@ -383,13 +341,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     const showActive = isActive && tokenValid;
     const hasIntegration = !!avitoIntegration;
     
-    console.log('PropertyModal: Status check', {
-      hasIntegration,
-      is_active: isActive,
-      tokenValid,
-      showActive,
-    });
-    
+    // Status check
     return showActive ? (
       <Badge status="success" text="синхронизировано" />
     ) : (

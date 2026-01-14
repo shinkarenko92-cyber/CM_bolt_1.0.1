@@ -49,30 +49,19 @@ export function AvitoConnectModal({
   const handleOAuthCallback = useCallback(async (code: string, state: string) => {
     // Предотвращаем двойной вызов
     if (isProcessingOAuth) {
-      console.log('AvitoConnectModal: OAuth callback already processing, skipping');
       return;
     }
 
-    console.log('AvitoConnectModal: handleOAuthCallback called', {
-      hasCode: !!code,
-      hasState: !!state,
-      codeLength: code.length,
-      stateLength: state.length,
-      propertyId: property.id,
-      isOpen,
-      isProcessingOAuth
-    });
+    // Handle OAuth callback
 
     // Удаляем OAuth данные из localStorage СРАЗУ после первого использования кода
     // Это предотвратит повторное использование кода, даже если функция вызывается дважды
-    console.log('AvitoConnectModal: Clearing OAuth data from localStorage immediately to prevent code reuse');
     clearOAuthSuccess();
 
     setIsProcessingOAuth(true);
     setLoading(true);
     try {
       const stateData = parseOAuthState(state);
-      console.log('AvitoConnectModal: Parsed OAuth state', { stateData });
       
       if (!stateData || stateData.property_id !== property.id) {
         console.error('AvitoConnectModal: Invalid state parameter', {
@@ -85,7 +74,6 @@ export function AvitoConnectModal({
       // Используем тот же redirect_uri, что и в OAuth URL
       // Должен совпадать с настройками в Avito: https://app.roomi.pro/auth/avito-callback
       const redirectUri = import.meta.env.VITE_AVITO_REDIRECT_URI || 'https://app.roomi.pro/auth/avito-callback';
-      console.log('AvitoConnectModal: Calling avito-oauth-callback Edge Function', { redirectUri });
       
       // Call Edge Function to handle OAuth callback (token exchange + account_id fetch + save)
       const { data: callbackResponse, error: callbackError } = await supabase.functions.invoke('avito-oauth-callback', {
@@ -111,9 +99,7 @@ export function AvitoConnectModal({
         throw new Error(callbackResponse?.error || 'Не удалось обработать OAuth callback');
       }
 
-      console.log('AvitoConnectModal: OAuth callback processed successfully', {
-        integrationId: callbackResponse.integrationId,
-      });
+      // OAuth callback processed successfully
 
       // Load integration to verify it was saved
       const { data: integration, error: integrationError } = await supabase
@@ -125,10 +111,7 @@ export function AvitoConnectModal({
         .single();
 
       if (integrationError || !integration) {
-        console.warn('AvitoConnectModal: Could not load integration after OAuth callback', {
-          error: integrationError,
-          hasIntegration: !!integration,
-        });
+        // Could not load integration after OAuth callback
         // Continue anyway - tokens are saved, user can proceed to item_id step
       } else {
         console.log('AvitoConnectModal: Integration loaded', {
@@ -155,8 +138,7 @@ export function AvitoConnectModal({
           message.success('Аккаунт Avito подключён! Теперь введи номер аккаунта');
           setCurrentStep(1); // Go to User ID step
 
-      // OAuth данные уже удалены в начале функции, просто логируем успех
-      console.log('AvitoConnectModal: OAuth callback processed successfully');
+      // OAuth callback processed successfully
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ошибка при обработке авторизации';
       
@@ -223,17 +205,15 @@ export function AvitoConnectModal({
   // Load progress on open and reset success state
   useEffect(() => {
     if (isOpen) {
-      console.log('AvitoConnectModal: Modal opened, loading progress', { propertyId: property.id });
-      
+      // Modal opened, loading progress
       // Reset success state when modal opens
       setShowSuccess(false);
       setIcalUrl('');
       
       const progress = loadConnectionProgress(property.id);
-      console.log('AvitoConnectModal: Loaded progress', { progress });
       
       if (progress && progress.step > 0) {
-        console.log('AvitoConnectModal: Resuming from saved progress', { step: progress.step });
+        // Resuming from saved progress
         setCurrentStep(progress.step);
         if (progress.data.userId) setUserId(progress.data.userId);
         if (progress.data.itemId) setItemId(progress.data.itemId);
@@ -241,11 +221,9 @@ export function AvitoConnectModal({
         // Tokens are now stored in DB, not in progress
       } else {
         // Check for OAuth callback results
-        console.log('AvitoConnectModal: No saved progress, checking for OAuth callback');
-        
         const oauthError = getOAuthError();
         if (oauthError) {
-          console.log('AvitoConnectModal: OAuth error detected', oauthError);
+          // OAuth error detected
           // Удаляем OAuth error из localStorage после обработки
           clearOAuthError();
           Modal.error({
@@ -262,19 +240,15 @@ export function AvitoConnectModal({
 
         const oauthSuccess = getOAuthSuccess();
         if (oauthSuccess) {
-          console.log('AvitoConnectModal: OAuth success detected, calling handleOAuthCallback', {
-            hasCode: !!oauthSuccess.code,
-            hasState: !!oauthSuccess.state
-          });
+          // OAuth success detected, calling handleOAuthCallback
           handleOAuthCallback(oauthSuccess.code, oauthSuccess.state);
         } else {
-          console.log('AvitoConnectModal: No OAuth callback, starting from step 0');
+          // No OAuth callback, starting from step 0
           setCurrentStep(0);
         }
       }
     } else {
       // Reset on close
-      console.log('AvitoConnectModal: Modal closed, resetting state');
       setCurrentStep(0);
       setOauthRedirecting(false);
       setIsProcessingOAuth(false);
@@ -287,24 +261,21 @@ export function AvitoConnectModal({
   // This handles the case when the modal is already open but OAuth callback hasn't been processed yet
   useEffect(() => {
     if (isOpen && currentStep === 0 && !isProcessingOAuth) {
-      console.log('AvitoConnectModal: Setting up interval to check for OAuth callback');
       const checkInterval = setInterval(() => {
         // Проверяем, не обрабатывается ли уже OAuth callback
         if (isProcessingOAuth) {
-          console.log('AvitoConnectModal: OAuth callback already processing, skipping interval check');
           return;
         }
 
         const oauthSuccess = getOAuthSuccess();
         if (oauthSuccess) {
-          console.log('AvitoConnectModal: OAuth success detected in interval, calling handleOAuthCallback');
+          // OAuth success detected in interval
           clearInterval(checkInterval);
           handleOAuthCallback(oauthSuccess.code, oauthSuccess.state);
         }
       }, 500);
 
       return () => {
-        console.log('AvitoConnectModal: Clearing OAuth callback check interval');
         clearInterval(checkInterval);
       };
     }
@@ -319,9 +290,7 @@ export function AvitoConnectModal({
         try {
           const stateData = parseOAuthState(oauthSuccess.state);
           if (stateData && stateData.property_id === property.id) {
-            console.log('AvitoConnectModal: OAuth callback detected while modal is closed, will process when modal opens', {
-              propertyId: property.id
-            });
+            // OAuth callback detected while modal is closed, will process when modal opens
             // Don't process here, just log - it will be processed when modal opens
           }
         } catch (error) {

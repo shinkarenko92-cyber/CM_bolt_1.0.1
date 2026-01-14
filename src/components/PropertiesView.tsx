@@ -18,10 +18,7 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
 
   // Логируем при монтировании компонента
   useEffect(() => {
-    console.log('PropertiesView: Component mounted/updated', {
-      propertiesCount: properties.length,
-      properties: properties.map(p => ({ id: p.id, name: p.name }))
-    });
+    // Component mounted/updated
     
     // Always render properties, even if groups error
     if (properties.length > 0) {
@@ -62,35 +59,23 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
       return;
     }
     
-    console.log('PropertiesView: OAuth callback detected', {
-      hasSuccess: !!oauthSuccess,
-      hasError: !!oauthError,
-      propertiesCount: properties.length
-    });
+    // OAuth callback detected
 
     try {
       if (oauthSuccess) {
         const stateData = parseOAuthState(oauthSuccess.state);
-        console.log('PropertiesView: Parsed OAuth state', { stateData });
+        // Parsed OAuth state
         
         if (stateData) {
           const property = properties.find(p => p.id === stateData.property_id);
-          console.log('PropertiesView: Looking for property', {
-            propertyId: stateData.property_id,
-            found: !!property,
-            propertyName: property?.name
-          });
-          
+          // Looking for property
           if (property) {
-            console.log('PropertiesView: Opening PropertyModal for property:', property.id, property.name);
+            // Opening PropertyModal for property
             oauthProcessedRef.current = true;
             setSelectedProperty(property);
             setIsModalOpen(true);
           } else {
-            console.warn('PropertiesView: Property not found for OAuth callback', {
-              propertyId: stateData.property_id,
-              availableProperties: properties.map(p => ({ id: p.id, name: p.name }))
-            });
+            // Property not found for OAuth callback
             oauthProcessedRef.current = true; // Mark as processed even if property not found
           }
         } else {
@@ -98,10 +83,7 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
           oauthProcessedRef.current = true;
         }
       } else if (oauthError) {
-        console.log('PropertiesView: OAuth error detected', {
-          error: oauthError.error,
-          errorDescription: oauthError.error_description
-        });
+        // OAuth error detected
         oauthProcessedRef.current = true;
       }
     } catch (error) {
@@ -120,11 +102,7 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
     setIsModalOpen(true);
   };
 
-  // Логируем перед рендером
-  console.log('PropertiesView: Rendering properties', { 
-    propertiesCount: properties.length, 
-    properties: properties.map(p => ({ id: p.id, name: p.name }))
-  });
+  // Rendering properties
 
   return (
     <div className="flex-1 overflow-auto p-6">

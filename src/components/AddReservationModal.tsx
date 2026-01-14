@@ -66,6 +66,31 @@ export function AddReservationModal({
   const isUpdatingFromExtraServices = useRef(false);
   const isUpdatingFromConditions = useRef(false);
 
+  // Сброс формы при закрытии модального окна
+  useEffect(() => {
+    if (!isOpen) {
+      // Сбрасываем форму при закрытии, чтобы значения не переносились на следующее открытие
+      setFormData({
+        property_id: selectedProperties[0] || '',
+        guest_name: '',
+        guest_email: '',
+        guest_phone: '',
+        check_in: '',
+        check_out: '',
+        price_per_night: '',
+        total_price: '',
+        extra_services_amount: '0', // Важно: сбрасываем на '0'
+        currency: 'RUB',
+        status: 'confirmed',
+        source: 'manual',
+        guests_count: '1',
+        notes: '',
+      });
+      setError(null);
+      setCalculatingPrice(false);
+    }
+  }, [isOpen, selectedProperties]);
+
   // Load property price when property_id changes
   useEffect(() => {
     if (formData.property_id && isOpen) {

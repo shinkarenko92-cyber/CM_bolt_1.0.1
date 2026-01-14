@@ -42,9 +42,6 @@ type NewReservation = {
 };
 
 export function Dashboard() {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:43',message:'Dashboard mounted',data:{pathname:window.location.pathname},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
   const { t } = useTranslation();
   const { user, isAdmin } = useAuth();
   const [currentView, setCurrentView] = useState('calendar');
@@ -88,9 +85,7 @@ export function Dashboard() {
         // Если нет ошибки или ошибка не связана с сетью, возвращаем результат
         if (!result.error || (result.error.message && !result.error.message.includes('Failed to fetch'))) {
           // Если была ошибка, но retry успешен, не логируем ошибку
-          if (result.error && attempt > 1) {
-            console.log(`Query succeeded after ${attempt} attempts`);
-          }
+          // Query succeeded after retries
           return result;
         }
         
@@ -101,9 +96,7 @@ export function Dashboard() {
         }
         
         // Логируем только первую попытку, чтобы не засорять консоль
-        if (attempt === 1 && result.error.message?.includes('Failed to fetch')) {
-          console.log(`Query failed, retrying... (attempt ${attempt}/${retries})`);
-        }
+        // Query failed, retrying
         
         // Ждем перед повторной попыткой (экспоненциальная задержка)
         await new Promise(resolve => setTimeout(resolve, delay * attempt));
@@ -124,9 +117,7 @@ export function Dashboard() {
         // Логируем только первую попытку
         if (attempt === 1) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          if (errorMessage.includes('Failed to fetch')) {
-            console.log(`Query error, retrying... (attempt ${attempt}/${retries})`);
-          }
+          // Query error, retrying
         }
         
         // Ждем перед повторной попыткой
@@ -137,27 +128,13 @@ export function Dashboard() {
   }, []);
 
   const loadData = useCallback(async () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:135',message:'loadData called',data:{hasUser:!!user,userId:user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     if (!user) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:137',message:'loadData: no user, exiting',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       setLoading(false);
       return;
     }
 
     try {
-      console.log('Loading data for user:', user.id);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:144',message:'Getting session',data:{userId:user.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       const session = await supabase.auth.getSession();
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:146',message:'Session received',data:{hasSession:!!session.data.session,hasUser:!!session.data.session?.user},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      console.log('Session user ID:', session.data.session?.user?.id);
 
       // Retry для properties
       const propertiesResult = await retrySupabaseQuery<Property[]>(
@@ -179,22 +156,15 @@ export function Dashboard() {
         }
       );
       const { data: propertiesData, error: propsError } = propertiesResult;
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:166',message:'Properties query result',data:{hasData:!!propertiesData,hasError:!!propsError,dataCount:propertiesData?.length,errorMessage:propsError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      console.log('Properties error:', propsError);
-      console.log('Properties data:', propertiesData);
       
       if (propsError) {
         toast.error(`${t('errors.failedToLoadProperties')}: ${propsError.message}`);
       }
 
       if (propertiesData) {
-        console.log('Properties data loaded', { count: propertiesData.length, objects: propertiesData.map(p => ({ id: p.id, name: p.name })) });
         setProperties(propertiesData);
 
         const propertyIds = propertiesData.map((p: Property) => p.id);
-        console.log('Property IDs:', propertyIds);
 
         if (propertyIds.length > 0) {
           // Retry для bookings - загружаем только подтвержденные брони (confirmed и paid)
@@ -218,18 +188,12 @@ export function Dashboard() {
             }
           );
           const { data: bookingsData, error: bookingsError } = bookingsResult;
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:199',message:'Bookings query result',data:{hasData:!!bookingsData,hasError:!!bookingsError,dataCount:bookingsData?.length,errorMessage:bookingsError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-          // #endregion
-          console.log('Bookings error:', bookingsError);
-          console.log('Bookings data:', bookingsData);
           
           if (bookingsError) {
             toast.error(`${t('errors.failedToLoadBookings')}: ${bookingsError.message}`);
           }
 
           if (bookingsData) {
-            console.log('Bookings loaded', { count: bookingsData.length });
             setBookings(bookingsData);
             setFilteredBookings(bookingsData);
           }
@@ -261,16 +225,10 @@ export function Dashboard() {
         setUserProfile(profileData);
       }
     } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:236',message:'loadData error caught',data:{errorMessage:error instanceof Error?error.message:String(error),errorStack:error instanceof Error?error.stack:undefined},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
       console.error('Error loading data:', error);
       const errorMessage = error instanceof Error ? error.message : t('errors.somethingWentWrong');
       toast.error(`${t('errors.failedToLoadData')}: ${errorMessage}`);
     } finally {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:239',message:'loadData completed',data:{loading:false},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       setLoading(false);
     }
   }, [user, retrySupabaseQuery, t]);
@@ -291,15 +249,9 @@ export function Dashboard() {
     const oauthError = getOAuthError();
     
     if ((oauthSuccess || oauthError) && !oauthProcessedRef.current) {
-      console.log('Dashboard: OAuth callback detected, switching to Properties view', {
-        hasSuccess: !!oauthSuccess,
-        hasError: !!oauthError,
-      });
-      
       // Переключаемся на вкладку Properties, чтобы PropertiesView мог обработать callback
       setCurrentView((prevView) => {
         if (prevView !== 'properties') {
-          console.log('Dashboard: Switching to Properties view to handle OAuth callback');
           return 'properties';
         }
         return prevView;
@@ -310,9 +262,6 @@ export function Dashboard() {
 
   // Realtime subscription for new Avito bookings
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:276',message:'Realtime subscription setup',data:{hasUser:!!user},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
     if (!user) return;
 
     const channel = supabase
@@ -326,9 +275,6 @@ export function Dashboard() {
           filter: 'source=eq.avito',
         },
         () => {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:284',message:'Realtime event received',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-          // #endregion
           // Toast notification
           message.success('Лид с Avito!');
           
@@ -348,14 +294,8 @@ export function Dashboard() {
         }
       )
       .subscribe();
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:303',message:'Realtime channel subscribed',data:{channelName:'avito_bookings'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
 
     return () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.tsx:305',message:'Realtime channel cleanup',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
       supabase.removeChannel(channel);
     };
   }, [user]); // Убрали loadData из зависимостей, используем ref
@@ -504,7 +444,6 @@ export function Dashboard() {
           } else {
             toast.success('Синхронизация успешна! Цены и даты обновлены в Avito');
           }
-          console.log('Dashboard: Avito sync completed successfully after booking creation', syncResult);
         } else {
           // Sync failed - show error
           toast.dismiss(syncToastId);
@@ -612,7 +551,6 @@ export function Dashboard() {
             toast.dismiss(syncToastId);
             // Show success message
             toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
-            console.log('Dashboard: Avito sync completed successfully after booking update', syncResult);
           } else {
             // Sync failed - show error
             toast.dismiss(syncToastId);
@@ -687,17 +625,11 @@ export function Dashboard() {
 
           if (!integration) {
             toast.error('Интеграция Avito не найдена');
-            console.warn('Dashboard: Avito integration not found', { propertyId });
             return; // Skip sync if no integration
           }
 
           if (!integration.avito_item_id) {
             toast.error('Настрой ID объявления в интеграции Avito');
-            console.warn('Dashboard: Avito integration missing item_id', {
-              propertyId,
-              hasIntegration: !!integration,
-              hasItemId: !!integration?.avito_item_id,
-            });
             return; // Skip sync if no valid item_id
           }
 
@@ -705,11 +637,7 @@ export function Dashboard() {
           const itemIdStr = String(integration.avito_item_id).trim();
           if (itemIdStr.length < 10 || itemIdStr.length > 11 || !/^\d+$/.test(itemIdStr)) {
             toast.error('Неверный ID объявления Avito. Должен быть 10–11 цифр.');
-            console.warn('Dashboard: Invalid Avito item_id format', {
-              propertyId,
-              itemId: integration.avito_item_id,
-              itemIdLength: itemIdStr.length,
-            });
+            // Invalid Avito item_id format
             return; // Skip sync if invalid format
           }
 

@@ -130,13 +130,7 @@ export function ChangeConditionsModal({
         .eq('is_active', true)
         .maybeSingle();
 
-      console.log('ChangeConditionsModal: Checking for Avito integration', {
-        property_id: formData.selectedPropertyId,
-        hasIntegration: !!integration,
-        is_active: integration?.is_active,
-        token_expires_at: integration?.token_expires_at,
-        integrationError,
-      });
+      // Checking for Avito integration
 
       if (integration && integration.token_expires_at) {
         // Добавляем 'Z' если его нет для правильной интерпретации как UTC
@@ -150,15 +144,10 @@ export function ChangeConditionsModal({
         const tokenValid = expiresAt.getTime() > now.getTime();
         
         if (tokenValid) {
-          console.log('ChangeConditionsModal: Triggering Avito sync', {
-            property_id: formData.selectedPropertyId,
-            datesCount: dates.length,
-            startDate: formData.startDate,
-            endDate: formData.endDate,
-          });
+          // Triggering Avito sync
           try {
             await syncAvitoIntegration(formData.selectedPropertyId);
-            console.log('ChangeConditionsModal: Avito sync completed successfully');
+            // Avito sync completed successfully
             // Показываем успешное уведомление ДО закрытия модального окна
             toast.success(t('avito.success.syncCompleted', { defaultValue: 'Синхронизация с Avito завершена успешно' }));
           } catch (error) {
@@ -174,24 +163,17 @@ export function ChangeConditionsModal({
             } else {
               // Для других ошибок показываем простое сообщение
               const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
-              console.warn('ChangeConditionsModal: Sync failed, but prices saved', { error: errorMessage });
+              // Sync failed, but prices saved
               // Показываем toast с ошибкой ДО закрытия модального окна
               toast.error(t('avito.errors.syncFailed', { defaultValue: 'Ошибка синхронизации с Avito' }) + ': ' + errorMessage);
             }
             // Не блокируем сохранение цен - они уже сохранены
           }
         } else {
-          console.log('ChangeConditionsModal: Token expired, skipping sync', {
-            expiresAt: expiresAt.toISOString(),
-            now: now.toISOString(),
-            timeDiff: expiresAt.getTime() - now.getTime(),
-          });
+          // Token expired, skipping sync
         }
       } else {
-        console.log('ChangeConditionsModal: No active Avito integration, skipping sync', {
-          hasIntegration: !!integration,
-          hasTokenExpiresAt: !!integration?.token_expires_at,
-        });
+        // No active Avito integration, skipping sync
       }
 
       // Закрываем модальное окно после показа всех уведомлений
