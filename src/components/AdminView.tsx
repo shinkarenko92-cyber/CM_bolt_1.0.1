@@ -407,6 +407,84 @@ export function AdminView() {
     );
   };
 
+  const renderDeletionRequestsTable = () => {
+    const pendingRequests = deletionRequests.filter(r => r.status === 'pending');
+    const processedRequests = deletionRequests.filter(r => r.status !== 'pending');
+    const allRequests = [...pendingRequests, ...processedRequests];
+
+    if (allRequests.length === 0) {
+      return (
+        <div className="text-center py-12 text-slate-400">
+          {t('admin.deletionRequests', { defaultValue: 'Deletion Requests' })} не найдены
+        </div>
+      );
+    }
+
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="border-b border-slate-700">
+              <th className="pb-3 text-sm font-medium text-slate-300">User Email</th>
+              <th className="pb-3 text-sm font-medium text-slate-300">Reason</th>
+              <th className="pb-3 text-sm font-medium text-slate-300">Status</th>
+              <th className="pb-3 text-sm font-medium text-slate-300">Created</th>
+              <th className="pb-3 text-sm font-medium text-slate-300">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {allRequests.map((request) => {
+              const requestUser = users.find(u => u.id === request.user_id);
+              return (
+                <tr key={request.id} className="border-b border-slate-700/50">
+                  <td className="py-3 text-sm text-white">{requestUser?.email || request.user_id}</td>
+                  <td className="py-3 text-sm text-slate-300">{request.reason || '—'}</td>
+                  <td className="py-3 text-sm">
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      request.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                      request.status === 'approved' ? 'bg-green-500/20 text-green-400' :
+                      'bg-red-500/20 text-red-400'
+                    }`}>
+                      {request.status}
+                    </span>
+                  </td>
+                  <td className="py-3 text-sm text-slate-400">
+                    {new Date(request.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="py-3 text-sm">
+                    {request.status === 'pending' && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApproveDeletion(request.id, request.user_id)}
+                          disabled={actionLoading}
+                          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs transition-colors disabled:opacity-50"
+                        >
+                          {t('admin.approve', { defaultValue: 'Approve' })}
+                        </button>
+                        <button
+                          onClick={() => handleRejectDeletion(request.id)}
+                          disabled={actionLoading}
+                          className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs transition-colors disabled:opacity-50"
+                        >
+                          {t('admin.reject', { defaultValue: 'Reject' })}
+                        </button>
+                      </div>
+                    )}
+                    {request.status !== 'pending' && (
+                      <span className="text-slate-500 text-xs">
+                        {request.processed_at ? new Date(request.processed_at).toLocaleDateString() : '—'}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   const renderBookingsTable = () => {
     const filteredBookings = getFilteredBookings();
     const paginatedBookings = getPaginatedData(filteredBookings);
@@ -687,82 +765,4 @@ export function AdminView() {
       />
     </div>
   );
-
-  const renderDeletionRequestsTable = () => {
-    const pendingRequests = deletionRequests.filter(r => r.status === 'pending');
-    const processedRequests = deletionRequests.filter(r => r.status !== 'pending');
-    const allRequests = [...pendingRequests, ...processedRequests];
-
-    if (allRequests.length === 0) {
-      return (
-        <div className="text-center py-12 text-slate-400">
-          {t('admin.deletionRequests', { defaultValue: 'Deletion Requests' })} не найдены
-        </div>
-      );
-    }
-
-    return (
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="border-b border-slate-700">
-              <th className="pb-3 text-sm font-medium text-slate-300">User Email</th>
-              <th className="pb-3 text-sm font-medium text-slate-300">Reason</th>
-              <th className="pb-3 text-sm font-medium text-slate-300">Status</th>
-              <th className="pb-3 text-sm font-medium text-slate-300">Created</th>
-              <th className="pb-3 text-sm font-medium text-slate-300">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {allRequests.map((request) => {
-              const requestUser = users.find(u => u.id === request.user_id);
-              return (
-                <tr key={request.id} className="border-b border-slate-700/50">
-                  <td className="py-3 text-sm text-white">{requestUser?.email || request.user_id}</td>
-                  <td className="py-3 text-sm text-slate-300">{request.reason || '—'}</td>
-                  <td className="py-3 text-sm">
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      request.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                      request.status === 'approved' ? 'bg-green-500/20 text-green-400' :
-                      'bg-red-500/20 text-red-400'
-                    }`}>
-                      {request.status}
-                    </span>
-                  </td>
-                  <td className="py-3 text-sm text-slate-400">
-                    {new Date(request.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="py-3 text-sm">
-                    {request.status === 'pending' && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleApproveDeletion(request.id, request.user_id)}
-                          disabled={actionLoading}
-                          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs transition-colors disabled:opacity-50"
-                        >
-                          {t('admin.approve', { defaultValue: 'Approve' })}
-                        </button>
-                        <button
-                          onClick={() => handleRejectDeletion(request.id)}
-                          disabled={actionLoading}
-                          className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs transition-colors disabled:opacity-50"
-                        >
-                          {t('admin.reject', { defaultValue: 'Reject' })}
-                        </button>
-                      </div>
-                    )}
-                    {request.status !== 'pending' && (
-                      <span className="text-slate-500 text-xs">
-                        {request.processed_at ? new Date(request.processed_at).toLocaleDateString() : '—'}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
 }

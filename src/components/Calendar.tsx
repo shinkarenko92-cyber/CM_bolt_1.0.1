@@ -632,6 +632,10 @@ export function Calendar({
     return layers;
   };
 
+  const isCellOccupied = useCallback((propertyId: string, date: Date): boolean => {
+    return bookings.some(b => b.property_id === propertyId && isDateInRange(date, b.check_in, b.check_out));
+  }, [bookings]);
+
   // Debounce timer ref
   const clickDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -742,10 +746,6 @@ export function Calendar({
     const dateString = date.toISOString().split('T')[0];
     return rates.find((r) => r.date === dateString) || null;
   };
-
-  const isCellOccupied = useCallback((propertyId: string, date: Date): boolean => {
-    return bookings.some(b => b.property_id === propertyId && isDateInRange(date, b.check_in, b.check_out));
-  }, [bookings]);
 
   // Плоский список объектов (группы удалены)
   const sortedProperties = useMemo(() => {
