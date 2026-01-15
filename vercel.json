@@ -11,10 +11,6 @@
       "destination": "/index.html"
     },
     {
-      "source": "/",
-      "destination": "/landing/index.html"
-    },
-    {
       "source": "/:path*",
       "destination": "/index.html"
     }
