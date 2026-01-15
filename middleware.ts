@@ -1,5 +1,4 @@
 export default function middleware(request: Request) {
-  const url = new URL(request.url);
   const hostname = request.headers.get('host') || '';
 
   // CRITICAL: For app.roomi.pro and roomi.pro, we must NOT block vercel.json rewrites
