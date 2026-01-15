@@ -7,16 +7,25 @@
       "destination": "https://kvauqrxihwdgclhwmzof.supabase.co/functions/v1/:path*"
     },
     {
-      "source": "/auth/avito-callback",
-      "destination": "/index.html"
+      "source": "/auth/avito-callback(.*)",
+      "destination": "/auth/avito-callback$1"
     },
     {
       "source": "/",
       "destination": "/landing/index.html"
     },
     {
-      "source": "/:path*",
-      "destination": "/index.html"
+      "source": "/landing",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/app/(.*)",
+      "destination": "/app/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/$1"
     }
   ],
   "headers": [
