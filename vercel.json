@@ -11,21 +11,6 @@
       "destination": "/index.html"
     },
     {
-      "source": "/landing",
-      "destination": "/landing/index.html"
-    },
-    {
-      "source": "/landing/:path*",
-      "destination": "/landing/index.html",
-      "has": [
-        {
-          "type": "header",
-          "key": "accept",
-          "value": "text/html"
-        }
-      ]
-    },
-    {
       "source": "/",
       "destination": "/landing/index.html"
     },
