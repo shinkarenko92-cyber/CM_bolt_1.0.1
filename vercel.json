@@ -11,6 +11,14 @@
       "destination": "/index.html"
     },
     {
+      "source": "/landing/assets/:path*",
+      "destination": "/landing/assets/:path*"
+    },
+    {
+      "source": "/landing",
+      "destination": "/landing/index.html"
+    },
+    {
       "source": "/landing/:path*",
       "destination": "/landing/index.html"
     },
