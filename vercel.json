@@ -15,17 +15,15 @@
       "destination": "/landing/index.html"
     },
     {
+      "source": "/(.*)",
+      "destination": "/$1"
+    }
+  ],
+  "redirects": [
+    {
       "source": "/landing",
       "destination": "/",
       "permanent": true
-    },
-    {
-      "source": "/app/(.*)",
-      "destination": "/app/$1"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/$1"
     }
   ],
   "headers": [
