@@ -4,8 +4,9 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
+// Landing builds to dist/landing/ and serves from root on roomi.pro
 export default defineConfig(({ mode }) => ({
-  base: "/landing/",
+  base: "/landing/", // Assets are served from /landing/assets/, but page is served from root via rewrite
   server: {
     host: "::",
     port: 8080,
@@ -20,7 +21,12 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    outDir: "../dist/landing",
-    emptyOutDir: true, // Очищать только landing директорию
+    outDir: "../dist/landing", // Build landing to dist/landing/
+    emptyOutDir: true, // Clean only landing directory
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, "index.html"),
+      },
+    },
   },
 }));

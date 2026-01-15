@@ -5,25 +5,6 @@
     {
       "source": "/functions/v1/:path*",
       "destination": "https://kvauqrxihwdgclhwmzof.supabase.co/functions/v1/:path*"
-    },
-    {
-      "source": "/auth/avito-callback(.*)",
-      "destination": "/auth/avito-callback$1"
-    },
-    {
-      "source": "/",
-      "destination": "/landing/index.html"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/$1"
-    }
-  ],
-  "redirects": [
-    {
-      "source": "/landing",
-      "destination": "/",
-      "permanent": true
     }
   ],
   "headers": [
@@ -37,7 +18,7 @@
       ]
     },
     {
-      "source": "/assets/:path*",
+      "source": "/app/assets/:path*",
       "headers": [
         {
           "key": "Cache-Control",

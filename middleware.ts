@@ -3,23 +3,42 @@ export default function middleware(request: Request) {
   const url = new URL(request.url);
   const pathname = url.pathname;
 
-  // For app.roomi.pro - serve application
-  // All paths go to /index.html (app) via vercel.json rewrites
+  // For app.roomi.pro - serve application from dist/app/
+  // All paths (except static files) should serve app/index.html for SPA routing
   if (hostname.startsWith('app.')) {
-    return fetch(request);
+    // Skip middleware for static files - they're served directly
+    if (pathname.startsWith('/app/assets/') || pathname.startsWith('/assets/') || pathname.match(/\.(ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot|css|js|json|xml|txt|pdf|zip)$/)) {
+      return new Response(null, { status: 200 });
+    }
+
+    // For app.roomi.pro, rewrite all paths to /app/index.html (SPA fallback)
+    // This includes /auth/avito-callback and all other routes
+    const appUrl = new URL(request.url);
+    appUrl.pathname = '/app/index.html';
+    return fetch(new Request(appUrl, request));
   }
 
-  // For roomi.pro (main domain) - serve landing page
-  // Root (/) is rewritten to /landing/index.html by vercel.json
-  // Static files are served directly by Vercel
+  // For roomi.pro (main domain) - serve landing page from dist/landing/
   if (hostname === 'roomi.pro' || (hostname.endsWith('.roomi.pro') && !hostname.startsWith('app.'))) {
     // Skip middleware for static files - they're served directly
     if (pathname.startsWith('/landing/assets/') || pathname.match(/\.(ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot|css|js|json|xml|txt|pdf|zip)$/)) {
       return new Response(null, { status: 200 });
     }
 
-    // For root path, let vercel.json rewrite handle it (/) -> /landing/index.html
-    // For other paths, forward to allow rewrites to work
+    // For root path, serve landing page
+    if (pathname === '/' || pathname === '') {
+      const landingUrl = new URL(request.url);
+      landingUrl.pathname = '/landing/index.html';
+      return fetch(new Request(landingUrl, request));
+    }
+
+    // For /landing paths, allow direct access
+    if (pathname.startsWith('/landing/')) {
+      return fetch(request);
+    }
+
+    // For any other path on roomi.pro, also serve landing (or 404)
+    // This allows landing routes to work if needed
     return fetch(request);
   }
 
