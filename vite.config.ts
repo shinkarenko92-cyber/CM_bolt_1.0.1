@@ -3,9 +3,10 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 
 // https://vitejs.dev/config/
-// App builds to dist/app/ for isolation, but serves from root on app.roomi.pro
+// App builds to dist/app/ for file isolation
+// Assets are served from /app/assets/, but app routes work from root via middleware
 export default defineConfig({
-  base: '/', // App serves from root on app.roomi.pro (not /app/)
+  base: '/app/', // Assets are served from /app/assets/, but app routes work from root via middleware
   plugins: [react()],
   optimizeDeps: {
     exclude: ['lucide-react'],
