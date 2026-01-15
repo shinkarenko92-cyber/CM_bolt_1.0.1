@@ -10,17 +10,20 @@ export default function middleware(request: Request) {
   }
 
   // For roomi.pro (main domain) - serve landing page
-  // Special paths like /auth/avito-callback should still work (they'll be handled by vercel.json)
-  // But root path should go to landing
   if (hostname === 'roomi.pro' || (hostname.endsWith('.roomi.pro') && !hostname.startsWith('app.'))) {
     // Allow special paths to pass through (they'll be handled by vercel.json rewrites)
     if (pathname.startsWith('/auth/') || pathname.startsWith('/functions/')) {
       return fetch(request);
     }
     
-    // For root path on roomi.pro, we need to ensure it goes to landing
-    // Use fetch to allow rewrites, but the rewrite in vercel.json should handle it
-    // The rewrite "/" -> "/landing/index.html" should work
+    // For root path on roomi.pro, explicitly redirect to /landing/
+    // This ensures landing page is served instead of the app
+    if (pathname === '/' || pathname === '') {
+      const landingUrl = new URL('/landing/', request.url);
+      return Response.redirect(landingUrl, 307);
+    }
+    
+    // For other paths on roomi.pro, allow rewrites to handle them
     return fetch(request);
   }
 
