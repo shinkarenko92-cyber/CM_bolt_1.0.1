@@ -16,7 +16,14 @@
     },
     {
       "source": "/landing/:path*",
-      "destination": "/landing/index.html"
+      "destination": "/landing/index.html",
+      "has": [
+        {
+          "type": "header",
+          "key": "accept",
+          "value": "text/html"
+        }
+      ]
     },
     {
       "source": "/",

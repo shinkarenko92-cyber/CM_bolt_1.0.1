@@ -15,6 +15,6 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    emptyOutDir: false, // Не очищать dist, так как landing уже там
+    emptyOutDir: true, // Очищать dist перед сборкой app (landing собирается первым)
   },
 });
