@@ -16,11 +16,12 @@ export default function middleware(request: Request) {
       return fetch(request);
     }
     
-    // For root path on roomi.pro, explicitly redirect to /landing/
-    // This ensures landing page is served instead of the app
+    // For root path on roomi.pro, use fetch with modified URL to /landing/
+    // This allows rewrites to work without visible redirect, and static files load correctly
     if (pathname === '/' || pathname === '') {
-      const landingUrl = new URL('/landing/', request.url);
-      return Response.redirect(landingUrl, 307);
+      const landingUrl = new URL(request.url);
+      landingUrl.pathname = '/landing/';
+      return fetch(new Request(landingUrl, request));
     }
     
     // For other paths on roomi.pro, allow rewrites to handle them
