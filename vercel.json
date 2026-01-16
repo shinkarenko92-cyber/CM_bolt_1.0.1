@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build:app",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
     {
@@ -7,7 +7,7 @@
       "destination": "https://kvauqrxihwdgclhwmzof.supabase.co/functions/v1/:path*"
     },
     {
-      "source": "/:path*",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ],

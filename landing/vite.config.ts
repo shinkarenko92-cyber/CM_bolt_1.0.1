@@ -5,6 +5,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 // Landing builds to dist/ for separate Vercel project (root directory: /landing)
+// When Vercel runs build from /landing, process.cwd() = /landing
 export default defineConfig(({ mode }) => ({
   base: "/", // Landing serves from root on roomi.pro (separate Vercel project)
   server: {
@@ -21,9 +22,10 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    // For separate Vercel project with root directory = /landing
-    // Build to dist/ (relative to landing/ directory)
-    outDir: path.resolve(__dirname, "dist"),
+    // For separate Vercel project: root directory = /landing
+    // Build to dist/ relative to landing/ directory
+    // Result: landing/dist/index.html (Vercel looks for dist/index.html from /landing root)
+    outDir: "dist",
     emptyOutDir: true, // Clean dist before build
     rollupOptions: {
       input: {
