@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:landing": "vite --config landing/vite.config.ts",
-    "build": "vite build --config landing/vite.config.ts && vite build",
+    "build": "vite build",
     "build:app": "vite build",
     "build:landing": "vite build --config landing/vite.config.ts",
     "lint": "eslint .",

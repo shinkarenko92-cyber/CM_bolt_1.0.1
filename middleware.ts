@@ -1,14 +1,20 @@
 export default function middleware(request: Request) {
-  // Minimal middleware - let vercel.json rewrites handle all routing
-  // Only skip for static files to allow direct serving
-  const pathname = new URL(request.url).pathname;
+  const hostname = request.headers.get('host') || '';
   
-  // Skip middleware for static files - they're served directly by Vercel
+  // This middleware is ONLY for app.roomi.pro deployment
+  // Landing is deployed as a separate Vercel project
+  if (!hostname.startsWith('app.')) {
+    // For non-app domains, skip middleware (landing handles its own routing)
+    return new Response(null, { status: 200 });
+  }
+
+  // For app.roomi.pro - skip middleware for static files
+  const pathname = new URL(request.url).pathname;
   if (pathname.startsWith('/assets/') || pathname.match(/\.(ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot|css|js|json|xml|txt|pdf|zip)$/)) {
     return new Response(null, { status: 200 });
   }
 
-  // Let vercel.json rewrites handle all routing
+  // Let vercel.json rewrites handle all SPA routing
   return fetch(request);
 }
 
