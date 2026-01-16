@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    outDir: "../dist/landing", // Build landing to dist/landing/
+    outDir: path.resolve(__dirname, "../dist/landing"), // Build landing to dist/landing/ (absolute path to avoid nesting)
     emptyOutDir: true, // Clean only landing directory
     rollupOptions: {
       input: {

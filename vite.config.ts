@@ -18,7 +18,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist/app', // Build app to dist/app/ for file isolation
-    emptyOutDir: true, // Clean only app directory
+    emptyOutDir: false, // Don't clean dist, preserve landing build
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
