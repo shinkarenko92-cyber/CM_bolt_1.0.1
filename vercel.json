@@ -7,7 +7,7 @@
       "destination": "https://kvauqrxihwdgclhwmzof.supabase.co/functions/v1/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/:path*",
       "destination": "/index.html"
     }
   ],
@@ -21,7 +21,5 @@
         }
       ]
     }
-  ],
-  "cleanUrls": true,
-  "trailingSlash": false
+  ]
 }
