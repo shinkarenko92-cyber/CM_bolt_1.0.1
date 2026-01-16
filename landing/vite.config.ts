@@ -21,7 +21,9 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    outDir: path.resolve(__dirname, "../dist/landing"), // Build landing to dist/landing/ (absolute path to avoid nesting)
+    // process.cwd() всегда указывает на корень проекта (где запущен npm run build)
+    // Это гарантирует правильный путь независимо от структуры папок
+    outDir: path.resolve(process.cwd(), "dist/landing"),
     emptyOutDir: true, // Clean only landing directory
     rollupOptions: {
       input: {

@@ -17,7 +17,9 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
-    outDir: 'dist/app', // Build app to dist/app/ for file isolation
+    // process.cwd() всегда указывает на корень проекта (где запущен npm run build)
+    // Это гарантирует правильный путь независимо от структуры папок
+    outDir: path.resolve(process.cwd(), 'dist/app'),
     emptyOutDir: false, // Don't clean dist, preserve landing build
     rollupOptions: {
       input: {
