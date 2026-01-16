@@ -4,9 +4,9 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
-// Landing builds to dist/landing/ and serves from root on roomi.pro
+// Landing builds to dist/ for separate Vercel project (root directory: /landing)
 export default defineConfig(({ mode }) => ({
-  base: "/landing/", // Assets are served from /landing/assets/, but page is served from root via rewrite
+  base: "/", // Landing serves from root on roomi.pro (separate Vercel project)
   server: {
     host: "::",
     port: 8080,
@@ -21,10 +21,10 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    // process.cwd() всегда указывает на корень проекта (где запущен npm run build)
-    // Это гарантирует правильный путь независимо от структуры папок
-    outDir: path.resolve(process.cwd(), "dist/landing"),
-    emptyOutDir: true, // Clean only landing directory
+    // For separate Vercel project with root directory = /landing
+    // Build to dist/ (relative to landing/ directory)
+    outDir: path.resolve(__dirname, "dist"),
+    emptyOutDir: true, // Clean dist before build
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, "index.html"),
