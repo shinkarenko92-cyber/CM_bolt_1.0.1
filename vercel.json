@@ -1,24 +1,19 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build:app",
   "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/functions/v1/:path*",
       "destination": "https://kvauqrxihwdgclhwmzof.supabase.co/functions/v1/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
   "headers": [
     {
-      "source": "/landing/assets/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    },
-    {
-      "source": "/app/assets/:path*",
+      "source": "/assets/:path*",
       "headers": [
         {
           "key": "Cache-Control",

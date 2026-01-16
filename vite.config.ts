@@ -3,10 +3,9 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 
 // https://vitejs.dev/config/
-// App builds to dist/app/ for file isolation
-// Assets are served from /app/assets/, but app routes work from root via middleware
+// App builds to dist/ for app.roomi.pro deployment
 export default defineConfig({
-  base: '/app/', // Assets are served from /app/assets/, but app routes work from root via middleware
+  base: '/', // App serves from root on app.roomi.pro
   plugins: [react()],
   optimizeDeps: {
     exclude: ['lucide-react'],
@@ -17,10 +16,9 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
-    // process.cwd() всегда указывает на корень проекта (где запущен npm run build)
-    // Это гарантирует правильный путь независимо от структуры папок
-    outDir: path.resolve(process.cwd(), 'dist/app'),
-    emptyOutDir: false, // Don't clean dist, preserve landing build
+    // Build to dist/ root - simple structure for Vercel
+    outDir: path.resolve(process.cwd(), 'dist'),
+    emptyOutDir: true, // Clean dist before build
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
