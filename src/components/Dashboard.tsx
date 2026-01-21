@@ -393,6 +393,7 @@ export function Dashboard() {
       // Handle PGRST204 error (column not found) - retry without audit fields
       if (error && (error.code === 'PGRST204' || error.message?.includes('Could not find the') || error.message?.includes('created_by'))) {
         // Retry without audit fields - create new object without created_by and updated_by
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { created_by, updated_by, ...reservationWithoutAudit } = reservationWithAudit;
         
         const retryResult = await supabase.from('bookings').insert([reservationWithoutAudit]).select();
