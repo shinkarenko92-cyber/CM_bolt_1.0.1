@@ -177,14 +177,13 @@ export function AddReservationModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.property_id, formData.check_in, formData.check_out]);
 
-  // Пересчет total_price при изменении price_per_night (только когда изменение идёт от условий)
+  // Пересчет total_price при изменении price_per_night (от условий или вручную)
   // ИЛИ пересчет price_per_night при изменении extra_services_amount (если total_price не меняется)
   // НЕ срабатывает если изменение идет от ручного изменения total_price
   useEffect(() => {
-    // Если изменение price_per_night идёт от условий → пересчитываем total_price
+    // Если изменение price_per_night (от условий или вручную) → пересчитываем total_price
     if (
       !calculatingPrice && 
-      isUpdatingFromConditions.current && 
       !isUpdatingFromTotalPrice.current &&
       formData.price_per_night && 
       formData.check_in && 
@@ -223,14 +222,14 @@ export function AddReservationModal({
       if (nights > 0) {
         const totalPrice = parseFloat(formData.total_price) || 0;
         const extraServices = parseFloat(formData.extra_services_amount) || 0;
-        const newDailyPrice = Math.round(((totalPrice - extraServices) / nights) * 100) / 100;
+        const newDailyPrice = Math.round((totalPrice - extraServices) / nights);
         
         const currentPricePerNight = parseFloat(formData.price_per_night) || 0;
         if (Math.abs(newDailyPrice - currentPricePerNight) > 0.01) {
           isUpdatingFromExtraServices.current = true;
           setFormData(prev => ({
             ...prev,
-            price_per_night: newDailyPrice.toFixed(2),
+            price_per_night: newDailyPrice.toString(),
           }));
           setTimeout(() => {
             isUpdatingFromExtraServices.current = false;
@@ -244,7 +243,7 @@ export function AddReservationModal({
   // Пересчет price_per_night при изменении total_price (если меняем total вручную)
   // Срабатывает ТОЛЬКО когда пользователь вручную меняет total_price
   // НЕ срабатывает при программном обновлении через другие useEffect
-  // Формула: price_per_night = (total_price - extra_services_amount) / nights
+  // Формула: price_per_night = (total_price - extra_services_amount) / nights (округление до целых)
   useEffect(() => {
     if (
       !calculatingPrice && 
@@ -259,8 +258,8 @@ export function AddReservationModal({
       if (nights > 0) {
         const totalPrice = parseFloat(formData.total_price) || 0;
         const extraServices = parseFloat(formData.extra_services_amount) || 0;
-        // Округляем до 2 знаков после запятой
-        const newDailyPrice = Math.round(((totalPrice - extraServices) / nights) * 100) / 100;
+        // Округляем до целых чисел (без копеек)
+        const newDailyPrice = Math.round((totalPrice - extraServices) / nights);
         
         // Проверяем, действительно ли нужно обновлять
         const currentPricePerNight = parseFloat(formData.price_per_night) || 0;
@@ -268,7 +267,7 @@ export function AddReservationModal({
           isUpdatingFromTotalPrice.current = true;
         setFormData(prev => ({
           ...prev,
-          price_per_night: newDailyPrice.toFixed(2),
+          price_per_night: newDailyPrice.toString(),
         }));
           setTimeout(() => {
             isUpdatingFromTotalPrice.current = false;
@@ -664,7 +663,7 @@ export function AddReservationModal({
               />
             </div>
 
-            {/* 2. Цена за ночь (read-only, рассчитывается автоматически) */}
+            {/* 2. Цена за ночь (редактируемая, округляется до целых) */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
                 {t('modals.pricePerNight')}
@@ -676,15 +675,21 @@ export function AddReservationModal({
               </label>
               <InputNumber
                 value={formData.price_per_night ? parseFloat(formData.price_per_night) : undefined}
+                onChange={(value) => {
+                  if (value !== null && value !== undefined) {
+                    setFormData({ ...formData, price_per_night: Math.round(value).toString() });
+                  }
+                }}
                 min={0}
-                step={0.01}
-                precision={2}
+                step={1}
+                precision={0}
                 className="w-full"
                 style={{ width: '100%' }}
-                disabled={true}
+                controls={true}
                 formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
                 parser={(value) => Number(value!.replace(/\s?/g, '')) || 0}
-                placeholder="0.00"
+                placeholder="0"
+                disabled={calculatingPrice}
               />
             </div>
 

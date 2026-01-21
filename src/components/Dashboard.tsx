@@ -152,7 +152,7 @@ export function Dashboard() {
         }
       );
       const { data: propertiesData, error: propsError } = propertiesResult;
-      
+
       if (propsError) {
         toast.error(`${t('errors.failedToLoadProperties')}: ${propsError.message}`);
       }
@@ -184,7 +184,7 @@ export function Dashboard() {
             }
           );
           const { data: bookingsData, error: bookingsError } = bookingsResult;
-          
+
           if (bookingsError) {
             toast.error(`${t('errors.failedToLoadBookings')}: ${bookingsError.message}`);
           }
@@ -249,7 +249,7 @@ export function Dashboard() {
       setCurrentView((prevView) => {
         if (prevView !== 'properties') {
           return 'properties';
-        }
+      }
         return prevView;
       });
       oauthProcessedRef.current = true;
@@ -388,7 +388,17 @@ export function Dashboard() {
         reservationWithAudit.updated_by = user.id;
       }
 
-      const { data, error } = await supabase.from('bookings').insert([reservationWithAudit]).select();
+      let { data, error } = await supabase.from('bookings').insert([reservationWithAudit]).select();
+
+      // Handle PGRST204 error (column not found) - retry without audit fields
+      if (error && (error.code === 'PGRST204' || error.message?.includes('Could not find the') || error.message?.includes('created_by'))) {
+        // Retry without audit fields - create new object without created_by and updated_by
+        const { created_by, updated_by, ...reservationWithoutAudit } = reservationWithAudit;
+        
+        const retryResult = await supabase.from('bookings').insert([reservationWithoutAudit]).select();
+        data = retryResult.data;
+        error = retryResult.error;
+      }
 
       if (error) throw error;
 
