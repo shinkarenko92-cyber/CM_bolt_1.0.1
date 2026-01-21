@@ -658,7 +658,7 @@ export function AddReservationModal({
                 style={{ width: '100%' }}
                 controls={true}
                 formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
-                parser={(value) => value!.replace(/\s?/g, '')}
+                parser={(value) => Number(value!.replace(/\s?/g, '')) || 0}
                 placeholder={t('modals.totalPricePlaceholder', { defaultValue: '0' })}
                 disabled={calculatingPrice}
               />
@@ -683,7 +683,7 @@ export function AddReservationModal({
                 style={{ width: '100%' }}
                 disabled={true}
                 formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
-                parser={(value) => value!.replace(/\s?/g, '')}
+                parser={(value) => Number(value!.replace(/\s?/g, '')) || 0}
                 placeholder="0.00"
               />
             </div>
@@ -707,7 +707,7 @@ export function AddReservationModal({
                 style={{ width: '100%' }}
                 controls={true}
                 formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
-                parser={(value) => value!.replace(/\s?/g, '')}
+                parser={(value) => Number(value!.replace(/\s?/g, '')) || 0}
                 placeholder="0"
               />
             </div>
