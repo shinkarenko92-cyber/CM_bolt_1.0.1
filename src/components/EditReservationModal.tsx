@@ -60,13 +60,13 @@ export function EditReservationModal({
     if (booking) {
       const nights = calculateNights(booking.check_in || '', booking.check_out || '');
       const pricePerNight = nights > 0 && booking.total_price 
-        ? (booking.total_price / nights).toFixed(2) 
+        ? Math.round(booking.total_price / nights).toString()
         : '';
       
       const extraServices = booking.extra_services_amount || 0;
       const basePrice = (booking.total_price || 0) - extraServices;
       const correctedPricePerNight = nights > 0 && basePrice > 0 
-        ? (basePrice / nights).toFixed(2) 
+        ? Math.round(basePrice / nights).toString()
         : pricePerNight;
       
       setFormData({
@@ -121,7 +121,7 @@ export function EditReservationModal({
         const pricePerNight = parseFloat(formData.price_per_night) || 0;
         const extraServices = parseFloat(formData.extra_services_amount) || 0;
         const basePrice = pricePerNight * nights;
-        const newTotalPrice = (basePrice + extraServices).toFixed(2);
+        const newTotalPrice = Math.round(basePrice + extraServices).toString();
         setFormData(prev => ({
           ...prev,
           total_price: newTotalPrice,
@@ -177,7 +177,7 @@ export function EditReservationModal({
     const extraServices = parseFloat(formData.extra_services_amount) || 0;
     const basePrice = calculatedPrice;
     const totalPrice = basePrice + extraServices;
-    const pricePerNight = nights > 0 ? (basePrice / nights).toFixed(2) : '';
+    const pricePerNight = nights > 0 ? Math.round(basePrice / nights).toString() : '';
     setFormData({
       ...formData,
       total_price: totalPrice.toString(),
@@ -209,7 +209,7 @@ export function EditReservationModal({
         notes: formData.notes || null,
         check_in: formData.check_in,
         check_out: formData.check_out,
-        total_price: parseFloat(formData.total_price) || 0,
+        total_price: Math.round(parseFloat(formData.total_price) || 0),
         currency: formData.currency,
         status: formData.status,
         guests_count: parseInt(formData.guests_count) || 1,
@@ -473,7 +473,7 @@ export function EditReservationModal({
                       if (nights > 0) {
                         const pricePerNight = parseFloat(formData.price_per_night) || 0;
                         const basePrice = pricePerNight * nights;
-                        const newTotalPrice = (basePrice + extraServices).toFixed(2);
+                        const newTotalPrice = Math.round(basePrice + extraServices).toString();
                         setFormData(prev => ({
                           ...prev,
                           extra_services_amount: e.target.value,

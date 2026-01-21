@@ -419,13 +419,8 @@ export function Dashboard() {
       setIsAddModalOpen(false);
       setPrefilledDates(null);
       
-      // Calculate ROI from markup (assuming 15% markup for demo)
-      const markupPercent = 15;
-      const basePrice = parseFloat(reservation.total_price?.toString() || '0');
-      const roi = Math.round((basePrice * markupPercent) / 100);
-      
       toast.success(
-        `${t('success.bookingCreated')}. ${t('success.changesSaved')}. ${t('success.roiAdded', { amount: roi, currency: reservation.currency || 'RUB' })}`
+        `${t('success.bookingCreated')}. ${t('success.changesSaved')}`
       );
 
       // Sync to Avito after successful booking creation
@@ -533,14 +528,9 @@ export function Dashboard() {
       }
       setBookings(updatedBookings);
       setFilteredBookings(updatedBookings);
-      // Calculate ROI from markup (assuming 15% markup for demo)
-      const markupPercent = 15;
-      const updatedBooking = bookings.find(b => b.id === id);
-      const basePrice = parseFloat(updatedBooking?.total_price?.toString() || '0');
-      const roi = Math.round((basePrice * markupPercent) / 100);
       
       toast.success(
-        `${t('success.bookingUpdated')}. ${t('success.changesSaved')}. ${t('success.roiAdded', { amount: roi, currency: updatedBooking?.currency || 'RUB' })}`
+        `${t('success.bookingUpdated')}. ${t('success.changesSaved')}`
       );
 
       // Sync to Avito after successful booking update
