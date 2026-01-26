@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
-import { Input, Button, Dropdown, Upload, message as antdMessage, Badge as AntBadge } from 'antd';
-import { Send, Paperclip, MoreVertical, Calendar, User, Phone, MapPin, FileText, MessageCircle } from 'lucide-react';
+import { Input, Button, Dropdown, Upload, message as antdMessage, Badge as AntBadge, Spin } from 'antd';
+import { Send, Paperclip, MoreVertical, Calendar, User, Phone, MapPin, FileText, MessageCircle, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Chat, Message, Property } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
@@ -13,6 +13,7 @@ interface ChatPanelProps {
   property: Property | null;
   messages: Message[];
   isLoading: boolean;
+  isSyncing?: boolean;
   onSendMessage: (text: string, attachments?: Array<{ type: string; url: string; name?: string }>) => Promise<void>;
   onLoadMore: () => void;
   hasMore: boolean;
@@ -41,6 +42,7 @@ export function ChatPanel({
   property,
   messages,
   isLoading,
+  isSyncing = false,
   onSendMessage,
   onLoadMore,
   hasMore,
@@ -193,6 +195,12 @@ export function ChatPanel({
             )}
           </div>
           <div className="flex items-center gap-2">
+            {isSyncing && (
+              <Spin
+                size="small"
+                indicator={<RefreshCw className="w-4 h-4 animate-spin text-teal-500" />}
+              />
+            )}
             {onCreateBooking && (
               <Button
                 type="primary"

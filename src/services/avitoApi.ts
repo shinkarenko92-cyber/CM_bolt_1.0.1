@@ -298,6 +298,73 @@ class AvitoApiService {
   }
 
   /**
+   * Get chats list from Avito Messenger API using provided access token
+   * This method is used when we have a token from integration (not from local credentials)
+   */
+  async getChatsWithToken(
+    userId: string,
+    accessToken: string,
+    itemId?: string,
+    limit?: number,
+    offset?: number
+  ): Promise<{
+    chats: Array<{
+      id: string;
+      item_id?: string;
+      created: string;
+      updated: string;
+      unread_count: number;
+      last_message?: {
+        text: string;
+        created: string;
+      };
+      users: Array<{
+        user_id: string;
+        name: string;
+        avatar?: {
+          url: string;
+        };
+      }>;
+    }>;
+    pagination?: {
+      limit: number;
+      offset: number;
+      total: number;
+    };
+  }> {
+    let endpoint = `/messenger/v2/accounts/${userId}/chats`;
+    const params = new URLSearchParams();
+    
+    if (itemId) {
+      params.append('item_id', itemId);
+    }
+    if (limit) {
+      params.append('limit', limit.toString());
+    }
+    if (offset) {
+      params.append('offset', offset.toString());
+    }
+    
+    if (params.toString()) {
+      endpoint += `?${params.toString()}`;
+    }
+    
+    const response = await fetch(`${AVITO_API_BASE}${endpoint}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Avito API error: ${response.status} - ${errorText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
    * Get messages in a specific chat
    */
   async getChatMessages(
@@ -344,6 +411,69 @@ class AvitoApiService {
     }
     
     return this.request(endpoint);
+  }
+
+  /**
+   * Get messages in a specific chat using provided access token
+   * This method is used when we have a token from integration (not from local credentials)
+   */
+  async getChatMessagesWithToken(
+    userId: string,
+    chatId: string,
+    accessToken: string,
+    limit?: number,
+    offset?: number
+  ): Promise<{
+    messages: Array<{
+      id: string;
+      chat_id: string;
+      created: string;
+      content: {
+        text?: string;
+        attachments?: Array<{
+          type: string;
+          url: string;
+          name?: string;
+        }>;
+      };
+      author: {
+        user_id: string;
+        name: string;
+      };
+    }>;
+    pagination?: {
+      limit: number;
+      offset: number;
+      total: number;
+    };
+  }> {
+    let endpoint = `/messenger/v2/accounts/${userId}/chats/${chatId}/messages`;
+    const params = new URLSearchParams();
+    
+    if (limit) {
+      params.append('limit', limit.toString());
+    }
+    if (offset) {
+      params.append('offset', offset.toString());
+    }
+    
+    if (params.toString()) {
+      endpoint += `?${params.toString()}`;
+    }
+    
+    const response = await fetch(`${AVITO_API_BASE}${endpoint}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Avito API error: ${response.status} - ${errorText}`);
+    }
+
+    return response.json();
   }
 
   /**

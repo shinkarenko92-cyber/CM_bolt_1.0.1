@@ -84,6 +84,7 @@ export function Dashboard() {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messagesOffset, setMessagesOffset] = useState(0);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const oauthProcessedRef = useRef(false);
 
   // Helper function for retry logic
@@ -299,6 +300,112 @@ export function Dashboard() {
     }
   }, [user, t]);
 
+  // Sync chats from Avito API
+  const syncChatsFromAvito = useCallback(async () => {
+    if (!user) return;
+
+    // If no properties loaded yet, skip sync
+    if (!properties || properties.length === 0) {
+      return;
+    }
+
+    try {
+      // Get all active Avito integrations for this user's properties
+      const { data: integrations, error: integrationsError } = await supabase
+        .from('integrations')
+        .select('id, property_id, avito_user_id, access_token_encrypted')
+        .eq('platform', 'avito')
+        .eq('is_active', true)
+        .in('property_id', properties.map(p => p.id));
+
+      if (integrationsError || !integrations || integrations.length === 0) {
+        // No integrations or error - silently return
+        return;
+      }
+
+      // Sync chats for each integration
+      for (const integration of integrations) {
+        if (!integration.avito_user_id || !integration.access_token_encrypted) {
+          continue;
+        }
+
+        try {
+          // Decrypt token if needed
+          let accessToken = integration.access_token_encrypted;
+          try {
+            const { data: decrypted } = await supabase.rpc('decrypt_avito_token', {
+              encrypted_token: accessToken,
+            });
+            if (decrypted) {
+              accessToken = decrypted;
+            }
+          } catch {
+            // If RPC fails, assume token is not encrypted or RPC doesn't exist
+            // Use token as-is
+          }
+
+          // Fetch chats from Avito API
+          const avitoResponse = await avitoApi.getChatsWithToken(
+            integration.avito_user_id,
+            accessToken
+          );
+
+          if (!avitoResponse.chats || avitoResponse.chats.length === 0) {
+            continue;
+          }
+
+          // Transform Avito chats to our format and save to database
+          const chatsToUpsert = avitoResponse.chats.map((avitoChat) => {
+            // Find contact user (not the owner)
+            const contactUser = avitoChat.users?.find((u) => u.user_id !== integration.avito_user_id);
+
+            return {
+              owner_id: user.id,
+              property_id: integration.property_id,
+              avito_chat_id: avitoChat.id,
+              avito_user_id: integration.avito_user_id,
+              avito_item_id: avitoChat.item_id || null,
+              integration_id: integration.id,
+              contact_name: contactUser?.name || null,
+              contact_avatar_url: contactUser?.avatar?.url || null,
+              status: 'new' as const, // Default status, can be updated later
+              unread_count: avitoChat.unread_count || 0,
+              last_message_text: avitoChat.last_message?.text || null,
+              last_message_at: avitoChat.last_message?.created || avitoChat.updated || avitoChat.created,
+              updated_at: new Date().toISOString(),
+            };
+          });
+
+          // Upsert chats (update if exists, insert if new)
+          if (chatsToUpsert.length > 0) {
+            const { error: upsertError } = await supabase
+              .from('chats')
+              .upsert(
+                chatsToUpsert,
+                {
+                  onConflict: 'owner_id,avito_chat_id',
+                  ignoreDuplicates: false,
+                }
+              );
+
+            if (upsertError) {
+              console.error('Error upserting chats:', upsertError);
+            }
+          }
+        } catch (error) {
+          // Log error but don't block - continue with other integrations
+          console.error(`Error syncing chats for integration ${integration.id}:`, error);
+        }
+      }
+
+      // Reload chats from database to update UI
+      await loadChats();
+    } catch (error) {
+      // Log error but don't block UI
+      console.error('Error syncing chats from Avito:', error);
+    }
+  }, [user, properties, loadChats]);
+
   // Load messages for selected chat
   const loadMessages = useCallback(async (chatId: string, offset = 0, limit = 50) => {
     if (!user) return;
@@ -331,6 +438,108 @@ export function Dashboard() {
     }
   }, [user, t]);
 
+  // Sync messages from Avito API
+  const syncMessagesFromAvito = useCallback(async (chatId: string) => {
+    if (!user) return;
+
+    setIsSyncing(true);
+    try {
+      // Get chat to find integration
+      const chat = chats.find(c => c.id === chatId);
+      if (!chat || !chat.integration_id) {
+        console.warn('Chat or integration not found for sync');
+        return;
+      }
+
+      // Get integration to get avito_user_id and access_token
+      const { data: integration, error: integrationError } = await supabase
+        .from('integrations')
+        .select('avito_user_id, access_token_encrypted')
+        .eq('id', chat.integration_id)
+        .single();
+
+      if (integrationError || !integration?.avito_user_id || !integration?.access_token_encrypted) {
+        console.warn('Integration not found or missing credentials:', integrationError);
+        return;
+      }
+
+      // Decrypt token if needed (check if RPC exists)
+      let accessToken = integration.access_token_encrypted;
+      try {
+        const { data: decrypted } = await supabase.rpc('decrypt_avito_token', {
+          encrypted_token: accessToken,
+        });
+        if (decrypted) {
+          accessToken = decrypted;
+        }
+      } catch {
+        // If RPC fails, assume token is not encrypted or RPC doesn't exist
+        // Use token as-is
+      }
+
+      // Fetch messages from Avito API (last 20 messages)
+      const avitoResponse = await avitoApi.getChatMessagesWithToken(
+        integration.avito_user_id,
+        chat.avito_chat_id,
+        accessToken,
+        20,
+        0
+      );
+
+      if (!avitoResponse.messages || avitoResponse.messages.length === 0) {
+        return;
+      }
+
+      // Transform Avito messages to our format and save to database
+      const messagesToInsert = avitoResponse.messages.map((avitoMsg) => {
+        // Determine sender type: if author.user_id matches avito_user_id, it's from user, otherwise from contact
+        const senderType = avitoMsg.author.user_id === integration.avito_user_id ? 'user' : 'contact';
+        
+        return {
+          chat_id: chatId,
+          avito_message_id: avitoMsg.id,
+          sender_type: senderType,
+          sender_name: avitoMsg.author.name || (senderType === 'user' ? user.email || 'You' : 'Contact'),
+          text: avitoMsg.content.text || null,
+          attachments: avitoMsg.content.attachments || [],
+          created_at: avitoMsg.created,
+          is_read: senderType === 'user', // User's own messages are always read
+        };
+      });
+
+      // Insert messages with conflict handling (ignore duplicates by avito_message_id)
+      // Use upsert to handle duplicates - if message already exists, update it
+      const { error: insertError } = await supabase
+        .from('messages')
+        .upsert(
+          messagesToInsert.map(msg => ({
+            ...msg,
+            updated_at: new Date().toISOString(),
+          })),
+          {
+            onConflict: 'chat_id,avito_message_id',
+            ignoreDuplicates: false,
+          }
+        );
+
+      if (insertError) {
+        console.error('Error upserting messages:', insertError);
+      }
+
+      // Reload messages from database to update UI
+      await loadMessages(chatId, 0, 50);
+    } catch (error) {
+      // Log error but don't block UI
+      console.error('Error syncing messages from Avito:', error);
+      // Only show toast for critical errors (not 401/403 which are auth issues)
+      if (error instanceof Error && !error.message.includes('401') && !error.message.includes('403')) {
+        // Silent error - don't show toast to avoid spam
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [user, chats, loadMessages]);
+
   // Load chats on mount and when view changes to messages
   useEffect(() => {
     if (currentView === 'messages' && user) {
@@ -343,11 +552,43 @@ export function Dashboard() {
     if (selectedChatId) {
       setMessagesOffset(0);
       setHasMoreMessages(true);
+      // First load from local database
       loadMessages(selectedChatId, 0);
+      // Then sync from Avito API
+      syncMessagesFromAvito(selectedChatId);
     } else {
       setMessages([]);
     }
-  }, [selectedChatId, loadMessages]);
+  }, [selectedChatId, loadMessages, syncMessagesFromAvito]);
+
+  // Periodic sync every 7 seconds for active chat messages
+  useEffect(() => {
+    if (!selectedChatId) return;
+
+    const intervalId = setInterval(() => {
+      syncMessagesFromAvito(selectedChatId);
+    }, 7000); // 7 seconds
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [selectedChatId, syncMessagesFromAvito]);
+
+  // Periodic sync every 15 seconds for chats (always, regardless of view)
+  useEffect(() => {
+    if (!user) return;
+
+    // Initial sync
+    syncChatsFromAvito();
+
+    const intervalId = setInterval(() => {
+      syncChatsFromAvito();
+    }, 15000); // 15 seconds
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [user, syncChatsFromAvito]);
 
   // Handle send message
   const handleSendMessage = useCallback(async (
@@ -1444,6 +1685,7 @@ export function Dashboard() {
                     : null}
                   messages={messages}
                   isLoading={messagesLoading}
+                  isSyncing={isSyncing}
                   onSendMessage={async (text, attachments) => {
                     if (selectedChatId) {
                       await handleSendMessage(selectedChatId, text, attachments);
