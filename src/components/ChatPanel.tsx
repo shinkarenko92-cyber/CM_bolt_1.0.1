@@ -266,7 +266,7 @@ export function ChatPanel({
                       {msg.text && <p className="mb-2">{msg.text}</p>}
                       {msg.attachments && msg.attachments.length > 0 && (
                         <div className="space-y-2">
-                          {msg.attachments.map((att, idx) => (
+                          {msg.attachments.map((att: { type: string; url: string; name?: string }, idx: number) => (
                             <div key={idx} className="flex items-center gap-2">
                               {att.type === 'image' ? (
                                 <img
