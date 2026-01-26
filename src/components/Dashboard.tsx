@@ -16,13 +16,16 @@ import { GuestModal } from './GuestModal';
 import { AdminView } from './AdminView';
 import { SettingsView } from './SettingsView';
 import { UserProfileModal } from './UserProfileModal';
+import { MessagesView } from './MessagesView';
+import { ChatPanel } from './ChatPanel';
 import { ThemeToggle } from './ThemeToggle';
 import { SkeletonCalendar } from './Skeleton';
-import { supabase, Property, Booking, Profile, Guest } from '../lib/supabase';
+import { supabase, Property, Booking, Profile, Guest, Chat, Message } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { getOAuthSuccess, getOAuthError } from '../services/avito';
 import { syncWithExternalAPIs, syncAvitoIntegration } from '../services/apiSync';
 import { showAvitoErrors } from '../services/avitoErrors';
+import { avitoApi } from '../services/avitoApi';
 import { DeletePropertyModal } from './DeletePropertyModal';
 import { ImportBookingsModal } from './ImportBookingsModal';
 import { logBookingChange, getBookingChanges } from '../services/bookingLog';
@@ -75,6 +78,12 @@ export function Dashboard() {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [isGuestModalOpen, setIsGuestModalOpen] = useState(false);
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [messagesOffset, setMessagesOffset] = useState(0);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const oauthProcessedRef = useRef(false);
 
   // Helper function for retry logic
@@ -271,6 +280,175 @@ export function Dashboard() {
     loadData();
   }, [loadData]);
 
+  // Load chats
+  const loadChats = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('chats')
+        .select('*')
+        .eq('owner_id', user.id)
+        .order('last_message_at', { ascending: false, nullsFirst: false });
+
+      if (error) throw error;
+      setChats(data || []);
+    } catch (error) {
+      console.error('Error loading chats:', error);
+      toast.error(t('messages.error.failedToLoad'));
+    }
+  }, [user, t]);
+
+  // Load messages for selected chat
+  const loadMessages = useCallback(async (chatId: string, offset = 0, limit = 50) => {
+    if (!user) return;
+
+    setMessagesLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('chat_id', chatId)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (error) throw error;
+
+      const newMessages = data || [];
+      if (offset === 0) {
+        setMessages(newMessages.reverse());
+      } else {
+        setMessages(prev => [...newMessages.reverse(), ...prev]);
+      }
+
+      setHasMoreMessages(newMessages.length === limit);
+      setMessagesOffset(offset + newMessages.length);
+    } catch (error) {
+      console.error('Error loading messages:', error);
+      toast.error(t('messages.error.failedToLoadMessages'));
+    } finally {
+      setMessagesLoading(false);
+    }
+  }, [user, t]);
+
+  // Load chats on mount and when view changes to messages
+  useEffect(() => {
+    if (currentView === 'messages' && user) {
+      loadChats();
+    }
+  }, [currentView, user, loadChats]);
+
+  // Load messages when chat is selected
+  useEffect(() => {
+    if (selectedChatId) {
+      setMessagesOffset(0);
+      setHasMoreMessages(true);
+      loadMessages(selectedChatId, 0);
+    } else {
+      setMessages([]);
+    }
+  }, [selectedChatId, loadMessages]);
+
+  // Handle send message
+  const handleSendMessage = useCallback(async (
+    chatId: string,
+    text: string,
+    attachments?: Array<{ type: string; url: string; name?: string }>
+  ) => {
+    if (!user) return;
+
+    try {
+      // Get integration to get avito_user_id
+      const chat = chats.find(c => c.id === chatId);
+      if (!chat) throw new Error('Chat not found');
+
+      const { data: integration } = await supabase
+        .from('integrations')
+        .select('avito_user_id, access_token_encrypted')
+        .eq('id', chat.integration_id || '')
+        .single();
+
+      if (!integration?.avito_user_id) {
+        throw new Error('Integration not found');
+      }
+
+      // Send message via Avito API
+      const avitoMessage = await avitoApi.sendMessage(
+        integration.avito_user_id,
+        chat.avito_chat_id,
+        text,
+        attachments
+      );
+
+      // Save message to database
+      const { data: newMessage, error } = await supabase
+        .from('messages')
+        .insert({
+          chat_id: chatId,
+          avito_message_id: avitoMessage.id,
+          sender_type: 'user',
+          sender_name: user.email || 'You',
+          text: text || null,
+          attachments: attachments || [],
+          is_read: true,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update messages list
+      setMessages(prev => [...prev, newMessage]);
+
+      // Update chat's last message
+      await supabase
+        .from('chats')
+        .update({
+          last_message_text: text,
+          last_message_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', chatId);
+
+      toast.success(t('messages.success.sent'));
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error(t('messages.error.failedToSend'));
+      throw error;
+    }
+  }, [user, chats, t]);
+
+  // Handle create booking from chat
+  const handleCreateBookingFromChat = useCallback((chat: Chat) => {
+    if (!chat.property_id) {
+      toast.error('Не выбран объект для чата');
+      return;
+    }
+
+    // Pre-fill reservation modal with chat data
+    setSelectedPropertyIds([chat.property_id]);
+    setIsAddModalOpen(true);
+    // Note: You might want to pre-fill guest info from chat.contact_name, chat.contact_phone
+  }, []);
+
+  // Handle status change
+  const handleChatStatusChange = useCallback(async (chat: Chat, status: Chat['status']) => {
+    try {
+      const { error } = await supabase
+        .from('chats')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', chat.id);
+
+      if (error) throw error;
+
+      setChats(prev => prev.map(c => c.id === chat.id ? { ...c, status } : c));
+      toast.success(t('messages.success.updated'));
+    } catch (error) {
+      console.error('Error updating chat status:', error);
+      toast.error(t('messages.error.failedToUpdate'));
+    }
+  }, [t]);
+
   // Проверяем OAuth callback и автоматически переключаемся на Properties
   useEffect(() => {
     const oauthSuccess = getOAuthSuccess();
@@ -327,6 +505,78 @@ export function Dashboard() {
       supabase.removeChannel(channel);
     };
   }, [user]); // Убрали loadData из зависимостей, используем ref
+
+  // Realtime subscription for chats
+  useEffect(() => {
+    if (!user || currentView !== 'messages') return;
+
+    const channel = supabase
+      .channel('chats_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chats',
+          filter: `owner_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('Chat change:', payload);
+          if (payload.eventType === 'INSERT') {
+            setChats(prev => [payload.new as Chat, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setChats(prev => prev.map(c => c.id === payload.new.id ? payload.new as Chat : c));
+          } else if (payload.eventType === 'DELETE') {
+            setChats(prev => prev.filter(c => c.id !== payload.old.id));
+          }
+          loadChats(); // Reload to ensure consistency
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, currentView, loadChats]);
+
+  // Realtime subscription for messages
+  useEffect(() => {
+    if (!user || !selectedChatId) return;
+
+    const channel = supabase
+      .channel('messages_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `chat_id=eq.${selectedChatId}`,
+        },
+        (payload) => {
+          console.log('Message change:', payload);
+          if (payload.eventType === 'INSERT') {
+            setMessages(prev => [...prev, payload.new as Message]);
+            // Mark as read if it's from contact
+            if ((payload.new as Message).sender_type === 'contact') {
+              supabase
+                .from('messages')
+                .update({ is_read: true })
+                .eq('id', (payload.new as Message).id);
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            setMessages(prev => prev.map(m => m.id === payload.new.id ? payload.new as Message : m));
+          } else if (payload.eventType === 'DELETE') {
+            setMessages(prev => prev.filter(m => m.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, selectedChatId]);
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
@@ -1175,6 +1425,38 @@ export function Dashboard() {
             bookings={bookings}
             onEditGuest={handleEditGuest}
           />
+        ) : currentView === 'messages' ? (
+          <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 overflow-hidden">
+              <MessagesView
+                chats={chats}
+                properties={properties}
+                selectedChatId={selectedChatId}
+                onSelectChat={setSelectedChatId}
+              />
+            </div>
+            {selectedChatId && (
+              <div className="w-full md:w-1/2 lg:w-2/3 xl:w-3/4 border-l border-slate-700">
+                <ChatPanel
+                  chat={chats.find(c => c.id === selectedChatId) || null}
+                  property={chats.find(c => c.id === selectedChatId)?.property_id 
+                    ? properties.find(p => p.id === chats.find(c => c.id === selectedChatId)?.property_id || '') || null
+                    : null}
+                  messages={messages}
+                  isLoading={messagesLoading}
+                  onSendMessage={async (text, attachments) => {
+                    if (selectedChatId) {
+                      await handleSendMessage(selectedChatId, text, attachments);
+                    }
+                  }}
+                  onLoadMore={() => selectedChatId && loadMessages(selectedChatId, messagesOffset)}
+                  hasMore={hasMoreMessages}
+                  onCreateBooking={handleCreateBookingFromChat}
+                  onStatusChange={handleChatStatusChange}
+                />
+              </div>
+            )}
+          </div>
         ) : currentView === 'analytics' ? (
           <AnalyticsView bookings={bookings} properties={properties} />
         ) : currentView === 'admin' && isAdmin ? (
