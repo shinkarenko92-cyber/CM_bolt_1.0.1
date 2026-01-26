@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { differenceInDays, parseISO } from 'date-fns';
-import { InputNumber } from 'antd';
-import { Property, supabase } from '../lib/supabase';
+import { InputNumber, AutoComplete, Select, Input } from 'antd';
+import { Property, supabase, Guest } from '../lib/supabase';
 import { ChangeConditionsModal } from './ChangeConditionsModal';
 
 interface AddReservationModalProps {
@@ -24,9 +24,14 @@ interface AddReservationModalProps {
     guests_count: number;
     notes?: string | null;
     extra_services_amount?: number;
+    guest_id?: string | null;
+    deposit_amount?: number | null;
+    deposit_received?: boolean | null;
+    deposit_returned?: boolean | null;
   }) => Promise<void>;
   selectedProperties?: string[];
   prefilledDates?: { propertyId: string; checkIn: string; checkOut: string } | null;
+  guests?: Guest[];
 }
 
 export function AddReservationModal({
@@ -36,6 +41,7 @@ export function AddReservationModal({
   onAdd,
   selectedProperties = [],
   prefilledDates = null,
+  guests = [],
 }: AddReservationModalProps) {
   const { t } = useTranslation();
   const [formData, setFormData] = useState({
@@ -50,9 +56,13 @@ export function AddReservationModal({
     extra_services_amount: '0',
     currency: 'RUB',
     status: 'confirmed',
-    source: 'manual',
+    source: 'our_guests',
     guests_count: '1',
     notes: '',
+    guest_id: '',
+    deposit_amount: '0',
+    deposit_received: false,
+    deposit_returned: false,
   });
 
   const [loading, setLoading] = useState(false);
@@ -83,9 +93,13 @@ export function AddReservationModal({
         extra_services_amount: '0', // Важно: сбрасываем на '0'
         currency: 'RUB',
         status: 'confirmed',
-        source: 'manual',
+        source: 'our_guests',
         guests_count: '1',
         notes: '',
+        guest_id: '',
+        deposit_amount: '0',
+        deposit_received: false,
+        deposit_returned: false,
       });
       setError(null);
       setCalculatingPrice(false);
@@ -97,10 +111,10 @@ export function AddReservationModal({
     if (formData.property_id && isOpen) {
       const property = properties.find(p => p.id === formData.property_id);
       if (property && !formData.price_per_night) {
-        // Set default price from property if not already set
+        // Set default price from property if not already set (округляем до целых)
         setFormData(prev => ({
           ...prev,
-          price_per_night: property.base_price?.toString() || '',
+          price_per_night: Math.round(property.base_price || 0).toString(),
           currency: property.currency || 'RUB',
         }));
       }
@@ -136,13 +150,13 @@ export function AddReservationModal({
         .then((conditions) => {
           setCurrentDailyPrice(conditions.dailyPrice);
           setCurrentMinStay(conditions.minStay);
-          
+
           const nights = calculateNights(formData.check_in, formData.check_out);
           if (nights > 0) {
             const pricePerNight = Math.round(conditions.dailyPrice);
             const extraServices = parseFloat(formData.extra_services_amount) || 0;
             const newTotalPrice = Math.round(pricePerNight * nights + extraServices);
-            
+
             setFormData(prev => ({
               ...prev,
               price_per_night: pricePerNight.toString(),
@@ -157,13 +171,13 @@ export function AddReservationModal({
           if (property) {
             setCurrentDailyPrice(property.base_price || 0);
             setCurrentMinStay(property.minimum_booking_days || 1);
-            
+
             const nights = calculateNights(formData.check_in, formData.check_out);
             if (nights > 0) {
               const pricePerNight = Math.round(property.base_price || 0);
               const extraServices = parseFloat(formData.extra_services_amount) || 0;
               const newTotalPrice = Math.round(pricePerNight * nights + extraServices);
-              
+
               setFormData(prev => ({
                 ...prev,
                 price_per_night: pricePerNight.toString(),
@@ -183,10 +197,10 @@ export function AddReservationModal({
   useEffect(() => {
     // Если изменение price_per_night (от условий или вручную) → пересчитываем total_price
     if (
-      !calculatingPrice && 
+      !calculatingPrice &&
       !isUpdatingFromTotalPrice.current &&
-      formData.price_per_night && 
-      formData.check_in && 
+      formData.price_per_night &&
+      formData.check_in &&
       formData.check_out
     ) {
       const nights = calculateNights(formData.check_in, formData.check_out);
@@ -194,7 +208,7 @@ export function AddReservationModal({
         const pricePerNight = parseFloat(formData.price_per_night) || 0;
         const extraServices = parseFloat(formData.extra_services_amount) || 0;
         const newTotalPrice = Math.round(pricePerNight * nights + extraServices);
-        
+
         const currentTotal = parseFloat(formData.total_price) || 0;
         if (Math.abs(newTotalPrice - currentTotal) > 0.01) {
           isUpdatingFromPricePerNight.current = true;
@@ -210,12 +224,12 @@ export function AddReservationModal({
     }
     // Если изменение extra_services_amount и total_price НЕ меняется → пересчитываем price_per_night
     else if (
-      !calculatingPrice && 
-      !isUpdatingFromConditions.current && 
+      !calculatingPrice &&
+      !isUpdatingFromConditions.current &&
       !isUpdatingFromTotalPrice.current &&
       !isUpdatingFromPricePerNight.current &&
-      formData.total_price && 
-      formData.check_in && 
+      formData.total_price &&
+      formData.check_in &&
       formData.check_out
     ) {
       const nights = calculateNights(formData.check_in, formData.check_out);
@@ -223,7 +237,7 @@ export function AddReservationModal({
         const totalPrice = parseFloat(formData.total_price) || 0;
         const extraServices = parseFloat(formData.extra_services_amount) || 0;
         const newDailyPrice = Math.round((totalPrice - extraServices) / nights);
-        
+
         const currentPricePerNight = parseFloat(formData.price_per_night) || 0;
         if (Math.abs(newDailyPrice - currentPricePerNight) > 0.01) {
           isUpdatingFromExtraServices.current = true;
@@ -246,12 +260,12 @@ export function AddReservationModal({
   // Формула: price_per_night = (total_price - extra_services_amount) / nights (округление до целых)
   useEffect(() => {
     if (
-      !calculatingPrice && 
-      !isUpdatingFromConditions.current && 
-      !isUpdatingFromPricePerNight.current && 
+      !calculatingPrice &&
+      !isUpdatingFromConditions.current &&
+      !isUpdatingFromPricePerNight.current &&
       !isUpdatingFromExtraServices.current &&
-      formData.total_price && 
-      formData.check_in && 
+      formData.total_price &&
+      formData.check_in &&
       formData.check_out
     ) {
       const nights = calculateNights(formData.check_in, formData.check_out);
@@ -260,15 +274,15 @@ export function AddReservationModal({
         const extraServices = parseFloat(formData.extra_services_amount) || 0;
         // Округляем до целых чисел (без копеек)
         const newDailyPrice = Math.round((totalPrice - extraServices) / nights);
-        
-        // Проверяем, действительно ли нужно обновлять
-        const currentPricePerNight = parseFloat(formData.price_per_night) || 0;
-        if (Math.abs(newDailyPrice - currentPricePerNight) > 0.01) {
+
+        // Проверяем, действительно ли нужно обновлять (сравниваем целые числа)
+        const currentPricePerNight = Math.round(parseFloat(formData.price_per_night) || 0);
+        if (newDailyPrice !== currentPricePerNight) {
           isUpdatingFromTotalPrice.current = true;
-        setFormData(prev => ({
-          ...prev,
-          price_per_night: newDailyPrice.toString(),
-        }));
+          setFormData(prev => ({
+            ...prev,
+            price_per_night: newDailyPrice.toString(),
+          }));
           setTimeout(() => {
             isUpdatingFromTotalPrice.current = false;
           }, 0);
@@ -293,7 +307,7 @@ export function AddReservationModal({
       const start = new Date(checkIn);
       const end = new Date(checkOut);
       const dates: string[] = [];
-      
+
       // Генерируем массив дат (check-out обычно не включается, но для условий берем все даты периода)
       for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
         dates.push(d.toISOString().split('T')[0]);
@@ -391,7 +405,7 @@ export function AddReservationModal({
         const basePrice = data; // цена без доп услуг
         const totalPrice = basePrice + extraServices; // общая цена с доп услугами
         const pricePerNight = nights > 0 ? basePrice / nights : 0;
-        
+
         setFormData(prev => ({
           ...prev,
           total_price: Math.round(totalPrice).toString(),
@@ -445,6 +459,10 @@ export function AddReservationModal({
         guests_count: parseInt(formData.guests_count) || 1,
         notes: formData.notes || null,
         extra_services_amount: parseInt(formData.extra_services_amount) || 0,
+        guest_id: formData.guest_id || null,
+        deposit_amount: parseInt(formData.deposit_amount) > 0 ? parseInt(formData.deposit_amount) : null,
+        deposit_received: parseInt(formData.deposit_amount) > 0 ? formData.deposit_received : false,
+        deposit_returned: parseInt(formData.deposit_amount) > 0 ? formData.deposit_returned : false,
       });
 
       setFormData({
@@ -459,9 +477,13 @@ export function AddReservationModal({
         extra_services_amount: '0',
         currency: 'RUB',
         status: 'confirmed',
-        source: 'manual',
+        source: 'our_guests',
         guests_count: '1',
         notes: '',
+        guest_id: '',
+        deposit_amount: '0',
+        deposit_received: false,
+        deposit_returned: false,
       });
 
       onClose();
@@ -475,7 +497,7 @@ export function AddReservationModal({
   if (!isOpen) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       onMouseDown={(e) => {
         // Сохраняем, что mousedown произошел на backdrop
@@ -561,16 +583,26 @@ export function AddReservationModal({
               <label className="block text-sm font-medium text-slate-300 mb-2">
                 {t('modals.guestName')} *
               </label>
-              <input
-                type="text"
+              <AutoComplete
+                options={guests.map(g => ({ value: g.name, id: g.id, phone: g.phone, email: g.email }))}
                 value={formData.guest_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, guest_name: e.target.value })
-                }
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                onSelect={(_, option) => {
+                  setFormData({
+                    ...formData,
+                    guest_name: option.value,
+                    guest_phone: option.phone || formData.guest_phone,
+                    guest_email: option.email || formData.guest_email,
+                    guest_id: option.id,
+                  });
+                }}
+                onChange={(value) => setFormData({ ...formData, guest_name: value, guest_id: '' })}
+                className="w-full"
                 placeholder={t('modals.guestNamePlaceholder', { defaultValue: 'Иван Иванов' })}
-                required
-              />
+              >
+                <Input
+                  className="bg-slate-700 border-slate-600 text-white placeholder-slate-400"
+                />
+              </AutoComplete>
             </div>
 
             <div>
@@ -677,7 +709,17 @@ export function AddReservationModal({
                 value={formData.price_per_night ? parseFloat(formData.price_per_night) : undefined}
                 onChange={(value) => {
                   if (value !== null && value !== undefined) {
-                    setFormData({ ...formData, price_per_night: Math.round(value).toString() });
+                    // Округляем до целых чисел сразу при изменении
+                    const roundedValue = Math.round(value);
+                    setFormData({ ...formData, price_per_night: roundedValue.toString() });
+                  }
+                }}
+                onBlur={() => {
+                  // Дополнительное округление при потере фокуса
+                  const currentValue = parseFloat(formData.price_per_night) || 0;
+                  const roundedValue = Math.round(currentValue);
+                  if (roundedValue !== currentValue) {
+                    setFormData({ ...formData, price_per_night: roundedValue.toString() });
                   }
                 }}
                 min={0}
@@ -687,7 +729,7 @@ export function AddReservationModal({
                 style={{ width: '100%' }}
                 controls={true}
                 formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
-                parser={(value) => Number(value!.replace(/\s?/g, '')) || 0}
+                parser={(value) => Math.round(Number(value!.replace(/\s?/g, '')) || 0)}
                 placeholder="0"
                 disabled={calculatingPrice}
               />
@@ -753,6 +795,23 @@ export function AddReservationModal({
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
+                {t('modals.bookingSource', { defaultValue: 'Источник брони' })}
+              </label>
+              <select
+                value={formData.source}
+                onChange={(e) =>
+                  setFormData({ ...formData, source: e.target.value })
+                }
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+              >
+                <option value="our_guests">{t('sources.ourGuests', { defaultValue: 'Наши Гости' })}</option>
+                <option value="avito">{t('sources.avito', { defaultValue: 'Avito' })}</option>
+                <option value="cian">{t('sources.cian', { defaultValue: 'Циан' })}</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
                 {t('modals.guestsCount')}
               </label>
               <input
@@ -765,6 +824,54 @@ export function AddReservationModal({
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
                 placeholder={t('modals.guestsCountPlaceholder', { defaultValue: '1' })}
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                {t('modals.depositAmount', { defaultValue: 'Сумма залога' })} ({formData.currency})
+              </label>
+              <InputNumber
+                className="w-full"
+                value={formData.deposit_amount ? parseFloat(formData.deposit_amount) : undefined}
+                onChange={(value) => {
+                  setFormData({ ...formData, deposit_amount: value ? value.toString() : '0' });
+                }}
+                min={0}
+                precision={0}
+                step={1}
+                parser={(value) => Number(value!.replace(/\s?/g, '')) || 0}
+                formatter={(value) => value ? value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') : ''}
+                placeholder={t('modals.depositAmountPlaceholder', { defaultValue: '0' })}
+                style={{ width: '100%' }}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                {t('modals.depositStatus', { defaultValue: 'Статус залога' })}
+              </label>
+              <select
+                value={
+                  formData.deposit_returned
+                    ? 'returned'
+                    : formData.deposit_received
+                    ? 'received'
+                    : 'not_received'
+                }
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData({
+                    ...formData,
+                    deposit_received: value === 'received' || value === 'returned',
+                    deposit_returned: value === 'returned',
+                  });
+                }}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+              >
+                <option value="not_received">{t('modals.depositNotReceived', { defaultValue: 'Не получен' })}</option>
+                <option value="received">{t('modals.depositReceived', { defaultValue: 'Получен' })}</option>
+                <option value="returned">{t('modals.depositReturned', { defaultValue: 'Вернули' })}</option>
+              </select>
             </div>
 
             <div className="col-span-2">
@@ -808,7 +915,7 @@ export function AddReservationModal({
         const checkOutDate = new Date(formData.check_out);
         checkOutDate.setDate(checkOutDate.getDate() - 1);
         const endDateForConditions = checkOutDate.toISOString().split('T')[0];
-        
+
         return (
           <ChangeConditionsModal
             isOpen={showConditionsModal}

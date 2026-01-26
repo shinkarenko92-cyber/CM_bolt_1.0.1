@@ -11,12 +11,14 @@ import { OverlapWarningModal } from './OverlapWarningModal';
 import { PropertiesView } from './PropertiesView';
 import { BookingsView } from './BookingsView';
 import { AnalyticsView } from './AnalyticsView';
+import { GuestsView } from './GuestsView';
+import { GuestModal } from './GuestModal';
 import { AdminView } from './AdminView';
 import { SettingsView } from './SettingsView';
 import { UserProfileModal } from './UserProfileModal';
 import { ThemeToggle } from './ThemeToggle';
 import { SkeletonCalendar } from './Skeleton';
-import { supabase, Property, Booking, Profile } from '../lib/supabase';
+import { supabase, Property, Booking, Profile, Guest } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { getOAuthSuccess, getOAuthError } from '../services/avito';
 import { syncWithExternalAPIs, syncAvitoIntegration } from '../services/apiSync';
@@ -39,9 +41,13 @@ type NewReservation = {
   guests_count: number;
   notes?: string | null;
   extra_services_amount?: number;
+  deposit_amount?: number | null;
+  deposit_received?: boolean | null;
+  deposit_returned?: boolean | null;
 };
 
 export function Dashboard() {
+  console.log('Dashboard mounting...');
   const { t } = useTranslation();
   const { user, isAdmin } = useAuth();
   const [currentView, setCurrentView] = useState('calendar');
@@ -66,6 +72,9 @@ export function Dashboard() {
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
   const [bookingsForDelete, setBookingsForDelete] = useState<Booking[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [guests, setGuests] = useState<Guest[]>([]);
+  const [isGuestModalOpen, setIsGuestModalOpen] = useState(false);
+  const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const oauthProcessedRef = useRef(false);
 
   // Helper function for retry logic
@@ -88,16 +97,16 @@ export function Dashboard() {
           // Query succeeded after retries
           return result;
         }
-        
+
         // Если это последняя попытка, возвращаем результат с ошибкой
         if (attempt === retries) {
           console.error(`Query failed after ${retries} attempts:`, result.error);
           return result;
         }
-        
+
         // Логируем только первую попытку, чтобы не засорять консоль
         // Query failed, retrying
-        
+
         // Ждем перед повторной попыткой (экспоненциальная задержка)
         await new Promise(resolve => setTimeout(resolve, delay * attempt));
       } catch (error: unknown) {
@@ -105,17 +114,17 @@ export function Dashboard() {
         if (attempt === retries) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           console.error(`Query failed after ${retries} attempts:`, errorMessage);
-          return { 
-            data: null, 
-            error: { 
+          return {
+            data: null,
+            error: {
               message: errorMessage,
               details: error instanceof Error ? error.stack : undefined
-            } 
+            }
           };
         }
-        
+
         // Query error, retrying
-        
+
         // Ждем перед повторной попыткой
         await new Promise(resolve => setTimeout(resolve, delay * attempt));
       }
@@ -220,6 +229,29 @@ export function Dashboard() {
       if (profileData) {
         setUserProfile(profileData);
       }
+
+      // Load Guests
+      const guestsResult = await retrySupabaseQuery<Guest[]>(
+        async () => {
+          const result = await supabase
+            .from('guests')
+            .select('*')
+            .eq('owner_id', user.id)
+            .order('name');
+          return {
+            data: result.data,
+            error: result.error ? {
+              message: result.error.message,
+              details: result.error.details,
+              hint: result.error.hint,
+              code: result.error.code
+            } : null
+          };
+        }
+      );
+      if (guestsResult.data) {
+        setGuests(guestsResult.data);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
       const errorMessage = error instanceof Error ? error.message : t('errors.somethingWentWrong');
@@ -243,13 +275,13 @@ export function Dashboard() {
   useEffect(() => {
     const oauthSuccess = getOAuthSuccess();
     const oauthError = getOAuthError();
-    
+
     if ((oauthSuccess || oauthError) && !oauthProcessedRef.current) {
       // Переключаемся на вкладку Properties, чтобы PropertiesView мог обработать callback
       setCurrentView((prevView) => {
         if (prevView !== 'properties') {
           return 'properties';
-      }
+        }
         return prevView;
       });
       oauthProcessedRef.current = true;
@@ -273,7 +305,7 @@ export function Dashboard() {
         () => {
           // Toast notification
           message.success('Лид с Avito!');
-          
+
           // Optional: Play sound notification
           try {
             const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUKzn8LZjHAY4kdfyzHksBSR3x/DdkEAKFF606euoVRQKRp/g8r5sIQUrgc7y2Yk2CBtpvfDknE4MDlCs5/C2YxwGOJHX8sx5LAUkd8fw3ZBAC');
@@ -284,7 +316,7 @@ export function Dashboard() {
           } catch {
             // Ignore audio errors
           }
-          
+
           // Refresh bookings
           loadDataRef.current();
         }
@@ -381,7 +413,7 @@ export function Dashboard() {
       const reservationWithAudit: NewReservation & { created_by?: string; updated_by?: string } = {
         ...reservation,
       };
-      
+
       // Only add audit fields if user exists (migration applied)
       if (user?.id) {
         reservationWithAudit.created_by = user.id;
@@ -395,7 +427,7 @@ export function Dashboard() {
         // Retry without audit fields - create new object without created_by and updated_by
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { created_by, updated_by, ...reservationWithoutAudit } = reservationWithAudit;
-        
+
         const retryResult = await supabase.from('bookings').insert([reservationWithoutAudit]).select();
         data = retryResult.data;
         error = retryResult.error;
@@ -407,7 +439,7 @@ export function Dashboard() {
         const newBooking = data[0];
         setBookings([...bookings, newBooking]);
         setFilteredBookings([...bookings, newBooking]);
-        
+
         // Log the creation
         await logBookingChange(
           newBooking.id,
@@ -419,17 +451,17 @@ export function Dashboard() {
       }
       setIsAddModalOpen(false);
       setPrefilledDates(null);
-      
+
       toast.success(
         `${t('success.bookingCreated')}. ${t('success.changesSaved')}`
       );
 
       // Sync to Avito after successful booking creation
       const syncToastId = toast.loading('Синхронизация с Avito...');
-      
+
       try {
         const syncResult = await syncAvitoIntegration(reservation.property_id);
-        
+
         // PRIORITY: Check hasError === false first (from Edge Function response)
         // If syncResult.success === true, it means hasError was false or not present
         if (syncResult.success) {
@@ -494,29 +526,41 @@ export function Dashboard() {
     try {
       // Find the old booking to compare changes
       const oldBooking = bookings.find((b) => b.id === id);
-      
+
       // Add updated_by field only if user exists
       // Note: This field may not exist if migration hasn't been applied yet
       const dataWithAudit: Partial<Booking> & { updated_by?: string | null } = {
         ...data,
       };
-      
+
       // Only add updated_by if user exists (migration applied)
       if (user?.id) {
         dataWithAudit.updated_by = user.id;
       }
 
-      const { error } = await supabase.from('bookings').update(dataWithAudit).eq('id', id);
+      let { error } = await supabase.from('bookings').update(dataWithAudit).eq('id', id);
+
+      // Handle PGRST204 error (column not found) - retry without audit fields
+      let finalData = dataWithAudit;
+      if (error && (error.code === 'PGRST204' || error.message?.includes('Could not find the') || error.message?.includes('updated_by'))) {
+        // Retry without audit fields - create new object without updated_by
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { updated_by, ...dataWithoutAudit } = dataWithAudit;
+        finalData = dataWithoutAudit;
+
+        const retryResult = await supabase.from('bookings').update(dataWithoutAudit).eq('id', id);
+        error = retryResult.error;
+      }
 
       if (error) throw error;
 
       const updatedBookings = bookings.map((b) =>
-        b.id === id ? { ...b, ...dataWithAudit } : b
+        b.id === id ? { ...b, ...finalData } : b
       );
-      
+
       // Log the update if we have the old booking
       if (oldBooking) {
-        const changes = getBookingChanges(oldBooking, dataWithAudit);
+        const changes = getBookingChanges(oldBooking, finalData);
         if (Object.keys(changes).length > 0) {
           await logBookingChange(
             id,
@@ -529,7 +573,7 @@ export function Dashboard() {
       }
       setBookings(updatedBookings);
       setFilteredBookings(updatedBookings);
-      
+
       toast.success(
         `${t('success.bookingUpdated')}. ${t('success.changesSaved')}`
       );
@@ -538,10 +582,10 @@ export function Dashboard() {
       const booking = bookings.find(b => b.id === id);
       if (booking?.property_id) {
         const syncToastId = toast.loading('Синхронизация с Avito...');
-        
+
         try {
           const syncResult = await syncAvitoIntegration(booking.property_id);
-          
+
           // PRIORITY: Check hasError === false first (from Edge Function response)
           // If syncResult.success === true, it means hasError was false or not present
           if (syncResult.success) {
@@ -592,7 +636,7 @@ export function Dashboard() {
       const updatedBookings = bookings.filter((b) => b.id !== id);
       setBookings(updatedBookings);
       setFilteredBookings(updatedBookings);
-      
+
       // Log the deletion
       if (bookingToDelete) {
         await logBookingChange(
@@ -603,7 +647,7 @@ export function Dashboard() {
           bookingToDelete.source || 'manual'
         );
       }
-      
+
       toast.success(t('success.bookingDeleted'));
 
       // Sync to Avito after successful booking deletion
@@ -641,10 +685,10 @@ export function Dashboard() {
           // If manual booking, exclude it from sync to open dates in Avito
           // If Avito booking, full sync will handle cancellation
           const syncToastId = toast.loading('Синхронизация с Avito...');
-          
+
           try {
             const syncResult = await syncAvitoIntegration(propertyId, isAvitoBooking ? undefined : id);
-            
+
             // PRIORITY: Check hasError === false first (from Edge Function response)
             // If syncResult.success === true, it means hasError was false or not present
             if (syncResult.success) {
@@ -675,7 +719,7 @@ export function Dashboard() {
                     toast.error(`Ошибка синхронизации: ${errorMessages}`);
                   }
                 }
-                
+
                 showAvitoErrors(syncResult.errors, t).catch((err) => {
                   console.error('Error showing Avito error modals:', err);
                 });
@@ -911,13 +955,13 @@ export function Dashboard() {
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', propertyId)
         .eq('owner_id', user.id);
-      
+
       // Check if error is due to missing deleted_at column
       const isColumnMissing = softDeleteError && (
         softDeleteError.code === 'PGRST204' ||
         (softDeleteError.message && softDeleteError.message.includes("deleted_at"))
       );
-      
+
       if (isColumnMissing) {
         // Column doesn't exist, use hard delete
         console.warn('deleted_at column not found, using hard delete', { error: softDeleteError });
@@ -945,20 +989,20 @@ export function Dashboard() {
         setFilteredBookings(prev => prev.filter((b) => b.property_id !== propertyId));
       } else if (action === 'cancel_unpaid') {
         // Обновляем статусы отмененных бронирований в локальном состоянии
-        setBookings(prev => prev.map(b => 
-          b.property_id === propertyId && b.status !== 'confirmed' 
+        setBookings(prev => prev.map(b =>
+          b.property_id === propertyId && b.status !== 'confirmed'
             ? { ...b, status: 'cancelled' as const }
             : b
         ));
-        setFilteredBookings(prev => prev.map(b => 
-          b.property_id === propertyId && b.status !== 'confirmed' 
+        setFilteredBookings(prev => prev.map(b =>
+          b.property_id === propertyId && b.status !== 'confirmed'
             ? { ...b, status: 'cancelled' as const }
             : b
         ));
       }
 
       toast.dismiss(loadingToast);
-      
+
       const avitoMessage = avitoSynced ? ', Avito синхронизирован' : '';
       toast.success(`Объект "${property.name}" удалён, ${processedBookingsCount} брони обработаны${avitoMessage}`);
     } catch (error) {
@@ -966,6 +1010,40 @@ export function Dashboard() {
       console.error('Error performing property deletion:', error);
       toast.error(t('errors.somethingWentWrong'));
       throw error;
+    }
+  };
+
+  const handleEditGuest = (guest: Guest) => {
+    setSelectedGuest(guest);
+    setIsGuestModalOpen(true);
+  };
+
+  const handleSaveGuest = async (data: Partial<Guest>) => {
+    if (!user) return;
+    try {
+      if (selectedGuest) {
+        const { error } = await supabase
+          .from('guests')
+          .update(data)
+          .eq('id', selectedGuest.id);
+        if (error) throw error;
+
+        setGuests(guests.map(g => g.id === selectedGuest.id ? { ...g, ...data } as Guest : g));
+        toast.success('Данные гостя обновлены');
+      } else {
+        const { data: newGuest, error } = await supabase
+          .from('guests')
+          .insert([{ ...data, owner_id: user.id }])
+          .select()
+          .single();
+        if (error) throw error;
+
+        setGuests([...guests, newGuest]);
+        toast.success('Гость добавлен');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Ошибка при сохранении гостя');
     }
   };
 
@@ -1016,11 +1094,10 @@ export function Dashboard() {
                         </div>
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-slate-400">{property?.name || t('common.unknown')}</span>
-                          <span className={`px-2 py-0.5 rounded text-xs ${
-                            booking.status === 'confirmed' ? 'bg-green-500/20 text-green-400' :
+                          <span className={`px-2 py-0.5 rounded text-xs ${booking.status === 'confirmed' ? 'bg-green-500/20 text-green-400' :
                             booking.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                            'bg-red-500/20 text-red-400'
-                          }`}>
+                              'bg-red-500/20 text-red-400'
+                            }`}>
                             {booking.status === 'confirmed' ? t('bookings.confirmed') : booking.status === 'pending' ? t('bookings.pending') : t('bookings.cancelled')}
                           </span>
                         </div>
@@ -1071,7 +1148,7 @@ export function Dashboard() {
         ) : currentView === 'properties' ? (
           // ВСЕГДА передаем properties в PropertiesView, даже если groups error
           (() => {
-            console.log('Dashboard: Rendering PropertiesView', { 
+            console.log('Dashboard: Rendering PropertiesView', {
               propertiesCount: properties.length,
               properties: properties.map(p => ({ id: p.id, name: p.name }))
             });
@@ -1091,6 +1168,12 @@ export function Dashboard() {
             properties={properties}
             onEdit={handleEditReservation}
             onImport={() => setIsImportModalOpen(true)}
+          />
+        ) : currentView === 'guests' ? (
+          <GuestsView
+            guests={guests}
+            bookings={bookings}
+            onEditGuest={handleEditGuest}
           />
         ) : currentView === 'analytics' ? (
           <AnalyticsView bookings={bookings} properties={properties} />
@@ -1135,6 +1218,18 @@ export function Dashboard() {
               selectedProperties={selectedPropertyIds}
               prefilledDates={prefilledDates}
               onAdd={handleSaveReservation}
+              guests={guests}
+            />
+            <GuestModal
+              isOpen={isGuestModalOpen}
+              onClose={() => {
+                setIsGuestModalOpen(false);
+                setSelectedGuest(null);
+              }}
+              guest={selectedGuest}
+              bookings={bookings}
+              properties={properties}
+              onSave={handleSaveGuest}
             />
             <EditReservationModal
               isOpen={isEditModalOpen}

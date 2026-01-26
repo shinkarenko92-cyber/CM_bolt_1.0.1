@@ -22,8 +22,21 @@ export type Property = {
   currency: string;
   status: string;
   minimum_booking_days: number;
+  image_url?: string | null;
   deleted_at: string | null;
   sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Guest = {
+  id: string;
+  owner_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  tags: string[];
+  notes: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -45,6 +58,10 @@ export type Booking = {
   status: string;
   notes: string | null;
   extra_services_amount?: number; // Additional services cost in rubles (integer)
+  guest_id?: string | null; // Link to the guests table
+  deposit_amount?: number | null; // Deposit amount in the same currency as total_price (integer)
+  deposit_received?: boolean | null; // Whether the deposit has been received
+  deposit_returned?: boolean | null; // Whether the deposit has been returned
   created_by?: string | null; // User ID who created the booking
   updated_by?: string | null; // User ID who last updated the booking
   created_at: string;
