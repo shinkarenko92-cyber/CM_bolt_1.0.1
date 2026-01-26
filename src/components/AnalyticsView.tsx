@@ -105,9 +105,34 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
       });
     };
 
-    const calculateRevenue = (bookingsList: Booking[]) => {
+    // Helper function to calculate proportional revenue for a single booking
+    const getProportionalRevenue = (booking: Booking, start: Date, end: Date): number => {
+      const checkIn = new Date(booking.check_in);
+      const checkOut = new Date(booking.check_out);
+      
+      // Calculate total nights in booking
+      const totalNights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Calculate nights within the period
+      const effectiveStart = checkIn > start ? checkIn : start;
+      const effectiveEnd = checkOut < end ? checkOut : end;
+      
+      let nightsInPeriod = 0;
+      if (effectiveStart < effectiveEnd) {
+        const diffTime = effectiveEnd.getTime() - effectiveStart.getTime();
+        nightsInPeriod = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      }
+      
+      // Calculate proportional revenue for nights in period
+      const totalRevenue = convertToRUB(booking.total_price, booking.currency);
+      const proportionalRevenue = totalNights > 0 ? (totalRevenue / totalNights) * nightsInPeriod : 0;
+      
+      return proportionalRevenue;
+    };
+
+    const calculateRevenue = (bookingsList: Booking[], start: Date, end: Date) => {
       return bookingsList.reduce((sum, booking) => {
-        return sum + convertToRUB(booking.total_price, booking.currency);
+        return sum + getProportionalRevenue(booking, start, end);
       }, 0);
     };
 
@@ -134,8 +159,8 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     const currentBookings = filterBookingsByDateRange(currentStart, currentEnd);
     const previousBookings = filterBookingsByDateRange(previousStart, previousEnd);
 
-    const currentRevenue = calculateRevenue(currentBookings);
-    const previousRevenue = calculateRevenue(previousBookings);
+    const currentRevenue = calculateRevenue(currentBookings, currentStart, currentEnd);
+    const previousRevenue = calculateRevenue(previousBookings, previousStart, previousEnd);
     const revenueChange = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
 
     const daysInPeriod = Math.ceil((currentEnd.getTime() - currentStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -200,14 +225,14 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     };
 
     const sourceBreakdown = currentBookings.reduce((acc, booking) => {
-      const revenue = convertToRUB(booking.total_price, booking.currency);
+      const revenue = getProportionalRevenue(booking, currentStart, currentEnd);
       const mappedSource = mapSourceToStandard(booking.source);
       acc[mappedSource] = (acc[mappedSource] || 0) + revenue;
       return acc;
     }, {} as { [key: string]: number });
 
     const propertyBreakdown = currentBookings.reduce((acc, booking) => {
-      const revenue = convertToRUB(booking.total_price, booking.currency);
+      const revenue = getProportionalRevenue(booking, currentStart, currentEnd);
       acc[booking.property_id] = (acc[booking.property_id] || 0) + revenue;
       return acc;
     }, {} as { [key: string]: number });
@@ -239,7 +264,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
       topProperties,
       // Comparison period data
       comparisonBookings: comparisonMode ? filterBookingsByDateRange(comparisonStart, comparisonEnd) : [],
-      comparisonRevenue: comparisonMode ? calculateRevenue(filterBookingsByDateRange(comparisonStart, comparisonEnd)) : 0,
+      comparisonRevenue: comparisonMode ? calculateRevenue(filterBookingsByDateRange(comparisonStart, comparisonEnd), comparisonStart, comparisonEnd) : 0,
       comparisonOccupancyRate: comparisonMode ? (
         totalPossibleNights > 0
           ? (calculateOccupiedNights(filterBookingsByDateRange(comparisonStart, comparisonEnd), comparisonStart, comparisonEnd) / totalPossibleNights) * 100
@@ -252,17 +277,47 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     const data: { month: string; revenue: number; bookings: number }[] = [];
     const now = new Date();
 
+    // Helper function to calculate proportional revenue for a single booking
+    const getProportionalRevenue = (booking: Booking, start: Date, end: Date): number => {
+      const checkIn = new Date(booking.check_in);
+      const checkOut = new Date(booking.check_out);
+      
+      // Calculate total nights in booking
+      const totalNights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Calculate nights within the period
+      const effectiveStart = checkIn > start ? checkIn : start;
+      const effectiveEnd = checkOut < end ? checkOut : end;
+      
+      let nightsInPeriod = 0;
+      if (effectiveStart < effectiveEnd) {
+        const diffTime = effectiveEnd.getTime() - effectiveStart.getTime();
+        nightsInPeriod = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      }
+      
+      // Calculate proportional revenue for nights in period
+      const totalRevenue = convertToRUB(booking.total_price, booking.currency);
+      const proportionalRevenue = totalNights > 0 ? (totalRevenue / totalNights) * nightsInPeriod : 0;
+      
+      return proportionalRevenue;
+    };
+
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
       const monthLabel = date.toLocaleDateString('ru-RU', { month: 'short' });
 
       const monthBookings = bookings.filter((booking) => {
         const checkIn = new Date(booking.check_in);
-        return checkIn >= date && checkIn <= monthEnd;
+        const checkOut = new Date(booking.check_out);
+        return (
+          (checkIn >= date && checkIn <= monthEnd) ||
+          (checkOut >= date && checkOut <= monthEnd) ||
+          (checkIn <= date && checkOut >= monthEnd)
+        );
       });
 
-      const revenue = monthBookings.reduce((sum, b) => sum + convertToRUB(b.total_price, b.currency), 0);
+      const revenue = monthBookings.reduce((sum, b) => sum + getProportionalRevenue(b, date, monthEnd), 0);
 
       data.push({
         month: monthLabel,
