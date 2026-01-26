@@ -34,9 +34,10 @@ export function MessagesView({ chats, properties, selectedChatId, onSelectChat }
       closed: t('messages.status.closed'),
     };
 
+    const statusKey: Chat['status'] = status;
     return {
-      color: colors[status] ?? colors.new,
-      label: labels[status] ?? status,
+      color: colors[statusKey] ?? colors.new,
+      label: labels[statusKey] ?? status,
     };
   };
 
