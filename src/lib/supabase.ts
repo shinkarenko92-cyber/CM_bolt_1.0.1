@@ -64,6 +64,7 @@ export type Booking = {
   deposit_returned?: boolean | null; // Whether the deposit has been returned
   created_by?: string | null; // User ID who created the booking
   updated_by?: string | null; // User ID who last updated the booking
+  chat_id?: string | null; // Link to the chats table
   created_at: string;
   updated_at: string;
 };
@@ -148,6 +149,43 @@ export type PropertyIntegration = {
   token_expires_at?: string | null;
   sync_interval_seconds?: number | null;
   is_active?: boolean | null;
+};
+
+export type Chat = {
+  id: string;
+  owner_id: string;
+  property_id: string | null;
+  avito_chat_id: string;
+  avito_user_id: string;
+  avito_item_id: string | null;
+  integration_id: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  contact_avatar_url: string | null;
+  status: 'new' | 'in_progress' | 'closed';
+  unread_count: number;
+  last_message_text: string | null;
+  last_message_at: string | null;
+  booking_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Message = {
+  id: string;
+  chat_id: string;
+  avito_message_id: string;
+  sender_type: 'user' | 'contact';
+  sender_name: string | null;
+  text: string | null;
+  attachments: Array<{
+    type: string;
+    url: string;
+    name?: string;
+  }>;
+  is_read: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
 // All supported aggregator platforms

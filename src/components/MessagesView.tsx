@@ -22,21 +22,21 @@ export function MessagesView({ chats, properties, selectedChatId, onSelectChat }
   }, [properties, t]);
 
   const getStatusBadge = (status: Chat['status']) => {
-    const colors = {
+    const colors: Record<Chat['status'], string> = {
       new: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
       in_progress: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
       closed: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
     };
 
-    const labels = {
+    const labels: Record<Chat['status'], string> = {
       new: t('messages.status.new'),
       in_progress: t('messages.status.in_progress'),
       closed: t('messages.status.closed'),
     };
 
     return {
-      color: colors[status] || colors.new,
-      label: labels[status] || status,
+      color: colors[status] ?? colors.new,
+      label: labels[status] ?? status,
     };
   };
 

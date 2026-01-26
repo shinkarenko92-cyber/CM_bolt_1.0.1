@@ -249,18 +249,228 @@ class AvitoApiService {
   }
 
   /**
-   * Get bookings/messages related to an item
-   * Note: Avito doesn't have a direct bookings API, 
-   * bookings come through messages/chat
+   * Get chats list from Avito Messenger API
+   * Documentation: https://developers.avito.ru/api-catalog/messenger/documentation
    */
-  async getMessages(userId: string, itemId?: string): Promise<unknown[]> {
+  async getChats(userId: string, itemId?: string, limit?: number, offset?: number): Promise<{
+    chats: Array<{
+      id: string;
+      item_id?: string;
+      created: string;
+      updated: string;
+      unread_count: number;
+      last_message?: {
+        text: string;
+        created: string;
+      };
+      users: Array<{
+        user_id: string;
+        name: string;
+        avatar?: {
+          url: string;
+        };
+      }>;
+    }>;
+    pagination?: {
+      limit: number;
+      offset: number;
+      total: number;
+    };
+  }> {
     let endpoint = `/messenger/v2/accounts/${userId}/chats`;
+    const params = new URLSearchParams();
+    
     if (itemId) {
-      endpoint += `?item_id=${itemId}`;
+      params.append('item_id', itemId);
+    }
+    if (limit) {
+      params.append('limit', limit.toString());
+    }
+    if (offset) {
+      params.append('offset', offset.toString());
     }
     
-    const data = await this.request<{ chats: unknown[] }>(endpoint);
-    return data.chats || [];
+    if (params.toString()) {
+      endpoint += `?${params.toString()}`;
+    }
+    
+    return this.request(endpoint);
+  }
+
+  /**
+   * Get messages in a specific chat
+   */
+  async getChatMessages(
+    userId: string,
+    chatId: string,
+    limit?: number,
+    offset?: number
+  ): Promise<{
+    messages: Array<{
+      id: string;
+      chat_id: string;
+      created: string;
+      content: {
+        text?: string;
+        attachments?: Array<{
+          type: string;
+          url: string;
+          name?: string;
+        }>;
+      };
+      author: {
+        user_id: string;
+        name: string;
+      };
+    }>;
+    pagination?: {
+      limit: number;
+      offset: number;
+      total: number;
+    };
+  }> {
+    let endpoint = `/messenger/v2/accounts/${userId}/chats/${chatId}/messages`;
+    const params = new URLSearchParams();
+    
+    if (limit) {
+      params.append('limit', limit.toString());
+    }
+    if (offset) {
+      params.append('offset', offset.toString());
+    }
+    
+    if (params.toString()) {
+      endpoint += `?${params.toString()}`;
+    }
+    
+    return this.request(endpoint);
+  }
+
+  /**
+   * Send a message in a chat
+   */
+  async sendMessage(
+    userId: string,
+    chatId: string,
+    text: string,
+    attachments?: Array<{ type: string; url: string; name?: string }>
+  ): Promise<{
+    id: string;
+    chat_id: string;
+    created: string;
+    content: {
+      text?: string;
+      attachments?: Array<{
+        type: string;
+        url: string;
+        name?: string;
+      }>;
+    };
+    author: {
+      user_id: string;
+      name: string;
+    };
+  }> {
+    const body: {
+      text?: string;
+      attachments?: Array<{ type: string; url: string; name?: string }>;
+    } = {};
+    
+    if (text) {
+      body.text = text;
+    }
+    if (attachments && attachments.length > 0) {
+      body.attachments = attachments;
+    }
+    
+    return this.request(`/messenger/v2/accounts/${userId}/chats/${chatId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  /**
+   * Upload attachment (photo) for message
+   * Note: This typically requires a two-step process:
+   * 1. Upload file to get URL
+   * 2. Use URL in sendMessage
+   */
+  async uploadAttachment(
+    userId: string,
+    file: File | Blob,
+    fileName?: string
+  ): Promise<{
+    url: string;
+    type: string;
+    name?: string;
+  }> {
+    // First, get upload URL from Avito
+    const uploadUrlResponse = await this.request<{ upload_url: string }>(
+      `/messenger/v2/accounts/${userId}/attachments`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          filename: fileName || 'attachment.jpg',
+          content_type: file.type || 'image/jpeg',
+        }),
+      }
+    );
+
+    // Upload file to the provided URL
+    const uploadResponse = await fetch(uploadUrlResponse.upload_url, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type || 'image/jpeg',
+      },
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error(`Failed to upload attachment: ${uploadResponse.statusText}`);
+    }
+
+    // Return attachment info for use in sendMessage
+    return {
+      url: uploadUrlResponse.upload_url.split('?')[0], // Remove query params
+      type: 'image',
+      name: fileName,
+    };
+  }
+
+  /**
+   * Mark messages as read
+   */
+  async markMessagesAsRead(
+    userId: string,
+    chatId: string,
+    messageIds: string[]
+  ): Promise<void> {
+    await this.request(`/messenger/v2/accounts/${userId}/chats/${chatId}/read`, {
+      method: 'POST',
+      body: JSON.stringify({
+        message_ids: messageIds,
+      }),
+    });
+  }
+
+  /**
+   * Get chat details
+   */
+  async getChat(userId: string, chatId: string): Promise<{
+    id: string;
+    item_id?: string;
+    created: string;
+    updated: string;
+    unread_count: number;
+    users: Array<{
+      user_id: string;
+      name: string;
+      avatar?: {
+        url: string;
+      };
+    }>;
+  }> {
+    return this.request(`/messenger/v2/accounts/${userId}/chats/${chatId}`);
   }
 
   /**
