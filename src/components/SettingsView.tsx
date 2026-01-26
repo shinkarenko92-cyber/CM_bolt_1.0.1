@@ -195,7 +195,15 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
         status: 'pending',
       });
 
-      if (error) throw error;
+      if (error) {
+        // If table doesn't exist (404), show helpful message
+        if (error.code === 'PGRST116' || error.message?.includes('404')) {
+          toast.error('Таблица deletion_requests не найдена. Пожалуйста, примените миграцию базы данных.');
+        } else {
+          throw error;
+        }
+        return;
+      }
 
       toast.success(t('settings.deletionRequestSent', { defaultValue: 'Account deletion request sent. An administrator will review it shortly.' }));
       setDeletionReason('');
@@ -328,12 +336,12 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
               placeholder={t('settings.deletionReason', { defaultValue: 'Reason for deletion (optional)' })}
               className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white min-h-[80px] resize-y"
             />
-            <button
+          <button
               onClick={handleRequestDeletion}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-            >
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+          >
               {t('settings.requestDeletion', { defaultValue: 'Request Account Deletion' })}
-            </button>
+          </button>
           </div>
         </div>
       </div>

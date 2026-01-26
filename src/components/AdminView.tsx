@@ -78,7 +78,17 @@ export function AdminView() {
         setStats(prev => ({ ...prev, totalBookings: bookingsData.data.length }));
       }
 
-      if (deletionRequestsData.data) {
+      // Handle deletion_requests - table might not exist if migration not applied
+      if (deletionRequestsData.error) {
+        // If table doesn't exist (404), just set empty array
+        if (deletionRequestsData.error.code === 'PGRST116' || deletionRequestsData.error.message?.includes('404')) {
+          console.warn('deletion_requests table not found - migration may not be applied');
+          setDeletionRequests([]);
+        } else {
+          console.error('Error loading deletion requests:', deletionRequestsData.error);
+          setDeletionRequests([]);
+        }
+      } else if (deletionRequestsData.data) {
         setDeletionRequests(deletionRequestsData.data);
       }
     } catch (error) {
@@ -101,7 +111,14 @@ export function AdminView() {
         })
         .eq('id', requestId);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        // If table doesn't exist (404), show helpful message
+        if (updateError.code === 'PGRST116' || updateError.message?.includes('404')) {
+          toast.error('Таблица deletion_requests не найдена. Пожалуйста, примените миграцию базы данных.');
+          return;
+        }
+        throw updateError;
+      }
 
       // Delete the user account (this will cascade delete related data)
       const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);
@@ -130,7 +147,14 @@ export function AdminView() {
         })
         .eq('id', requestId);
 
-      if (error) throw error;
+      if (error) {
+        // If table doesn't exist (404), show helpful message
+        if (error.code === 'PGRST116' || error.message?.includes('404')) {
+          toast.error('Таблица deletion_requests не найдена. Пожалуйста, примените миграцию базы данных.');
+          return;
+        }
+        throw error;
+      }
 
       toast.success(t('admin.deletionRejected', { defaultValue: 'Deletion request rejected' }));
       await loadAdminData();
