@@ -44,7 +44,7 @@ export function GuestsView({ guests, bookings, onEditGuest }: GuestsViewProps) {
         {
             title: 'Гость',
             key: 'name',
-            render: (_: any, record: Guest) => (
+            render: (_: unknown, record: Guest) => (
                 <div className="flex flex-col">
                     <span className="text-white font-medium">{record.name}</span>
                     <div className="flex flex-wrap gap-1 mt-1">
@@ -60,7 +60,7 @@ export function GuestsView({ guests, bookings, onEditGuest }: GuestsViewProps) {
         {
             title: 'Контакты',
             key: 'contacts',
-            render: (_: any, record: Guest) => (
+            render: (_: unknown, record: Guest) => (
                 <div className="flex flex-col text-sm text-slate-400 gap-1">
                     {record.phone && (
                         <div className="flex items-center gap-1">
@@ -81,7 +81,7 @@ export function GuestsView({ guests, bookings, onEditGuest }: GuestsViewProps) {
             title: 'Визиты',
             key: 'visits',
             sorter: (a: Guest, b: Guest) => (guestStats.get(a.id)?.count || 0) - (guestStats.get(b.id)?.count || 0),
-            render: (_: any, record: Guest) => (
+            render: (_: unknown, record: Guest) => (
                 <div className="text-slate-300">
                     {guestStats.get(record.id)?.count || 0}
                 </div>
@@ -91,7 +91,7 @@ export function GuestsView({ guests, bookings, onEditGuest }: GuestsViewProps) {
             title: 'Всего потрачено',
             key: 'total_spent',
             sorter: (a: Guest, b: Guest) => (guestStats.get(a.id)?.total || 0) - (guestStats.get(b.id)?.total || 0),
-            render: (_: any, record: Guest) => (
+            render: (_: unknown, record: Guest) => (
                 <div className="text-teal-400 font-medium">
                     {Math.round(guestStats.get(record.id)?.total || 0).toLocaleString()} ₽
                 </div>
@@ -100,7 +100,7 @@ export function GuestsView({ guests, bookings, onEditGuest }: GuestsViewProps) {
         {
             title: 'Последний заезд',
             key: 'last_stay',
-            render: (_: any, record: Guest) => (
+            render: (_: unknown, record: Guest) => (
                 <div className="text-sm text-slate-400">
                     {guestStats.get(record.id)?.lastStay
                         ? new Date(guestStats.get(record.id)!.lastStay!).toLocaleDateString('ru-RU')
@@ -111,7 +111,7 @@ export function GuestsView({ guests, bookings, onEditGuest }: GuestsViewProps) {
         {
             title: '',
             key: 'actions',
-            render: (_: any, record: Guest) => (
+            render: (_: unknown, record: Guest) => (
                 <Button
                     type="text"
                     icon={<User size={16} className="text-slate-400" />}
