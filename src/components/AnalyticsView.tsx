@@ -330,34 +330,68 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     return data;
   }, [bookings, getProportionalRevenue]);
 
-  // Data for bookings dynamics chart (month or half year)
+  // Data for bookings dynamics chart (month by days or half year by months)
   const bookingsDynamicsData = useMemo(() => {
     const now = new Date();
-    const data: { month: string; revenue: number; bookings: number }[] = [];
-    const monthsToShow = bookingsDynamicsPeriod === 'month' ? 1 : 6;
+    const data: { month: string; date: string; revenue: number; bookings: number }[] = [];
 
-    for (let i = monthsToShow - 1; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
-      const monthLabel = date.toLocaleDateString('ru-RU', { month: 'short' });
+    if (bookingsDynamicsPeriod === 'month') {
+      // Show data by days for current month
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
-      const monthBookings = bookings.filter((booking) => {
-        const checkIn = new Date(booking.check_in);
-        const checkOut = new Date(booking.check_out);
-        return (
-          (checkIn >= date && checkIn <= monthEnd) ||
-          (checkOut >= date && checkOut <= monthEnd) ||
-          (checkIn <= date && checkOut >= monthEnd)
-        );
-      });
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayStart = new Date(currentYear, currentMonth, day, 0, 0, 0);
+        const dayEnd = new Date(currentYear, currentMonth, day, 23, 59, 59);
+        const dayLabel = `${day}`;
+        const dateLabel = dayStart.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 
-      const revenue = monthBookings.reduce((sum, b) => sum + getProportionalRevenue(b, date, monthEnd), 0);
+        const dayBookings = bookings.filter((booking) => {
+          const checkIn = new Date(booking.check_in);
+          const checkOut = new Date(booking.check_out);
+          return (
+            (checkIn >= dayStart && checkIn <= dayEnd) ||
+            (checkOut >= dayStart && checkOut <= dayEnd) ||
+            (checkIn <= dayStart && checkOut >= dayEnd)
+          );
+        });
 
-      data.push({
-        month: monthLabel,
-        revenue: Math.round(revenue),
-        bookings: monthBookings.length,
-      });
+        const revenue = dayBookings.reduce((sum, b) => sum + getProportionalRevenue(b, dayStart, dayEnd), 0);
+
+        data.push({
+          month: dayLabel,
+          date: dateLabel,
+          revenue: Math.round(revenue),
+          bookings: dayBookings.length,
+        });
+      }
+    } else {
+      // Show data by months for last 6 months
+      for (let i = 5; i >= 0; i--) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
+        const monthLabel = date.toLocaleDateString('ru-RU', { month: 'short' });
+
+        const monthBookings = bookings.filter((booking) => {
+          const checkIn = new Date(booking.check_in);
+          const checkOut = new Date(booking.check_out);
+          return (
+            (checkIn >= date && checkIn <= monthEnd) ||
+            (checkOut >= date && checkOut <= monthEnd) ||
+            (checkIn <= date && checkOut >= monthEnd)
+          );
+        });
+
+        const revenue = monthBookings.reduce((sum, b) => sum + getProportionalRevenue(b, date, monthEnd), 0);
+
+        data.push({
+          month: monthLabel,
+          date: monthLabel,
+          revenue: Math.round(revenue),
+          bookings: monthBookings.length,
+        });
+      }
     }
 
     return data;
@@ -783,10 +817,35 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={bookingsDynamicsData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
+                <XAxis 
+                  dataKey="month" 
+                  stroke="#9ca3af" 
+                  fontSize={12}
+                  angle={bookingsDynamicsPeriod === 'month' ? -45 : 0}
+                  textAnchor={bookingsDynamicsPeriod === 'month' ? 'end' : 'middle'}
+                  height={bookingsDynamicsPeriod === 'month' ? 60 : 30}
+                  interval={bookingsDynamicsPeriod === 'month' ? Math.ceil(bookingsDynamicsData.length / 10) : 0}
+                />
                 <YAxis yAxisId="left" stroke="#9ca3af" fontSize={12} />
                 <YAxis yAxisId="right" orientation="right" stroke="#9ca3af" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip 
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 shadow-lg">
+                          <p className="text-slate-300 text-sm mb-1">{data.date || label}</p>
+                          {payload.map((entry, index) => (
+                            <p key={index} className="text-white text-sm font-medium">
+                              {entry.name}: {entry.name === t('analytics.revenue') ? formatCurrency(entry.value as number) + ' ₽' : entry.value}
+                            </p>
+                          ))}
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
                 <Legend />
                 <Line yAxisId="left" type="monotone" dataKey="bookings" name={t('analytics.bookingsCount')} stroke="#8b5cf6" strokeWidth={2} dot={{ fill: '#8b5cf6' }} />
                 <Line yAxisId="right" type="monotone" dataKey="revenue" name={t('analytics.revenue')} stroke="#14b8a6" strokeWidth={2} dot={{ fill: '#14b8a6' }} />
