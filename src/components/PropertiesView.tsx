@@ -19,7 +19,7 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
   // Логируем при монтировании компонента
   useEffect(() => {
     // Component mounted/updated
-    
+
     // Always render properties, even if groups error
     if (properties.length > 0) {
       console.log('PropertiesView: Rendering properties list (always show, groups error does not hide properties)');
@@ -38,7 +38,7 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
     // Early exit: Check localStorage FIRST before any work
     const oauthSuccess = getOAuthSuccess();
     const oauthError = getOAuthError();
-    
+
     // If no OAuth callback, exit immediately (no logging needed)
     if (!oauthSuccess && !oauthError) {
       return;
@@ -58,14 +58,14 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
     if (isModalOpen) {
       return;
     }
-    
+
     // OAuth callback detected
 
     try {
       if (oauthSuccess) {
         const stateData = parseOAuthState(oauthSuccess.state);
         // Parsed OAuth state
-        
+
         if (stateData) {
           const property = properties.find(p => p.id === stateData.property_id);
           // Looking for property
@@ -140,10 +140,20 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
                 key={property.id}
                 className="bg-slate-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-teal-500 transition"
               >
-                <div className="h-48 bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center">
-                  <div className="text-white text-6xl font-bold opacity-20">
-                    {property.name.charAt(0)}
-                  </div>
+                <div className="h-48 bg-slate-700 relative group overflow-hidden">
+                  {property.image_url ? (
+                    <img
+                      src={property.image_url}
+                      alt={property.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center">
+                      <div className="text-white text-6xl font-bold opacity-20">
+                        {property.name.charAt(0)}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-4">
@@ -197,11 +207,10 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
                   <div className="mt-3 pt-3 border-t border-slate-700">
                     <div className="text-xs text-slate-500 mb-1">Статус</div>
                     <span
-                      className={`inline-block px-2 py-1 text-xs rounded ${
-                        property.status === 'active'
+                      className={`inline-block px-2 py-1 text-xs rounded ${property.status === 'active'
                           ? 'bg-green-500/20 text-green-400'
                           : 'bg-slate-700 text-slate-400'
-                      }`}
+                        }`}
                     >
                       {property.status === 'active' ? 'Активен' : 'Неактивен'}
                     </span>

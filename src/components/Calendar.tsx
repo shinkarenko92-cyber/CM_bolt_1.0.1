@@ -96,6 +96,7 @@ export function Calendar({
     currency: string;
   } | null>(null);
   const [minStayDateSelection, setMinStayDateSelection] = useState<{ propertyId: string; startDate: string | null } | null>(null);
+  const [hoverDate, setHoverDate] = useState<string | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const seenPropertyIds = useRef<Set<string>>(new Set());
@@ -103,7 +104,7 @@ export function Calendar({
   const CELL_WIDTH = 64;
 
   const currentDateTimestamp = currentDate.getTime();
-  
+
   const dates = useMemo(() => {
     const datesArray = Array.from({ length: daysToShow }, (_, i) => {
       const date = new Date(currentDateTimestamp);
@@ -121,7 +122,7 @@ export function Calendar({
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), today.getDate());
   });
-  
+
   const initialScrollDone = useRef(false);
 
   const sensors = useSensors(
@@ -146,10 +147,10 @@ export function Calendar({
       const trulyNewPropertyIds = properties
         .filter(p => !seenPropertyIds.current.has(p.id))
         .map(p => p.id);
-      
+
       // Добавляем все текущие объекты в список "виденных"
       properties.forEach(p => seenPropertyIds.current.add(p.id));
-      
+
       // Разворачиваем только действительно новые объекты
       if (trulyNewPropertyIds.length > 0) {
         setExpandedProperties(prev => {
@@ -189,9 +190,9 @@ export function Calendar({
 
     const handleBodyScroll = () => {
       if (!initialScrollDone.current) return;
-      
+
       const { scrollLeft, clientWidth } = scrollContainer;
-      
+
       const startIndex = Math.max(0, Math.round(scrollLeft / CELL_WIDTH));
       const daysInView = Math.max(1, Math.floor(clientWidth / CELL_WIDTH));
       const centerIndex = Math.min(
@@ -389,25 +390,34 @@ export function Calendar({
     }
 
     try {
-      const { error } = await supabase
+      // Find the booking in local state to ensure we have current data
+      const bookingToUpdate = bookings.find(b => b.id === dragState.booking!.id);
+      if (!bookingToUpdate) return;
+
+      const { data, error } = await supabase
         .from('bookings')
         .update({
           property_id: targetPropertyId,
           check_in: newCheckIn,
           check_out: newCheckOutStr,
         })
-        .eq('id', dragState.booking.id);
+        .eq('id', bookingToUpdate.id)
+        .select()
+        .single();
 
       if (error) throw error;
 
-      onBookingUpdate(dragState.booking.id, {
-        property_id: targetPropertyId,
-        check_in: newCheckIn,
-        check_out: newCheckOutStr,
-      });
+      if (data) {
+        onBookingUpdate(data.id, {
+          property_id: data.property_id,
+          check_in: data.check_in,
+          check_out: data.check_out,
+        });
+        toast.success('Бронь перенесена');
+      }
     } catch (error) {
       console.error('Error moving booking:', error);
-      alert('Ошибка перемещения брони');
+      toast.error('Ошибка при переносе брони');
     }
   };
 
@@ -429,13 +439,13 @@ export function Calendar({
 
       if (error) {
         console.error('Error loading property rates:', error);
-        
+
         // Retry logic
         if (retryCount < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1)));
           return loadPropertyRates(retryCount + 1);
         }
-        
+
         // After max retries, show warning and use empty rates
         toast.error('Цены не загружены, попробуй позже');
         setPropertyRates(new Map());
@@ -451,13 +461,13 @@ export function Calendar({
       setPropertyRates(ratesMap);
     } catch (error) {
       console.error('Error loading property rates:', error);
-      
+
       // Retry logic for network errors
       if (retryCount < maxRetries && error instanceof TypeError && error.message.includes('fetch')) {
         await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1)));
         return loadPropertyRates(retryCount + 1);
       }
-      
+
       // After max retries or non-retryable error, show warning and use empty rates
       if (retryCount >= maxRetries) {
         toast.error('Цены не загружены, попробуй позже');
@@ -569,9 +579,9 @@ export function Calendar({
     const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
     const first = new Date(dates[0]);
     const firstDate = new Date(first.getFullYear(), first.getMonth(), first.getDate());
-    
+
     if (startDate >= firstDate) return 0;
-    
+
     const diffTime = firstDate.getTime() - startDate.getTime();
     return Math.floor(diffTime / (1000 * 60 * 60 * 24));
   };
@@ -645,7 +655,7 @@ export function Calendar({
 
       // Check if this date is occupied by a booking
       const isOccupied = isCellOccupied(propertyId, date);
-      
+
       if (isOccupied) {
         // If occupied, find the booking and open edit modal
         const booking = bookings.find(b => {
@@ -693,6 +703,7 @@ export function Calendar({
           // check_out равен последней выбранной дате (включительно)
           // Если выбрано 23-27, то check_out = 27 декабря
           onAddReservation(propertyId, dateSelection.startDate, dateString);
+          setHoverDate(null); // Reset hover date after adding a reservation
         }
       }
     }, 300); // 300ms debounce delay
@@ -719,6 +730,7 @@ export function Calendar({
       startDate: null,
       endDate: null,
     });
+    setHoverDate(null);
     onDateSelectionReset?.();
   };
 
@@ -764,23 +776,23 @@ export function Calendar({
     const overId = over.id as string;
 
     // Группы удалены: плоский reorder объектов
-      await handlePropertyReorder(activeId, overId);
+    await handlePropertyReorder(activeId, overId);
 
     // Обновляем список properties через callback
     if (onPropertiesUpdate && properties.length > 0) {
       try {
         // Сначала пытаемся загрузить без сортировки, чтобы избежать ошибки PGRST204
         const { data, error } = await supabase
-        .from('properties')
-        .select('*')
+          .from('properties')
+          .select('*')
           .in('id', properties.map(p => p.id));
-        
+
         if (error) {
           console.error('Error loading properties:', error);
           return;
         }
-      
-      if (data) {
+
+        if (data) {
           // Сортируем вручную: сначала по sort_order (если есть), потом по created_at
           const sorted = data.sort((a, b) => {
             const aSort = ('sort_order' in a && typeof a.sort_order === 'number') ? a.sort_order : Number.MAX_SAFE_INTEGER;
@@ -801,11 +813,11 @@ export function Calendar({
   const handlePropertyReorder = async (activeId: string, overId: string) => {
     const activeIndex = sortedProperties.findIndex(p => p.id === activeId);
     const overIndex = sortedProperties.findIndex(p => p.id === overId);
-      if (activeIndex === -1 || overIndex === -1) return;
+    if (activeIndex === -1 || overIndex === -1) return;
 
     const reordered = arrayMove(sortedProperties, activeIndex, overIndex);
-      
-      for (let i = 0; i < reordered.length; i++) {
+
+    for (let i = 0; i < reordered.length; i++) {
       try {
         const { error } = await supabase
           .from('properties')
@@ -873,25 +885,25 @@ export function Calendar({
             {/* Dates header row: lives inside the same scroll container as the grid to avoid scroll-sync lag */}
             <div className="flex border-b border-slate-700 bg-slate-800 sticky top-0 z-20 min-w-max">
               <div className="w-64 flex-shrink-0 sticky left-0 z-30 border-r border-slate-700 bg-slate-800">
-              <div className="h-14 flex items-center justify-center">
-                <span className="text-sm text-slate-400">Объекты</span>
+                <div className="h-14 flex items-center justify-center">
+                  <span className="text-sm text-slate-400">Объекты</span>
+                </div>
               </div>
-            </div>
               <div className="flex" style={{ width: `${dates.length * CELL_WIDTH}px` }}>
                 {dates.map((date, i) => {
                   const today = new Date();
                   const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
                   const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
                   const isToday = checkDate.getTime() === localToday.getTime();
+                  const isWeekend = date.getDay() === 0 || date.getDay() === 6; // 0 is Sunday, 6 is Saturday
 
                   return (
                     <div
                       key={i}
-                      className={`w-16 flex-shrink-0 border-r border-slate-700 ${
-                        isToday ? 'bg-teal-500/10' : ''
-                      }`}
+                      className={`w-16 flex-shrink-0 border-r border-slate-700 relative ${isToday ? 'bg-teal-500/20' : isWeekend ? 'bg-slate-700/50' : ''
+                        }`}
                     >
-                      <div className="px-2 py-2 text-center">
+                      <div className="px-2 py-2 text-center relative z-10">
                         <div className={`text-sm font-medium ${isToday ? 'text-teal-400' : 'text-slate-300'}`}>
                           {date.getDate()}
                         </div>
@@ -902,8 +914,8 @@ export function Calendar({
                     </div>
                   );
                 })}
+              </div>
             </div>
-          </div>
 
             <DndContext
               sensors={sensors}
@@ -919,185 +931,195 @@ export function Calendar({
                 <div className="relative" style={{ minHeight: '100%' }}>
                   {sortedProperties.map((property) => {
                     try {
-                              const propFirst = new Date(dates[0]);
-                              const propFirstVisibleDate = new Date(propFirst.getFullYear(), propFirst.getMonth(), propFirst.getDate(), 0, 0, 0, 0);
-                              const propLast = new Date(dates[dates.length - 1]);
-                              const propLastVisibleDate = new Date(propLast.getFullYear(), propLast.getMonth(), propLast.getDate(), 23, 59, 59, 999);
+                      const propFirst = new Date(dates[0]);
+                      const propFirstVisibleDate = new Date(propFirst.getFullYear(), propFirst.getMonth(), propFirst.getDate(), 0, 0, 0, 0);
+                      const propLast = new Date(dates[dates.length - 1]);
+                      const propLastVisibleDate = new Date(propLast.getFullYear(), propLast.getMonth(), propLast.getDate(), 23, 59, 59, 999);
 
-                              const propBookings = bookings.filter((b) => {
-                                if (b.property_id !== property.id) return false;
+                      const propBookings = bookings.filter((b) => {
+                        if (b.property_id !== property.id) return false;
 
-                                const checkInDate = new Date(b.check_in);
-                                const checkIn = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
-                                const checkOutDate = new Date(b.check_out);
-                                const checkOut = new Date(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate());
+                        const checkInDate = new Date(b.check_in);
+                        const checkIn = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
+                        const checkOutDate = new Date(b.check_out);
+                        const checkOut = new Date(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate());
 
-                                return checkOut > propFirstVisibleDate && checkIn <= propLastVisibleDate;
-                              });
+                        return checkOut > propFirstVisibleDate && checkIn <= propLastVisibleDate;
+                      });
 
-                              const isExpanded = expandedProperties.has(property.id);
-                              const bookingLayers = getBookingLayers(propBookings);
-                              const rowHeight = Math.max(44, bookingLayers.length * 32 + 16);
-                              const collapsedHeight = 48;
-                              const totalRowHeight = isExpanded ? 32 + rowHeight : collapsedHeight;
+                      const isExpanded = expandedProperties.has(property.id);
+                      const bookingLayers = getBookingLayers(propBookings);
+                      const rowHeight = Math.max(44, bookingLayers.length * 32 + 16);
+                      const collapsedHeight = 48;
+                      const totalRowHeight = isExpanded ? 32 + rowHeight : collapsedHeight;
 
-                              return (
-                                <SortablePropertyRow
-                                  key={property.id}
-                                  property={property}
-                                  isExpanded={isExpanded}
-                                  onToggle={() => togglePropertyExpansion(property.id)}
-                                  totalRowHeight={totalRowHeight}
-                                >
-                                  <div 
-                                    className="flex-shrink-0"
-                                    // Keep grid width aligned with header. Adding +256px here causes a 4-day (256px) visual offset.
-                                    style={{ width: `${dates.length * CELL_WIDTH}px`, height: `${totalRowHeight}px`, minWidth: `${dates.length * CELL_WIDTH}px` }}
-                                  >
-                                    {isExpanded ? (
-                        <div className="flex flex-col h-full">
-                          <div className="border-b border-slate-700/30 bg-slate-800/50">
-                            <div className="h-8 flex">
-                              {dates.map((date, i) => {
-                                const rate = getRateForDate(property.id, date);
-                                const displayMinStay = rate?.min_stay || property.minimum_booking_days;
-                                const dateString = date.toISOString().split('T')[0];
-                                const isSelected = minStayDateSelection?.propertyId === property.id && minStayDateSelection?.startDate === dateString;
-                                const isInRange = minStayDateSelection?.propertyId === property.id &&
-                                  minStayDateSelection?.startDate &&
-                                  dateString >= minStayDateSelection.startDate;
-
-                                const handleMinStayClick = () => {
-                                  if (!minStayDateSelection || minStayDateSelection.propertyId !== property.id) {
-                                    // Первый клик - сохраняем дату как startDate
-                                    setMinStayDateSelection({ propertyId: property.id, startDate: dateString });
-                                  } else if (minStayDateSelection.startDate === dateString) {
-                                    // Клик на ту же дату - сбрасываем выбор
-                                    setMinStayDateSelection(null);
-                                  } else {
-                                    // Второй клик на другую дату - открываем ChangeConditionsModal
-                                    const startDate = minStayDateSelection.startDate;
-                                    if (startDate) {
-                                      const endDate = dateString;
+                      return (
+                        <SortablePropertyRow
+                          key={property.id}
+                          property={property}
+                          isExpanded={isExpanded}
+                          onToggle={() => togglePropertyExpansion(property.id)}
+                          totalRowHeight={totalRowHeight}
+                        >
+                          <div
+                            className="flex-shrink-0"
+                            // Keep grid width aligned with header. Adding +256px here causes a 4-day (256px) visual offset.
+                            style={{ width: `${dates.length * CELL_WIDTH}px`, height: `${totalRowHeight}px`, minWidth: `${dates.length * CELL_WIDTH}px` }}
+                          >
+                            {isExpanded ? (
+                              <div className="flex flex-col h-full">
+                                <div className="border-b border-slate-700/30 bg-slate-800/50">
+                                  <div className="h-8 flex">
+                                    {dates.map((date, i) => {
                                       const rate = getRateForDate(property.id, date);
-                                      const displayPrice = rate?.daily_price || property.base_price;
-                                      
-                                      setConditionsModalData({
-                                        propertyId: property.id,
-                                        startDate,
-                                        endDate,
-                                        price: displayPrice,
-                                        minStay: displayMinStay,
-                                        currency: property.currency,
-                                      });
-                                      setShowConditionsModal(true);
-                                      setMinStayDateSelection(null);
-                                    }
-                                  }
-                                };
+                                      const displayMinStay = rate?.min_stay || property.minimum_booking_days;
+                                      const dateString = date.toISOString().split('T')[0];
+                                      const isSelected = minStayDateSelection?.propertyId === property.id && minStayDateSelection?.startDate === dateString;
+                                      const isInRange = minStayDateSelection?.propertyId === property.id &&
+                                        minStayDateSelection?.startDate &&
+                                        dateString >= minStayDateSelection.startDate;
 
-                                return (
-                                  <div
-                                    key={i}
-                                    className={`w-16 flex-shrink-0 border-r border-slate-600 flex items-center justify-center cursor-pointer hover:bg-slate-700/50 transition-colors ${
-                                      isSelected ? 'bg-teal-500/20' : ''
-                                    } ${isInRange ? 'bg-blue-500/10' : ''}`}
-                                    onClick={handleMinStayClick}
-                                  >
-                                    <div className="text-[10px] font-medium text-slate-300 tabular-nums">
-                                      {displayMinStay}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                          <div className="flex-1 border-b border-slate-700">
-                            <div className="relative h-full" style={{ minHeight: `${rowHeight}px` }}>
-                              <div className="absolute inset-0 flex">
-                                {dates.map((date, i) => {
-                                  const dateString = date.toISOString().split('T')[0];
-                                  const today = new Date();
-                                  const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                                  const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                                  const isToday = checkDate.getTime() === localToday.getTime();
-                                  const isSelected =
-                                    dateSelection.propertyId === property.id &&
-                                    dateSelection.startDate === dateString;
-                                  const isInRange =
-                                    dateSelection.propertyId === property.id &&
-                                    dateSelection.startDate &&
-                                    dateSelection.endDate &&
-                                    dateString >= dateSelection.startDate &&
-                                    dateString <= dateSelection.endDate;
-                                  const isOccupied = isCellOccupied(property.id, date);
-                                  const rate = getRateForDate(property.id, date);
-                                  const displayPrice = Math.round(rate?.daily_price || property.base_price);
-                                  const isDragOverThisCell = dragOverDates.has(dateString) && dragOverCell?.propertyId === property.id;
-                                  const dragOverColor = isDragValid ? 'bg-green-500/30' : 'bg-red-500/30';
+                                      const handleMinStayClick = () => {
+                                        if (!minStayDateSelection || minStayDateSelection.propertyId !== property.id) {
+                                          // Первый клик - сохраняем дату как startDate
+                                          setMinStayDateSelection({ propertyId: property.id, startDate: dateString });
+                                        } else if (minStayDateSelection.startDate === dateString) {
+                                          // Клик на ту же дату - сбрасываем выбор
+                                          setMinStayDateSelection(null);
+                                        } else {
+                                          // Второй клик на другую дату - открываем ChangeConditionsModal
+                                          const startDate = minStayDateSelection.startDate;
+                                          if (startDate) {
+                                            const endDate = dateString;
+                                            const rate = getRateForDate(property.id, date);
+                                            const displayPrice = rate?.daily_price || property.base_price;
 
-                                  return (
-                                    <div
-                                      key={i}
-                                      className={`w-16 flex-shrink-0 border-r border-slate-700/50 cursor-pointer transition-colors ${
-                                        isToday ? 'bg-teal-500/10' : ''
-                                      } ${isSelected ? 'bg-teal-500/20' : ''
-                                      } ${isInRange ? 'bg-blue-500/10' : ''} ${isDragOverThisCell ? dragOverColor : ''} ${!isOccupied ? 'hover:bg-slate-800/30' : ''}`}
-                                      onClick={() => !isOccupied && handleCellClick(property.id, date)}
-                                    >
-                                      {!isOccupied && (
-                                        <div className="h-11 flex items-center justify-center text-center px-1">
-                                          <div className="text-[10px] font-bold text-slate-300 dark:text-slate-300 tabular-nums truncate">
-                                            {displayPrice}
+                                            setConditionsModalData({
+                                              propertyId: property.id,
+                                              startDate,
+                                              endDate,
+                                              price: displayPrice,
+                                              minStay: displayMinStay,
+                                              currency: property.currency,
+                                            });
+                                            setShowConditionsModal(true);
+                                            setMinStayDateSelection(null);
+                                          }
+                                        }
+                                      };
+
+                                      return (
+                                        <div
+                                          key={i}
+                                          className={`w-16 flex-shrink-0 border-r border-slate-600 flex items-center justify-center cursor-pointer hover:bg-slate-700/50 transition-colors ${isSelected ? 'bg-teal-500/20' : ''
+                                            } ${isInRange ? 'bg-blue-500/10' : ''}`}
+                                          onClick={handleMinStayClick}
+                                        >
+                                          <div className="text-[10px] font-medium text-slate-300 tabular-nums">
+                                            {displayMinStay}
                                           </div>
                                         </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-
-                              {bookingLayers.map((layer, layerIndex) =>
-                                layer.map((booking) => {
-                                  const startCol = getBookingStartCol(booking);
-                                  const fullSpan = getBookingSpan(booking);
-                                  const hiddenDaysAtStart = getHiddenDaysAtStart(booking);
-                                  const visibleSpan = fullSpan - hiddenDaysAtStart;
-
-                                  // Используем dates.length вместо daysToShow для правильного отображения всех бронирований
-                                  if (startCol < 0 || startCol >= dates.length) return null;
-
-                                  const isStartTruncated = isBookingStartTruncated(booking);
-                                  const isEndTruncated = isBookingEndTruncated(booking);
-
-                                  return (
-                                    <BookingBlock
-                                      key={booking.id}
-                                      booking={booking}
-                                      startCol={startCol}
-                                      span={Math.min(visibleSpan, dates.length - startCol)}
-                                      layerIndex={layerIndex}
-                                      cellWidth={CELL_WIDTH}
-                                      onClick={() => onEditReservation(booking)}
-                                      onDragStart={(b) => setDragState({ booking: b, originalPropertyId: property.id })}
-                                      onDragEnd={() => setDragState({ booking: null, originalPropertyId: null })}
-                                      isDragging={dragState.booking?.id === booking.id}
-                                      isStartTruncated={isStartTruncated}
-                                      isEndTruncated={isEndTruncated}
-                                    />
-                                  );
-                                })
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        // Collapsed состояние - пустая строка, но видимая
-                        <div className="h-full bg-slate-800/50 border-b border-slate-700" />
-                      )}
+                                      );
+                                    })}
                                   </div>
-                                </SortablePropertyRow>
-                              );
+                                </div>
+                                <div className="flex-1 border-b border-slate-700">
+                                  <div className="relative h-full" style={{ minHeight: `${rowHeight}px` }}>
+                                    <div className="absolute inset-0 flex">
+                                      {dates.map((date, i) => {
+                                        const dateString = date.toISOString().split('T')[0];
+                                        const today = new Date();
+                                        const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                                        const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                                        const isToday = checkDate.getTime() === localToday.getTime();
+                                        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                                        const isSelected =
+                                          dateSelection.propertyId === property.id &&
+                                          dateSelection.startDate === dateString;
+                                        const isInRange =
+                                          dateSelection.propertyId === property.id &&
+                                          dateSelection.startDate &&
+                                          dateSelection.endDate &&
+                                          dateString >= dateSelection.startDate &&
+                                          dateString <= dateSelection.endDate;
+                                        const isOccupied = isCellOccupied(property.id, date);
+                                        const rate = getRateForDate(property.id, date);
+                                        const displayPrice = Math.round(rate?.daily_price || property.base_price);
+                                        const isDragOverThisCell = dragOverDates.has(dateString) && dragOverCell?.propertyId === property.id;
+                                        const dragOverColor = isDragValid
+                                          ? 'bg-emerald-500/40 ring-2 ring-emerald-400 ring-inset'
+                                          : 'bg-rose-500/40 ring-2 ring-rose-400 ring-inset';
+
+                                        return (
+                                          <div
+                                            key={i}
+                                            className={`w-16 flex-shrink-0 border-r border-slate-700/50 cursor-pointer transition-colors relative ${isToday ? 'bg-teal-500/20' : isWeekend ? 'bg-slate-700/50' : ''
+                                              } ${isSelected ? 'bg-teal-500/30' : ''
+                                              } ${isInRange || (dateSelection.startDate && !dateSelection.endDate && dateSelection.propertyId === property.id && hoverDate && dateString >= dateSelection.startDate && dateString <= hoverDate) ? 'bg-blue-500/20 shadow-[inset_0_0_15px_rgba(59,130,246,0.3)] ring-1 ring-blue-400/30 ring-inset' : ''} ${isDragOverThisCell ? dragOverColor : ''} ${!isOccupied ? 'hover:bg-slate-800/30' : ''}`}
+                                            onClick={() => !isOccupied && handleCellClick(property.id, date)}
+                                            onMouseEnter={() => {
+                                              if (dateSelection.startDate && !dateSelection.endDate && dateSelection.propertyId === property.id) {
+                                                setHoverDate(dateString);
+                                              }
+                                            }}
+                                          >
+                                            {/* Selection glow effect */}
+                                            {isSelected && (
+                                              <div className="absolute inset-0 ring-1 ring-teal-400/50 ring-inset shadow-[0_0_12px_rgba(20,184,166,0.2)] pointer-events-none" />
+                                            )}
+                                            {!isOccupied && (
+                                              <div className="h-11 flex items-center justify-center text-center px-1">
+                                                <div className="text-[10px] font-bold text-slate-300 dark:text-slate-300 tabular-nums truncate">
+                                                  {displayPrice}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+
+                                    {bookingLayers.map((layer, layerIndex) =>
+                                      layer.map((booking) => {
+                                        const startCol = getBookingStartCol(booking);
+                                        const fullSpan = getBookingSpan(booking);
+                                        const hiddenDaysAtStart = getHiddenDaysAtStart(booking);
+                                        const visibleSpan = fullSpan - hiddenDaysAtStart;
+
+                                        // Используем dates.length вместо daysToShow для правильного отображения всех бронирований
+                                        if (startCol < 0 || startCol >= dates.length) return null;
+
+                                        const isStartTruncated = isBookingStartTruncated(booking);
+                                        const isEndTruncated = isBookingEndTruncated(booking);
+
+                                        return (
+                                          <BookingBlock
+                                            key={booking.id}
+                                            booking={booking}
+                                            startCol={startCol}
+                                            span={Math.min(visibleSpan, dates.length - startCol)}
+                                            layerIndex={layerIndex}
+                                            cellWidth={CELL_WIDTH}
+                                            onClick={() => onEditReservation(booking)}
+                                            onDragStart={(b) => setDragState({ booking: b, originalPropertyId: property.id })}
+                                            onDragEnd={() => setDragState({ booking: null, originalPropertyId: null })}
+                                            isDragging={dragState.booking?.id === booking.id}
+                                            isStartTruncated={isStartTruncated}
+                                            isEndTruncated={isEndTruncated}
+                                          />
+                                        );
+                                      })
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              // Collapsed состояние - пустая строка, но видимая
+                              <div className="h-full bg-slate-800/50 border-b border-slate-700" />
+                            )}
+                          </div>
+                        </SortablePropertyRow>
+                      );
                     } catch (error) {
                       console.error('Error rendering property:', property.id, error);
                       return (
@@ -1117,12 +1139,12 @@ export function Calendar({
                   )}
                 </div>
               </SortableContext>
-              
+
               <DragOverlay>
                 {activeId ? (
                   <div className="bg-slate-700 p-2 rounded shadow-lg">
-                    {properties.find(p => p.id === activeId)?.name || 
-                     'Перетаскивание'}
+                    {properties.find(p => p.id === activeId)?.name ||
+                      'Перетаскивание'}
                   </div>
                 ) : null}
               </DragOverlay>

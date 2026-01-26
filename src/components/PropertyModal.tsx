@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { X, Calendar, Copy, Trash2 } from 'lucide-react';
+import { X, Calendar, Copy, Trash2, Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Badge, Button, Input, InputNumber, Modal, message, Select, Tabs } from 'antd';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -33,9 +33,11 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     currency: 'RUB',
     minimum_booking_days: '1',
     status: 'active',
+    image_url: '',
   });
 
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [avitoIntegration, setAvitoIntegration] = useState<PropertyIntegration | null>(null);
@@ -57,14 +59,14 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
   const loadAvitoIntegration = useCallback(async () => {
     if (!property) return;
-    
+
     const { data } = await supabase
       .from('integrations')
       .select('*')
       .eq('property_id', property.id)
       .eq('platform', 'avito')
       .maybeSingle();
-    
+
     // Load Avito integration
     setAvitoIntegration(data);
     if (data?.avito_markup) {
@@ -77,7 +79,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
         setNewMarkup(markupValue);
       }
     }
-    
+
     // Show warning if old integration (missing avito_item_id)
     if (data && data.is_active && !data.avito_item_id) {
       // Old integration detected - missing avito_item_id
@@ -98,6 +100,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
         currency: property.currency || 'RUB',
         minimum_booking_days: property.minimum_booking_days?.toString() || '1',
         status: property.status || 'active',
+        image_url: property.image_url || '',
       });
     } else {
       setFormData({
@@ -111,6 +114,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
         currency: 'RUB',
         minimum_booking_days: '1',
         status: 'active',
+        image_url: '',
       });
     }
     setShowDeleteConfirm(false);
@@ -143,6 +147,48 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     }
   }, []);
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+
+    const file = e.target.files[0];
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      message.error('Пожалуйста, выберите изображение');
+      return;
+    }
+
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      message.error('Размер файла не должен превышать 5MB');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('property-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('property-images')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, image_url: data.publicUrl }));
+      message.success('Изображение загружено');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      message.error('Ошибка загрузки изображения');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   // Автоматически открываем модальное окно Avito, если есть OAuth callback
   useEffect(() => {
     if (!property || !isOpen) {
@@ -162,13 +208,13 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     if (isAvitoModalOpen) {
       return;
     }
-    
+
     // Check for OAuth callback
     if (oauthSuccess) {
       // Проверяем, что state соответствует текущему property
       try {
         const stateData = parseOAuthState(oauthSuccess.state);
-        
+
         if (stateData && stateData.property_id === property.id) {
           // OAuth callback detected for property, opening Avito modal
           setIsAvitoModalOpen(true);
@@ -193,19 +239,19 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       okButtonProps: { danger: true },
       onOk: async () => {
         if (!avitoIntegration) return;
-        
+
         // Set is_active = false
         await supabase
           .from('integrations')
           .update({ is_active: false })
           .eq('id', avitoIntegration.id);
-        
+
         // Remove from sync queue
         await supabase
           .from('avito_sync_queue')
           .delete()
           .eq('integration_id', avitoIntegration.id);
-        
+
         message.success('Avito отключён');
         loadAvitoIntegration();
       },
@@ -221,18 +267,18 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       okButtonProps: { danger: true },
       onOk: async () => {
         if (!avitoIntegration) return;
-        
+
         // Delete from integrations (CASCADE will handle avito_items and avito_sync_queue)
         const { error } = await supabase
           .from('integrations')
           .delete()
           .eq('id', avitoIntegration.id);
-        
+
         if (error) {
           message.error('Ошибка при удалении: ' + error.message);
           return;
         }
-        
+
         message.success('Интеграция Avito удалена');
         loadAvitoIntegration();
       },
@@ -245,16 +291,16 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
   const handleSaveMarkup = async () => {
     if (!avitoIntegration) return;
-    
+
     setLoading(true);
     try {
       const { error } = await supabase
         .from('integrations')
         .update({ avito_markup: newMarkupType === 'rub' ? -newMarkup : newMarkup })
         .eq('id', avitoIntegration.id);
-      
+
       if (error) throw error;
-      
+
       message.success('Наценка обновлена');
       setIsEditMarkupModalOpen(false);
       loadAvitoIntegration();
@@ -282,7 +328,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     try {
       const { error } = await supabase
         .from('integrations')
-        .update({ 
+        .update({
           avito_item_id: editingItemId.trim(),
           is_active: true  // Активируем, если была деактивирована миграцией
         })
@@ -318,18 +364,18 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     if (!avitoIntegration?.token_expires_at) {
       return false; // If no expiration date, assume token is valid
     }
-    
+
     // Если строка без 'Z' или часового пояса, добавляем 'Z' чтобы явно указать UTC
     // Это важно, так как Supabase может сохранять timestamp без 'Z', и браузер интерпретирует его как локальное время
     let expiresAtString = avitoIntegration.token_expires_at;
     if (!expiresAtString.endsWith('Z') && !expiresAtString.includes('+') && !expiresAtString.includes('-', 10)) {
       expiresAtString = expiresAtString + 'Z';
     }
-    
+
     const expiresAt = new Date(expiresAtString);
     const now = new Date();
     const expired = expiresAt.getTime() <= now.getTime();
-    
+
     // Check if token is expired
     return expired;
   }, [avitoIntegration?.token_expires_at]);
@@ -339,7 +385,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     const isActive = avitoIntegration?.is_active;
     const tokenValid = !isTokenExpired;
     const showActive = isActive && tokenValid;
-    
+
     // Status check
     return showActive ? (
       <Badge status="success" text="синхронизировано" />
@@ -370,16 +416,15 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
         type: formData.type,
         address: formData.address || '',
         description: formData.description || '',
-        max_guests: newMaxGuests,
-        bedrooms: newBedrooms,
         base_price: newBasePrice,
         currency: formData.currency,
         minimum_booking_days: newMinimumBookingDays,
         status: formData.status,
+        image_url: formData.image_url || null,
       });
 
       // Auto-sync to Avito if any relevant field changed and integration is active
-      const hasRelevantChanges = 
+      const hasRelevantChanges =
         oldBasePrice !== newBasePrice ||
         property?.name !== formData.name ||
         property?.description !== formData.description ||
@@ -406,7 +451,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
           }
         } catch (error) {
           console.error('Failed to sync prices to Avito:', error);
-          
+
           // Если это AvitoSyncError с массивом ошибок, показываем их
           if (error instanceof AvitoSyncError && error.errors.length > 0) {
             // Показываем модальные окна с ошибками последовательно
@@ -423,7 +468,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
             } else {
               errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
             }
-            
+
             // Check for 404 errors
             if (errorMessage.includes('404') || errorMessage.includes('не найдено')) {
               toast.error('Объявление не найдено в Avito. Проверь ID объекта в настройках интеграции');
@@ -454,8 +499,8 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     } catch (err) {
       // Проверяем, является ли это ошибкой foreign key constraint
       if (err && typeof err === 'object' && 'code' in err && err.code === '23503') {
-        const errorMessage = t('errors.cannotDeletePropertyWithBookings', { 
-          defaultValue: 'Невозможно удалить объект, так как у него есть связанные бронирования. Сначала удалите все бронирования для этого объекта.' 
+        const errorMessage = t('errors.cannotDeletePropertyWithBookings', {
+          defaultValue: 'Невозможно удалить объект, так как у него есть связанные бронирования. Сначала удалите все бронирования для этого объекта.'
         });
         setError(errorMessage);
         toast.error(errorMessage);
@@ -471,7 +516,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   if (!isOpen) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       onMouseDown={(e) => {
         // Сохраняем, что mousedown произошел на backdrop
@@ -532,384 +577,447 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                   label: 'Основная информация',
                   children: (
                     <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded text-red-200 text-sm">
-                {error}
-              </div>
-            )}
-
-            {/* Основная информация */}
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">Основная информация</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Название *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                    placeholder="Например: Double Room 1"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Тип объекта
-                  </label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                  >
-                    <option value="apartment">Квартира</option>
-                    <option value="DOUBLE ROOM">Двухместный номер</option>
-                    <option value="ONE BEDROOM">Однокомнатная</option>
-                    <option value="studio">Студия</option>
-                    <option value="house">Дом</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Статус
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                  >
-                    <option value="active">Активен</option>
-                    <option value="inactive">Неактивен</option>
-                  </select>
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Адрес</label>
-                  <input
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                    placeholder="Улица, дом, квартира"
-                  />
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Описание</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                    rows={3}
-                    placeholder="Дополнительная информация об объекте"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Параметры */}
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">Параметры</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Максимум гостей
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={formData.max_guests}
-                    onChange={(e) => setFormData({ ...formData, max_guests: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Количество спален
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.bedrooms}
-                    onChange={(e) => setFormData({ ...formData, bedrooms: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Цены и бронирование */}
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">Цены и бронирование</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Цена за ночь *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.base_price}
-                    onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                    placeholder="0.00"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Валюта</label>
-                  <select
-                    value={formData.currency}
-                    onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                  >
-                    <option value="RUB">RUB</option>
-                    <option value="EUR">EUR</option>
-                    <option value="USD">USD</option>
-                  </select>
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Минимальный срок бронирования (ночей)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={formData.minimum_booking_days}
-                    onChange={(e) =>
-                      setFormData({ ...formData, minimum_booking_days: e.target.value })
-                    }
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* API интеграции */}
-            {property && (
-              <div className="border-t border-slate-700 pt-6">
-                <h3 className="text-lg font-medium text-white mb-4">API интеграции</h3>
-                
-                {/* Avito Integration Section */}
-                <div className="bg-slate-700/50 rounded-lg p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <h4 className="text-white font-medium">Avito</h4>
-                      {avitoStatusBadge}
-                    </div>
-                  </div>
-
-                  {avitoIntegration?.is_active ? (
-                    <>
-                      {/* Warning for old integrations with short avito_item_id */}
-                      {avitoIntegration.avito_item_id && 
-                       String(avitoIntegration.avito_item_id).length < 10 && (
-                        <div className="bg-yellow-500/20 border border-yellow-500/50 rounded p-3 mb-3">
-                          <p className="text-yellow-300 text-sm font-medium mb-1">⚠️ Требуется обновление</p>
-                          <p className="text-yellow-200 text-xs">
-                            Обнови ID объявления — должен быть длинный номер (10-11 цифр) из Avito. 
-                            Нажми "Редактировать ID объявления" ниже.
-                          </p>
+                      {error && (
+                        <div className="p-3 bg-red-500/20 border border-red-500/50 rounded text-red-200 text-sm">
+                          {error}
                         </div>
                       )}
-                      {/* Warning for missing avito_item_id */}
-                      {!avitoIntegration.avito_item_id && (
-                        <div className="bg-yellow-500/20 border border-yellow-500/50 rounded p-3 mb-3">
-                          <p className="text-yellow-300 text-sm font-medium mb-1">⚠️ Требуется обновление</p>
-                          <p className="text-yellow-200 text-xs">
-                            Обнови ID объявления — должен быть длинный номер (10-11 цифр) из Avito. 
-                            Нажми "Редактировать ID объявления" ниже.
-                          </p>
-                        </div>
-                      )}
-                      <div className="text-sm text-slate-300 mb-2">
-                        <span className="font-medium">Статус:</span> Avito подключён
-                      </div>
-                      <div className="text-sm text-slate-400 mb-2">
-                        Цены обновляются автоматически
-                      </div>
-                      
-                      {/* Display current item_id */}
-                      {avitoIntegration.avito_item_id && String(avitoIntegration.avito_item_id).length >= 10 && (
-                        <div className="text-sm text-slate-400 mb-2">
-                          ID объявления: {avitoIntegration.avito_item_id}
-                        </div>
-                      )}
-                      <div className="text-sm text-slate-400 mb-2">
-                        Последняя синхронизация: {formatDate(avitoIntegration.last_sync_at)}
-                      </div>
-                      <div className="text-sm text-slate-400 mb-4">
-                        Наценка: {avitoIntegration.avito_markup || 15}%
-                      </div>
 
-                      {/* iCal URL Block */}
-                      <div className="bg-slate-600/50 rounded-lg p-4 border border-slate-500/50 mb-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <Calendar className="w-5 h-5 text-teal-400" />
-                          <h5 className="text-white font-medium">Закрытие дат через iCal</h5>
+                      {/* Основная информация */}
+                      <div>
+                        <h3 className="text-lg font-medium text-white mb-4">Основная информация</h3>
+
+                        {/* Image Upload */}
+                        <div className="mb-6">
+                          <label className="block text-sm font-medium text-slate-300 mb-2">
+                            Фото объекта
+                          </label>
+                          <div className="flex items-start gap-4">
+                            <div className="relative w-32 h-24 bg-slate-700 rounded-lg overflow-hidden border border-slate-600 flex items-center justify-center group">
+                              {formData.image_url ? (
+                                <>
+                                  <img
+                                    src={formData.image_url}
+                                    alt="Preview"
+                                    className="w-full h-full object-cover"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, image_url: '' })}
+                                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white"
+                                  >
+                                    <Trash2 size={20} />
+                                  </button>
+                                </>
+                              ) : (
+                                <ImageIcon className="text-slate-500 w-8 h-8" />
+                              )}
+                              {uploadingImage && (
+                                <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                                  <Loader2 className="w-6 h-6 text-teal-500 animate-spin" />
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <label className="cursor-pointer px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition flex items-center gap-2 border border-slate-600">
+                                  <Upload size={16} />
+                                  Загрузить фото
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handleImageUpload}
+                                    disabled={uploadingImage}
+                                  />
+                                </label>
+                                {formData.image_url && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, image_url: '' })}
+                                    className="text-sm text-red-400 hover:text-red-300 transition"
+                                  >
+                                    Удалить
+                                  </button>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-400">
+                                Рекомендуемый размер: 800x600px. JPG, PNG до 5MB.
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                        
-                        <div className="mb-3">
-                          <label className="block text-xs text-slate-400 mb-2">iCal URL:</label>
-                          <div className="flex gap-2">
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="col-span-2">
+                            <label className="block text-sm font-medium text-slate-300 mb-2">
+                              Название *
+                            </label>
                             <input
                               type="text"
-                              readOnly
-                              value={ical.url}
-                              className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm font-mono"
+                              value={formData.name}
+                              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                              placeholder="Например: Double Room 1"
+                              required
                             />
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                const icalUrl = ical.url;
-                                try {
-                                  if (ical.isLocalhost) {
-                                    toast('iCal работает только в prod/staging (Avito не тянет localhost)', { icon: '⚠️' });
-                                  }
-                                  await navigator.clipboard.writeText(icalUrl);
-                                  toast.success('URL скопирован');
-                                } catch (err) {
-                                  console.error('Failed to copy URL:', err);
-                                  toast.error('Не удалось скопировать URL');
-                                }
-                              }}
-                              className="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded transition flex items-center gap-2"
-                            >
-                              <Copy className="w-4 h-4" />
-                              Скопировать URL
-                            </button>
                           </div>
-                        </div>
 
-                        <div className="bg-slate-700/50 rounded p-3 border border-slate-600">
-                          <p className="text-xs text-slate-300">
-                            Вставь этот URL в Avito → Календарь доступности → Импорт iCal (один раз — и даты закрываются автоматически)
-                          </p>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">
+                              Тип объекта
+                            </label>
+                            <select
+                              value={formData.type}
+                              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                            >
+                              <option value="apartment">Квартира</option>
+                              <option value="DOUBLE ROOM">Двухместный номер</option>
+                              <option value="ONE BEDROOM">Однокомнатная</option>
+                              <option value="studio">Студия</option>
+                              <option value="house">Дом</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">
+                              Статус
+                            </label>
+                            <select
+                              value={formData.status}
+                              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                            >
+                              <option value="active">Активен</option>
+                              <option value="inactive">Неактивен</option>
+                            </select>
+                          </div>
+
+                          <div className="col-span-2">
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Адрес</label>
+                            <input
+                              type="text"
+                              value={formData.address}
+                              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                              placeholder="Улица, дом, квартира"
+                            />
+                          </div>
+
+                          <div className="col-span-2">
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Описание</label>
+                            <textarea
+                              value={formData.description}
+                              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                              rows={3}
+                              placeholder="Дополнительная информация об объекте"
+                            />
+                          </div>
                         </div>
                       </div>
-                      
-                      {/* Inline form for editing item_id */}
-                      {isEditingItemId ? (
-                        <div className="mt-3 p-3 bg-slate-600/50 rounded border border-slate-500">
-                          <label className="block text-sm text-white mb-2">ID объявления на Avito</label>
-                          <Input
-                            placeholder="Например, 2336174775"
-                            value={editingItemId}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(/\D/g, '').slice(0, 11);
-                              setEditingItemId(value);
-                            }}
-                            maxLength={11}
-                          />
-                          {editingItemId && !/^[0-9]{10,11}$/.test(editingItemId) && (
-                            <p className="text-xs text-red-400 mt-1">
-                              ID объявления должен содержать 10-11 цифр
-                            </p>
-                          )}
-                          <div className="flex gap-2 mt-3">
-                            <Button 
-                              type="primary" 
-                              size="small"
-                              onClick={handleSaveItemId}
-                              disabled={!editingItemId || !/^[0-9]{10,11}$/.test(editingItemId)}
-                              loading={loading}
-                            >
-                              Сохранить
-                            </Button>
-                            <Button 
-                              size="small"
-                              onClick={() => {
-                                setIsEditingItemId(false);
-                                setEditingItemId('');
-                              }}
-                              disabled={loading}
-                            >
-                              Отмена
-                            </Button>
+
+                      {/* Параметры */}
+                      <div>
+                        <h3 className="text-lg font-medium text-white mb-4">Параметры</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">
+                              Максимум гостей
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={formData.max_guests}
+                              onChange={(e) => setFormData({ ...formData, max_guests: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">
+                              Количество спален
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={formData.bedrooms}
+                              onChange={(e) => setFormData({ ...formData, bedrooms: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                            />
                           </div>
                         </div>
-                      ) : (
-                        <div className="flex gap-2 mt-3">
-                          <Button onClick={handleEditMarkup}>Редактировать наценку</Button>
-                          <Button onClick={handleEditItemId}>Редактировать ID объявления</Button>
-                          <Button onClick={handleDisconnectAvito}>
-                            Отключить
-                          </Button>
-                          <Button 
-                            onClick={handleDeleteAvito}
-                            className="bg-red-600 hover:bg-red-700 text-white border-red-600"
-                            icon={<Trash2 className="w-4 h-4" />}
+                      </div>
+
+                      {/* Цены и бронирование */}
+                      <div>
+                        <h3 className="text-lg font-medium text-white mb-4">Цены и бронирование</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">
+                              Цена за ночь *
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={formData.base_price}
+                              onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                              placeholder="0.00"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Валюта</label>
+                            <select
+                              value={formData.currency}
+                              onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                            >
+                              <option value="RUB">RUB</option>
+                              <option value="EUR">EUR</option>
+                              <option value="USD">USD</option>
+                            </select>
+                          </div>
+
+                          <div className="col-span-2">
+                            <label className="block text-sm font-medium text-slate-300 mb-2">
+                              Минимальный срок бронирования (ночей)
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={formData.minimum_booking_days}
+                              onChange={(e) =>
+                                setFormData({ ...formData, minimum_booking_days: e.target.value })
+                              }
+                              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* API интеграции */}
+                      {property && (
+                        <div className="border-t border-slate-700 pt-6">
+                          <h3 className="text-lg font-medium text-white mb-4">API интеграции</h3>
+
+                          {/* Avito Integration Section */}
+                          <div className="bg-slate-700/50 rounded-lg p-4 space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <h4 className="text-white font-medium">Avito</h4>
+                                {avitoStatusBadge}
+                              </div>
+                            </div>
+
+                            {avitoIntegration?.is_active ? (
+                              <>
+                                {/* Warning for old integrations with short avito_item_id */}
+                                {avitoIntegration.avito_item_id &&
+                                  String(avitoIntegration.avito_item_id).length < 10 && (
+                                    <div className="bg-yellow-500/20 border border-yellow-500/50 rounded p-3 mb-3">
+                                      <p className="text-yellow-300 text-sm font-medium mb-1">⚠️ Требуется обновление</p>
+                                      <p className="text-yellow-200 text-xs">
+                                        Обнови ID объявления — должен быть длинный номер (10-11 цифр) из Avito.
+                                        Нажми "Редактировать ID объявления" ниже.
+                                      </p>
+                                    </div>
+                                  )}
+                                {/* Warning for missing avito_item_id */}
+                                {!avitoIntegration.avito_item_id && (
+                                  <div className="bg-yellow-500/20 border border-yellow-500/50 rounded p-3 mb-3">
+                                    <p className="text-yellow-300 text-sm font-medium mb-1">⚠️ Требуется обновление</p>
+                                    <p className="text-yellow-200 text-xs">
+                                      Обнови ID объявления — должен быть длинный номер (10-11 цифр) из Avito.
+                                      Нажми "Редактировать ID объявления" ниже.
+                                    </p>
+                                  </div>
+                                )}
+                                <div className="text-sm text-slate-300 mb-2">
+                                  <span className="font-medium">Статус:</span> Avito подключён
+                                </div>
+                                <div className="text-sm text-slate-400 mb-2">
+                                  Цены обновляются автоматически
+                                </div>
+
+                                {/* Display current item_id */}
+                                {avitoIntegration.avito_item_id && String(avitoIntegration.avito_item_id).length >= 10 && (
+                                  <div className="text-sm text-slate-400 mb-2">
+                                    ID объявления: {avitoIntegration.avito_item_id}
+                                  </div>
+                                )}
+                                <div className="text-sm text-slate-400 mb-2">
+                                  Последняя синхронизация: {formatDate(avitoIntegration.last_sync_at)}
+                                </div>
+                                <div className="text-sm text-slate-400 mb-4">
+                                  Наценка: {avitoIntegration.avito_markup || 15}%
+                                </div>
+
+                                {/* iCal URL Block */}
+                                <div className="bg-slate-600/50 rounded-lg p-4 border border-slate-500/50 mb-4">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <Calendar className="w-5 h-5 text-teal-400" />
+                                    <h5 className="text-white font-medium">Закрытие дат через iCal</h5>
+                                  </div>
+
+                                  <div className="mb-3">
+                                    <label className="block text-xs text-slate-400 mb-2">iCal URL:</label>
+                                    <div className="flex gap-2">
+                                      <input
+                                        type="text"
+                                        readOnly
+                                        value={ical.url}
+                                        className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm font-mono"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          const icalUrl = ical.url;
+                                          try {
+                                            if (ical.isLocalhost) {
+                                              toast('iCal работает только в prod/staging (Avito не тянет localhost)', { icon: '⚠️' });
+                                            }
+                                            await navigator.clipboard.writeText(icalUrl);
+                                            toast.success('URL скопирован');
+                                          } catch (err) {
+                                            console.error('Failed to copy URL:', err);
+                                            toast.error('Не удалось скопировать URL');
+                                          }
+                                        }}
+                                        className="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded transition flex items-center gap-2"
+                                      >
+                                        <Copy className="w-4 h-4" />
+                                        Скопировать URL
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="bg-slate-700/50 rounded p-3 border border-slate-600">
+                                    <p className="text-xs text-slate-300">
+                                      Вставь этот URL в Avito → Календарь доступности → Импорт iCal (один раз — и даты закрываются автоматически)
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Inline form for editing item_id */}
+                                {isEditingItemId ? (
+                                  <div className="mt-3 p-3 bg-slate-600/50 rounded border border-slate-500">
+                                    <label className="block text-sm text-white mb-2">ID объявления на Avito</label>
+                                    <Input
+                                      placeholder="Например, 2336174775"
+                                      value={editingItemId}
+                                      onChange={(e) => {
+                                        const value = e.target.value.replace(/\D/g, '').slice(0, 11);
+                                        setEditingItemId(value);
+                                      }}
+                                      maxLength={11}
+                                    />
+                                    {editingItemId && !/^[0-9]{10,11}$/.test(editingItemId) && (
+                                      <p className="text-xs text-red-400 mt-1">
+                                        ID объявления должен содержать 10-11 цифр
+                                      </p>
+                                    )}
+                                    <div className="flex gap-2 mt-3">
+                                      <Button
+                                        type="primary"
+                                        size="small"
+                                        onClick={handleSaveItemId}
+                                        disabled={!editingItemId || !/^[0-9]{10,11}$/.test(editingItemId)}
+                                        loading={loading}
+                                      >
+                                        Сохранить
+                                      </Button>
+                                      <Button
+                                        size="small"
+                                        onClick={() => {
+                                          setIsEditingItemId(false);
+                                          setEditingItemId('');
+                                        }}
+                                        disabled={loading}
+                                      >
+                                        Отмена
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex gap-2 mt-3">
+                                    <Button onClick={handleEditMarkup}>Редактировать наценку</Button>
+                                    <Button onClick={handleEditItemId}>Редактировать ID объявления</Button>
+                                    <Button onClick={handleDisconnectAvito}>
+                                      Отключить
+                                    </Button>
+                                    <Button
+                                      onClick={handleDeleteAvito}
+                                      className="bg-red-600 hover:bg-red-700 text-white border-red-600"
+                                      icon={<Trash2 className="w-4 h-4" />}
+                                    >
+                                      Удалить
+                                    </Button>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div>
+                                {avitoIntegration && !avitoIntegration.is_active && (
+                                  <div className="mb-3 p-3 bg-yellow-500/20 border border-yellow-500/50 rounded">
+                                    <p className="text-yellow-300 text-sm">Переподключи Avito</p>
+                                  </div>
+                                )}
+                                <Button type="primary" onClick={() => setIsAvitoModalOpen(true)}>
+                                  {avitoIntegration ? 'Подключить заново' : 'Подключить Avito'}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {!property && (
+                        <div className="border-t border-slate-700 pt-6">
+                          <h3 className="text-lg font-medium text-white mb-2">API интеграции</h3>
+                          <p className="text-sm text-slate-400">
+                            Сначала сохраните объект, чтобы настроить интеграции с площадками.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Кнопки */}
+                      <div className="flex gap-3 justify-between pt-4 border-t border-slate-700">
+                        {property && (
+                          <button
+                            type="button"
+                            onClick={() => setShowDeleteConfirm(true)}
+                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition flex items-center gap-2"
+                            disabled={loading}
                           >
+                            <Trash2 className="w-4 h-4" />
                             Удалить
-                          </Button>
+                          </button>
+                        )}
+                        <div className="flex gap-3 ml-auto">
+                          <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-4 py-2 text-slate-300 hover:text-white transition"
+                            disabled={loading}
+                          >
+                            Отмена
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded transition disabled:opacity-50"
+                            disabled={loading}
+                          >
+                            {loading ? 'Сохранение...' : 'Сохранить'}
+                          </button>
                         </div>
-                      )}
-                    </>
-                  ) : (
-                    <div>
-                      {avitoIntegration && !avitoIntegration.is_active && (
-                        <div className="mb-3 p-3 bg-yellow-500/20 border border-yellow-500/50 rounded">
-                          <p className="text-yellow-300 text-sm">Переподключи Avito</p>
-                        </div>
-                      )}
-                      <Button type="primary" onClick={() => setIsAvitoModalOpen(true)}>
-                        {avitoIntegration ? 'Подключить заново' : 'Подключить Avito'}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {!property && (
-              <div className="border-t border-slate-700 pt-6">
-                <h3 className="text-lg font-medium text-white mb-2">API интеграции</h3>
-                <p className="text-sm text-slate-400">
-                  Сначала сохраните объект, чтобы настроить интеграции с площадками.
-                </p>
-              </div>
-            )}
-
-            {/* Кнопки */}
-            <div className="flex gap-3 justify-between pt-4 border-t border-slate-700">
-              {property && (
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition flex items-center gap-2"
-                  disabled={loading}
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Удалить
-                </button>
-              )}
-              <div className="flex gap-3 ml-auto">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 text-slate-300 hover:text-white transition"
-                  disabled={loading}
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded transition disabled:opacity-50"
-                  disabled={loading}
-                >
-                  {loading ? 'Сохранение...' : 'Сохранить'}
-                </button>
-              </div>
-            </div>
-          </form>
+                      </div>
+                    </form>
                   ),
                 },
                 ...(property ? [{

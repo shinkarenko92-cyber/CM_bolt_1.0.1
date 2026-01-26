@@ -148,8 +148,8 @@
 
 - **Supabase** — Backend as a Service
   - **PostgreSQL** — реляционная база данных
-  - **Supabase Auth** — аутентификация пользователей
-  - **Row Level Security (RLS)** — защита данных на уровне БД
+- **Supabase Auth** — аутентификация пользователей
+- **Row Level Security (RLS)** — защита данных на уровне БД
   - **Edge Functions (Deno)** — серверные функции
   - **Realtime subscriptions** — подписки в реальном времени
   - **Vault** — шифрование токенов

@@ -21,7 +21,11 @@
     "perNight": "/night",
     "unknown": "Unknown",
     "underDevelopment": "This section is under development",
-    "retry": "Retry"
+    "retry": "Retry",
+    "today": "Just now",
+    "minutesAgo": "min ago",
+    "hoursAgo": "h ago",
+    "daysAgo": "d ago"
   },
   "auth": {
     "signIn": "Sign In",
@@ -41,6 +45,7 @@
     "calendar": "Calendar",
     "bookings": "Bookings",
     "properties": "Properties",
+    "messages": "Messages",
     "analytics": "Analytics",
     "admin": "Admin",
     "settings": "Settings"
@@ -286,6 +291,66 @@
     },
     "success": {
       "syncCompleted": "Avito synchronization completed successfully"
+    }
+  },
+  "messages": {
+    "title": "Messages",
+    "subtitle": "Conversations with Avito clients",
+    "noChats": "No chats",
+    "noChatsDescription": "When messages from clients arrive, they will appear here",
+    "noMessages": "No messages",
+    "noMessagesDescription": "Start a conversation with the client",
+    "searchPlaceholder": "Search by name or text...",
+    "filterByProperty": "Filter by property",
+    "filterByStatus": "Filter by status",
+    "allProperties": "All properties",
+    "allStatuses": "All statuses",
+    "status": {
+      "new": "New",
+      "in_progress": "In Progress",
+      "closed": "Closed"
+    },
+    "unread": "Unread",
+    "read": "Read",
+    "send": "Send",
+    "sending": "Sending...",
+    "sendPlaceholder": "Type a message...",
+    "newMessage": "New message",
+    "lastMessage": "Last message",
+    "contact": "Contact",
+    "property": "Property",
+    "createBooking": "Create booking",
+    "linkBooking": "Link to booking",
+    "changeStatus": "Change status",
+    "markAsRead": "Mark as read",
+    "markAsUnread": "Mark as unread",
+    "closeChat": "Close chat",
+    "openChat": "Open chat",
+    "attachPhoto": "Attach photo",
+    "uploading": "Uploading...",
+    "templates": {
+      "title": "Response templates",
+      "greeting": "Hello! Thank you for your interest in our listing.",
+      "availability": "Yes, the property is available on these dates. I can book it for you.",
+      "price": "The price per night is {{price}} {{currency}}. The total cost depends on the number of nights.",
+      "details": "I can provide additional information about the property. What specifically interests you?",
+      "booking": "To make a booking, I need the following information: check-in and check-out dates, number of guests, contact phone number."
+    },
+    "useTemplate": "Use template",
+    "loading": "Loading messages...",
+    "loadMore": "Load more",
+    "noMoreMessages": "No more messages",
+    "error": {
+      "failedToLoad": "Failed to load chats",
+      "failedToLoadMessages": "Failed to load messages",
+      "failedToSend": "Failed to send message",
+      "failedToUpload": "Failed to upload file",
+      "failedToUpdate": "Failed to update chat"
+    },
+    "success": {
+      "sent": "Message sent",
+      "uploaded": "File uploaded",
+      "updated": "Chat updated"
     }
   }
 }

@@ -109,11 +109,11 @@ export async function syncAvitoIntegration(
   // GUARD: Check if item_id is set and valid
   if (!integration.avito_item_id) {
     console.warn('syncAvitoIntegration: Missing item_id', {
-      propertyId,
-      avito_item_id: integration.avito_item_id,
-    });
-    return { success: false, message: 'Введи ID объявления на Avito (10-11 цифр)' };
-  }
+        propertyId,
+        avito_item_id: integration.avito_item_id,
+      });
+      return { success: false, message: 'Введи ID объявления на Avito (10-11 цифр)' };
+    }
 
   const itemIdStr = String(integration.avito_item_id).trim();
   if (!itemIdStr || itemIdStr.length < 10 || itemIdStr.length > 11 || !/^\d+$/.test(itemIdStr)) {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, Home, Settings, BarChart3, Users, LogOut, Shield, Menu, X } from 'lucide-react';
+import { Calendar, Home, Settings, BarChart3, Users, LogOut, Shield, Menu, X, MessageCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -17,6 +17,8 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
     { id: 'calendar', icon: Calendar, label: t('nav.calendar') },
     { id: 'properties', icon: Home, label: t('nav.properties') },
     { id: 'bookings', icon: Users, label: t('nav.bookings') },
+    { id: 'guests', icon: Users, label: 'Гости' },
+    { id: 'messages', icon: MessageCircle, label: t('nav.messages') },
     { id: 'analytics', icon: BarChart3, label: t('nav.analytics') },
     { id: 'settings', icon: Settings, label: t('nav.settings') },
   ];
@@ -41,7 +43,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
       </button>
 
       {isOpen && (
-        <div 
+        <div
           className="md:hidden fixed inset-0 bg-black/50 z-40"
           onClick={() => setIsOpen(false)}
         />
@@ -75,11 +77,10 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
                 data-testid={`nav-${item.id}`}
-                className={`w-full flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-lg transition-colors ${
-                  isActive
+                className={`w-full flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-lg transition-colors ${isActive
                     ? 'bg-teal-600 text-white'
                     : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
+                  }`}
               >
                 <Icon className="w-5 h-5" />
                 <span className="font-medium text-sm md:text-base">{item.label}</span>

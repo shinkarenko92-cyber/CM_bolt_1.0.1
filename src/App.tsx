@@ -7,6 +7,7 @@ import { Dashboard } from './components/Dashboard';
 
 function AppContent() {
   const { user, loading } = useAuth();
+  console.log('AppContent render:', { user: !!user, loading });
 
   // Handle Avito OAuth callback
   useEffect(() => {
@@ -50,7 +51,7 @@ function AppContent() {
 
 function AppWithTheme() {
   const { theme } = useTheme();
-  
+
   const antdThemeConfig = {
     token: {
       colorPrimary: '#14b8a6', // teal-600

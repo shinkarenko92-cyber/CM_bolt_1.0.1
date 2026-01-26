@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { Globe, Home, User, Smartphone, Layout, Check } from 'lucide-react';
 import { Booking } from '../lib/supabase';
 
 type BookingBlockProps = {
@@ -27,7 +28,7 @@ const getBookingColors = (status: string, hasConflict?: boolean) => {
   }
 
   const statusLower = status.toLowerCase();
-  
+
   if (statusLower === 'paid' || statusLower === 'confirmed') {
     return {
       bg: 'bg-teal-500',
@@ -35,7 +36,7 @@ const getBookingColors = (status: string, hasConflict?: boolean) => {
       text: 'text-white',
     };
   }
-  
+
   if (statusLower === 'pending' || statusLower === 'waiting') {
     return {
       bg: 'bg-amber-400',
@@ -43,7 +44,7 @@ const getBookingColors = (status: string, hasConflict?: boolean) => {
       text: 'text-white',
     };
   }
-  
+
   // По умолчанию: забронировано (booked/reserved)
   return {
     bg: 'bg-orange-300',
@@ -68,10 +69,10 @@ export function BookingBlock({
 }: BookingBlockProps) {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const colorConfig = getBookingColors(booking.status, hasConflict);
-  
+
   // Определяем, есть ли имя гостя или только телефон
   const hasGuestName = booking.guest_name && booking.guest_name.trim() !== '';
-  const isPhoneOnly = !hasGuestName && booking.guest_phone;
+
 
   const blockHeight = 24;
   const topOffset = 8 + layerIndex * (blockHeight + 8);
@@ -79,9 +80,9 @@ export function BookingBlock({
   const halfCell = cellWidth / 2;
   const leftMargin = isStartTruncated ? 0 : 2;
   const rightMargin = isEndTruncated ? 0 : 2;
-  
+
   const startOffset = isStartTruncated ? 0 : halfCell;
-  
+
   const leftPosition = startCol * cellWidth + startOffset + leftMargin;
   const blockWidth = span * cellWidth - leftMargin - rightMargin;
 
@@ -117,6 +118,7 @@ export function BookingBlock({
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button === 0) {
+      e.stopPropagation();
       onDragStart(booking);
     }
   };
@@ -142,15 +144,11 @@ export function BookingBlock({
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className={`absolute text-xs font-medium cursor-grab active:cursor-grabbing transition-all group overflow-hidden ${
-        colorConfig.bg
-      } ${colorConfig.hover} ${
-        isStartTruncated ? '' : 'rounded-l-md'
-      } ${
-        isEndTruncated ? '' : 'rounded-r-md'
-      } ${
-        isDragging ? 'opacity-50 cursor-grabbing' : ''
-      }`}
+      className={`absolute text-xs font-medium cursor-grab active:cursor-grabbing transition-all group overflow-hidden ${colorConfig.bg
+        } ${colorConfig.hover} ${isStartTruncated ? '' : 'rounded-l-md'
+        } ${isEndTruncated ? '' : 'rounded-r-md'
+        } ${isDragging ? 'opacity-50 cursor-grabbing' : ''
+        }`}
       style={{
         left: `${leftPosition}px`,
         width: `${Math.max(blockWidth, 20)}px`,
@@ -160,24 +158,32 @@ export function BookingBlock({
       }}
       data-testid={`booking-block-${booking.id}`}
     >
-      <div className="flex items-center justify-center h-full px-2 overflow-hidden gap-1">
-        {isPhoneOnly && booking.guest_phone && (
-          <img 
-            src="/whatsapp-icon.svg" 
-            alt="WhatsApp" 
-            className="w-3 h-3 flex-shrink-0"
-          />
-        )}
-        <div
-          className={`truncate text-[11px] font-medium font-roboto ${
-            hasGuestName ? 'text-white' : 'text-white/90'
-          }`}
-        >
-          {formatGuestDisplay(booking.guest_name, booking.guest_phone)}
+      <div className="flex items-center justify-between h-full px-2 overflow-hidden gap-1">
+        <div className="flex items-center gap-1 overflow-hidden">
+          {booking.source === 'avito' && <Smartphone className="w-3 h-3 text-white/80" />}
+          {booking.source === 'airbnb' && <Home className="w-3 h-3 text-white/80" />}
+          {booking.source === 'booking' && <Globe className="w-3 h-3 text-white/80" />}
+          {booking.source === 'cian' && <Layout className="w-3 h-3 text-white/80" />}
+          {booking.source === 'manual' && <User className="w-3 h-3 text-white/80" />}
+
+          <div
+            className={`truncate text-[11px] font-medium font-roboto flex-1 ${hasGuestName ? 'text-white' : 'text-white/90'
+              }`}
+          >
+            {formatGuestDisplay(booking.guest_name, booking.guest_phone)}
+          </div>
+
+          <div className="text-[10px] font-bold text-white/90 tabular-nums ml-1 flex-shrink-0">
+            {Math.round(booking.total_price / calculateNights(booking.check_in, booking.check_out)).toLocaleString()} {booking.currency === 'RUB' ? '₽' : booking.currency}
+          </div>
         </div>
+
+        {booking.status === 'paid' && (
+          <Check className="w-3 h-3 text-white flex-shrink-0" />
+        )}
       </div>
 
-      <div 
+      <div
         className="absolute left-1/2 -translate-x-1/2 top-full mt-2 hidden group-hover:block z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-xl p-3 min-w-[250px]"
       >
         <div className="text-white font-semibold mb-2 text-sm">
@@ -212,9 +218,9 @@ export function BookingBlock({
                 onClick={(e) => e.stopPropagation()}
                 title="Открыть в WhatsApp"
               >
-                <img 
-                  src="/whatsapp-icon.svg" 
-                  alt="WhatsApp" 
+                <img
+                  src="/whatsapp-icon.svg"
+                  alt="WhatsApp"
                   className="w-4 h-4"
                 />
               </a>

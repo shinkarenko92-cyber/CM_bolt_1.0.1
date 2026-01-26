@@ -43,6 +43,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     const now = new Date();
     return now.toISOString().split('T')[0];
   });
+  const [comparisonMode, setComparisonMode] = useState(false);
 
   const convertToRUB = (amount: number, currency: string) => {
     const rates: { [key: string]: number } = {
@@ -70,11 +71,27 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
 
   const analytics = useMemo(() => {
     const { start: currentStart, end: currentEnd } = dateRange;
-    
+
     // Calculate previous period for comparison
     const periodLength = currentEnd.getTime() - currentStart.getTime();
     const previousEnd = new Date(currentStart.getTime() - 1);
     const previousStart = new Date(previousEnd.getTime() - periodLength);
+
+    // Calculate comparison period (year-over-year for month mode)
+    let comparisonStart: Date;
+    let comparisonEnd: Date;
+
+    if (dateRangeType === 'month') {
+      // Same month, previous year
+      comparisonStart = new Date(currentStart);
+      comparisonStart.setFullYear(comparisonStart.getFullYear() - 1);
+      comparisonEnd = new Date(currentEnd);
+      comparisonEnd.setFullYear(comparisonEnd.getFullYear() - 1);
+    } else {
+      // Previous period of same length
+      comparisonEnd = new Date(currentStart.getTime() - 1);
+      comparisonStart = new Date(comparisonEnd.getTime() - periodLength);
+    }
 
     const filterBookingsByDateRange = (start: Date, end: Date) => {
       return bookings.filter((booking) => {
@@ -128,17 +145,17 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
 
     // ADR (Average Daily Rate) - average revenue per occupied night
     const adr = occupiedNights > 0 ? currentRevenue / occupiedNights : 0;
-    
+
     // RevPAR (Revenue Per Available Room) - revenue per available room night
     const revPar = totalPossibleNights > 0 ? currentRevenue / totalPossibleNights : 0;
-    
+
     // For backwards compatibility
     const avgPricePerNight = adr;
     const dailyAvgRevenue = daysInPeriod > 0 ? currentRevenue / daysInPeriod : 0;
-    
+
     // Average booking value
     const avgBookingValue = currentBookings.length > 0 ? currentRevenue / currentBookings.length : 0;
-    
+
     // Average length of stay
     const totalNightsBooked = currentBookings.reduce((sum, b) => {
       const checkIn = new Date(b.check_in);
@@ -150,7 +167,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     // Функция маппинга источников из Excel в стандартные
     const mapSourceToStandard = (source: string): string => {
       const normalized = source.toLowerCase().trim().replace(/\s+/g, '');
-      
+
       // Маппинг русских и английских названий в стандартные
       const sourceMap: { [key: string]: string } = {
         'авито': 'avito',
@@ -164,19 +181,19 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
         'вручную': 'manual',
         'excel_import': 'manual', // Если источник не распознан, используем manual вместо excel_import
       };
-      
+
       // Проверяем точное совпадение
       if (sourceMap[normalized]) {
         return sourceMap[normalized];
       }
-      
+
       // Проверяем частичное совпадение
       for (const [key, value] of Object.entries(sourceMap)) {
         if (normalized.includes(key) || key.includes(normalized)) {
           return value;
         }
       }
-      
+
       // Если источник не распознан и это не excel_import, возвращаем оригинал
       // Если это excel_import, возвращаем manual
       return source === 'excel_import' ? 'manual' : source;
@@ -220,32 +237,40 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
       avgLengthOfStay,
       sourceBreakdown,
       topProperties,
+      // Comparison period data
+      comparisonBookings: comparisonMode ? filterBookingsByDateRange(comparisonStart, comparisonEnd) : [],
+      comparisonRevenue: comparisonMode ? calculateRevenue(filterBookingsByDateRange(comparisonStart, comparisonEnd)) : 0,
+      comparisonOccupancyRate: comparisonMode ? (
+        totalPossibleNights > 0
+          ? (calculateOccupiedNights(filterBookingsByDateRange(comparisonStart, comparisonEnd), comparisonStart, comparisonEnd) / totalPossibleNights) * 100
+          : 0
+      ) : 0,
     };
-  }, [bookings, properties, dateRange]);
+  }, [bookings, properties, dateRange, comparisonMode, dateRangeType]);
 
   const monthlyRevenueData = useMemo(() => {
     const data: { month: string; revenue: number; bookings: number }[] = [];
     const now = new Date();
-    
+
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
       const monthLabel = date.toLocaleDateString('ru-RU', { month: 'short' });
-      
+
       const monthBookings = bookings.filter((booking) => {
         const checkIn = new Date(booking.check_in);
         return checkIn >= date && checkIn <= monthEnd;
       });
-      
+
       const revenue = monthBookings.reduce((sum, b) => sum + convertToRUB(b.total_price, b.currency), 0);
-      
+
       data.push({
         month: monthLabel,
         revenue: Math.round(revenue),
         bookings: monthBookings.length,
       });
     }
-    
+
     return data;
   }, [bookings]);
 
@@ -367,21 +392,19 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             <div className="flex bg-slate-700 rounded-lg p-1">
               <button
                 onClick={() => setDateRangeType('month')}
-                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                  dateRangeType === 'month'
-                    ? 'bg-teal-600 text-white'
-                    : 'text-slate-300 hover:text-white'
-                }`}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${dateRangeType === 'month'
+                  ? 'bg-teal-600 text-white'
+                  : 'text-slate-300 hover:text-white'
+                  }`}
               >
                 Месяц
               </button>
               <button
                 onClick={() => setDateRangeType('custom')}
-                className={`px-3 py-1.5 text-sm rounded-md transition-colors flex items-center gap-1 ${
-                  dateRangeType === 'custom'
-                    ? 'bg-teal-600 text-white'
-                    : 'text-slate-300 hover:text-white'
-                }`}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors flex items-center gap-1 ${dateRangeType === 'custom'
+                  ? 'bg-teal-600 text-white'
+                  : 'text-slate-300 hover:text-white'
+                  }`}
               >
                 <Calendar className="w-4 h-4" />
                 Период
@@ -418,10 +441,22 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                 />
               </div>
             )}
+
+            {/* Comparison mode toggle */}
+            <button
+              onClick={() => setComparisonMode(!comparisonMode)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${comparisonMode
+                ? 'bg-purple-600 text-white'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                }`}
+              title={dateRangeType === 'month' ? 'Сравнить с прошлым годом' : 'Сравнить с предыдущим периодом'}
+            >
+              {comparisonMode ? '✓ Сравнение' : 'Сравнить'}
+            </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
           <div className="bg-slate-800 rounded-lg p-4 md:p-6">
             <div className="flex items-center justify-between mb-3">
               <div className="p-2 md:p-3 bg-teal-500/20 rounded-lg">
@@ -429,9 +464,8 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
               </div>
               {analytics.revenueChange !== 0 && (
                 <div
-                  className={`flex items-center gap-1 text-xs md:text-sm font-medium ${
-                    analytics.revenueChange > 0 ? 'text-green-400' : 'text-red-400'
-                  }`}
+                  className={`flex items-center gap-1 text-xs md:text-sm font-medium ${analytics.revenueChange > 0 ? 'text-green-400' : 'text-red-400'
+                    }`}
                 >
                   {analytics.revenueChange > 0 ? (
                     <TrendingUp size={14} />
@@ -445,6 +479,11 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             <div className="text-lg md:text-2xl font-bold text-white mb-1">
               {formatCurrency(analytics.currentRevenue)} ₽
             </div>
+            {comparisonMode && analytics.comparisonRevenue > 0 && (
+              <div className="text-sm text-slate-400 mb-1">
+                {dateRangeType === 'month' ? 'Прошлый год' : 'Прошлый период'}: {formatCurrency(analytics.comparisonRevenue)} ₽
+              </div>
+            )}
             <div className="text-xs md:text-sm text-slate-400">{t('analytics.monthlyRevenue')}</div>
           </div>
 
@@ -483,6 +522,11 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             <div className="text-lg md:text-2xl font-bold text-white mb-1">
               {analytics.occupancyRate.toFixed(1)}%
             </div>
+            {comparisonMode && analytics.comparisonOccupancyRate > 0 && (
+              <div className="text-sm text-slate-400 mb-1">
+                {dateRangeType === 'month' ? 'Прошлый год' : 'Прошлый период'}: {analytics.comparisonOccupancyRate.toFixed(1)}%
+              </div>
+            )}
             <div className="text-xs md:text-sm text-slate-400">
               {t('analytics.occupancyRate')} ({analytics.occupiedNights}/{analytics.totalPossibleNights})
             </div>
@@ -495,7 +539,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             {monthlyRevenueData.length === 0 ? (
               <p className="text-slate-400 text-center py-8">{t('analytics.noData')}</p>
             ) : (
-              <div className="h-64">
+              <div className="h-48 md:h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={monthlyRevenueData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -514,7 +558,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             {sourceChartData.length === 0 ? (
               <p className="text-slate-400 text-center py-8">{t('analytics.noDataForPeriod')}</p>
             ) : (
-              <div className="h-64 flex flex-col">
+              <div className="h-48 md:h-64 flex flex-col">
                 <div className="flex-1">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -549,7 +593,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             {propertyOccupancyData.length === 0 ? (
               <p className="text-slate-400 text-center py-8">{t('analytics.noData')}</p>
             ) : (
-              <div className="h-64">
+              <div className="h-48 md:h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={propertyOccupancyData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -602,7 +646,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
 
         <div className="bg-slate-800 rounded-lg p-4 md:p-6">
           <h3 className="text-lg font-semibold text-white mb-4">{t('analytics.bookingsDynamics')}</h3>
-          <div className="h-64">
+          <div className="h-48 md:h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={monthlyRevenueData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
