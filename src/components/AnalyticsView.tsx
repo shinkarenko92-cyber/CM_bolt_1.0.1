@@ -44,6 +44,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     return now.toISOString().split('T')[0];
   });
   const [comparisonMode, setComparisonMode] = useState(false);
+  const [bookingsDynamicsPeriod, setBookingsDynamicsPeriod] = useState<'month' | 'halfYear'>('month');
 
   const convertToRUB = (amount: number, currency: string) => {
     const rates: { [key: string]: number } = {
@@ -273,34 +274,34 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     };
   }, [bookings, properties, dateRange, comparisonMode, dateRangeType]);
 
+  // Helper function to calculate proportional revenue for a single booking
+  const getProportionalRevenue = useCallback((booking: Booking, start: Date, end: Date): number => {
+    const checkIn = new Date(booking.check_in);
+    const checkOut = new Date(booking.check_out);
+    
+    // Calculate total nights in booking
+    const totalNights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Calculate nights within the period
+    const effectiveStart = checkIn > start ? checkIn : start;
+    const effectiveEnd = checkOut < end ? checkOut : end;
+    
+    let nightsInPeriod = 0;
+    if (effectiveStart < effectiveEnd) {
+      const diffTime = effectiveEnd.getTime() - effectiveStart.getTime();
+      nightsInPeriod = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+    
+    // Calculate proportional revenue for nights in period
+    const totalRevenue = convertToRUB(booking.total_price, booking.currency);
+    const proportionalRevenue = totalNights > 0 ? (totalRevenue / totalNights) * nightsInPeriod : 0;
+    
+    return proportionalRevenue;
+  }, []);
+
   const monthlyRevenueData = useMemo(() => {
     const data: { month: string; revenue: number; bookings: number }[] = [];
     const now = new Date();
-
-    // Helper function to calculate proportional revenue for a single booking
-    const getProportionalRevenue = (booking: Booking, start: Date, end: Date): number => {
-      const checkIn = new Date(booking.check_in);
-      const checkOut = new Date(booking.check_out);
-      
-      // Calculate total nights in booking
-      const totalNights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-      
-      // Calculate nights within the period
-      const effectiveStart = checkIn > start ? checkIn : start;
-      const effectiveEnd = checkOut < end ? checkOut : end;
-      
-      let nightsInPeriod = 0;
-      if (effectiveStart < effectiveEnd) {
-        const diffTime = effectiveEnd.getTime() - effectiveStart.getTime();
-        nightsInPeriod = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      }
-      
-      // Calculate proportional revenue for nights in period
-      const totalRevenue = convertToRUB(booking.total_price, booking.currency);
-      const proportionalRevenue = totalNights > 0 ? (totalRevenue / totalNights) * nightsInPeriod : 0;
-      
-      return proportionalRevenue;
-    };
 
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -327,7 +328,40 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     }
 
     return data;
-  }, [bookings]);
+  }, [bookings, getProportionalRevenue]);
+
+  // Data for bookings dynamics chart (month or half year)
+  const bookingsDynamicsData = useMemo(() => {
+    const now = new Date();
+    const data: { month: string; revenue: number; bookings: number }[] = [];
+    const monthsToShow = bookingsDynamicsPeriod === 'month' ? 1 : 6;
+
+    for (let i = monthsToShow - 1; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
+      const monthLabel = date.toLocaleDateString('ru-RU', { month: 'short' });
+
+      const monthBookings = bookings.filter((booking) => {
+        const checkIn = new Date(booking.check_in);
+        const checkOut = new Date(booking.check_out);
+        return (
+          (checkIn >= date && checkIn <= monthEnd) ||
+          (checkOut >= date && checkOut <= monthEnd) ||
+          (checkIn <= date && checkOut >= monthEnd)
+        );
+      });
+
+      const revenue = monthBookings.reduce((sum, b) => sum + getProportionalRevenue(b, date, monthEnd), 0);
+
+      data.push({
+        month: monthLabel,
+        revenue: Math.round(revenue),
+        bookings: monthBookings.length,
+      });
+    }
+
+    return data;
+  }, [bookings, bookingsDynamicsPeriod, getProportionalRevenue]);
 
   const getSourceLabel = useCallback((source: string) => {
     const labels: { [key: string]: string } = {
@@ -364,6 +398,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
       });
 
       let occupiedNights = 0;
+      let revenue = 0;
       propertyBookings.forEach((booking) => {
         const checkIn = new Date(booking.check_in);
         const checkOut = new Date(booking.check_out);
@@ -373,6 +408,8 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
           const nights = Math.ceil((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24));
           occupiedNights += nights;
         }
+        // Calculate proportional revenue for this booking
+        revenue += getProportionalRevenue(booking, monthStart, monthEnd);
       });
 
       const occupancy = Math.round((occupiedNights / daysInPeriod) * 100);
@@ -380,9 +417,10 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
         name: property.name.length > 15 ? property.name.substring(0, 15) + '...' : property.name,
         occupancy,
         nights: occupiedNights,
+        revenue: Math.round(revenue),
       };
     });
-  }, [bookings, properties, dateRange]);
+  }, [bookings, properties, dateRange, getProportionalRevenue]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ru-RU').format(Math.round(amount));
@@ -654,7 +692,25 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                     <XAxis type="number" stroke="#9ca3af" fontSize={12} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                     <YAxis dataKey="name" type="category" stroke="#9ca3af" fontSize={11} width={100} />
-                    <Tooltip formatter={(value: number | undefined) => value !== undefined ? [`${value}%`, t('analytics.occupancyRate')] : ['', '']} />
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 shadow-lg">
+                              <p className="text-slate-300 text-sm mb-1">{data.name}</p>
+                              <p className="text-white text-sm font-medium">
+                                {t('analytics.occupancyRate')}: {data.occupancy}%
+                              </p>
+                              <p className="text-white text-sm font-medium">
+                                {t('analytics.revenue')}: {formatCurrency(data.revenue)} ₽
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
                     <Bar dataKey="occupancy" name={t('analytics.occupancyRate')} fill="#3b82f6" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -700,10 +756,32 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
         </div>
 
         <div className="bg-slate-800 rounded-lg p-4 md:p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">{t('analytics.bookingsDynamics')}</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white">{t('analytics.bookingsDynamics')}</h3>
+            <div className="flex bg-slate-700 rounded-lg p-1">
+              <button
+                onClick={() => setBookingsDynamicsPeriod('month')}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${bookingsDynamicsPeriod === 'month'
+                  ? 'bg-teal-600 text-white'
+                  : 'text-slate-300 hover:text-white'
+                  }`}
+              >
+                Месяц
+              </button>
+              <button
+                onClick={() => setBookingsDynamicsPeriod('halfYear')}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${bookingsDynamicsPeriod === 'halfYear'
+                  ? 'bg-teal-600 text-white'
+                  : 'text-slate-300 hover:text-white'
+                  }`}
+              >
+                Полгода
+              </button>
+            </div>
+          </div>
           <div className="h-48 md:h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthlyRevenueData}>
+              <LineChart data={bookingsDynamicsData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
                 <YAxis yAxisId="left" stroke="#9ca3af" fontSize={12} />
