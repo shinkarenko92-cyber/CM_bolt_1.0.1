@@ -575,20 +575,21 @@ export function Dashboard() {
   }, [selectedChatId, syncMessagesFromAvito]);
 
   // Periodic sync every 15 seconds for chats (always, regardless of view)
-  useEffect(() => {
-    if (!user) return;
+  // TEMPORARILY DISABLED: Waiting for Avito approval
+  // useEffect(() => {
+  //   if (!user) return;
 
-    // Initial sync
-    syncChatsFromAvito();
+  //   // Initial sync
+  //   syncChatsFromAvito();
 
-    const intervalId = setInterval(() => {
-      syncChatsFromAvito();
-    }, 15000); // 15 seconds
+  //   const intervalId = setInterval(() => {
+  //     syncChatsFromAvito();
+  //   }, 15000); // 15 seconds
 
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [user, syncChatsFromAvito]);
+  //   return () => {
+  //     clearInterval(intervalId);
+  //   };
+  // }, [user, syncChatsFromAvito]);
 
   // Handle send message
   const handleSendMessage = useCallback(async (
