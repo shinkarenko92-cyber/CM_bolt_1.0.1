@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { differenceInDays, parseISO } from 'date-fns';
-import { InputNumber, AutoComplete, Select, Input } from 'antd';
+import { InputNumber, AutoComplete, Input } from 'antd';
 import { Property, supabase, Guest } from '../lib/supabase';
 import { ChangeConditionsModal } from './ChangeConditionsModal';
 
