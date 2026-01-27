@@ -127,7 +127,11 @@
     "noData": "No data",
     "noDataForPeriod": "No data for selected period",
     "revenue": "Revenue",
-    "bookingsCount": "Bookings"
+    "bookingsCount": "Bookings",
+    "monthlyRevenueTooltip": "Total revenue for the selected period, calculated proportionally based on nights within the period",
+    "adrTooltip": "Average Daily Rate - average revenue per occupied night",
+    "revParTooltip": "Revenue Per Available Room - average revenue per available room night",
+    "occupancyRateTooltip": "Occupancy rate - ratio of occupied nights to total available nights"
   },
   "admin": {
     "title": "Admin Panel",
