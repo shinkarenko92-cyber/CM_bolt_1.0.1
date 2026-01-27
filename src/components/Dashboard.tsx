@@ -302,8 +302,7 @@ export function Dashboard() {
 
   // Sync chats from Avito API
   // TEMPORARILY DISABLED: Waiting for Avito approval
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const syncChatsFromAvito = useCallback(async () => {
+  const _syncChatsFromAvito = useCallback(async () => {
     if (!user) return;
 
     // If no properties loaded yet, skip sync
@@ -582,16 +581,16 @@ export function Dashboard() {
   //   if (!user) return;
 
   //   // Initial sync
-  //   syncChatsFromAvito();
+  //   _syncChatsFromAvito();
 
   //   const intervalId = setInterval(() => {
-  //     syncChatsFromAvito();
+  //     _syncChatsFromAvito();
   //   }, 15000); // 15 seconds
 
   //   return () => {
   //     clearInterval(intervalId);
   //   };
-  // }, [user, syncChatsFromAvito]);
+  // }, [user, _syncChatsFromAvito]);
 
   // Handle send message
   const handleSendMessage = useCallback(async (
