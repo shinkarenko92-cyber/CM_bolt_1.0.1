@@ -302,6 +302,8 @@ export function Dashboard() {
 
   // Sync chats from Avito API
   // TEMPORARILY DISABLED: Waiting for Avito approval
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // @ts-expect-error - Function is temporarily disabled but kept for future use
   const _syncChatsFromAvito = useCallback(async () => {
     if (!user) return;
 
@@ -406,6 +408,10 @@ export function Dashboard() {
       console.error('Error syncing chats from Avito:', error);
     }
   }, [user, properties, loadChats]);
+
+  // Suppress unused variable warning - function is temporarily disabled
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void _syncChatsFromAvito;
 
   // Load messages for selected chat
   const loadMessages = useCallback(async (chatId: string, offset = 0, limit = 50) => {
