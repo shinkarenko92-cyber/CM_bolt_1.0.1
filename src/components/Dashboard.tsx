@@ -303,7 +303,6 @@ export function Dashboard() {
   // Sync chats from Avito API
   // TEMPORARILY DISABLED: Waiting for Avito approval
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  // @ts-expect-error - Function is temporarily disabled but kept for future use
   const _syncChatsFromAvito = useCallback(async () => {
     if (!user) return;
 
