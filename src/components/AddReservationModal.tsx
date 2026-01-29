@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Settings } from 'lucide-react';
+import { X, Settings, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { differenceInDays, parseISO } from 'date-fns';
 import { InputNumber, AutoComplete, Input } from 'antd';
@@ -67,6 +67,7 @@ export function AddReservationModal({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<'fillAllFields' | 'checkOutBeforeCheckIn' | null>(null);
   const [calculatingPrice, setCalculatingPrice] = useState(false);
   const [showConditionsModal, setShowConditionsModal] = useState(false);
   const [currentDailyPrice, setCurrentDailyPrice] = useState<number>(0);
@@ -102,6 +103,7 @@ export function AddReservationModal({
         deposit_returned: false,
       });
       setError(null);
+      setErrorType(null);
       setCalculatingPrice(false);
     }
   }, [isOpen, selectedProperties]);
@@ -429,11 +431,13 @@ export function AddReservationModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setErrorType(null);
     setLoading(true);
 
     try {
-      if (!formData.property_id || !formData.guest_name || !formData.check_in || !formData.check_out) {
+      if (!formData.property_id || !formData.guest_name.trim() || !formData.check_in || !formData.check_out) {
         setError(t('errors.fillAllFields'));
+        setErrorType('fillAllFields');
         return;
       }
 
@@ -442,6 +446,7 @@ export function AddReservationModal({
 
       if (checkOutDate <= checkInDate) {
         setError(t('errors.checkOutBeforeCheckIn'));
+        setErrorType('checkOutBeforeCheckIn');
         return;
       }
 
@@ -489,6 +494,7 @@ export function AddReservationModal({
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
+      setErrorType(null);
     } finally {
       setLoading(false);
     }
@@ -552,7 +558,8 @@ export function AddReservationModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && (
-            <div className="p-3 bg-red-500/20 border border-red-500/50 rounded text-red-200 text-sm">
+            <div className="flex items-center gap-2 p-3 bg-red-600 border border-red-500 rounded text-white text-sm">
+              <AlertCircle className="w-4 h-4 shrink-0" />
               {error}
             </div>
           )}
@@ -564,10 +571,12 @@ export function AddReservationModal({
               </label>
               <select
                 value={formData.property_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, property_id: e.target.value })
-                }
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                onChange={(e) => {
+                  setFormData({ ...formData, property_id: e.target.value });
+                  setError(null);
+                  setErrorType(null);
+                }}
+                className={`w-full px-3 py-2 bg-slate-700 border rounded text-white ${errorType === 'fillAllFields' && !formData.property_id ? 'border-red-500 ring-2 ring-red-500/50' : 'border-slate-600'}`}
                 required
               >
                 <option value="">{t('modals.selectProperty', { defaultValue: 'Выберите объект' })}</option>
@@ -594,13 +603,19 @@ export function AddReservationModal({
                     guest_email: option.email || formData.guest_email,
                     guest_id: option.id,
                   });
+                  setError(null);
+                  setErrorType(null);
                 }}
-                onChange={(value) => setFormData({ ...formData, guest_name: value, guest_id: '' })}
+                onChange={(value) => {
+                  setFormData({ ...formData, guest_name: value, guest_id: '' });
+                  setError(null);
+                  setErrorType(null);
+                }}
                 className="w-full"
                 placeholder={t('modals.guestNamePlaceholder', { defaultValue: 'Иван Иванов' })}
               >
                 <Input
-                  className="bg-slate-700 border-slate-600 text-white placeholder-slate-400"
+                  className={`bg-slate-700 text-white placeholder-slate-400 ${errorType === 'fillAllFields' && !formData.guest_name.trim() ? 'border-red-500 ring-2 ring-red-500/50' : 'border-slate-600'} border rounded`}
                 />
               </AutoComplete>
             </div>
@@ -642,10 +657,12 @@ export function AddReservationModal({
               <input
                 type="date"
                 value={formData.check_in}
-                onChange={(e) =>
-                  setFormData({ ...formData, check_in: e.target.value })
-                }
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                onChange={(e) => {
+                  setFormData({ ...formData, check_in: e.target.value });
+                  setError(null);
+                  setErrorType(null);
+                }}
+                className={`w-full px-3 py-2 bg-slate-700 border rounded text-white ${errorType === 'fillAllFields' && !formData.check_in ? 'border-red-500 ring-2 ring-red-500/50' : 'border-slate-600'}`}
                 required
               />
             </div>
@@ -657,10 +674,12 @@ export function AddReservationModal({
               <input
                 type="date"
                 value={formData.check_out}
-                onChange={(e) =>
-                  setFormData({ ...formData, check_out: e.target.value })
-                }
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                onChange={(e) => {
+                  setFormData({ ...formData, check_out: e.target.value });
+                  setError(null);
+                  setErrorType(null);
+                }}
+                className={`w-full px-3 py-2 bg-slate-700 border rounded text-white ${errorType === 'fillAllFields' && !formData.check_out ? 'border-red-500 ring-2 ring-red-500/50' : 'border-slate-600'}`}
                 required
               />
             </div>

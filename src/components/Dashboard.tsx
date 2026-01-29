@@ -931,6 +931,16 @@ export function Dashboard() {
         error = retryResult.error;
       }
 
+      // Handle 400 / column not found - retry without deposit fields (migration may not be applied)
+      if (error && (error.code === 'PGRST204' || (error as { code?: string }).code === '400' || error.message?.includes('deposit_received') || error.message?.includes('deposit_returned'))) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { deposit_received, deposit_returned, ...reservationWithoutDeposit } = reservationWithAudit as typeof reservationWithAudit & { deposit_received?: boolean; deposit_returned?: boolean };
+
+        const retryDeposit = await supabase.from('bookings').insert([reservationWithoutDeposit]).select();
+        data = retryDeposit.data;
+        error = retryDeposit.error;
+      }
+
       if (error) throw error;
 
       if (data && data.length > 0) {
@@ -1048,6 +1058,16 @@ export function Dashboard() {
 
         const retryResult = await supabase.from('bookings').update(dataWithoutAudit).eq('id', id);
         error = retryResult.error;
+      }
+
+      // Handle 400 / column not found - retry without deposit fields (migration may not be applied)
+      if (error && (error.code === 'PGRST204' || (error as { code?: string }).code === '400' || error.message?.includes('deposit_received') || error.message?.includes('deposit_returned'))) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { deposit_received, deposit_returned, ...dataWithoutDeposit } = finalData as typeof finalData & { deposit_received?: boolean; deposit_returned?: boolean };
+        finalData = dataWithoutDeposit;
+
+        const retryDeposit = await supabase.from('bookings').update(dataWithoutDeposit).eq('id', id);
+        error = retryDeposit.error;
       }
 
       if (error) throw error;

@@ -666,7 +666,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             {monthlyRevenueData.length === 0 ? (
               <p className="text-slate-400 text-center py-8">{t('analytics.noData')}</p>
             ) : (
-              <div className="h-48 md:h-64">
+              <div className="h-48 min-h-48 md:h-64 md:min-h-64 w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={monthlyRevenueData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -685,8 +685,8 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             {sourceChartData.length === 0 ? (
               <p className="text-slate-400 text-center py-8">{t('analytics.noDataForPeriod')}</p>
             ) : (
-              <div className="h-48 md:h-64 flex flex-col">
-                <div className="flex-1">
+              <div className="h-48 min-h-48 md:h-64 md:min-h-64 flex flex-col w-full min-w-0">
+                <div className="flex-1 min-h-48 min-w-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -720,7 +720,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             {propertyOccupancyData.length === 0 ? (
               <p className="text-slate-400 text-center py-8">{t('analytics.noData')}</p>
             ) : (
-              <div className="h-48 md:h-64">
+              <div className="h-48 min-h-48 md:h-64 md:min-h-64 w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={propertyOccupancyData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -813,7 +813,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
               </button>
             </div>
           </div>
-          <div className="h-48 md:h-64">
+          <div className="h-48 min-h-48 md:h-64 md:min-h-64 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={bookingsDynamicsData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
