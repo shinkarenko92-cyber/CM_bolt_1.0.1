@@ -97,8 +97,8 @@ export function MiniCalendarPicker({ onDateSelect, currentDate }: MiniCalendarPi
           key={day}
           onClick={() => handleDateClick(day)}
           className={`h-8 flex items-center justify-center rounded hover:bg-slate-700 transition-colors text-sm ${
-            isToday && !isSelected ? 'bg-teal-500/20 text-teal-400 font-semibold' : ''
-          } ${isSelected ? 'bg-teal-600 text-white' : 'text-slate-300'}`}
+            isToday && !isSelected ? 'bg-booking/20 text-booking-foreground font-semibold' : ''
+          } ${isSelected ? 'bg-booking text-booking-foreground' : 'text-slate-300'}`}
         >
           {day}
         </button>

@@ -5,16 +5,16 @@
 @layer base {
   :root {
     --radius: 0.75rem;
-    /* Premium 2025: slate-950, indigo-500, emerald/amber/red */
+    /* Premium 2025: slate-950, primary #87ddf5 (cyan), emerald/amber/red */
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
     --card: 215 28% 17%;
     --card-foreground: 210 40% 98%;
     --popover: 215 28% 17%;
     --popover-foreground: 210 40% 98%;
-    --primary: 239 84% 67%;
-    --primary-hover: 238 84% 73%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 193 85% 75%;
+    --primary-hover: 193 75% 65%;
+    --primary-foreground: 222 47% 11%;
     --secondary: 215 28% 17%;
     --secondary-foreground: 210 40% 98%;
     --muted: 215 28% 27%;
@@ -27,7 +27,11 @@
     --warning: 38 92% 50%;
     --border: 215 28% 27%;
     --input: 215 28% 27%;
-    --ring: 239 84% 67%;
+    --ring: 193 85% 75%;
+    /* Бронирования: основной #87ddf5 */
+    --booking: 193 85% 75%;
+    --booking-hover: 193 75% 65%;
+    --booking-foreground: 222 47% 11%;
   }
   :root[data-theme='dark'] {
     --background: 222 47% 11%;
@@ -36,9 +40,9 @@
     --card-foreground: 210 40% 98%;
     --popover: 215 28% 17%;
     --popover-foreground: 210 40% 98%;
-    --primary: 239 84% 67%;
-    --primary-hover: 238 84% 73%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 193 85% 75%;
+    --primary-hover: 193 75% 65%;
+    --primary-foreground: 222 47% 11%;
     --secondary: 215 28% 17%;
     --secondary-foreground: 210 40% 98%;
     --muted: 215 28% 27%;
@@ -51,7 +55,10 @@
     --warning: 38 92% 50%;
     --border: 215 28% 27%;
     --input: 215 28% 27%;
-    --ring: 239 84% 67%;
+    --ring: 193 85% 75%;
+    --booking: 193 85% 75%;
+    --booking-hover: 193 75% 65%;
+    --booking-foreground: 222 47% 11%;
   }
   :root[data-theme='light'] {
     --background: 210 40% 98%;
@@ -60,9 +67,9 @@
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 239 84% 67%;
-    --primary-hover: 238 84% 73%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 193 85% 75%;
+    --primary-hover: 193 75% 65%;
+    --primary-foreground: 222 47% 11%;
     --secondary: 214 32% 91%;
     --secondary-foreground: 222 47% 11%;
     --muted: 214 32% 91%;
@@ -75,7 +82,10 @@
     --warning: 38 92% 50%;
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 239 84% 67%;
+    --ring: 193 85% 75%;
+    --booking: 193 85% 75%;
+    --booking-hover: 193 75% 65%;
+    --booking-foreground: 222 47% 11%;
   }
 }
 

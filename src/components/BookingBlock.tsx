@@ -31,9 +31,9 @@ const getBookingColors = (status: string, hasConflict?: boolean) => {
 
   if (statusLower === 'paid' || statusLower === 'confirmed') {
     return {
-      bg: 'bg-teal-500',
-      hover: 'hover:bg-teal-600',
-      text: 'text-white',
+      bg: 'bg-booking',
+      hover: 'hover:bg-booking-hover',
+      text: 'text-booking-foreground',
     };
   }
 
@@ -47,9 +47,9 @@ const getBookingColors = (status: string, hasConflict?: boolean) => {
 
   // По умолчанию: забронировано (booked/reserved)
   return {
-    bg: 'bg-orange-300',
-    hover: 'hover:bg-orange-400',
-    text: 'text-white',
+    bg: 'bg-booking/90',
+    hover: 'hover:bg-booking',
+    text: 'text-booking-foreground',
   };
 };
 

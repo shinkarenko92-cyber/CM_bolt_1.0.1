@@ -843,7 +843,7 @@ export function Calendar({
         <div className="flex items-center gap-2">
           <button
             onClick={() => onAddReservation('', '', '')}
-            className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-booking hover:bg-booking-hover text-booking-foreground rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
             Добавить бронь
@@ -900,14 +900,14 @@ export function Calendar({
                   return (
                     <div
                       key={i}
-                      className={`w-16 flex-shrink-0 border-r border-slate-700 relative ${isToday ? 'bg-teal-500/20' : isWeekend ? 'bg-slate-700/50' : ''
+                      className={`w-16 flex-shrink-0 border-r border-border relative ${isToday ? 'bg-booking/20' : isWeekend ? 'bg-slate-700/50' : ''
                         }`}
                     >
                       <div className="px-2 py-2 text-center relative z-10">
-                        <div className={`text-sm font-medium ${isToday ? 'text-teal-400' : 'text-slate-300'}`}>
+                        <div className={`text-sm font-medium ${isToday ? 'text-booking-foreground' : 'text-slate-300'}`}>
                           {date.getDate()}
                         </div>
-                        <div className={`text-xs ${isToday ? 'text-teal-400' : 'text-slate-400'}`}>
+                        <div className={`text-xs ${isToday ? 'text-booking-foreground' : 'text-slate-400'}`}>
                           {date.toLocaleDateString('ru-RU', { weekday: 'short' })}
                         </div>
                       </div>
@@ -1011,8 +1011,8 @@ export function Calendar({
                                       return (
                                         <div
                                           key={i}
-                                          className={`w-16 flex-shrink-0 border-r border-slate-600 flex items-center justify-center cursor-pointer hover:bg-slate-700/50 transition-colors ${isSelected ? 'bg-teal-500/20' : ''
-                                            } ${isInRange ? 'bg-blue-500/10' : ''}`}
+                                          className={`w-16 flex-shrink-0 border-r border-border flex items-center justify-center cursor-pointer hover:bg-slate-700/50 transition-colors ${isSelected ? 'bg-booking/20' : ''
+                                            } ${isInRange ? 'bg-booking/10' : ''}`}
                                           onClick={handleMinStayClick}
                                         >
                                           <div className="text-[10px] font-medium text-slate-300 tabular-nums">
@@ -1053,9 +1053,9 @@ export function Calendar({
                                         return (
                                           <div
                                             key={i}
-                                            className={`w-16 flex-shrink-0 border-r border-slate-700/50 cursor-pointer transition-colors relative ${isToday ? 'bg-teal-500/20' : isWeekend ? 'bg-slate-700/50' : ''
-                                              } ${isSelected ? 'bg-teal-500/30' : ''
-                                              } ${isInRange || (dateSelection.startDate && !dateSelection.endDate && dateSelection.propertyId === property.id && hoverDate && dateString >= dateSelection.startDate && dateString <= hoverDate) ? 'bg-blue-500/20 shadow-[inset_0_0_15px_rgba(59,130,246,0.3)] ring-1 ring-blue-400/30 ring-inset' : ''} ${isDragOverThisCell ? dragOverColor : ''} ${!isOccupied ? 'hover:bg-slate-800/30' : ''}`}
+                                            className={`w-16 flex-shrink-0 border-r border-border cursor-pointer transition-colors relative ${isToday ? 'bg-primary/20' : isWeekend ? 'bg-slate-700/50' : ''
+                                              } ${isSelected ? 'bg-booking/30' : ''
+                                              } ${isInRange || (dateSelection.startDate && !dateSelection.endDate && dateSelection.propertyId === property.id && hoverDate && dateString >= dateSelection.startDate && dateString <= hoverDate) ? 'bg-booking/20 shadow-[inset_0_0_15px_rgba(135,221,245,0.3)] ring-1 ring-booking/40 ring-inset' : ''} ${isDragOverThisCell ? dragOverColor : ''} ${!isOccupied ? 'hover:bg-slate-800/30' : ''}`}
                                             onClick={() => !isOccupied && handleCellClick(property.id, date)}
                                             onMouseEnter={() => {
                                               if (dateSelection.startDate && !dateSelection.endDate && dateSelection.propertyId === property.id) {
@@ -1065,7 +1065,7 @@ export function Calendar({
                                           >
                                             {/* Selection glow effect */}
                                             {isSelected && (
-                                              <div className="absolute inset-0 ring-1 ring-teal-400/50 ring-inset shadow-[0_0_12px_rgba(20,184,166,0.2)] pointer-events-none" />
+                                              <div className="absolute inset-0 ring-1 ring-booking/50 ring-inset shadow-[0_0_12px_rgba(135,221,245,0.25)] pointer-events-none" />
                                             )}
                                             {!isOccupied && (
                                               <div className="h-11 flex items-center justify-center text-center px-1">

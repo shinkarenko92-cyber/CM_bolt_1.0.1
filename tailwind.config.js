@@ -41,6 +41,11 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        booking: {
+          DEFAULT: 'hsl(var(--booking))',
+          foreground: 'hsl(var(--booking-foreground))',
+          hover: 'hsl(var(--booking-hover))',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
