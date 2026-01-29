@@ -926,7 +926,7 @@ export function Dashboard() {
         // Retry without audit fields - create new object without created_by and updated_by
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { created_by, updated_by, ...rest } = payload;
-        payload = rest;
+        payload = rest as typeof payload;
 
         const retryResult = await supabase.from('bookings').insert([payload]).select();
         data = retryResult.data;
@@ -938,7 +938,7 @@ export function Dashboard() {
         // Strip deposit from current payload (already without audit if first retry ran)
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { deposit_received, deposit_returned, ...rest } = payload;
-        payload = rest;
+        payload = rest as typeof payload;
 
         const retryDeposit = await supabase.from('bookings').insert([payload]).select();
         data = retryDeposit.data;
