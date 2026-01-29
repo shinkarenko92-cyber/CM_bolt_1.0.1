@@ -21,9 +21,9 @@ type BookingBlockProps = {
 const getBookingColors = (status: string, hasConflict?: boolean) => {
   if (hasConflict) {
     return {
-      bg: 'bg-red-300',
-      hover: 'hover:bg-red-400',
-      text: 'text-white',
+      bg: 'bg-destructive',
+      hover: 'hover:bg-destructive/90',
+      text: 'text-destructive-foreground',
     };
   }
 

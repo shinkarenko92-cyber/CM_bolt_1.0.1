@@ -5,15 +5,15 @@
 @layer base {
   :root {
     --radius: 0.75rem;
-    /* Premium 2025: slate-950, primary #87ddf5 (cyan), emerald/amber/red */
+    /* Primary #9ECBFF, booking/success #29BF12, destructive #F21B3F */
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
     --card: 215 28% 17%;
     --card-foreground: 210 40% 98%;
     --popover: 215 28% 17%;
     --popover-foreground: 210 40% 98%;
-    --primary: 193 85% 75%;
-    --primary-hover: 193 75% 65%;
+    --primary: 214 100% 81%;
+    --primary-hover: 214 95% 75%;
     --primary-foreground: 222 47% 11%;
     --secondary: 215 28% 17%;
     --secondary-foreground: 210 40% 98%;
@@ -21,17 +21,16 @@
     --muted-foreground: 213 27% 72%;
     --accent: 215 28% 27%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 84% 60%;
+    --destructive: 348 91% 53%;
     --destructive-foreground: 0 0% 100%;
-    --success: 160 84% 39%;
+    --success: 113 83% 41%;
     --warning: 38 92% 50%;
     --border: 215 28% 27%;
     --input: 215 28% 27%;
-    --ring: 193 85% 75%;
-    /* Бронирования: основной #87ddf5 */
-    --booking: 193 85% 75%;
-    --booking-hover: 193 75% 65%;
-    --booking-foreground: 222 47% 11%;
+    --ring: 214 100% 81%;
+    --booking: 113 83% 41%;
+    --booking-hover: 113 83% 36%;
+    --booking-foreground: 0 0% 100%;
   }
   :root[data-theme='dark'] {
     --background: 222 47% 11%;
@@ -40,8 +39,8 @@
     --card-foreground: 210 40% 98%;
     --popover: 215 28% 17%;
     --popover-foreground: 210 40% 98%;
-    --primary: 193 85% 75%;
-    --primary-hover: 193 75% 65%;
+    --primary: 214 100% 81%;
+    --primary-hover: 214 95% 75%;
     --primary-foreground: 222 47% 11%;
     --secondary: 215 28% 17%;
     --secondary-foreground: 210 40% 98%;
@@ -49,16 +48,16 @@
     --muted-foreground: 213 27% 72%;
     --accent: 215 28% 27%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 84% 60%;
+    --destructive: 348 91% 53%;
     --destructive-foreground: 0 0% 100%;
-    --success: 160 84% 39%;
+    --success: 113 83% 41%;
     --warning: 38 92% 50%;
     --border: 215 28% 27%;
     --input: 215 28% 27%;
-    --ring: 193 85% 75%;
-    --booking: 193 85% 75%;
-    --booking-hover: 193 75% 65%;
-    --booking-foreground: 222 47% 11%;
+    --ring: 214 100% 81%;
+    --booking: 113 83% 41%;
+    --booking-hover: 113 83% 36%;
+    --booking-foreground: 0 0% 100%;
   }
   :root[data-theme='light'] {
     --background: 210 40% 98%;
@@ -67,8 +66,8 @@
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 193 85% 75%;
-    --primary-hover: 193 75% 65%;
+    --primary: 214 100% 81%;
+    --primary-hover: 214 95% 75%;
     --primary-foreground: 222 47% 11%;
     --secondary: 214 32% 91%;
     --secondary-foreground: 222 47% 11%;
@@ -76,16 +75,16 @@
     --muted-foreground: 215 16% 47%;
     --accent: 214 32% 91%;
     --accent-foreground: 222 47% 11%;
-    --destructive: 0 84% 60%;
+    --destructive: 348 91% 53%;
     --destructive-foreground: 0 0% 100%;
-    --success: 160 84% 39%;
+    --success: 113 83% 41%;
     --warning: 38 92% 50%;
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 193 85% 75%;
-    --booking: 193 85% 75%;
-    --booking-hover: 193 75% 65%;
-    --booking-foreground: 222 47% 11%;
+    --ring: 214 100% 81%;
+    --booking: 113 83% 41%;
+    --booking-hover: 113 83% 36%;
+    --booking-foreground: 0 0% 100%;
   }
 }
 
@@ -119,11 +118,11 @@ html, body {
   --text-primary: #0f172a;
   --text-secondary: #334155;
   --text-tertiary: #64748b;
-  --accent-color: #6366f1;
-  --accent-hover: #818cf8;
+  --accent-color: #9ECBFF;
+  --accent-hover: #7eb8f5;
   --accent-light: #e0e7ff;
-  --success-color: #10b981;
-  --error-color: #ef4444;
+  --success-color: #29BF12;
+  --error-color: #F21B3F;
   --warning-color: #f59e0b;
 }
 
@@ -136,11 +135,11 @@ html, body {
   --text-primary: #f8fafc;
   --text-secondary: #cbd5e1;
   --text-tertiary: #94a3b8;
-  --accent-color: #6366f1;
-  --accent-hover: #818cf8;
+  --accent-color: #9ECBFF;
+  --accent-hover: #7eb8f5;
   --accent-light: #312e81;
-  --success-color: #10b981;
-  --error-color: #ef4444;
+  --success-color: #29BF12;
+  --error-color: #F21B3F;
   --warning-color: #f59e0b;
 }
 
