@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { X, Upload, FileSpreadsheet } from 'lucide-react';
-import { Upload as AntUpload, Table, Button, Progress, Alert, message } from 'antd';
+import { Upload as AntUpload, Table, Button, Progress, Alert } from 'antd';
 import type { UploadFile, UploadProps } from 'antd';
 import { parseExcelFile, type ParsedBooking } from '../utils/excelParser';
 import { supabase } from '../lib/supabase';
@@ -48,7 +48,7 @@ export function ImportBookingsModal({ isOpen, onClose, onSuccess }: ImportBookin
     // Проверяем расширение файла
     const fileName = file.name.toLowerCase();
     if (!fileName.endsWith('.xls') && !fileName.endsWith('.xlsx')) {
-      message.error('Файл должен быть в формате .xls или .xlsx');
+      toast.error('Файл должен быть в формате .xls или .xlsx');
       setFileList([]);
       return;
     }
@@ -60,12 +60,12 @@ export function ImportBookingsModal({ isOpen, onClose, onSuccess }: ImportBookin
       setParseErrors(result.errors);
 
       if (result.errors.length > 0) {
-        message.warning(`Найдено ${result.errors.length} ошибок при парсинге`);
+        toast(`Найдено ${result.errors.length} ошибок при парсинге`, { icon: '⚠️' });
       } else {
-        message.success(`Успешно распознано ${result.bookings.length} броней`);
+        toast.success(`Успешно распознано ${result.bookings.length} броней`);
       }
     } catch (error) {
-      message.error(
+      toast.error(
         error instanceof Error ? error.message : 'Ошибка при чтении файла'
       );
       setFileList([]);
@@ -120,7 +120,7 @@ export function ImportBookingsModal({ isOpen, onClose, onSuccess }: ImportBookin
 
       if (result.errors.length > 0) {
         // Есть ошибки overlaps - блокируем импорт
-        message.error(`Импорт заблокирован: найдено ${result.errors.length} пересечений дат`);
+        toast.error(`Импорт заблокирован: найдено ${result.errors.length} пересечений дат`);
       } else {
         // Успешный импорт
         const totalRevenue = parsedBookings.reduce((sum, b) => sum + b.amount, 0);
@@ -144,7 +144,7 @@ export function ImportBookingsModal({ isOpen, onClose, onSuccess }: ImportBookin
         }, 1500);
       }
     } catch (error) {
-      message.error(
+      toast.error(
         error instanceof Error ? error.message : 'Ошибка при импорте'
       );
     } finally {

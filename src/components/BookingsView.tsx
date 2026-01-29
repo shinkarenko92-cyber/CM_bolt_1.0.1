@@ -1,6 +1,18 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Search, Calendar, MapPin, User, Phone, Mail, Upload } from 'lucide-react';
 import { Booking, Property } from '../lib/supabase';
+import { Card, CardContent, CardDescription, CardHeader } from './ui/card';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { cn } from '@/lib/utils';
 
 interface BookingsViewProps {
   bookings: Booking[];
@@ -9,56 +21,29 @@ interface BookingsViewProps {
   onImport?: () => void;
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  manual: 'Вручную',
+  airbnb: 'Airbnb',
+  booking: 'Booking.com',
+  avito: 'Avito',
+  cian: 'CIAN',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  confirmed: 'Подтверждено',
+  pending: 'Ожидание',
+  cancelled: 'Отменено',
+};
+
 export function BookingsView({ bookings, properties, onEdit, onImport }: BookingsViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'upcoming' | 'past'>('all');
   const [sortBy, setSortBy] = useState<'date' | 'property' | 'source'>('date');
 
-  const getPropertyName = useCallback((propertyId: string) => {
-    return properties.find((p) => p.id === propertyId)?.name || 'Неизвестно';
-  }, [properties]);
-
-  const getSourceBadge = (source: string) => {
-    const colors = {
-      manual: 'bg-slate-600 text-slate-200',
-      airbnb: 'bg-pink-600 text-white',
-      booking: 'bg-blue-600 text-white',
-      avito: 'bg-green-600 text-white',
-      cian: 'bg-red-600 text-white',
-    };
-
-    const labels = {
-      manual: 'Вручную',
-      airbnb: 'Airbnb',
-      booking: 'Booking.com',
-      avito: 'Avito',
-      cian: 'CIAN',
-    };
-
-    return {
-      color: colors[source as keyof typeof colors] || colors.manual,
-      label: labels[source as keyof typeof labels] || source,
-    };
-  };
-
-  const getStatusBadge = (status: string) => {
-    const colors = {
-      confirmed: 'bg-green-500/20 text-green-400 border-green-500/30',
-      pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-      cancelled: 'bg-red-500/20 text-red-400 border-red-500/30',
-    };
-
-    const labels = {
-      confirmed: 'Подтверждено',
-      pending: 'Ожидание',
-      cancelled: 'Отменено',
-    };
-
-    return {
-      color: colors[status as keyof typeof colors] || colors.pending,
-      label: labels[status as keyof typeof labels] || status,
-    };
-  };
+  const getPropertyName = useCallback(
+    (propertyId: string) => properties.find((p) => p.id === propertyId)?.name || 'Неизвестно',
+    [properties]
+  );
 
   const filteredAndSortedBookings = useMemo(() => {
     const nowDate = new Date();
@@ -83,9 +68,11 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
     filtered.sort((a, b) => {
       if (sortBy === 'date') {
         return new Date(b.check_in).getTime() - new Date(a.check_in).getTime();
-      } else if (sortBy === 'property') {
+      }
+      if (sortBy === 'property') {
         return getPropertyName(a.property_id).localeCompare(getPropertyName(b.property_id));
-      } else if (sortBy === 'source') {
+      }
+      if (sortBy === 'source') {
         return a.source.localeCompare(b.source);
       }
       return 0;
@@ -121,203 +108,195 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
   };
 
   return (
-    <div className="flex-1 overflow-auto p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6 flex items-center justify-between">
+    <div className="flex-1 overflow-auto p-4 md:p-6 bg-background">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1">Бронирования</h1>
-            <p className="text-slate-400">Просмотр всех прошлых и будущих бронирований</p>
+            <h1 className="text-2xl font-bold tracking-tight">Бронирования</h1>
+            <p className="text-muted-foreground text-sm mt-1">Просмотр всех прошлых и будущих бронирований</p>
           </div>
           {onImport && (
-            <button
-              onClick={onImport}
-              className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors"
-            >
-              <Upload size={18} />
-              <span>Импорт из Excel</span>
-            </button>
+            <Button onClick={onImport} className="shrink-0">
+              <Upload className="h-4 w-4 mr-2" />
+              Импорт из Excel
+            </Button>
           )}
         </div>
 
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-slate-800 rounded-lg p-4">
-            <div className="text-slate-400 text-sm mb-1">Всего</div>
-            <div className="text-2xl font-bold text-white">{stats.total}</div>
-          </div>
-          <div className="bg-slate-800 rounded-lg p-4">
-            <div className="text-slate-400 text-sm mb-1">Будущие</div>
-            <div className="text-2xl font-bold text-teal-400">{stats.upcoming}</div>
-          </div>
-          <div className="bg-slate-800 rounded-lg p-4">
-            <div className="text-slate-400 text-sm mb-1">Прошлые</div>
-            <div className="text-2xl font-bold text-slate-400">{stats.past}</div>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Всего</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{stats.total}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Будущие</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-primary">{stats.upcoming}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Прошлые</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-muted-foreground">{stats.past}</p>
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="bg-slate-800 rounded-lg p-4 mb-6">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Поиск по гостю или объекту..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col lg:flex-row gap-4 flex-wrap">
+              <div className="flex-1 min-w-[200px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Поиск по гостю или объекту..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 h-10"
+                  />
+                </div>
               </div>
+              <div className="flex flex-wrap gap-2">
+                {(['all', 'upcoming', 'past'] as const).map((type) => (
+                  <Button
+                    key={type}
+                    variant={filterType === type ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilterType(type)}
+                  >
+                    {type === 'all' ? 'Все' : type === 'upcoming' ? 'Будущие' : 'Прошлые'}
+                  </Button>
+                ))}
+              </div>
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'date' | 'property' | 'source')}>
+                <SelectTrigger className="w-[180px] h-10">
+                  <SelectValue placeholder="Сортировка" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">По дате</SelectItem>
+                  <SelectItem value="property">По объекту</SelectItem>
+                  <SelectItem value="source">По источнику</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilterType('all')}
-                className={`px-4 py-2 rounded text-sm font-medium transition ${
-                  filterType === 'all'
-                    ? 'bg-teal-600 text-white'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                }`}
-              >
-                Все
-              </button>
-              <button
-                onClick={() => setFilterType('upcoming')}
-                className={`px-4 py-2 rounded text-sm font-medium transition ${
-                  filterType === 'upcoming'
-                    ? 'bg-teal-600 text-white'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                }`}
-              >
-                Будущие
-              </button>
-              <button
-                onClick={() => setFilterType('past')}
-                className={`px-4 py-2 rounded text-sm font-medium transition ${
-                  filterType === 'past'
-                    ? 'bg-teal-600 text-white'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                }`}
-              >
-                Прошлые
-              </button>
-            </div>
-
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as 'date' | 'property' | 'source')}
-              className="px-4 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
-            >
-              <option value="date">Сортировка: Дата</option>
-              <option value="property">Сортировка: Объект</option>
-              <option value="source">Сортировка: Источник</option>
-            </select>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {filteredAndSortedBookings.length === 0 ? (
-          <div className="text-center py-12 bg-slate-800 rounded-lg">
-            <p className="text-slate-400">Бронирований не найдено</p>
-          </div>
+          <Card>
+            <CardContent className="py-12 text-center">
+              <p className="text-muted-foreground">Бронирований не найдено</p>
+            </CardContent>
+          </Card>
         ) : (
           <div className="space-y-3">
             {filteredAndSortedBookings.map((booking) => {
-              const source = getSourceBadge(booking.source);
-              const status = getStatusBadge(booking.status);
               const nights = calculateNights(booking.check_in, booking.check_out);
+              const sourceLabel = SOURCE_LABELS[booking.source] || booking.source;
+              const statusLabel = STATUS_LABELS[booking.status] || booking.status;
 
               return (
-                <div
+                <Card
                   key={booking.id}
+                  className={cn(
+                    'cursor-pointer transition-colors hover:border-primary/50 hover:shadow-md',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                  )}
                   onClick={() => onEdit(booking)}
-                  className="bg-slate-800 rounded-lg p-4 hover:ring-2 hover:ring-teal-500 transition cursor-pointer"
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-white">{booking.guest_name}</h3>
-                        <span className={`px-2 py-1 text-xs rounded ${source.color}`}>
-                          {source.label}
-                        </span>
-                        <span className={`px-2 py-1 text-xs rounded border ${status.color}`}>
-                          {status.label}
-                        </span>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-400">
-                        <div className="flex items-center gap-1">
-                          <MapPin size={14} />
-                          <span>{getPropertyName(booking.property_id)}</span>
+                  <CardContent className="p-4 md:p-5">
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                      <div className="flex-1 space-y-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-lg font-semibold">{booking.guest_name}</h3>
+                          <Badge variant="secondary" className="font-normal">
+                            {sourceLabel}
+                          </Badge>
+                          <Badge
+                            variant={
+                              booking.status === 'confirmed'
+                                ? 'success'
+                                : booking.status === 'pending'
+                                  ? 'warning'
+                                  : 'destructive'
+                            }
+                          >
+                            {statusLabel}
+                          </Badge>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar size={14} />
-                          <span>
-                            {new Date(booking.check_in).toLocaleDateString('ru-RU')} -{' '}
+
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-4 w-4 shrink-0" />
+                            {getPropertyName(booking.property_id)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4 shrink-0" />
+                            {new Date(booking.check_in).toLocaleDateString('ru-RU')} —{' '}
                             {new Date(booking.check_out).toLocaleDateString('ru-RU')} ({nights}{' '}
                             {nights === 1 ? 'ночь' : 'ночей'})
                           </span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <User size={14} />
-                          <span>
+                          <span className="flex items-center gap-1">
+                            <User className="h-4 w-4 shrink-0" />
                             {booking.guests_count} {booking.guests_count === 1 ? 'гость' : 'гостей'}
                           </span>
                         </div>
+
+                        {(booking.guest_email || booking.guest_phone) && (
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                            {booking.guest_email && (
+                              <span className="flex items-center gap-1">
+                                <Mail className="h-4 w-4 shrink-0" />
+                                {booking.guest_email}
+                              </span>
+                            )}
+                            {booking.guest_phone && (
+                              <span className="flex items-center gap-2">
+                                <Phone className="h-4 w-4 shrink-0" />
+                                {booking.guest_phone}
+                                <a
+                                  href={`https://wa.me/${booking.guest_phone.replace(/\D/g, '')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-green-600/20 transition-colors"
+                                  title="Открыть в WhatsApp"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <img src="/whatsapp-icon.svg" alt="WhatsApp" className="h-5 w-5" />
+                                </a>
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {booking.notes && (
+                          <div className="pt-3 border-t border-border">
+                            <p className="text-xs font-medium text-muted-foreground mb-1">Заметки</p>
+                            <p className="text-sm whitespace-pre-wrap break-words line-clamp-2">
+                              {booking.notes.length > 150 ? `${booking.notes.substring(0, 150)}...` : booking.notes}
+                            </p>
+                          </div>
+                        )}
                       </div>
 
-                      {(booking.guest_email || booking.guest_phone) && (
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-slate-500">
-                          {booking.guest_email && (
-                            <div className="flex items-center gap-1">
-                              <Mail size={14} />
-                              <span>{booking.guest_email}</span>
-                            </div>
-                          )}
-                          {booking.guest_phone && (
-                            <div className="flex items-center gap-2">
-                              <Phone size={14} />
-                              <span>{booking.guest_phone}</span>
-                              <a
-                                href={`https://wa.me/${booking.guest_phone.replace(/\D/g, '')}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-green-600/20 transition-colors"
-                                title="Открыть в WhatsApp"
-                              >
-                                <img 
-                                  src="/whatsapp-icon.svg" 
-                                  alt="WhatsApp" 
-                                  className="w-5 h-5"
-                                />
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {booking.notes && (
-                        <div className="mt-3 pt-3 border-t border-slate-700">
-                          <div className="text-xs font-medium text-slate-400 mb-1">
-                            Notes:
-                          </div>
-                          <div className="text-sm text-slate-300 whitespace-pre-wrap break-words">
-                            {booking.notes.length > 150 
-                              ? `${booking.notes.substring(0, 150)}...` 
-                              : booking.notes}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-white">
-                        {booking.total_price} {booking.currency}
-                      </div>
-                      <div className="text-sm text-slate-400 mt-1">
-                        {nights > 0 ? (booking.total_price / nights).toFixed(0) : 0} {booking.currency}/ночь
+                      <div className="text-left md:text-right shrink-0">
+                        <p className="text-2xl font-bold">{booking.total_price} {booking.currency}</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {nights > 0 ? Math.round(booking.total_price / nights) : 0} {booking.currency}/ночь
+                        </p>
                       </div>
                     </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>

@@ -1,8 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, Bell, User } from 'lucide-react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Avatar, AvatarFallback } from './ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { message } from 'antd';
 import { Sidebar } from './Sidebar';
 import { Calendar } from './Calendar';
 import { AddReservationModal } from './AddReservationModal';
@@ -729,18 +738,13 @@ export function Dashboard() {
           filter: 'source=eq.avito',
         },
         () => {
-          // Toast notification
-          message.success('Лид с Avito!');
-
-          // Optional: Play sound notification
+          toast.success('Лид с Avito!');
           try {
             const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUKzn8LZjHAY4kdfyzHksBSR3x/DdkEAKFF606euoVRQKRp/g8r5sIQUrgc7y2Yk2CBtpvfDknE4MDlCs5/C2YxwGOJHX8sx5LAUkd8fw3ZBAC');
             audio.volume = 0.3;
-            audio.play().catch(() => {
-              // Ignore errors (user may have blocked audio)
-            });
+            audio.play().catch(() => {});
           } catch {
-            // Ignore audio errors
+            // ignore
           }
 
           // Refresh bookings
@@ -934,9 +938,9 @@ export function Dashboard() {
         error = retryResult.error;
       }
 
-      // Handle 400 / column not found - retry without deposit fields (migration may not be applied)
+      // Handle 400 / column not found - retry without deposit_received/deposit_returned (migration may not be applied)
       if (error && (error.code === 'PGRST204' || (error as { code?: string }).code === '400' || error.message?.includes('deposit_received') || error.message?.includes('deposit_returned'))) {
-        // Strip deposit from current payload (already without audit if first retry ran)
+        // Strip deposit flags from current payload (already without audit if first retry ran)
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { deposit_received, deposit_returned, ...rest } = payload;
         payload = rest as typeof payload;
@@ -944,6 +948,17 @@ export function Dashboard() {
         const retryDeposit = await supabase.from('bookings').insert([payload]).select();
         data = retryDeposit.data;
         error = retryDeposit.error;
+      }
+
+      // Handle deposit_amount column not found (migration 20260126000000 may not be applied)
+      if (error && (error.code === 'PGRST204' || error.message?.includes('deposit_amount'))) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { deposit_amount, ...rest } = payload;
+        payload = rest as typeof payload;
+
+        const retryDepositAmount = await supabase.from('bookings').insert([payload]).select();
+        data = retryDepositAmount.data;
+        error = retryDepositAmount.error;
       }
 
       if (error) throw error;
@@ -1571,26 +1586,26 @@ export function Dashboard() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-900">
+    <div className="flex h-screen bg-background text-foreground">
       <Sidebar currentView={currentView} onViewChange={setCurrentView} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-slate-800 border-b border-slate-700 px-3 md:px-6 py-3 md:py-4">
+        <header className="bg-card border-b border-border px-3 md:px-6 py-3 md:py-4 shadow-sm">
           <div className="flex items-center justify-between gap-2">
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-slate-400" />
-              <input
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
+              <Input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => searchQuery && setShowSearchDropdown(true)}
                 placeholder={t('common.search')}
-                className="w-full pl-9 md:pl-10 pr-3 md:pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                className="pl-9 md:pl-10 h-10"
                 data-testid="input-search"
               />
               {showSearchDropdown && searchResults.length > 0 && (
-                <div className="absolute top-full mt-1 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-96 overflow-y-auto z-50">
-                  <div className="px-3 py-2 border-b border-slate-700 text-xs text-slate-500">
+                <div className="absolute top-full mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-96 overflow-y-auto z-50">
+                  <div className="px-3 py-2 border-b border-border text-xs text-muted-foreground">
                     {t('bookings.found')}: {searchResults.length}
                   </div>
                   {searchResults.map((booking) => {
@@ -1601,30 +1616,36 @@ export function Dashboard() {
                     return (
                       <button
                         key={booking.id}
+                        type="button"
                         onClick={() => {
                           setShowSearchDropdown(false);
                           setSearchQuery('');
                           handleEditReservation(booking);
                         }}
-                        className="w-full text-left px-4 py-3 hover:bg-slate-700 transition-colors border-b border-slate-700 last:border-b-0"
+                        className={cn(
+                          'w-full text-left px-4 py-3 transition-colors border-b border-border last:border-b-0',
+                          'hover:bg-accent hover:text-accent-foreground'
+                        )}
                         data-testid={`search-result-${booking.id}`}
                       >
                         <div className="flex items-center justify-between mb-1">
-                          <span className="font-semibold text-white">{booking.guest_name}</span>
-                          <span className="text-sm font-medium text-teal-400">
+                          <span className="font-semibold">{booking.guest_name}</span>
+                          <span className="text-sm font-medium text-primary">
                             {booking.total_price.toLocaleString('ru-RU')} {booking.currency}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-400">{property?.name || t('common.unknown')}</span>
-                          <span className={`px-2 py-0.5 rounded text-xs ${booking.status === 'confirmed' ? 'bg-green-500/20 text-green-400' :
-                            booking.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                              'bg-red-500/20 text-red-400'
-                            }`}>
+                        <div className="flex items-center justify-between text-sm text-muted-foreground">
+                          <span>{property?.name || t('common.unknown')}</span>
+                          <span className={cn(
+                            'px-2 py-0.5 rounded text-xs',
+                            booking.status === 'confirmed' && 'bg-green-500/20 text-green-400',
+                            booking.status === 'pending' && 'bg-yellow-500/20 text-yellow-400',
+                            booking.status === 'cancelled' && 'bg-red-500/20 text-red-400'
+                          )}>
                             {booking.status === 'confirmed' ? t('bookings.confirmed') : booking.status === 'pending' ? t('bookings.pending') : t('bookings.cancelled')}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between text-xs text-slate-500 mt-1">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
                           <span>{checkIn} - {checkOut} ({nights} {nights === 1 ? t('common.night') : nights < 5 ? t('common.nights_few') : t('common.nights')})</span>
                           {booking.guest_phone && <span>{booking.guest_phone}</span>}
                         </div>
@@ -1639,29 +1660,42 @@ export function Dashboard() {
               <ThemeToggle />
 
               <button
+                type="button"
                 onClick={handleSync}
-                className="p-2 hover:bg-slate-700 rounded-lg transition-colors relative"
-                title="Sync with external APIs"
+                className="p-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors relative"
+                title="Синхронизация с внешними API"
                 data-testid="button-sync"
               >
-                <Bell className="w-4 h-4 md:w-5 md:h-5 text-slate-400" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-teal-500 rounded-full"></span>
+                <Bell className="h-4 w-4 md:h-5 md:w-5" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
               </button>
 
-              <div
-                className="flex items-center gap-2 md:gap-3 pl-2 md:pl-4 border-l border-slate-700 cursor-pointer hover:bg-slate-700/50 rounded-lg p-1 md:p-2 transition-colors"
-                onClick={() => setIsProfileModalOpen(true)}
-                title={t('settings.profile')}
-                data-testid="button-profile"
-              >
-                <div className="text-right hidden sm:block">
-                  <div className="text-sm font-medium text-white">{t('properties.title')}</div>
-                  <div className="text-xs text-slate-400">{user?.email}</div>
-                </div>
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-teal-600 rounded-lg flex items-center justify-center">
-                  <User className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                </div>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 md:gap-3 pl-2 md:pl-4 border-l border-border cursor-pointer hover:bg-accent rounded-lg p-1 md:p-2 transition-colors outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    title={t('settings.profile')}
+                    data-testid="button-profile"
+                  >
+                    <div className="text-right hidden sm:block">
+                      <div className="text-sm font-medium">{t('properties.title')}</div>
+                      <div className="text-xs text-muted-foreground">{user?.email}</div>
+                    </div>
+                    <Avatar className="h-8 w-8 md:h-10 md:w-10 rounded-lg">
+                      <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
+                        <User className="h-4 w-4 md:h-5 md:w-5" />
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => setIsProfileModalOpen(true)}>
+                    <User className="mr-2 h-4 w-4" />
+                    {t('settings.profile')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </header>
@@ -1709,7 +1743,7 @@ export function Dashboard() {
               />
             </div>
             {selectedChatId && (
-              <div className="w-full md:w-1/2 lg:w-2/3 xl:w-3/4 border-l border-slate-700">
+              <div className="w-full md:w-1/2 lg:w-2/3 xl:w-3/4 border-l border-border">
                 <ChatPanel
                   chat={chats.find(c => c.id === selectedChatId) || null}
                   property={chats.find(c => c.id === selectedChatId)?.property_id 
@@ -1811,15 +1845,10 @@ export function Dashboard() {
             />
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center bg-background">
             <div className="text-center">
-              <p className="text-slate-400 mb-4">{t('common.underDevelopment')}</p>
-              <button
-                onClick={() => setCurrentView('calendar')}
-                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors"
-              >
-                {t('nav.calendar')}
-              </button>
+              <p className="text-muted-foreground mb-4">{t('common.underDevelopment')}</p>
+              <Button onClick={() => setCurrentView('calendar')}>{t('nav.calendar')}</Button>
             </div>
           </div>
         )}

@@ -1,11 +1,30 @@
-import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Booking, Property, supabase, BookingLog } from '../lib/supabase';
 import { PriceRecalculationModal } from './PriceRecalculationModal';
-import { Timeline } from 'antd';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from './ui/sheet';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { ScrollArea } from './ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 interface EditReservationModalProps {
   isOpen: boolean;
@@ -15,6 +34,46 @@ interface EditReservationModalProps {
   onUpdate: (id: string, data: Partial<Booking>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }
+
+type HistoryEvent = {
+  timestamp: string;
+  action: string;
+  source: string | null;
+  changes?: Record<string, { old?: unknown; new?: unknown }> | null;
+};
+
+const ACTION_LABELS: Record<string, string> = {
+  create: 'Бронирование создано',
+  update: 'Бронирование обновлено',
+  delete: 'Бронирование удалено',
+  created: 'Бронирование создано',
+  updated: 'Бронирование обновлено',
+  deleted: 'Бронирование удалено',
+  status_changed: 'Изменен статус',
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  manual: 'Ручное создание',
+  avito: 'Avito',
+  cian: 'ЦИАН',
+  booking: 'Booking.com',
+  airbnb: 'Airbnb',
+};
+
+const FIELD_LABELS: Record<string, string> = {
+  guest_name: 'Имя гостя',
+  guest_email: 'Email',
+  guest_phone: 'Телефон',
+  check_in: 'Заезд',
+  check_out: 'Выезд',
+  guests_count: 'Количество гостей',
+  total_price: 'Цена',
+  currency: 'Валюта',
+  status: 'Статус',
+  notes: 'Заметки',
+  extra_services_amount: 'Доп. услуги',
+  property_id: 'Объект',
+};
 
 export function EditReservationModal({
   isOpen,
@@ -45,30 +104,28 @@ export function EditReservationModal({
   const [calculatedPrice, setCalculatedPrice] = useState(0);
   const [bookingLogs, setBookingLogs] = useState<BookingLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Вычисление количества ночей
   const calculateNights = (checkIn: string, checkOut: string): number => {
     if (!checkIn || !checkOut) return 0;
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
     if (checkOutDate <= checkInDate) return 0;
-    const diffTime = checkOutDate.getTime() - checkInDate.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
   };
 
   useEffect(() => {
     if (booking) {
       const nights = calculateNights(booking.check_in || '', booking.check_out || '');
-      const pricePerNight = nights > 0 && booking.total_price 
-        ? Math.round(booking.total_price / nights).toString()
-        : '';
-      
+      const pricePerNight =
+        nights > 0 && booking.total_price ? Math.round(booking.total_price / nights).toString() : '';
       const extraServices = booking.extra_services_amount || 0;
       const basePrice = (booking.total_price || 0) - extraServices;
-      const correctedPricePerNight = nights > 0 && basePrice > 0 
-        ? Math.round(basePrice / nights).toString()
-        : pricePerNight;
-      
+      const correctedPricePerNight =
+        nights > 0 && basePrice > 0 ? Math.round(basePrice / nights).toString() : pricePerNight;
+
       setFormData({
         property_id: booking.property_id || '',
         guest_name: booking.guest_name || '',
@@ -99,7 +156,6 @@ export function EditReservationModal({
         .eq('booking_id', bookingId)
         .order('timestamp', { ascending: false })
         .limit(50);
-
       if (error) throw error;
       setBookingLogs(data || []);
     } catch (err) {
@@ -109,22 +165,15 @@ export function EditReservationModal({
     }
   };
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  // Пересчет total_price при изменении price_per_night или extra_services_amount
   useEffect(() => {
     if (formData.price_per_night && formData.check_in && formData.check_out) {
       const nights = calculateNights(formData.check_in, formData.check_out);
       if (nights > 0) {
         const pricePerNight = parseFloat(formData.price_per_night) || 0;
         const extraServices = parseFloat(formData.extra_services_amount) || 0;
-        const basePrice = pricePerNight * nights;
-        const newTotalPrice = Math.round(basePrice + extraServices).toString();
         setFormData(prev => ({
           ...prev,
-          total_price: newTotalPrice,
+          total_price: Math.round(pricePerNight * nights + extraServices).toString(),
         }));
       }
     }
@@ -132,27 +181,27 @@ export function EditReservationModal({
 
   if (!booking) return null;
 
-  const calculateNewPrice = async (propertyId: string, checkIn: string, checkOut: string): Promise<number> => {
+  const calculateNewPrice = async (
+    propertyId: string,
+    checkIn: string,
+    checkOut: string
+  ): Promise<number> => {
     const property = properties.find(p => p.id === propertyId);
     if (!property) return 0;
-
     const { data: rates } = await supabase
       .from('property_rates')
       .select('*')
       .eq('property_id', propertyId);
-
     const start = new Date(checkIn);
     const end = new Date(checkOut);
     let total = 0;
     const current = new Date(start);
-
     while (current < end) {
       const dateStr = current.toISOString().split('T')[0];
       const rate = rates?.find(r => r.date === dateStr);
-      total += rate?.daily_price || property.base_price;
+      total += rate?.daily_price ?? property.base_price ?? 0;
       current.setDate(current.getDate() + 1);
     }
-
     return total;
   };
 
@@ -161,29 +210,25 @@ export function EditReservationModal({
       const newPrice = await calculateNewPrice(newPropertyId, formData.check_in, formData.check_out);
       setCalculatedPrice(newPrice);
       setShowPriceModal(true);
-      setFormData({ ...formData, property_id: newPropertyId });
+      setFormData(prev => ({ ...prev, property_id: newPropertyId }));
     } else {
-      setFormData({ ...formData, property_id: newPropertyId });
+      setFormData(prev => ({ ...prev, property_id: newPropertyId }));
     }
   };
 
-  const handleKeepPrice = () => {
-    setShowPriceModal(false);
-  };
+  const handleKeepPrice = () => setShowPriceModal(false);
 
   const handleRecalculatePrice = () => {
     const newProperty = properties.find(p => p.id === formData.property_id);
     const nights = calculateNights(formData.check_in, formData.check_out);
     const extraServices = parseFloat(formData.extra_services_amount) || 0;
-    const basePrice = calculatedPrice;
-    const totalPrice = basePrice + extraServices;
-    const pricePerNight = nights > 0 ? Math.round(basePrice / nights).toString() : '';
-    setFormData({
-      ...formData,
-      total_price: totalPrice.toString(),
+    const pricePerNight = nights > 0 ? Math.round(calculatedPrice / nights).toString() : '';
+    setFormData(prev => ({
+      ...prev,
+      total_price: (calculatedPrice + extraServices).toString(),
       price_per_night: pricePerNight,
-      currency: newProperty?.currency || formData.currency,
-    });
+      currency: newProperty?.currency || prev.currency,
+    }));
     setShowPriceModal(false);
   };
 
@@ -191,16 +236,13 @@ export function EditReservationModal({
     e.preventDefault();
     setError(null);
     setLoading(true);
-
     try {
-      const checkInDate = new Date(formData.check_in);
       const checkOutDate = new Date(formData.check_out);
-
+      const checkInDate = new Date(formData.check_in);
       if (checkOutDate <= checkInDate) {
         setError(t('errors.checkOutBeforeCheckIn'));
         return;
       }
-
       await onUpdate(booking.id, {
         property_id: formData.property_id,
         guest_name: formData.guest_name,
@@ -212,10 +254,9 @@ export function EditReservationModal({
         total_price: Math.round(parseFloat(formData.total_price) || 0),
         currency: formData.currency,
         status: formData.status,
-        guests_count: parseInt(formData.guests_count) || 1,
-        extra_services_amount: parseInt(formData.extra_services_amount) || 0,
+        guests_count: parseInt(formData.guests_count, 10) || 1,
+        extra_services_amount: parseInt(formData.extra_services_amount, 10) || 0,
       } as Partial<Booking>);
-
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('errors.somethingWentWrong'));
@@ -227,7 +268,6 @@ export function EditReservationModal({
   const handleDelete = async () => {
     setError(null);
     setLoading(true);
-
     try {
       await onDelete(booking.id);
       onClose();
@@ -238,467 +278,334 @@ export function EditReservationModal({
     }
   };
 
-  if (!isOpen) return null;
-  if (!booking) return null;
+  const historyEvents = useMemo((): HistoryEvent[] => {
+    const events: HistoryEvent[] = [];
+    if (booking.created_at) {
+      events.push({
+        timestamp: booking.created_at,
+        action: 'create',
+        source: booking.source || null,
+      });
+    }
+    if (
+      booking.updated_at &&
+      booking.updated_at !== booking.created_at
+    ) {
+      events.push({
+        timestamp: booking.updated_at,
+        action: 'update',
+        source: booking.source || null,
+      });
+    }
+    bookingLogs.forEach(log => {
+      events.push({
+        timestamp: log.timestamp,
+        action: log.action,
+        source: log.source,
+        changes: log.changes_json ?? undefined,
+      });
+    });
+    events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return events;
+  }, [booking, bookingLogs]);
 
-  const propertyName = properties.find((p) => p.id === booking.property_id)?.name || t('common.unknown');
+  const propertyName =
+    properties.find(p => p.id === booking.property_id)?.name || t('common.unknown');
 
   return (
-    <div 
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-      onMouseDown={(e) => {
-        // Сохраняем, что mousedown произошел на backdrop
-        if (e.target === e.currentTarget) {
-          (e.currentTarget as HTMLElement).dataset.mouseDown = 'true';
-        }
-      }}
-      onMouseUp={(e) => {
-        // Закрываем только если mousedown и mouseup произошли на backdrop
-        const backdrop = e.currentTarget as HTMLElement;
-        if (e.target === backdrop && backdrop.dataset.mouseDown === 'true') {
-          onClose();
-        }
-        delete backdrop.dataset.mouseDown;
-      }}
-    >
-      <div
-        className="bg-slate-800 rounded-lg shadow-lg w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-6 border-b border-slate-700">
-          <div>
-            <h2 className="text-xl font-semibold text-white">{t('modals.editReservation')}</h2>
-            <p className="text-sm text-slate-400 mt-1">{propertyName}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white transition"
-          >
-            <X size={24} />
-          </button>
-        </div>
+    <>
+      <Sheet open={isOpen} onOpenChange={open => !open && onClose()}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-lg flex flex-col p-0"
+          onPointerDownOutside={e => e.preventDefault()}
+        >
+          <SheetHeader className="p-6 pb-4 border-b border-border">
+            <SheetTitle>{t('modals.editReservation')}</SheetTitle>
+            <SheetDescription>{propertyName}</SheetDescription>
+          </SheetHeader>
 
-        {showDeleteConfirm ? (
-          <div className="p-6 border-b border-slate-700">
-            <p className="text-white mb-4">{t('modals.confirmDelete')}</p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 text-slate-300 hover:text-white transition"
-                disabled={loading}
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={handleDelete}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition disabled:opacity-50"
-                disabled={loading}
-              >
-                {loading ? t('modals.deleting') : t('common.delete')}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            {error && (
-              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded text-red-200 text-sm">
-                {error}
-              </div>
-            )}
-
-            <div className="mb-4">
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  {t('modals.property')}
-                </label>
-              <select
-                value={formData.property_id}
-                onChange={(e) => handlePropertyChange(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                required
-              >
-                {properties.map((property) => (
-                  <option key={property.id} value={property.id}>
-                    {property.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  {t('modals.guestName')}
-                </label>
-                <input
-                  type="text"
-                  value={formData.guest_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, guest_name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  {t('modals.guestEmail')}
-                </label>
-                <input
-                  type="email"
-                  value={formData.guest_email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, guest_email: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  {t('modals.guestPhone')}
-                </label>
-                <input
-                  type="tel"
-                  value={formData.guest_phone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, guest_phone: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  {t('modals.guestsCount')}
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={formData.guests_count}
-                  onChange={(e) =>
-                    setFormData({ ...formData, guests_count: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  {t('modals.checkIn')}
-                </label>
-                <input
-                  type="date"
-                  value={formData.check_in}
-                  onChange={(e) =>
-                    setFormData({ ...formData, check_in: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  {t('modals.checkOut')}
-                </label>
-                <input
-                  type="date"
-                  value={formData.check_out}
-                  onChange={(e) =>
-                    setFormData({ ...formData, check_out: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                  required
-                />
-              </div>
-
-              {formData.check_in && formData.check_out && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    {t('bookings.nights')}
-                  </label>
-                  <div className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white">
-                    {calculateNights(formData.check_in, formData.check_out)} {t('common.nights', { defaultValue: 'nights' })}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  {t('modals.pricePerNight', { defaultValue: 'Price per Night' })}
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.price_per_night}
-                  onChange={(e) =>
-                    setFormData({ ...formData, price_per_night: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  {t('modals.totalPrice')}
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.total_price}
-                  onChange={(e) =>
-                    setFormData({ ...formData, total_price: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  {t('modals.extraServices', { defaultValue: 'Extra Services Amount' })}
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={formData.extra_services_amount}
-                  onChange={(e) => {
-                    const extraServices = parseFloat(e.target.value) || 0;
-                    setFormData({ ...formData, extra_services_amount: e.target.value });
-                    // Пересчитываем total_price при изменении доп услуг
-                    if (formData.price_per_night && formData.check_in && formData.check_out) {
-                      const nights = calculateNights(formData.check_in, formData.check_out);
-                      if (nights > 0) {
-                        const pricePerNight = parseFloat(formData.price_per_night) || 0;
-                        const basePrice = pricePerNight * nights;
-                        const newTotalPrice = Math.round(basePrice + extraServices).toString();
-                        setFormData(prev => ({
-                          ...prev,
-                          extra_services_amount: e.target.value,
-                          total_price: newTotalPrice,
-                        }));
-                      }
-                    }
-                  }}
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  {t('modals.currency')}
-                </label>
-                <select
-                  value={formData.currency}
-                  onChange={(e) =>
-                    setFormData({ ...formData, currency: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                >
-                  <option value="RUB">RUB</option>
-                  <option value="EUR">EUR</option>
-                  <option value="USD">USD</option>
-                </select>
-              </div>
-
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  {t('modals.status')}
-                </label>
-                <select
-                  value={formData.status}
-                  onChange={(e) =>
-                    setFormData({ ...formData, status: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
-                >
-                  <option value="confirmed">{t('bookings.confirmed')}</option>
-                  <option value="pending">{t('bookings.pending')}</option>
-                  <option value="cancelled">{t('bookings.cancelled')}</option>
-                </select>
-              </div>
-
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  {t('modals.notes', { defaultValue: 'Notes' })}
-                </label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white min-h-[100px] resize-y"
-                  placeholder={t('modals.notesPlaceholder', { defaultValue: 'Add any additional notes...' })}
-                />
-              </div>
-            </div>
-
-            {/* История изменений */}
-            <div className="col-span-2 border-t border-slate-700 pt-6 mt-6">
-              <h3 className="text-lg font-medium text-white mb-4">История изменений</h3>
-              {loadingLogs ? (
-                <div className="text-slate-400">Загрузка...</div>
-              ) : !booking ? (
-                <div className="text-slate-400">История изменений отсутствует</div>
-              ) : (
-                <Timeline
-                  items={(() => {
-                    // Создаем объединенный массив событий из booking и logs
-                    const events: Array<{
-                      timestamp: string;
-                      action: string;
-                      source: string | null;
-                      changes?: Record<string, { old?: unknown; new?: unknown }> | null;
-                      isFromBooking?: boolean;
-                    }> = [];
-
-                    // Добавляем событие создания (если есть created_at)
-                    if (booking.created_at) {
-                      events.push({
-                        timestamp: booking.created_at,
-                        action: 'create',
-                        source: booking.source || null,
-                        isFromBooking: true,
-                      });
-                    }
-
-                    // Добавляем событие последнего обновления (если updated_at отличается от created_at)
-                    if (booking.updated_at && booking.updated_at !== booking.created_at) {
-                      events.push({
-                        timestamp: booking.updated_at,
-                        action: 'update',
-                        source: booking.source || null,
-                        isFromBooking: true,
-                      });
-                    }
-
-                    // Добавляем логи из booking_logs
-                    bookingLogs.forEach((log) => {
-                      events.push({
-                        timestamp: log.timestamp,
-                        action: log.action,
-                        source: log.source,
-                        changes: log.changes_json,
-                        isFromBooking: false,
-                      });
-                    });
-
-                    // Сортируем по дате (новые сверху)
-                    events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-                    return events.map((event) => {
-                      const actionLabels: Record<string, string> = {
-                        create: 'Бронирование создано',
-                        update: 'Бронирование обновлено',
-                        delete: 'Бронирование удалено',
-                        created: 'Бронирование создано', // Legacy support
-                        updated: 'Бронирование обновлено', // Legacy support
-                        deleted: 'Бронирование удалено', // Legacy support
-                        status_changed: 'Изменен статус',
-                      };
-                      
-                      const actionColors: Record<string, string> = {
-                        create: 'green',
-                        update: 'blue',
-                        delete: 'red',
-                        created: 'green', // Legacy support
-                        updated: 'blue', // Legacy support
-                        deleted: 'red', // Legacy support
-                        status_changed: 'orange',
-                      };
-
-                      const changesText = event.changes && Object.keys(event.changes).length > 0
-                        ? Object.entries(event.changes)
-                            .map(([field, change]) => {
-                              const fieldLabels: Record<string, string> = {
-                                guest_name: 'Имя гостя',
-                                guest_email: 'Email',
-                                guest_phone: 'Телефон',
-                                check_in: 'Заезд',
-                                check_out: 'Выезд',
-                                guests_count: 'Количество гостей',
-                                total_price: 'Цена',
-                                currency: 'Валюта',
-                                status: 'Статус',
-                                notes: 'Заметки',
-                                extra_services_amount: 'Доп. услуги',
-                                property_id: 'Объект',
-                              };
-                              const fieldLabel = fieldLabels[field] || field;
-                              const oldVal = change.old !== undefined ? String(change.old) : '—';
-                              const newVal = change.new !== undefined ? String(change.new) : '—';
-                              return `${fieldLabel}: ${oldVal} → ${newVal}`;
-                            })
-                            .join('; ')
-                        : null;
-
-                      const sourceLabels: Record<string, string> = {
-                        manual: 'Ручное создание',
-                        avito: 'Avito',
-                        cian: 'ЦИАН',
-                        booking: 'Booking.com',
-                        airbnb: 'Airbnb',
-                      };
-
-                      return {
-                        color: actionColors[event.action] || 'blue',
-                        children: (
-                          <div className="text-white">
-                            <div className="font-medium mb-1">
-                              {actionLabels[event.action] || event.action}
-                            </div>
-                            {event.source && (
-                              <div className="text-sm text-slate-300 mb-1">
-                                Источник: <span className="font-medium">{sourceLabels[event.source] || event.source}</span>
-                              </div>
-                            )}
-                            {changesText && (
-                              <div className="text-sm text-slate-300 mb-1">{changesText}</div>
-                            )}
-                            <div className="text-xs text-slate-400">
-                              {format(new Date(event.timestamp), 'dd.MM.yyyy HH:mm', { locale: ru })}
-                            </div>
-                          </div>
-                        ),
-                      };
-                    });
-                  })()}
-                />
-              )}
-            </div>
-
-            <div className="flex gap-3 justify-between pt-4 border-t border-slate-700">
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(true)}
-                className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded transition"
-                disabled={loading}
-              >
-                Delete
-              </button>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 text-slate-300 hover:text-white transition"
-                  disabled={loading}
-                >
+          {showDeleteConfirm ? (
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-muted-foreground">{t('modals.confirmDelete')}</p>
+              <div className="flex gap-3 justify-end">
+                <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={loading}>
                   {t('common.cancel')}
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition disabled:opacity-50"
-                  disabled={loading}
-                >
-                  {loading ? t('common.loading') : t('common.save')}
-                </button>
+                </Button>
+                <Button variant="destructive" onClick={handleDelete} disabled={loading}>
+                  {loading ? t('modals.deleting') : t('common.delete')}
+                </Button>
               </div>
             </div>
-          </form>
-        )}
-      </div>
+          ) : (
+            <Tabs defaultValue="main" className="flex-1 flex flex-col min-h-0">
+              <TabsList className="mx-6 mt-2 w-auto">
+                <TabsTrigger value="main">Основное</TabsTrigger>
+                <TabsTrigger value="history">История</TabsTrigger>
+              </TabsList>
+              <ScrollArea className="flex-1">
+                <TabsContent value="main" className="mt-0 p-6 pt-4">
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    {error && (
+                      <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                        {error}
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label>{t('modals.property')}</Label>
+                      <Select
+                        value={formData.property_id}
+                        onValueChange={handlePropertyChange}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={t('modals.selectProperty', { defaultValue: 'Выберите объект' })} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {properties.map(property => (
+                            <SelectItem key={property.id} value={property.id}>
+                              {property.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>{t('modals.guestName')}</Label>
+                        <Input
+                          value={formData.guest_name}
+                          onChange={e => setFormData(prev => ({ ...prev, guest_name: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{t('modals.guestsCount')}</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={formData.guests_count}
+                          onChange={e => setFormData(prev => ({ ...prev, guests_count: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>{t('modals.guestEmail')}</Label>
+                      <Input
+                        type="email"
+                        value={formData.guest_email}
+                        onChange={e => setFormData(prev => ({ ...prev, guest_email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t('modals.guestPhone')}</Label>
+                      <Input
+                        type="tel"
+                        value={formData.guest_phone}
+                        onChange={e => setFormData(prev => ({ ...prev, guest_phone: e.target.value }))}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>{t('modals.checkIn')}</Label>
+                        <Input
+                          type="date"
+                          value={formData.check_in}
+                          onChange={e => setFormData(prev => ({ ...prev, check_in: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{t('modals.checkOut')}</Label>
+                        <Input
+                          type="date"
+                          value={formData.check_out}
+                          onChange={e => setFormData(prev => ({ ...prev, check_out: e.target.value }))}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {formData.check_in && formData.check_out && (
+                      <div className="text-sm text-muted-foreground">
+                        {t('bookings.nights')}: {calculateNights(formData.check_in, formData.check_out)}{' '}
+                        {t('common.nights', { defaultValue: 'ночей' })}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>{t('modals.pricePerNight', { defaultValue: 'Цена за ночь' })}</Label>
+                        <Input
+                          type="number"
+                          step="1"
+                          value={formData.price_per_night}
+                          onChange={e => setFormData(prev => ({ ...prev, price_per_night: e.target.value }))}
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{t('modals.totalPrice')}</Label>
+                        <Input
+                          type="number"
+                          step="1"
+                          value={formData.total_price}
+                          onChange={e => setFormData(prev => ({ ...prev, total_price: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>{t('modals.extraServices', { defaultValue: 'Доп. услуги' })}</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={formData.extra_services_amount}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setFormData(prev => {
+                            const next = { ...prev, extra_services_amount: val };
+                            const nights = calculateNights(prev.check_in, prev.check_out);
+                            if (nights > 0 && prev.price_per_night) {
+                              const base = parseFloat(prev.price_per_night) * nights;
+                              next.total_price = Math.round(base + (parseFloat(val) || 0)).toString();
+                            }
+                            return next;
+                          });
+                        }}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>{t('modals.currency')}</Label>
+                        <Select
+                          value={formData.currency}
+                          onValueChange={v => setFormData(prev => ({ ...prev, currency: v }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="RUB">RUB</SelectItem>
+                            <SelectItem value="EUR">EUR</SelectItem>
+                            <SelectItem value="USD">USD</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{t('modals.status')}</Label>
+                        <Select
+                          value={formData.status}
+                          onValueChange={v => setFormData(prev => ({ ...prev, status: v }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="confirmed">{t('bookings.confirmed')}</SelectItem>
+                            <SelectItem value="pending">{t('bookings.pending')}</SelectItem>
+                            <SelectItem value="cancelled">{t('bookings.cancelled')}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>{t('modals.notes', { defaultValue: 'Заметки' })}</Label>
+                      <Textarea
+                        value={formData.notes}
+                        onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                        placeholder={t('modals.notesPlaceholder', { defaultValue: 'Дополнительно...' })}
+                        className="min-h-[100px]"
+                      />
+                    </div>
+
+                    <div className="flex gap-3 justify-between pt-4 border-t border-border">
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        className="opacity-80"
+                        onClick={() => setShowDeleteConfirm(true)}
+                        disabled={loading}
+                      >
+                        {t('common.delete')}
+                      </Button>
+                      <div className="flex gap-3">
+                        <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+                          {t('common.cancel')}
+                        </Button>
+                        <Button type="submit" disabled={loading}>
+                          {loading ? t('common.loading') : t('common.save')}
+                        </Button>
+                      </div>
+                    </div>
+                  </form>
+                </TabsContent>
+                <TabsContent value="history" className="mt-0 p-6 pt-4">
+                  <h3 className="text-sm font-medium mb-4">История изменений</h3>
+                  {loadingLogs ? (
+                    <p className="text-sm text-muted-foreground">Загрузка...</p>
+                  ) : historyEvents.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">История изменений отсутствует</p>
+                  ) : (
+                    <ul className="space-y-0 border-l-2 border-border pl-4">
+                      {historyEvents.map((event, idx) => {
+                        const isCreate = event.action === 'create' || event.action === 'created';
+                        const isDelete = event.action === 'delete' || event.action === 'deleted';
+                        const changesText =
+                          event.changes && Object.keys(event.changes).length > 0
+                            ? Object.entries(event.changes)
+                                .map(([field, change]) => {
+                                  const label = FIELD_LABELS[field] || field;
+                                  const oldVal = change.old !== undefined ? String(change.old) : '—';
+                                  const newVal = change.new !== undefined ? String(change.new) : '—';
+                                  return `${label}: ${oldVal} → ${newVal}`;
+                                })
+                                .join('; ')
+                            : null;
+                        return (
+                          <li key={`${event.timestamp}-${idx}`} className="relative pb-6 last:pb-0">
+                            <span
+                              className={cn(
+                                'absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-background',
+                                isCreate && 'bg-green-500',
+                                isDelete && 'bg-destructive',
+                                !isCreate && !isDelete && 'bg-primary'
+                              )}
+                            />
+                            <div className="text-sm">
+                              <p className="font-medium">
+                                {ACTION_LABELS[event.action] || event.action}
+                              </p>
+                              {event.source && (
+                                <p className="text-muted-foreground mt-0.5">
+                                  Источник: {SOURCE_LABELS[event.source] || event.source}
+                                </p>
+                              )}
+                              {changesText && (
+                                <p className="text-muted-foreground mt-0.5">{changesText}</p>
+                              )}
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {format(new Date(event.timestamp), 'dd.MM.yyyy HH:mm', { locale: ru })}
+                              </p>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </TabsContent>
+              </ScrollArea>
+            </Tabs>
+          )}
+        </SheetContent>
+      </Sheet>
 
       <PriceRecalculationModal
         isOpen={showPriceModal}
@@ -706,10 +613,10 @@ export function EditReservationModal({
         onKeepPrice={handleKeepPrice}
         onRecalculate={handleRecalculatePrice}
         booking={booking}
-        oldProperty={properties.find(p => p.id === originalPropertyId) || null}
-        newProperty={properties.find(p => p.id === formData.property_id) || null}
+        oldProperty={properties.find(p => p.id === originalPropertyId) ?? null}
+        newProperty={properties.find(p => p.id === formData.property_id) ?? null}
         calculatedPrice={calculatedPrice}
       />
-    </div>
+    </>
   );
 }

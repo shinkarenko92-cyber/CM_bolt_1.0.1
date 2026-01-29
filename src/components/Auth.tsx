@@ -3,6 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { LanguageSelector } from './LanguageSelector';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
+import { Label } from './ui/label';
+import { cn } from '@/lib/utils';
 
 export function Auth() {
   const { t } = useTranslation();
@@ -39,13 +44,13 @@ export function Auth() {
           try {
             const { data: sessionData } = await supabase.auth.getSession();
             const accessToken = sessionData?.session?.access_token;
-            
+
             const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-test-data`;
             await fetch(apiUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
+                ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
               },
               body: JSON.stringify({ userId: data.user.id }),
             });
@@ -64,103 +69,114 @@ export function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-      <div className="absolute top-4 right-4">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-background">
+      {/* Gradient / pattern background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-primary/5" />
+      <div
+        className="absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2314b8a6' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }}
+      />
+
+      <div className="absolute top-4 right-4 z-10">
         <LanguageSelector />
       </div>
-      <div className="bg-slate-800 rounded-lg shadow-xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Roomi Pro</h1>
-          <p className="text-slate-400">
+
+      <Card className={cn('relative w-full max-w-md border-border/50 shadow-xl shadow-primary/5 bg-card/95 backdrop-blur')}>
+        <CardHeader className="space-y-2 text-center pb-4">
+          <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight">Roomi Pro</CardTitle>
+          <CardDescription>
             {isForgotPassword ? t('auth.resetPassword') : isSignUp ? t('auth.createAccount') : t('auth.signIn')}
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
-              {t('auth.email')}
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              placeholder="you@example.com"
-            />
-          </div>
-
-          {!isForgotPassword && (
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
-                {t('auth.password')}
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">{t('auth.email')}</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
-                minLength={6}
-                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                placeholder="••••••••"
+                placeholder="you@example.com"
+                className="h-11"
               />
             </div>
-          )}
 
-          {error && (
-            <div className="bg-red-500/10 border border-red-500 text-red-400 px-4 py-2 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
+            {!isForgotPassword && (
+              <div className="space-y-2">
+                <Label htmlFor="password">{t('auth.password')}</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  placeholder="••••••••"
+                  className="h-11"
+                />
+              </div>
+            )}
 
-          {success && (
-            <div className="bg-green-500/10 border border-green-500 text-green-400 px-4 py-2 rounded-lg text-sm">
-              {success}
-            </div>
-          )}
+            {error && (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </div>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? t('common.loading') : isForgotPassword ? t('auth.resetPassword') : isSignUp ? t('auth.signUp') : t('auth.signIn')}
-          </button>
-        </form>
+            {success && (
+              <div className="rounded-md border border-green-500/50 bg-green-500/10 px-3 py-2 text-sm text-green-600 dark:text-green-400">
+                {success}
+              </div>
+            )}
 
-        <div className="mt-6 text-center space-y-2">
-          {!isForgotPassword && !isSignUp && (
+            <Button type="submit" disabled={loading} className="w-full h-11 font-medium">
+              {loading
+                ? t('common.loading')
+                : isForgotPassword
+                  ? t('auth.resetPassword')
+                  : isSignUp
+                    ? t('auth.signUp')
+                    : t('auth.signIn')}
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center space-y-2">
+            {!isForgotPassword && !isSignUp && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsForgotPassword(true);
+                  setError('');
+                  setSuccess('');
+                }}
+                className="block w-full text-sm text-primary hover:underline"
+              >
+                {t('auth.forgotPassword')}
+              </button>
+            )}
+
             <button
+              type="button"
               onClick={() => {
-                setIsForgotPassword(true);
+                if (isForgotPassword) {
+                  setIsForgotPassword(false);
+                } else {
+                  setIsSignUp(!isSignUp);
+                }
                 setError('');
                 setSuccess('');
               }}
-              className="block w-full text-teal-400 hover:text-teal-300 text-sm"
+              className="text-sm text-primary hover:underline"
             >
-              {t('auth.forgotPassword')}
+              {isForgotPassword ? t('auth.backToSignIn') : isSignUp ? t('auth.alreadyHaveAccount') : t('auth.noAccount')}
             </button>
-          )}
-
-          <button
-            onClick={() => {
-              if (isForgotPassword) {
-                setIsForgotPassword(false);
-              } else {
-                setIsSignUp(!isSignUp);
-              }
-              setError('');
-              setSuccess('');
-            }}
-            className="text-teal-400 hover:text-teal-300 text-sm"
-          >
-            {isForgotPassword ? t('auth.backToSignIn') : isSignUp ? t('auth.alreadyHaveAccount') : t('auth.noAccount')}
-          </button>
-        </div>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

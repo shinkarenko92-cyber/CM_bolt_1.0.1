@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { ConfigProvider, theme as antdTheme } from 'antd';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { Auth } from './components/Auth';
@@ -7,9 +6,7 @@ import { Dashboard } from './components/Dashboard';
 
 function AppContent() {
   const { user, loading } = useAuth();
-  console.log('AppContent render:', { user: !!user, loading });
 
-  // Handle Avito OAuth callback
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const path = window.location.pathname;
@@ -21,27 +18,27 @@ function AppContent() {
       const state = params.get('state');
 
       if (error) {
-        // Store error for modal to display
         const errorData = {
           error,
           error_description: errorDescription || 'Неизвестная ошибка',
         };
         localStorage.setItem('avito_oauth_error', JSON.stringify(errorData));
       } else if (code && state) {
-        // Store success for modal to process
         const successData = { code, state };
         localStorage.setItem('avito_oauth_success', JSON.stringify(successData));
       }
 
-      // Clean URL and redirect to home
       window.history.replaceState({}, '', '/');
     }
   }, []);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-white">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Загрузка...</p>
+        </div>
       </div>
     );
   }
@@ -50,24 +47,8 @@ function AppContent() {
 }
 
 function AppWithTheme() {
-  const { theme } = useTheme();
-
-  const antdThemeConfig = {
-    token: {
-      colorPrimary: '#14b8a6', // teal-600
-      colorBgBase: theme === 'light' ? '#ffffff' : '#1e293b', // white for light, slate-800 for dark
-      colorText: theme === 'light' ? '#111827' : '#f1f5f9', // gray-900 for light, slate-100 for dark
-      colorBgContainer: theme === 'light' ? '#f8fafc' : '#1e293b', // slate-50 for light, slate-800 for dark
-      colorBorder: theme === 'light' ? '#e2e8f0' : '#475569', // gray-200 for light, slate-600 for dark
-    },
-    algorithm: theme === 'light' ? antdTheme.defaultAlgorithm : antdTheme.darkAlgorithm,
-  };
-
-  return (
-    <ConfigProvider theme={antdThemeConfig}>
-      <AppContent />
-    </ConfigProvider>
-  );
+  useTheme();
+  return <AppContent />;
 }
 
 function App() {

@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Modal, Steps, Button, Input, InputNumber, Spin, message, Select } from 'antd';
+import { Modal, Steps, Button, Input, InputNumber, Spin, Select } from 'antd';
 import { CheckCircleOutlined, LoadingOutlined, CopyOutlined } from '@ant-design/icons';
 import { Property, supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
@@ -121,7 +121,7 @@ export function AvitoConnectModal({
         });
       }
 
-      message.success('Аккаунт Avito подключён! Теперь введи ID объявления');
+      toast.success('Аккаунт Avito подключён! Теперь введи ID объявления');
       saveConnectionProgress(property.id, 1, {
         // Tokens are saved in DB by Edge Function, we don't need to store them in progress
       });
@@ -135,7 +135,7 @@ export function AvitoConnectModal({
       }
       
       // Show success toast and move to next step
-          message.success('Аккаунт Avito подключён! Теперь введи номер аккаунта');
+          toast.success('Аккаунт Avito подключён! Теперь введи номер аккаунта');
           setCurrentStep(1); // Go to User ID step
 
       // OAuth callback processed successfully
@@ -194,7 +194,7 @@ export function AvitoConnectModal({
         const displayMessage = errorDetails?.error_description || 
                               errorDetails?.details || 
                               errorMessage;
-        message.error(displayMessage);
+        toast.error(displayMessage);
       }
     } finally {
       setLoading(false);
@@ -307,33 +307,33 @@ export function AvitoConnectModal({
       saveConnectionProgress(property.id, 0, {});
       window.location.href = oauthUrl;
     } catch (error) {
-      message.error(error instanceof Error ? error.message : 'Ошибка при генерации OAuth URL');
+      toast.error(error instanceof Error ? error.message : 'Ошибка при генерации OAuth URL');
       setOauthRedirecting(false);
     }
   };
 
   const handleSubmit = async () => {
     if (!userId) {
-      message.error('Введи номер аккаунта Avito');
+      toast.error('Введи номер аккаунта Avito');
       return;
     }
 
     if (!itemId) {
-      message.error('Введи ID объявления');
+      toast.error('Введи ID объявления');
       return;
     }
 
     // Validate userId: must be 6-8 digits
     const trimmedUserId = userId.trim();
     if (!trimmedUserId || !/^[0-9]{6,8}$/.test(trimmedUserId)) {
-      message.error('Номер аккаунта должен содержать 6-8 цифр');
+      toast.error('Номер аккаунта должен содержать 6-8 цифр');
       return;
     }
 
     // Validate itemId: must be 10-12 digits before saving
     const trimmedItemId = itemId.trim();
     if (!trimmedItemId || !/^[0-9]{10,12}$/.test(trimmedItemId)) {
-      message.error('ID объявления должен содержать 10-12 цифр');
+      toast.error('ID объявления должен содержать 10-12 цифр');
       return;
     }
 
@@ -346,7 +346,7 @@ export function AvitoConnectModal({
       
       // Validate parsed numbers
       if (isNaN(userIdNumber) || isNaN(itemIdNumber)) {
-        message.error('Ошибка: неверный формат номера аккаунта или ID объявления');
+        toast.error('Ошибка: неверный формат номера аккаунта или ID объявления');
         return;
       }
       
@@ -433,10 +433,10 @@ export function AvitoConnectModal({
       }
 
       // Show success toast
-      message.success('Цены обновлены в Avito 🚀');
+      toast.success('Цены обновлены в Avito 🚀');
       
       // Show warning toast
-      message.warning('Даты закрываются через iCal (полный API после активации)');
+      toast('Даты закрываются через iCal (полный API после активации)', { icon: '⚠️' });
 
       // Show success block instead of closing modal
       setShowSuccess(true);
@@ -449,21 +449,21 @@ export function AvitoConnectModal({
           
           if (syncResult.success) {
             if (syncResult.pricesSuccess && syncResult.intervalsFailed) {
-              message.success('Цены обновлены в Avito');
+              toast.success('Цены обновлены в Avito');
               // iCal warning already shown above
             } else if (syncResult.errors && syncResult.errors.length > 0) {
               const errorMessages = syncResult.errors.map(e => e.message || 'Ошибка').join(', ');
-              message.warning(`Частичная синхронизация: ${errorMessages}`);
+              toast(`Частичная синхронизация: ${errorMessages}`, { icon: '⚠️' });
             } else {
-              message.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
+              toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
             }
           } else {
             // Check for "Объявление не найдено" error
             const errorMessage = syncResult.message || 'Ошибка синхронизации с Avito';
             if (errorMessage.includes('Объявление не найдено') || errorMessage.includes('404') || errorMessage.includes('не найдено')) {
-              message.error('Проверь ID объявления — это длинный номер из URL Avito (10-12 цифр)');
+              toast.error('Проверь ID объявления — это длинный номер из URL Avito (10-12 цифр)');
             } else {
-              message.error(errorMessage);
+              toast.error(errorMessage);
             }
           }
         } catch (syncError) {
@@ -488,7 +488,7 @@ export function AvitoConnectModal({
           width: 500,
         });
       } else {
-        message.error(errorMessage);
+        toast.error(errorMessage);
       }
     } finally {
       setLoading(false);
@@ -502,7 +502,7 @@ export function AvitoConnectModal({
         if (progress.data.itemId) setItemId(progress.data.itemId);
         if (progress.data.markup) setMarkup(progress.data.markup);
         // Tokens are now stored in DB, not in progress
-        message.info('Продолжаем подключение Avito');
+        toast('Продолжаем подключение Avito');
       }
   };
 
@@ -749,10 +749,10 @@ export function AvitoConnectModal({
                           toast('iCal работает только в prod/staging (Avito не тянет localhost)', { icon: '⚠️' });
                         }
                         await navigator.clipboard.writeText(icalUrl);
-                        message.success('iCal URL скопирован в буфер обмена');
+                        toast.success('iCal URL скопирован в буфер обмена');
                       } catch (err) {
                         console.error('Failed to copy URL:', err);
-                        message.error('Не удалось скопировать URL');
+                        toast.error('Не удалось скопировать URL');
                       }
                     }}
                     className="flex-shrink-0"

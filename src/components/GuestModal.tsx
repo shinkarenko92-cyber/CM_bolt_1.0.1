@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { History } from 'lucide-react';
-import { Modal, Input, Button, Tag as AntTag, Space, message, Divider, List } from 'antd';
+import { Modal, Input, Button, Tag as AntTag, Space, Divider, List } from 'antd';
+import toast from 'react-hot-toast';
 import { Guest, Booking, Property } from '../lib/supabase';
 
 interface GuestModalProps {
@@ -60,7 +61,7 @@ export function GuestModal({ isOpen, onClose, guest, bookings, properties, onSav
 
     const handleSubmit = async () => {
         if (!formData.name) {
-            message.error('Укажите имя гостя');
+            toast.error('Укажите имя гостя');
             return;
         }
         setLoading(true);
@@ -69,7 +70,7 @@ export function GuestModal({ isOpen, onClose, guest, bookings, properties, onSav
             onClose();
         } catch (err) {
             console.error(err);
-            message.error('Ошибка при сохранении');
+            toast.error('Ошибка при сохранении');
         } finally {
             setLoading(false);
         }

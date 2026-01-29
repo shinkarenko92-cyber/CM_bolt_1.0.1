@@ -2,6 +2,17 @@ import { useMemo, useState, useCallback } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Percent, Home, BedDouble, Calendar } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Booking, Property } from '../lib/supabase';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
 import {
   BarChart,
   Bar,
@@ -475,10 +486,10 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
   const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string }>; label?: string }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 shadow-lg">
-          <p className="text-slate-300 text-sm mb-1">{label}</p>
+        <div className="rounded-md border border-border bg-popover p-3 shadow-md">
+          <p className="text-muted-foreground text-sm mb-1">{label}</p>
           {payload.map((entry, index) => (
-            <p key={index} className="text-white text-sm font-medium">
+            <p key={index} className="text-foreground text-sm font-medium">
               {entry.name}: {formatCurrency(entry.value)} {entry.name === 'revenue' ? '₽' : ''}
             </p>
           ))}
@@ -488,183 +499,157 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     return null;
   };
 
-  // Custom legend for Pie chart with full labels
-  const renderCustomLegend = () => {
-    return (
-      <div className="flex flex-wrap justify-center gap-3 mt-4">
-        {sourceChartData.map((entry, index) => (
-          <div key={entry.name} className="flex items-center gap-2">
-            <div
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: COLORS[index % COLORS.length] }}
-            />
-            <span className="text-sm text-slate-300">{entry.name}</span>
-          </div>
-        ))}
-      </div>
-    );
-  };
+  const renderCustomLegend = () => (
+    <div className="flex flex-wrap justify-center gap-3 mt-4">
+      {sourceChartData.map((entry, index) => (
+        <div key={entry.name} className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+          <span className="text-sm text-muted-foreground">{entry.name}</span>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
-    <div className="flex-1 overflow-auto p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+    <div className="flex-1 overflow-auto p-4 md:p-6 bg-background">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-white mb-1">{t('analytics.title')}</h1>
-            <p className="text-slate-400 text-sm md:text-base">{t('analytics.subtitle')}</p>
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('analytics.title')}</h1>
+            <p className="text-muted-foreground text-sm md:text-base mt-1">{t('analytics.subtitle')}</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {/* Date range type selector */}
-            <div className="flex bg-slate-700 rounded-lg p-1">
-              <button
-                onClick={() => setDateRangeType('month')}
-                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${dateRangeType === 'month'
-                  ? 'bg-teal-600 text-white'
-                  : 'text-slate-300 hover:text-white'
-                  }`}
-              >
-                Месяц
-              </button>
-              <button
-                onClick={() => setDateRangeType('custom')}
-                className={`px-3 py-1.5 text-sm rounded-md transition-colors flex items-center gap-1 ${dateRangeType === 'custom'
-                  ? 'bg-teal-600 text-white'
-                  : 'text-slate-300 hover:text-white'
-                  }`}
-              >
-                <Calendar className="w-4 h-4" />
-                Период
-              </button>
-            </div>
+            <Tabs value={dateRangeType} onValueChange={(v) => setDateRangeType(v as DateRangeType)}>
+              <TabsList className="bg-muted">
+                <TabsTrigger value="month">Месяц</TabsTrigger>
+                <TabsTrigger value="custom" className="gap-1">
+                  <Calendar className="h-4 w-4" />
+                  Период
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
 
             {dateRangeType === 'month' ? (
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm"
-                data-testid="select-month"
-              >
-                {months.map((month) => (
-                  <option key={month.value} value={month.value}>
-                    {month.label}
-                  </option>
-                ))}
-              </select>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="w-[200px] h-10" data-testid="select-month">
+                  <SelectValue placeholder="Месяц" />
+                </SelectTrigger>
+                <SelectContent>
+                  {months.map((month) => (
+                    <SelectItem key={month.value} value={month.value}>
+                      {month.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             ) : (
               <div className="flex items-center gap-2">
-                <input
+                <Input
                   type="date"
                   value={customStartDate}
                   onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm"
+                  className="h-10 w-[140px]"
                 />
-                <span className="text-slate-400">—</span>
-                <input
+                <span className="text-muted-foreground">—</span>
+                <Input
                   type="date"
                   value={customEndDate}
                   onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm"
+                  className="h-10 w-[140px]"
                 />
               </div>
             )}
 
-            {/* Comparison mode toggle */}
-            <button
+            <Button
+              variant={comparisonMode ? 'default' : 'outline'}
+              size="sm"
               onClick={() => setComparisonMode(!comparisonMode)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${comparisonMode
-                ? 'bg-purple-600 text-white'
-                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                }`}
               title={dateRangeType === 'month' ? 'Сравнить с прошлым годом' : 'Сравнить с предыдущим периодом'}
             >
               {comparisonMode ? '✓ Сравнение' : 'Сравнить'}
-            </button>
+            </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
-          <div className="bg-slate-800 rounded-lg p-4 md:p-6" title={t('analytics.monthlyRevenueTooltip')}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-2 md:p-3 bg-teal-500/20 rounded-lg">
-                <DollarSign className="w-5 h-5 md:w-6 md:h-6 text-teal-400" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card title={t('analytics.monthlyRevenueTooltip')}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <DollarSign className="h-5 w-5 md:h-6 md:w-6 text-primary" />
               </div>
               {analytics.revenueChange !== 0 && (
-                <div
-                  className={`flex items-center gap-1 text-xs md:text-sm font-medium ${analytics.revenueChange > 0 ? 'text-green-400' : 'text-red-400'
-                    }`}
-                >
-                  {analytics.revenueChange > 0 ? (
-                    <TrendingUp size={14} />
-                  ) : (
-                    <TrendingDown size={14} />
-                  )}
+                <div className={`flex items-center gap-1 text-xs md:text-sm font-medium ${analytics.revenueChange > 0 ? 'text-green-500' : 'text-destructive'}`}>
+                  {analytics.revenueChange > 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
                   {Math.abs(analytics.revenueChange).toFixed(1)}%
                 </div>
               )}
-            </div>
-            <div className="text-lg md:text-2xl font-bold text-white mb-1">
-              {formatCurrency(analytics.currentRevenue)} ₽
-            </div>
-            {comparisonMode && analytics.comparisonRevenue > 0 && (
-              <div className="text-sm text-slate-400 mb-1">
-                {dateRangeType === 'month' ? 'Прошлый год' : 'Прошлый период'}: {formatCurrency(analytics.comparisonRevenue)} ₽
-              </div>
-            )}
-            <div className="text-xs md:text-sm text-slate-400">{t('analytics.monthlyRevenue')}</div>
-          </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-lg md:text-2xl font-bold">{formatCurrency(analytics.currentRevenue)} ₽</p>
+              {comparisonMode && analytics.comparisonRevenue > 0 && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  {dateRangeType === 'month' ? 'Прошлый год' : 'Прошлый период'}: {formatCurrency(analytics.comparisonRevenue)} ₽
+                </p>
+              )}
+              <CardDescription className="mt-1">{t('analytics.monthlyRevenue')}</CardDescription>
+            </CardContent>
+          </Card>
 
-          <div className="bg-slate-800 rounded-lg p-4 md:p-6" title={t('analytics.adrTooltip')}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-2 md:p-3 bg-blue-500/20 rounded-lg">
-                <BedDouble className="w-5 h-5 md:w-6 md:h-6 text-blue-400" />
+          <Card title={t('analytics.adrTooltip')}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <BedDouble className="h-5 w-5 md:h-6 md:w-6 text-blue-500" />
               </div>
-              <span className="text-xs text-blue-400 font-medium">ADR</span>
-            </div>
-            <div className="text-lg md:text-2xl font-bold text-white mb-1">
-              {formatCurrency(analytics.adr)} ₽
-            </div>
-            <div className="text-xs md:text-sm text-slate-400">{t('analytics.avgPricePerNight')}</div>
-          </div>
+              <span className="text-xs text-blue-500 font-medium">ADR</span>
+            </CardHeader>
+            <CardContent>
+              <p className="text-lg md:text-2xl font-bold">{formatCurrency(analytics.adr)} ₽</p>
+              <CardDescription className="mt-1">{t('analytics.avgPricePerNight')}</CardDescription>
+            </CardContent>
+          </Card>
 
-          <div className="bg-slate-800 rounded-lg p-4 md:p-6" title={t('analytics.revParTooltip')}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-2 md:p-3 bg-purple-500/20 rounded-lg">
-                <Home className="w-5 h-5 md:w-6 md:h-6 text-purple-400" />
+          <Card title={t('analytics.revParTooltip')}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div className="p-2 rounded-lg bg-purple-500/10">
+                <Home className="h-5 w-5 md:h-6 md:w-6 text-purple-500" />
               </div>
-              <span className="text-xs text-purple-400 font-medium">RevPAR</span>
-            </div>
-            <div className="text-lg md:text-2xl font-bold text-white mb-1">
-              {formatCurrency(analytics.revPar)} ₽
-            </div>
-            <div className="text-xs md:text-sm text-slate-400">{t('analytics.avgDailyRevenue')}</div>
-          </div>
+              <span className="text-xs text-purple-500 font-medium">RevPAR</span>
+            </CardHeader>
+            <CardContent>
+              <p className="text-lg md:text-2xl font-bold">{formatCurrency(analytics.revPar)} ₽</p>
+              <CardDescription className="mt-1">{t('analytics.avgDailyRevenue')}</CardDescription>
+            </CardContent>
+          </Card>
 
-          <div className="bg-slate-800 rounded-lg p-4 md:p-6" title={t('analytics.occupancyRateTooltip')}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-2 md:p-3 bg-green-500/20 rounded-lg">
-                <Percent className="w-5 h-5 md:w-6 md:h-6 text-green-400" />
+          <Card title={t('analytics.occupancyRateTooltip')}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div className="p-2 rounded-lg bg-green-500/10">
+                <Percent className="h-5 w-5 md:h-6 md:w-6 text-green-500" />
               </div>
-            </div>
-            <div className="text-lg md:text-2xl font-bold text-white mb-1">
-              {analytics.occupancyRate.toFixed(1)}%
-            </div>
-            {comparisonMode && analytics.comparisonOccupancyRate > 0 && (
-              <div className="text-sm text-slate-400 mb-1">
-                {dateRangeType === 'month' ? 'Прошлый год' : 'Прошлый период'}: {analytics.comparisonOccupancyRate.toFixed(1)}%
-              </div>
-            )}
-            <div className="text-xs md:text-sm text-slate-400">
-              {t('analytics.occupancyRate')} ({analytics.occupiedNights}/{analytics.totalPossibleNights})
-            </div>
-          </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-lg md:text-2xl font-bold">{analytics.occupancyRate.toFixed(1)}%</p>
+              {comparisonMode && analytics.comparisonOccupancyRate > 0 && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  {dateRangeType === 'month' ? 'Прошлый год' : 'Прошлый период'}: {analytics.comparisonOccupancyRate.toFixed(1)}%
+                </p>
+              )}
+              <CardDescription className="mt-1">
+                {t('analytics.occupancyRate')} ({analytics.occupiedNights}/{analytics.totalPossibleNights})
+              </CardDescription>
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-slate-800 rounded-lg p-4 md:p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">{t('analytics.revenueByMonth')}</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">{t('analytics.revenueByMonth')}</CardTitle>
+            </CardHeader>
+            <CardContent>
             {monthlyRevenueData.length === 0 ? (
-              <p className="text-slate-400 text-center py-8">{t('analytics.noData')}</p>
+              <p className="text-muted-foreground text-center py-8">{t('analytics.noData')}</p>
             ) : (
               <div className="h-48 min-h-48 md:h-64 md:min-h-64 w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
@@ -678,12 +663,16 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                 </ResponsiveContainer>
               </div>
             )}
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="bg-slate-800 rounded-lg p-4 md:p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">{t('analytics.revenueBySource')}</h3>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">{t('analytics.revenueBySource')}</CardTitle>
+            </CardHeader>
+            <CardContent>
             {sourceChartData.length === 0 ? (
-              <p className="text-slate-400 text-center py-8">{t('analytics.noDataForPeriod')}</p>
+              <p className="text-muted-foreground text-center py-8">{t('analytics.noDataForPeriod')}</p>
             ) : (
               <div className="h-48 min-h-48 md:h-64 md:min-h-64 flex flex-col w-full min-w-0">
                 <div className="flex-1 min-h-48 min-w-0">
@@ -711,14 +700,18 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                 {renderCustomLegend()}
               </div>
             )}
-          </div>
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-slate-800 rounded-lg p-4 md:p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">{t('analytics.occupancyByProperty')}</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">{t('analytics.occupancyByProperty')}</CardTitle>
+            </CardHeader>
+            <CardContent>
             {propertyOccupancyData.length === 0 ? (
-              <p className="text-slate-400 text-center py-8">{t('analytics.noData')}</p>
+              <p className="text-muted-foreground text-center py-8">{t('analytics.noData')}</p>
             ) : (
               <div className="h-48 min-h-48 md:h-64 md:min-h-64 w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
@@ -731,12 +724,12 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                         if (active && payload && payload.length) {
                           const data = payload[0].payload;
                           return (
-                            <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 shadow-lg">
-                              <p className="text-slate-300 text-sm mb-1">{data.name}</p>
-                              <p className="text-white text-sm font-medium">
+                            <div className="rounded-md border border-border bg-popover p-3 shadow-md">
+                              <p className="text-muted-foreground text-sm mb-1">{data.name}</p>
+                              <p className="text-foreground text-sm font-medium">
                                 {t('analytics.occupancyRate')}: {data.occupancy}%
                               </p>
-                              <p className="text-white text-sm font-medium">
+                              <p className="text-foreground text-sm font-medium">
                                 {t('analytics.revenue')}: {formatCurrency(data.revenue)} ₽
                               </p>
                             </div>
@@ -750,33 +743,37 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                 </ResponsiveContainer>
               </div>
             )}
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="bg-slate-800 rounded-lg p-4 md:p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">{t('analytics.topProperties')}</h3>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">{t('analytics.topProperties')}</CardTitle>
+            </CardHeader>
+            <CardContent>
             {analytics.topProperties.length === 0 ? (
-              <p className="text-slate-400 text-center py-8">{t('analytics.noDataForPeriod')}</p>
+              <p className="text-muted-foreground text-center py-8">{t('analytics.noDataForPeriod')}</p>
             ) : (
               <div className="space-y-3">
                 {analytics.topProperties.map((item, idx) => {
                   const percentage = analytics.currentRevenue > 0 ? (item.revenue / analytics.currentRevenue) * 100 : 0;
                   return (
                     <div key={item.property!.id} className="flex items-center gap-3">
-                      <div className="flex-shrink-0 w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center">
-                        <span className="text-slate-300 text-sm font-medium">{idx + 1}</span>
+                      <div className="flex-shrink-0 w-8 h-8 bg-muted rounded-lg flex items-center justify-center">
+                        <span className="text-muted-foreground text-sm font-medium">{idx + 1}</span>
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm text-white font-medium truncate max-w-[120px]">
+                          <span className="text-sm font-medium truncate max-w-[120px]">
                             {item.property!.name}
                           </span>
-                          <span className="text-sm text-slate-300">
+                          <span className="text-sm text-muted-foreground">
                             {formatCurrency(item.revenue)} ₽
                           </span>
                         </div>
-                        <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-gradient-to-r from-teal-500 to-blue-500 rounded-full"
+                            className="h-full bg-gradient-to-r from-primary to-blue-500 rounded-full"
                             style={{ width: `${percentage}%` }}
                           />
                         </div>
@@ -786,33 +783,21 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                 })}
               </div>
             )}
-          </div>
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="bg-slate-800 rounded-lg p-4 md:p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-white">{t('analytics.bookingsDynamics')}</h3>
-            <div className="flex bg-slate-700 rounded-lg p-1">
-              <button
-                onClick={() => setBookingsDynamicsPeriod('month')}
-                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${bookingsDynamicsPeriod === 'month'
-                  ? 'bg-teal-600 text-white'
-                  : 'text-slate-300 hover:text-white'
-                  }`}
-              >
-                Месяц
-              </button>
-              <button
-                onClick={() => setBookingsDynamicsPeriod('halfYear')}
-                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${bookingsDynamicsPeriod === 'halfYear'
-                  ? 'bg-teal-600 text-white'
-                  : 'text-slate-300 hover:text-white'
-                  }`}
-              >
-                Полгода
-              </button>
-            </div>
-          </div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg">{t('analytics.bookingsDynamics')}</CardTitle>
+            <Tabs value={bookingsDynamicsPeriod} onValueChange={(v) => setBookingsDynamicsPeriod(v as 'month' | 'halfYear')}>
+              <TabsList className="bg-muted">
+                <TabsTrigger value="month">Месяц</TabsTrigger>
+                <TabsTrigger value="halfYear">Полгода</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </CardHeader>
+          <CardContent>
           <div className="h-48 min-h-48 md:h-64 md:min-h-64 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={bookingsDynamicsData}>
@@ -833,10 +818,10 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                     if (active && payload && payload.length) {
                       const data = payload[0].payload;
                       return (
-                        <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 shadow-lg">
-                          <p className="text-slate-300 text-sm mb-1">{data.date || label}</p>
+                        <div className="rounded-md border border-border bg-popover p-3 shadow-md">
+                          <p className="text-muted-foreground text-sm mb-1">{data.date || label}</p>
                           {payload.map((entry, index) => (
-                            <p key={index} className="text-white text-sm font-medium">
+                            <p key={index} className="text-foreground text-sm font-medium">
                               {entry.name}: {entry.name === t('analytics.revenue') ? formatCurrency(entry.value as number) + ' ₽' : entry.value}
                             </p>
                           ))}
@@ -852,7 +837,8 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

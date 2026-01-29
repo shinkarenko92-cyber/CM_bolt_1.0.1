@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { X, Calendar, Copy, Trash2, Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
-import { Badge, Button, Input, InputNumber, Modal, message, Select, Tabs } from 'antd';
+import { Badge, Button, Input, InputNumber, Modal, Select, Tabs } from 'antd';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { Property, PropertyIntegration, BookingLog } from '../lib/supabase';
@@ -141,7 +141,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       setBookingLogs(data || []);
     } catch (err) {
       console.error('Error loading booking logs:', err);
-      message.error('Ошибка загрузки истории');
+      toast.error('Ошибка загрузки истории');
     } finally {
       setLoadingLogs(false);
     }
@@ -153,13 +153,13 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     const file = e.target.files[0];
     // Check file type
     if (!file.type.startsWith('image/')) {
-      message.error('Пожалуйста, выберите изображение');
+      toast.error('Пожалуйста, выберите изображение');
       return;
     }
 
     // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      message.error('Размер файла не должен превышать 5MB');
+      toast.error('Размер файла не должен превышать 5MB');
       return;
     }
 
@@ -180,10 +180,10 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
         .getPublicUrl(filePath);
 
       setFormData(prev => ({ ...prev, image_url: data.publicUrl }));
-      message.success('Изображение загружено');
+      toast.success('Изображение загружено');
     } catch (error) {
       console.error('Error uploading image:', error);
-      message.error('Ошибка загрузки изображения');
+      toast.error('Ошибка загрузки изображения');
     } finally {
       setUploadingImage(false);
     }
@@ -252,7 +252,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
           .delete()
           .eq('integration_id', avitoIntegration.id);
 
-        message.success('Avito отключён');
+        toast.success('Avito отключён');
         loadAvitoIntegration();
       },
     });
@@ -275,11 +275,11 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
           .eq('id', avitoIntegration.id);
 
         if (error) {
-          message.error('Ошибка при удалении: ' + error.message);
+          toast.error('Ошибка при удалении: ' + error.message);
           return;
         }
 
-        message.success('Интеграция Avito удалена');
+        toast.success('Интеграция Avito удалена');
         loadAvitoIntegration();
       },
     });
@@ -301,12 +301,12 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
       if (error) throw error;
 
-      message.success('Наценка обновлена');
+      toast.success('Наценка обновлена');
       setIsEditMarkupModalOpen(false);
       loadAvitoIntegration();
     } catch (error) {
       console.error('Failed to update markup:', error);
-      message.error('Ошибка при обновлении наценки: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
+      toast.error('Ошибка при обновлении наценки: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
     } finally {
       setLoading(false);
     }
@@ -320,7 +320,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
   const handleSaveItemId = async () => {
     if (!avitoIntegration || !editingItemId || !/^[0-9]{10,11}$/.test(editingItemId.trim())) {
-      message.error('ID объявления должен содержать 10-11 цифр');
+      toast.error('ID объявления должен содержать 10-11 цифр');
       return;
     }
 
@@ -336,13 +336,13 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
       if (error) throw error;
 
-      message.success('ID объявления обновлён');
+      toast.success('ID объявления обновлён');
       setIsEditingItemId(false);
       setEditingItemId('');
       loadAvitoIntegration();
     } catch (error) {
       console.error('Failed to update item_id:', error);
-      message.error('Ошибка при обновлении ID объявления');
+      toast.error('Ошибка при обновлении ID объявления');
     } finally {
       setLoading(false);
     }

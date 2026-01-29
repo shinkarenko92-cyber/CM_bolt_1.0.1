@@ -7,6 +7,9 @@ import path from 'path';
 export default defineConfig({
   base: '/', // App serves from root on app.roomi.pro
   plugins: [react()],
+  resolve: {
+    alias: { '@': path.resolve(__dirname, 'src') },
+  },
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
