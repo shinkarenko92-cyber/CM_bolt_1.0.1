@@ -918,25 +918,29 @@ export function Dashboard() {
         reservationWithAudit.updated_by = user.id;
       }
 
-      let { data, error } = await supabase.from('bookings').insert([reservationWithAudit]).select();
+      let payload: typeof reservationWithAudit & { deposit_received?: boolean; deposit_returned?: boolean } = reservationWithAudit;
+      let { data, error } = await supabase.from('bookings').insert([payload]).select();
 
       // Handle PGRST204 error (column not found) - retry without audit fields
       if (error && (error.code === 'PGRST204' || error.message?.includes('Could not find the') || error.message?.includes('created_by'))) {
         // Retry without audit fields - create new object without created_by and updated_by
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { created_by, updated_by, ...reservationWithoutAudit } = reservationWithAudit;
+        const { created_by, updated_by, ...rest } = payload;
+        payload = rest;
 
-        const retryResult = await supabase.from('bookings').insert([reservationWithoutAudit]).select();
+        const retryResult = await supabase.from('bookings').insert([payload]).select();
         data = retryResult.data;
         error = retryResult.error;
       }
 
       // Handle 400 / column not found - retry without deposit fields (migration may not be applied)
       if (error && (error.code === 'PGRST204' || (error as { code?: string }).code === '400' || error.message?.includes('deposit_received') || error.message?.includes('deposit_returned'))) {
+        // Strip deposit from current payload (already without audit if first retry ran)
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { deposit_received, deposit_returned, ...reservationWithoutDeposit } = reservationWithAudit as typeof reservationWithAudit & { deposit_received?: boolean; deposit_returned?: boolean };
+        const { deposit_received, deposit_returned, ...rest } = payload;
+        payload = rest;
 
-        const retryDeposit = await supabase.from('bookings').insert([reservationWithoutDeposit]).select();
+        const retryDeposit = await supabase.from('bookings').insert([payload]).select();
         data = retryDeposit.data;
         error = retryDeposit.error;
       }
