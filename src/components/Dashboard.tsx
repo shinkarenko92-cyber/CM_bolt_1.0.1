@@ -311,7 +311,7 @@ export function Dashboard() {
 
   // Sync chats from Avito API
   // TEMPORARILY DISABLED: Waiting for Avito approval
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const _syncChatsFromAvito = useCallback(async () => {
     if (!user) return;
 
@@ -418,7 +418,7 @@ export function Dashboard() {
   }, [user, properties, loadChats]);
 
   // Suppress unused variable warning - function is temporarily disabled
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   void _syncChatsFromAvito;
 
   // Load messages for selected chat
@@ -1590,7 +1590,7 @@ export function Dashboard() {
       <Sidebar currentView={currentView} onViewChange={setCurrentView} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-card border-b border-border px-3 md:px-6 py-3 md:py-4 shadow-sm">
+        <header className="backdrop-blur-md bg-card/90 border-b border-border px-3 md:px-6 py-3 md:py-4 shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between gap-2">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
@@ -1638,9 +1638,9 @@ export function Dashboard() {
                           <span>{property?.name || t('common.unknown')}</span>
                           <span className={cn(
                             'px-2 py-0.5 rounded text-xs',
-                            booking.status === 'confirmed' && 'bg-green-500/20 text-green-400',
-                            booking.status === 'pending' && 'bg-yellow-500/20 text-yellow-400',
-                            booking.status === 'cancelled' && 'bg-red-500/20 text-red-400'
+                            booking.status === 'confirmed' && 'bg-success/20 text-success',
+                            booking.status === 'pending' && 'bg-warning/20 text-warning',
+                            booking.status === 'cancelled' && 'bg-destructive/20 text-destructive'
                           )}>
                             {booking.status === 'confirmed' ? t('bookings.confirmed') : booking.status === 'pending' ? t('bookings.pending') : t('bookings.cancelled')}
                           </span>

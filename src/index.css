@@ -5,70 +5,86 @@
 @layer base {
   :root {
     --radius: 0.75rem;
-    /* default dark (before data-theme is set) */
+    /* Premium 2025: slate-950, indigo-500, emerald/amber/red */
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
-    --card: 222 47% 14%;
+    --card: 215 28% 17%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 14%;
+    --popover: 215 28% 17%;
     --popover-foreground: 210 40% 98%;
-    --primary: 174 72% 41%;
+    --primary: 239 84% 67%;
+    --primary-hover: 238 84% 73%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 217 33% 17%;
+    --secondary: 215 28% 17%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 174 72% 41%;
-    --accent-foreground: 0 0% 100%;
+    --muted: 215 28% 27%;
+    --muted-foreground: 213 27% 72%;
+    --accent: 215 28% 27%;
+    --accent-foreground: 210 40% 98%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 217 33% 24%;
-    --input: 217 33% 24%;
-    --ring: 174 72% 41%;
+    --success: 160 84% 39%;
+    --warning: 38 92% 50%;
+    --border: 215 28% 27%;
+    --input: 215 28% 27%;
+    --ring: 239 84% 67%;
   }
-  /* shadcn vars: dark */
   :root[data-theme='dark'] {
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
-    --card: 222 47% 14%;
+    --card: 215 28% 17%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 14%;
+    --popover: 215 28% 17%;
     --popover-foreground: 210 40% 98%;
-    --primary: 174 72% 41%;
+    --primary: 239 84% 67%;
+    --primary-hover: 238 84% 73%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 217 33% 17%;
+    --secondary: 215 28% 17%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 174 72% 41%;
-    --accent-foreground: 0 0% 100%;
+    --muted: 215 28% 27%;
+    --muted-foreground: 213 27% 72%;
+    --accent: 215 28% 27%;
+    --accent-foreground: 210 40% 98%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 217 33% 24%;
-    --input: 217 33% 24%;
-    --ring: 174 72% 41%;
+    --success: 160 84% 39%;
+    --warning: 38 92% 50%;
+    --border: 215 28% 27%;
+    --input: 215 28% 27%;
+    --ring: 239 84% 67%;
   }
-  /* shadcn vars: light */
   :root[data-theme='light'] {
-    --background: 0 0% 98%;
+    --background: 210 40% 98%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 174 72% 41%;
+    --primary: 239 84% 67%;
+    --primary-hover: 238 84% 73%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
+    --secondary: 214 32% 91%;
     --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
+    --muted: 214 32% 91%;
     --muted-foreground: 215 16% 47%;
-    --accent: 174 72% 41%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 214 32% 91%;
+    --accent-foreground: 222 47% 11%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
+    --success: 160 84% 39%;
+    --warning: 38 92% 50%;
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 174 72% 41%;
+    --ring: 239 84% 67%;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply backdrop-blur-md bg-black/30 border border-slate-800 shadow-xl;
+  }
+  .glass-card {
+    @apply backdrop-blur-md bg-card/95 border border-border shadow-xl;
   }
 }
 
@@ -90,12 +106,12 @@ html, body {
   --bg-tertiary: #f1f5f9;
   --bg-hover: #e2e8f0;
   --border-color: #e2e8f0;
-  --text-primary: #111827;
-  --text-secondary: #374151;
-  --text-tertiary: #6b7280;
-  --accent-color: #14b8a6;
-  --accent-hover: #0d9488;
-  --accent-light: #ccfbf1;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-tertiary: #64748b;
+  --accent-color: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-light: #e0e7ff;
   --success-color: #10b981;
   --error-color: #ef4444;
   --warning-color: #f59e0b;
@@ -106,13 +122,13 @@ html, body {
   --bg-secondary: #1e293b;
   --bg-tertiary: #334155;
   --bg-hover: #475569;
-  --border-color: #475569;
+  --border-color: #334155;
   --text-primary: #f8fafc;
   --text-secondary: #cbd5e1;
   --text-tertiary: #94a3b8;
-  --accent-color: #14b8a6;
-  --accent-hover: #0d9488;
-  --accent-light: #134e4a;
+  --accent-color: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-light: #312e81;
   --success-color: #10b981;
   --error-color: #ef4444;
   --warning-color: #f59e0b;
@@ -287,6 +303,7 @@ html, body {
   z-index: 10;
   transform: scale(1.02);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .booking-tooltip {
@@ -294,8 +311,8 @@ html, body {
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
-  background: #1e293b;
-  border: 1px solid #334155;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   padding: 12px;
   min-width: 200px;
@@ -317,7 +334,7 @@ html, body {
   left: 50%;
   transform: translateX(-50%);
   border: 6px solid transparent;
-  border-top-color: #1e293b;
+  border-top-color: hsl(var(--card));
 }
 
 /* Avito Account Select Styles */
@@ -350,7 +367,7 @@ html, body {
 
 .avito-account-select-dropdown .ant-select-item-option-selected {
   background-color: #334155 !important;
-  color: #14b8a6 !important;
+  color: #6366f1 !important;
 }
 
 .avito-account-select-dropdown .ant-select-item-option-active {

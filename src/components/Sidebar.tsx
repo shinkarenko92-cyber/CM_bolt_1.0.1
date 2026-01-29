@@ -40,7 +40,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
       <Button
         variant="ghost"
         size="icon"
-        className="md:hidden fixed top-3 left-3 z-50 bg-card border border-border shadow-md"
+        className="md:hidden fixed top-3 left-3 z-50 backdrop-blur-md bg-card/95 border border-border shadow-lg hover:scale-105 transition-transform duration-200"
         onClick={() => setIsOpen(!isOpen)}
         data-testid="button-mobile-menu"
       >
@@ -49,7 +49,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
 
       {isOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/50 z-40 backdrop-blur-sm"
+          className="md:hidden fixed inset-0 bg-black/40 z-40 backdrop-blur-md"
           onClick={() => setIsOpen(false)}
           aria-hidden
         />
@@ -57,7 +57,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
 
       <aside
         className={cn(
-          'fixed md:relative inset-y-0 left-0 z-40 w-64 flex flex-col bg-card border-r border-border shadow-sm',
+          'fixed md:relative inset-y-0 left-0 z-40 w-64 flex flex-col backdrop-blur-md bg-card/95 border-r border-border shadow-xl',
           'transform transition-transform duration-200 ease-in-out',
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         )}
@@ -84,8 +84,9 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
                 key={item.id}
                 variant={isActive ? 'default' : 'ghost'}
                 className={cn(
-                  'w-full justify-start gap-3 h-10 px-3 md:px-4 font-medium text-sm md:text-base',
-                  isActive && 'shadow-sm'
+                  'w-full justify-start gap-3 h-10 px-3 md:px-4 font-medium text-sm md:text-base transition-all duration-200',
+                  isActive && 'shadow-md',
+                  !isActive && 'hover:scale-[1.02]'
                 )}
                 onClick={() => handleNavClick(item.id)}
                 data-testid={`nav-${item.id}`}

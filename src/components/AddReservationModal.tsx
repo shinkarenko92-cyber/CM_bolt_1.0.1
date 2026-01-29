@@ -7,6 +7,7 @@ import { ChangeConditionsModal } from './ChangeConditionsModal';
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from './ui/sheet';
@@ -468,6 +469,7 @@ export function AddReservationModal({
           onPointerDownOutside={e => e.preventDefault()}
         >
           <SheetHeader className="p-6 pb-4 border-b border-border">
+            <SheetDescription className="sr-only">{t('modals.addReservation')}</SheetDescription>
             <div className="flex items-center justify-between gap-2">
               <SheetTitle>{t('modals.addReservation')}</SheetTitle>
               <Button
@@ -524,7 +526,7 @@ export function AddReservationModal({
                       {t('modals.property')} *
                     </Label>
                     <Select
-                      value={formData.property_id || undefined}
+                      value={formData.property_id ?? ''}
                       onValueChange={v => {
                         setFormData(prev => ({ ...prev, property_id: v }));
                         setError(null);

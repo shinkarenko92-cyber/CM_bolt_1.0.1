@@ -29,6 +29,8 @@ import {
   Legend,
 } from 'recharts';
 
+const CHART_HEIGHT = 256;
+
 interface AnalyticsViewProps {
   bookings: Booking[];
   properties: Property[];
@@ -651,8 +653,8 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             {monthlyRevenueData.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">{t('analytics.noData')}</p>
             ) : (
-              <div className="h-48 min-h-48 md:h-64 md:min-h-64 w-full min-w-0">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="w-full min-w-0" style={{ minHeight: CHART_HEIGHT }}>
+                <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
                   <BarChart data={monthlyRevenueData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                     <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
@@ -675,8 +677,8 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
               <p className="text-muted-foreground text-center py-8">{t('analytics.noDataForPeriod')}</p>
             ) : (
               <div className="h-48 min-h-48 md:h-64 md:min-h-64 flex flex-col w-full min-w-0">
-                <div className="flex-1 min-h-48 min-w-0">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="flex-1 min-w-0" style={{ minHeight: CHART_HEIGHT }}>
+                  <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
                     <PieChart>
                       <Pie
                         data={sourceChartData}
@@ -713,8 +715,8 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             {propertyOccupancyData.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">{t('analytics.noData')}</p>
             ) : (
-              <div className="h-48 min-h-48 md:h-64 md:min-h-64 w-full min-w-0">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="w-full min-w-0" style={{ minHeight: CHART_HEIGHT }}>
+                <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
                   <BarChart data={propertyOccupancyData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                     <XAxis type="number" stroke="#9ca3af" fontSize={12} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
@@ -798,8 +800,8 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             </Tabs>
           </CardHeader>
           <CardContent>
-          <div className="h-48 min-h-48 md:h-64 md:min-h-64 w-full min-w-0">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="w-full min-w-0" style={{ minHeight: CHART_HEIGHT }}>
+            <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
               <LineChart data={bookingsDynamicsData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis 

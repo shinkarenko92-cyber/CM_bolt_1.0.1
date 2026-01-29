@@ -70,12 +70,11 @@ export function Auth() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-background">
-      {/* Gradient / pattern background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-primary/5" />
+      <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-primary/10" />
       <div
-        className="absolute inset-0 opacity-[0.03]"
+        className="absolute inset-0 opacity-[0.04]"
         style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2314b8a6' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236366f1' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
         }}
       />
 
@@ -83,7 +82,7 @@ export function Auth() {
         <LanguageSelector />
       </div>
 
-      <Card className={cn('relative w-full max-w-md border-border/50 shadow-xl shadow-primary/5 bg-card/95 backdrop-blur')}>
+      <Card className={cn('relative w-full max-w-md glass-card border-border shadow-2xl transition-transform duration-300 hover:scale-[1.01]')}>
         <CardHeader className="space-y-2 text-center pb-4">
           <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight">Roomi Pro</CardTitle>
           <CardDescription>
@@ -128,12 +127,12 @@ export function Auth() {
             )}
 
             {success && (
-              <div className="rounded-md border border-green-500/50 bg-green-500/10 px-3 py-2 text-sm text-green-600 dark:text-green-400">
+              <div className="rounded-md border border-success/50 bg-success/10 px-3 py-2 text-sm text-success">
                 {success}
               </div>
             )}
 
-            <Button type="submit" disabled={loading} className="w-full h-11 font-medium">
+            <Button type="submit" disabled={loading} className="w-full h-11 font-medium transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
               {loading
                 ? t('common.loading')
                 : isForgotPassword

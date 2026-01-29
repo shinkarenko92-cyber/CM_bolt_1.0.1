@@ -25,10 +25,10 @@ export function CalendarHeader({
   };
 
   return (
-    <div className="sticky top-0 z-20 bg-slate-800 border-b border-slate-700">
-      <div className="flex items-center justify-between px-6 py-3 border-b border-slate-700">
+    <div className="sticky top-0 z-20 bg-secondary border-b border-border backdrop-blur-md">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-border">
         <div className="flex items-center gap-4">
-          <h2 className="text-lg font-semibold text-white">
+          <h2 className="text-lg font-semibold text-foreground">
             {formatMonthYear(currentDate)}
           </h2>
         </div>
@@ -36,43 +36,42 @@ export function CalendarHeader({
         <div className="flex items-center gap-2">
           <button
             onClick={onPrevMonth}
-            className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-accent rounded-lg transition-all duration-200 hover:scale-105 text-muted-foreground hover:text-foreground"
             title="Previous month"
           >
-            <ChevronsLeft className="w-4 h-4 text-slate-400" />
+            <ChevronsLeft className="w-4 h-4" />
           </button>
           <button
             onClick={onPrevWeek}
-            className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-accent rounded-lg transition-all duration-200 hover:scale-105 text-muted-foreground hover:text-foreground"
             title="Previous week"
           >
-            <ChevronLeft className="w-4 h-4 text-slate-400" />
+            <ChevronLeft className="w-4 h-4" />
           </button>
           <button
             onClick={onToday}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
+            className="px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95"
           >
             Сегодня
           </button>
           <button
             onClick={onNextWeek}
-            className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-accent rounded-lg transition-all duration-200 hover:scale-105 text-muted-foreground hover:text-foreground"
             title="Next week"
           >
-            <ChevronRight className="w-4 h-4 text-slate-400" />
+            <ChevronRight className="w-4 h-4" />
           </button>
           <button
             onClick={onNextMonth}
-            className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-accent rounded-lg transition-all duration-200 hover:scale-105 text-muted-foreground hover:text-foreground"
             title="Next month"
           >
-            <ChevronsRight className="w-4 h-4 text-slate-400" />
+            <ChevronsRight className="w-4 h-4" />
           </button>
-          <div className="w-px h-6 bg-slate-700 mx-1" />
+          <div className="w-px h-6 bg-border mx-1" />
           <MiniCalendarPicker onDateSelect={onDateSelect} currentDate={currentDate} />
         </div>
       </div>
-
     </div>
   );
 }
