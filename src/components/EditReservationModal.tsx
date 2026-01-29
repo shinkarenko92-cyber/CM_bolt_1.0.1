@@ -179,6 +179,38 @@ export function EditReservationModal({
     }
   }, [formData.price_per_night, formData.check_in, formData.check_out, formData.extra_services_amount]);
 
+  const historyEvents = useMemo((): HistoryEvent[] => {
+    if (!booking) return [];
+    const events: HistoryEvent[] = [];
+    if (booking.created_at) {
+      events.push({
+        timestamp: booking.created_at,
+        action: 'create',
+        source: booking.source || null,
+      });
+    }
+    if (
+      booking.updated_at &&
+      booking.updated_at !== booking.created_at
+    ) {
+      events.push({
+        timestamp: booking.updated_at,
+        action: 'update',
+        source: booking.source || null,
+      });
+    }
+    bookingLogs.forEach(log => {
+      events.push({
+        timestamp: log.timestamp,
+        action: log.action,
+        source: log.source,
+        changes: log.changes_json ?? undefined,
+      });
+    });
+    events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return events;
+  }, [booking, bookingLogs]);
+
   if (!booking) return null;
 
   const calculateNewPrice = async (
@@ -277,37 +309,6 @@ export function EditReservationModal({
       setLoading(false);
     }
   };
-
-  const historyEvents = useMemo((): HistoryEvent[] => {
-    const events: HistoryEvent[] = [];
-    if (booking.created_at) {
-      events.push({
-        timestamp: booking.created_at,
-        action: 'create',
-        source: booking.source || null,
-      });
-    }
-    if (
-      booking.updated_at &&
-      booking.updated_at !== booking.created_at
-    ) {
-      events.push({
-        timestamp: booking.updated_at,
-        action: 'update',
-        source: booking.source || null,
-      });
-    }
-    bookingLogs.forEach(log => {
-      events.push({
-        timestamp: log.timestamp,
-        action: log.action,
-        source: log.source,
-        changes: log.changes_json ?? undefined,
-      });
-    });
-    events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    return events;
-  }, [booking, bookingLogs]);
 
   const propertyName =
     properties.find(p => p.id === booking.property_id)?.name || t('common.unknown');

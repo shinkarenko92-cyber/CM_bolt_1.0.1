@@ -147,12 +147,14 @@ export function AddReservationModal({
       }));
       calculatePrice(prefilledDates.propertyId, prefilledDates.checkIn, prefilledDates.checkOut);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run only when prefilledDates change; calculatePrice identity intentionally omitted
   }, [prefilledDates]);
 
   useEffect(() => {
     if (formData.property_id && formData.check_in && formData.check_out) {
       calculatePrice(formData.property_id, formData.check_in, formData.check_out);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run only when property/dates change
   }, [formData.property_id, formData.check_in, formData.check_out]);
 
   useEffect(() => {
@@ -199,6 +201,7 @@ export function AddReservationModal({
           isUpdatingFromConditions.current = false;
         });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run only when property/dates change; getCurrentConditions, properties, etc. intentionally omitted to avoid extra runs
   }, [formData.property_id, formData.check_in, formData.check_out]);
 
   useEffect(() => {
