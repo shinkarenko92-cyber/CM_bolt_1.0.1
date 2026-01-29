@@ -918,7 +918,8 @@ export function Dashboard() {
         reservationWithAudit.updated_by = user.id;
       }
 
-      let payload: typeof reservationWithAudit & { deposit_received?: boolean; deposit_returned?: boolean } = reservationWithAudit;
+      type BookingInsertPayload = NewReservation & { created_by?: string; updated_by?: string };
+      let payload: BookingInsertPayload = reservationWithAudit;
       let { data, error } = await supabase.from('bookings').insert([payload]).select();
 
       // Handle PGRST204 error (column not found) - retry without audit fields
