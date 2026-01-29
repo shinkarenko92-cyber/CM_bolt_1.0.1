@@ -227,6 +227,7 @@ export function AddReservationModal({
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync total from price_per_night; omit formData.total_price to avoid loop
   }, [
     formData.price_per_night,
     formData.check_in,
@@ -259,6 +260,7 @@ export function AddReservationModal({
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync price_per_night from total; omit formData.price_per_night to avoid loop
   }, [
     formData.total_price,
     formData.extra_services_amount,
