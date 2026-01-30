@@ -1,16 +1,16 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Settings, AlertCircle } from 'lucide-react';
+import { Settings, AlertCircle, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { differenceInDays, parseISO } from 'date-fns';
 import { Property, supabase, Guest } from '../lib/supabase';
 import { ChangeConditionsModal } from './ChangeConditionsModal';
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from './ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -462,16 +462,16 @@ export function AddReservationModal({
 
   return (
     <>
-      <Sheet open={isOpen} onOpenChange={open => !open && onClose()}>
-        <SheetContent
-          side="right"
-          className="w-full sm:max-w-lg flex flex-col p-0"
+      <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
+        <DialogContent
+          className="max-w-lg w-[calc(100%-2rem)] max-h-[90vh] flex flex-col p-0 overflow-hidden"
           onPointerDownOutside={e => e.preventDefault()}
         >
-          <SheetHeader className="p-6 pb-4 border-b border-border">
-            <SheetDescription className="sr-only">{t('modals.addReservation')}</SheetDescription>
+          <DialogHeader className="p-6 pb-4 border-b border-border">
+            <DialogDescription className="sr-only">{t('modals.addReservation')}</DialogDescription>
             <div className="flex items-center justify-between gap-2">
-              <SheetTitle>{t('modals.addReservation')}</SheetTitle>
+              <DialogTitle>{t('modals.addReservation')}</DialogTitle>
+              <div className="flex items-center gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -502,8 +502,13 @@ export function AddReservationModal({
                 <Settings className="h-4 w-4 mr-2" />
                 {t('modals.changeConditions')}
               </Button>
+              <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 shrink-0">
+                <X className="h-4 w-4" />
+                <span className="sr-only">Закрыть</span>
+              </Button>
+              </div>
             </div>
-          </SheetHeader>
+          </DialogHeader>
 
           <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
             {error && (
@@ -867,8 +872,8 @@ export function AddReservationModal({
               </Button>
             </div>
           </form>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       {showConditionsModal &&
         formData.property_id &&

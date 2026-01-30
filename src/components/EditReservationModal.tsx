@@ -1,16 +1,17 @@
 import { useState, useEffect, useMemo } from 'react';
+import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Booking, Property, supabase, BookingLog } from '../lib/supabase';
 import { PriceRecalculationModal } from './PriceRecalculationModal';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from './ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -315,16 +316,23 @@ export function EditReservationModal({
 
   return (
     <>
-      <Sheet open={isOpen} onOpenChange={open => !open && onClose()}>
-        <SheetContent
-          side="right"
-          className="w-full sm:max-w-lg flex flex-col p-0"
+      <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
+        <DialogContent
+          className="max-w-lg w-[calc(100%-2rem)] max-h-[90vh] flex flex-col p-0 overflow-hidden"
           onPointerDownOutside={e => e.preventDefault()}
         >
-          <SheetHeader className="p-6 pb-4 border-b border-border">
-            <SheetTitle>{t('modals.editReservation')}</SheetTitle>
-            <SheetDescription>{propertyName}</SheetDescription>
-          </SheetHeader>
+          <DialogHeader className="p-6 pb-4 border-b border-border">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-col space-y-2 text-left min-w-0">
+                <DialogTitle>{t('modals.editReservation')}</DialogTitle>
+                <DialogDescription>{propertyName}</DialogDescription>
+              </div>
+              <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 shrink-0">
+                <X className="h-4 w-4" />
+                <span className="sr-only">Закрыть</span>
+              </Button>
+            </div>
+          </DialogHeader>
 
           {showDeleteConfirm ? (
             <div className="p-6 space-y-4">
@@ -605,8 +613,8 @@ export function EditReservationModal({
               </ScrollArea>
             </Tabs>
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       <PriceRecalculationModal
         isOpen={showPriceModal}
