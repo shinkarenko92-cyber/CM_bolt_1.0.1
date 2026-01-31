@@ -113,6 +113,7 @@ export function BookingsScreen() {
               return;
             }
             try {
+              // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic: Expo Go has no Nitro
               const Notifications = require('expo-notifications') as typeof import('expo-notifications');
               Notifications.scheduleNotificationAsync({
                 content: {
@@ -132,7 +133,7 @@ export function BookingsScreen() {
     return () => {
       supabase?.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, isExpoGo]);
 
   const openModal = (item: BookingWithProperty) => {
     setSelectedBooking(item);

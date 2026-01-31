@@ -36,6 +36,7 @@ function getMMKV(): Promise<import('react-native-mmkv').MMKV> {
   if (mmkvInstance) return Promise.resolve(mmkvInstance);
   if (!mmkvPromise) {
     mmkvPromise = getOrCreateEncryptionKey().then((encryptionKey) => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic: Expo Go has no Nitro
       const { createMMKV } = require('react-native-mmkv') as typeof import('react-native-mmkv');
       mmkvInstance = createMMKV({
         id: 'supabase-session',
@@ -53,6 +54,7 @@ const expoGoStorage = {
     const fromSecure = await SecureStore.getItemAsync(key);
     if (fromSecure != null) return fromSecure;
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- fallback in Expo Go
       const AsyncStorage = require('@react-native-async-storage/async-storage').default;
       return await AsyncStorage.getItem(key);
     } catch {
@@ -67,6 +69,7 @@ const expoGoStorage = {
         'Сессия слишком большая',
         'Используй development build для полной поддержки сессии.'
       );
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- fallback in Expo Go
       const AsyncStorage = require('@react-native-async-storage/async-storage').default;
       await AsyncStorage.setItem(key, value);
     }
@@ -74,6 +77,7 @@ const expoGoStorage = {
   removeItem: async (key: string): Promise<void> => {
     await SecureStore.deleteItemAsync(key);
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- fallback in Expo Go
       const AsyncStorage = require('@react-native-async-storage/async-storage').default;
       await AsyncStorage.removeItem(key);
     } catch {

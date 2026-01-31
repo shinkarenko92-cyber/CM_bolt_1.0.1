@@ -50,6 +50,7 @@ const isExpoGo =
 async function registerForPushNotificationsAsync(): Promise<void> {
   if (Platform.OS === 'web' || isExpoGo) return;
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic require: Expo Go has no Nitro
     const Notifications = require('expo-notifications') as typeof import('expo-notifications');
     const { status: existing } = await Notifications.getPermissionsAsync();
     if (existing === 'granted') return;
@@ -65,6 +66,7 @@ const Stack = createNativeStackNavigator();
 
 let Tab: ReturnType<typeof createBottomTabNavigator>;
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native tabs
   const { createNativeBottomTabNavigator } = require('@react-navigation/bottom-tabs/unstable');
   Tab = createNativeBottomTabNavigator();
 } catch {
