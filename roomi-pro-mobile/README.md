@@ -11,4 +11,9 @@
 
 ## Окружение
 
-Скопируй `.env.example` в `.env` и укажи `EXPO_PUBLIC_SUPABASE_URL` и `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+Ключи берутся из **touch.env** в корне `roomi-pro-mobile`. Создай файл `touch.env` и укажи:
+
+- `EXPO_PUBLIC_SUPABASE_URL` — полный URL (`https://xxx.supabase.co`) или только ref проекта
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY` — anon key из Supabase Dashboard
+
+Файл в `.gitignore`, в репозиторий не попадёт.
