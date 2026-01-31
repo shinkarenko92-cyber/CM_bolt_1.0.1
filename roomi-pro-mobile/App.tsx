@@ -1,14 +1,17 @@
 /**
- * Roomi Pro Mobile: QueryClient + Auth + навигация (Stack / Bottom Tabs).
- * SplashScreen.preventAutoHideAsync при старте, hideAsync после загрузки auth.
+ * Roomi Pro Mobile: QueryClient + Auth + навигация (Stack / NativeBottomTabs).
+ * Toast в корне, header "Roomi Pro" + иконка профиля, push только в dev build (в Expo Go — Alert).
  */
-import React, { useEffect } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { NavigationContainer } from '@react-navigation/native';
+import Constants from 'expo-constants';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginScreen } from './screens/LoginScreen';
@@ -23,9 +26,9 @@ const queryClient = new QueryClient();
 
 const hasSupabaseEnv =
   typeof process.env.EXPO_PUBLIC_SUPABASE_URL === 'string' &&
-  process.env.EXPO_PUBLIC_SUPABASE_URL.length > 0 &&
+  process.env.EXPO_PUBLIC_SUPABASE_URL?.length !== 0 &&
   typeof process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY === 'string' &&
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY.length > 0;
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY.length !== 0;
 
 function ConfigMissingScreen() {
   useEffect(() => {
@@ -41,8 +44,45 @@ function ConfigMissingScreen() {
   );
 }
 
+const isExpoGo =
+  Constants.appOwnership === 'expo' || Constants.appOwnership === 'guest';
+
+async function registerForPushNotificationsAsync(): Promise<void> {
+  if (Platform.OS === 'web' || isExpoGo) return;
+  try {
+    const Notifications = require('expo-notifications') as typeof import('expo-notifications');
+    const { status: existing } = await Notifications.getPermissionsAsync();
+    if (existing === 'granted') return;
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== 'granted') return;
+    await Notifications.getExpoPushTokenAsync();
+  } catch {
+    // ignore
+  }
+}
+
 const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
+
+let Tab: ReturnType<typeof createBottomTabNavigator>;
+try {
+  const { createNativeBottomTabNavigator } = require('@react-navigation/bottom-tabs/unstable');
+  Tab = createNativeBottomTabNavigator();
+} catch {
+  Tab = createBottomTabNavigator();
+}
+
+function HeaderRight() {
+  const navigation = useNavigation();
+  return (
+    <TouchableOpacity
+      onPress={() => navigation.navigate('Settings' as never)}
+      style={styles.headerRight}
+      hitSlop={12}
+    >
+      <Ionicons name="person-circle-outline" size={28} color="#fff" />
+    </TouchableOpacity>
+  );
+}
 
 function MainTabs() {
   return (
@@ -50,6 +90,9 @@ function MainTabs() {
       screenOptions={{
         headerStyle: { backgroundColor: colors.backgroundDark },
         headerTintColor: '#fff',
+        headerTitle: 'Roomi Pro',
+        headerTitleStyle: { fontSize: 18, fontWeight: '600' },
+        headerRight: () => <HeaderRight />,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: { backgroundColor: colors.background },
@@ -64,12 +107,29 @@ function MainTabs() {
 
 function RootNavigator() {
   const { user, loading } = useAuth();
+  const expoGoAlertShown = useRef(false);
 
   useEffect(() => {
     if (!loading) {
       SplashScreen.hideAsync();
     }
   }, [loading]);
+
+  useEffect(() => {
+    if (__DEV__ && isExpoGo && !expoGoAlertShown.current) {
+      expoGoAlertShown.current = true;
+      Alert.alert(
+        'Уведомления',
+        'Для уведомлений используй development build. В Expo Go пушей нет.'
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user && !isExpoGo) {
+      registerForPushNotificationsAsync();
+    }
+  }, [user]);
 
   if (loading) {
     return (
@@ -110,6 +170,7 @@ export default function App() {
         <NavigationContainer>
           <RootNavigator />
         </NavigationContainer>
+        <Toast />
       </AuthProvider>
       <StatusBar style="light" />
     </QueryClientProvider>
@@ -127,5 +188,8 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: 12,
     fontSize: 16,
+  },
+  headerRight: {
+    marginRight: 16,
   },
 });
