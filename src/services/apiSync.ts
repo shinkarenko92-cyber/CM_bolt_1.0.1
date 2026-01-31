@@ -91,6 +91,7 @@ export async function syncAvitoIntegration(
   pushSuccess?: boolean;
   pricesSuccess?: boolean;
   intervalsFailed?: boolean;
+  skipUserError?: boolean;
 }> {
   // Get integration from database
   const integration = await getPropertyIntegration(propertyId, 'avito');
@@ -103,7 +104,7 @@ export async function syncAvitoIntegration(
       hasIntegration: !!integration,
       isActive: integration?.is_active,
     });
-    return { success: false, message: 'Интеграция не найдена или неактивна' };
+    return { success: false, skipUserError: true, message: 'Интеграция не найдена или неактивна' };
   }
 
   // GUARD: Check if item_id is set and valid
@@ -112,7 +113,7 @@ export async function syncAvitoIntegration(
         propertyId,
         avito_item_id: integration.avito_item_id,
       });
-      return { success: false, message: 'Введи ID объявления на Avito (10-11 цифр)' };
+      return { success: false, skipUserError: true, message: 'Введи ID объявления на Avito (10-11 цифр)' };
     }
 
   const itemIdStr = String(integration.avito_item_id).trim();
@@ -122,7 +123,7 @@ export async function syncAvitoIntegration(
       avito_item_id: integration.avito_item_id,
       itemIdLength: itemIdStr.length,
     });
-    return { success: false, message: 'Введи ID объявления на Avito (10-11 цифр)' };
+    return { success: false, skipUserError: true, message: 'Введи ID объявления на Avito (10-11 цифр)' };
   }
 
   // Note: Token expiration check is now handled in Edge Function with automatic refresh

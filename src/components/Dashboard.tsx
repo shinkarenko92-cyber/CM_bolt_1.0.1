@@ -1007,9 +1007,11 @@ export function Dashboard() {
             toast.success('Синхронизация успешна! Цены и даты обновлены в Avito');
           }
         } else {
-          // Sync failed - show error
+          // Sync failed - show error only when integration was active (not skipUserError)
           toast.dismiss(syncToastId);
-          if (syncResult.errors && syncResult.errors.length > 0) {
+          if (syncResult.skipUserError) {
+            // Integration not found/inactive or not configured - don't show error to user
+          } else if (syncResult.errors && syncResult.errors.length > 0) {
             const errorMessages = syncResult.errors.map(e => e.message || 'Ошибка').join(', ');
             toast.error(`Ошибка синхронизации: ${errorMessages}`);
             showAvitoErrors(syncResult.errors, t).catch((err) => {
@@ -1018,7 +1020,9 @@ export function Dashboard() {
           } else {
             toast.error(syncResult.message || 'Ошибка синхронизации с Avito');
           }
-          console.error('Dashboard: Avito sync failed after booking creation', syncResult);
+          if (!syncResult.skipUserError) {
+            console.error('Dashboard: Avito sync failed after booking creation', syncResult);
+          }
         }
       } catch (error) {
         toast.dismiss(syncToastId);
@@ -1131,9 +1135,11 @@ export function Dashboard() {
             // Show success message
             toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
           } else {
-            // Sync failed - show error
+            // Sync failed - show error only when integration was active (not skipUserError)
             toast.dismiss(syncToastId);
-            if (syncResult.errors && syncResult.errors.length > 0) {
+            if (syncResult.skipUserError) {
+              // Integration not found/inactive or not configured - don't show error to user
+            } else if (syncResult.errors && syncResult.errors.length > 0) {
               const errorMessages = syncResult.errors.map(e => e.message || 'Ошибка').join(', ');
               toast.error(`Ошибка синхронизации: ${errorMessages}`);
               showAvitoErrors(syncResult.errors, t).catch((err) => {
@@ -1142,7 +1148,9 @@ export function Dashboard() {
             } else {
               toast.error(syncResult.message || 'Ошибка синхронизации с Avito');
             }
-            console.error('Dashboard: Avito sync failed after booking update', syncResult);
+            if (!syncResult.skipUserError) {
+              console.error('Dashboard: Avito sync failed after booking update', syncResult);
+            }
           }
         } catch (error) {
           toast.dismiss(syncToastId);
@@ -1203,21 +1211,17 @@ export function Dashboard() {
             .maybeSingle();
 
           if (!integration) {
-            toast.error('Интеграция Avito не найдена');
-            return; // Skip sync if no integration
+            return; // Skip sync if no integration - don't show error to user
           }
 
           if (!integration.avito_item_id) {
-            toast.error('Настрой ID объявления в интеграции Avito');
-            return; // Skip sync if no valid item_id
+            return; // Skip sync if no valid item_id - don't show error to user
           }
 
           // Validate item_id format (10-11 digits)
           const itemIdStr = String(integration.avito_item_id).trim();
           if (itemIdStr.length < 10 || itemIdStr.length > 11 || !/^\d+$/.test(itemIdStr)) {
-            toast.error('Неверный ID объявления Avito. Должен быть 10–11 цифр.');
-            // Invalid Avito item_id format
-            return; // Skip sync if invalid format
+            return; // Skip sync if invalid format - don't show error to user
           }
 
           // If manual booking, exclude it from sync to open dates in Avito
@@ -1240,9 +1244,11 @@ export function Dashboard() {
                 syncResult,
               });
             } else {
-              // Sync failed - show error
+              // Sync failed - show error only when integration was active (not skipUserError)
               toast.dismiss(syncToastId);
-              if (syncResult.errors && syncResult.errors.length > 0) {
+              if (syncResult.skipUserError) {
+                // Integration not found/inactive or not configured - don't show error to user
+              } else if (syncResult.errors && syncResult.errors.length > 0) {
                 // Check for 404 errors
                 const has404 = syncResult.errors.some(e => e.statusCode === 404);
                 if (has404) {
@@ -1264,12 +1270,14 @@ export function Dashboard() {
               } else {
                 toast.error(syncResult.message || 'Ошибка синхронизации с Avito');
               }
-              console.error('Dashboard: Avito sync failed after booking deletion', {
-                bookingId: id,
-                source: bookingSource,
-                isAvitoBooking,
-                syncResult,
-              });
+              if (!syncResult.skipUserError) {
+                console.error('Dashboard: Avito sync failed after booking deletion', {
+                  bookingId: id,
+                  source: bookingSource,
+                  isAvitoBooking,
+                  syncResult,
+                });
+              }
             }
           } catch (error) {
             toast.dismiss(syncToastId);

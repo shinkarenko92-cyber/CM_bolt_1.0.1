@@ -580,7 +580,7 @@ export function AddReservationModal({
                           />
                         </div>
                       </PopoverTrigger>
-                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
                         <ScrollArea className="max-h-48">
                           {filteredGuests.length === 0 ? (
                             <p className="p-3 text-sm text-muted-foreground">Нет гостей</p>

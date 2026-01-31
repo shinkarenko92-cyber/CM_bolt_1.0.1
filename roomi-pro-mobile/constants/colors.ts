@@ -1,5 +1,6 @@
 /**
  * Цвета приложения — в духе веб-версии Roomi Pro (тёмно-синий/белый/акцент).
+ * Единый стиль кнопок: primary bg #3B82F6, radius 12, paddingV 14, bold.
  */
 export const colors = {
   primary: '#3B82F6',
@@ -11,5 +12,9 @@ export const colors = {
   border: '#e2e8f0',
   error: '#ef4444',
   success: '#22c55e',
+  successCalendar: '#10B981',
   warning: '#f59e0b',
+  warningCalendar: '#F59E0B',
+  cancelled: '#EF4444',
+  inactiveBadge: '#94a3b8',
 } as const;
