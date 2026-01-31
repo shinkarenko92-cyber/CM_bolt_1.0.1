@@ -1,12 +1,14 @@
 /**
- * Roomi Pro Mobile: QueryClient + Auth + навигация (Stack / NativeBottomTabs).
+ * Roomi Pro Mobile: QueryClient + Auth + навигация (Stack + BottomTabs).
  * Toast в корне, header "Roomi Pro" + иконка профиля, push только в dev build (в Expo Go — Alert).
+ * Native tabs unstable — откатили на стабильные для Expo SDK 54 (Host undefined fix).
  */
 import React, { useEffect, useRef } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import Constants from 'expo-constants';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -63,15 +65,8 @@ async function registerForPushNotificationsAsync(): Promise<void> {
 }
 
 const Stack = createNativeStackNavigator();
-
-let Tab: ReturnType<typeof createBottomTabNavigator>;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native tabs
-  const { createNativeBottomTabNavigator } = require('@react-navigation/bottom-tabs/unstable');
-  Tab = createNativeBottomTabNavigator();
-} catch {
-  Tab = createBottomTabNavigator();
-}
+// Native tabs unstable — откатили на стабильные для Expo SDK 54 (Host undefined fix).
+const Tab = createBottomTabNavigator();
 
 function HeaderRight() {
   const navigation = useNavigation();
@@ -100,9 +95,30 @@ function MainTabs() {
         tabBarStyle: { backgroundColor: colors.background },
       }}
     >
-      <Tab.Screen name="Objects" component={ObjectsScreen} options={{ title: 'Объекты' }} />
-      <Tab.Screen name="Bookings" component={BookingsScreen} options={{ title: 'Бронирования' }} />
-      <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Настройки' }} />
+      <Tab.Screen
+        name="Objects"
+        component={ObjectsScreen}
+        options={{
+          title: 'Объекты',
+          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Bookings"
+        component={BookingsScreen}
+        options={{
+          title: 'Бронирования',
+          tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          title: 'Настройки',
+          tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
+        }}
+      />
     </Tab.Navigator>
   );
 }
@@ -169,9 +185,11 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <NavigationContainer>
-          <RootNavigator />
-        </NavigationContainer>
+        <SafeAreaProvider>
+          <NavigationContainer>
+            <RootNavigator />
+          </NavigationContainer>
+        </SafeAreaProvider>
         <Toast />
       </AuthProvider>
       <StatusBar style="light" />
