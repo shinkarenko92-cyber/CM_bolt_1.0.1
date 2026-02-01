@@ -59,6 +59,10 @@ export type Booking = {
   updated_at: string;
 };
 
+export type BookingWithProperty = Booking & {
+  properties?: { name: string } | null;
+};
+
 export type Profile = {
   id: string;
   full_name: string | null;

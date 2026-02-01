@@ -2,6 +2,9 @@ import { avitoApi, isAvitoConfigured, initializeAvito } from './avitoApi';
 import { supabase, Booking, Property, PropertyIntegration } from '../lib/supabase';
 import type { AvitoErrorInfo } from './avitoErrors';
 
+const devLog = (...args: unknown[]) => { if (import.meta.env.DEV) devLog(...args); };
+const devWarn = (...args: unknown[]) => { if (import.meta.env.DEV) devWarn(...args); };
+
 export type SyncResult = {
   platform: string;
   success: boolean;
@@ -99,7 +102,7 @@ export async function syncAvitoIntegration(
   if (!integration || !integration.is_active) {
     // Don't throw error - just skip sync if integration is not found or inactive
     // This can happen during race conditions or when integration is being set up
-    console.log('syncAvitoIntegration: Skipping sync - integration not found or inactive', {
+    devLog('syncAvitoIntegration: Skipping sync - integration not found or inactive', {
       propertyId,
       hasIntegration: !!integration,
       isActive: integration?.is_active,
@@ -109,7 +112,7 @@ export async function syncAvitoIntegration(
 
   // GUARD: Check if item_id is set and valid
   if (!integration.avito_item_id) {
-    console.warn('syncAvitoIntegration: Missing item_id', {
+    devWarn('syncAvitoIntegration: Missing item_id', {
         propertyId,
         avito_item_id: integration.avito_item_id,
       });
@@ -118,7 +121,7 @@ export async function syncAvitoIntegration(
 
   const itemIdStr = String(integration.avito_item_id).trim();
   if (!itemIdStr || itemIdStr.length < 10 || itemIdStr.length > 11 || !/^\d+$/.test(itemIdStr)) {
-    console.warn('syncAvitoIntegration: Invalid item_id format', {
+    devWarn('syncAvitoIntegration: Invalid item_id format', {
       propertyId,
       avito_item_id: integration.avito_item_id,
       itemIdLength: itemIdStr.length,
@@ -128,7 +131,7 @@ export async function syncAvitoIntegration(
 
   // Note: Token expiration check is now handled in Edge Function with automatic refresh
   // We no longer check token expiration on the client side to allow Edge Function to handle it
-  console.log('syncAvitoIntegration: Skipping client-side token check, Edge Function will handle it', {
+  devLog('syncAvitoIntegration: Skipping client-side token check, Edge Function will handle it', {
     propertyId,
     integrationId: integration.id,
     hasTokenExpiresAt: !!integration.token_expires_at,
@@ -136,7 +139,7 @@ export async function syncAvitoIntegration(
   });
 
   // Call Edge Function for sync (it will fetch property and bookings internally)
-  console.log('syncAvitoIntegration: Calling Edge Function', {
+  devLog('syncAvitoIntegration: Calling Edge Function', {
     integration_id: integration.id,
     property_id: integration.property_id,
     avito_item_id: integration.avito_item_id,
@@ -151,7 +154,7 @@ export async function syncAvitoIntegration(
     },
   });
 
-  console.log('syncAvitoIntegration: Edge Function response received', {
+  devLog('syncAvitoIntegration: Edge Function response received', {
     hasData: !!data,
     hasError: !!syncError,
     dataType: data ? typeof data : 'null',
@@ -219,7 +222,7 @@ export async function syncAvitoIntegration(
     
     // PRIORITY: Check pushSuccess - if push operations (prices/intervals) succeeded, return success
     if ('pushSuccess' in responseData && responseData.pushSuccess === true) {
-      console.log('syncAvitoIntegration: Push operations succeeded (prices/intervals)', { 
+      devLog('syncAvitoIntegration: Push operations succeeded (prices/intervals)', { 
         integration_id: integration.id,
         property_id: integration.property_id,
         pushSuccess: responseData.pushSuccess,
@@ -237,7 +240,7 @@ export async function syncAvitoIntegration(
       );
       
       if (intervalsFailed || has404Error) {
-        console.log('syncAvitoIntegration: Prices succeeded but intervals failed (404)', {
+        devLog('syncAvitoIntegration: Prices succeeded but intervals failed (404)', {
           integration_id: integration.id,
           property_id: integration.property_id,
           pricesPushSuccess: responseData.pricesPushSuccess,
@@ -255,7 +258,7 @@ export async function syncAvitoIntegration(
     // PRIORITY: Check hasError first - this is the definitive success indicator
     // If hasError === false, treat as success regardless of success/errorsCount fields
     if ('hasError' in responseData && responseData.hasError === false) {
-      console.log('syncAvitoIntegration: Sync completed successfully (hasError: false)', { 
+      devLog('syncAvitoIntegration: Sync completed successfully (hasError: false)', { 
         integration_id: integration.id,
         property_id: integration.property_id,
         hasData: responseData.hasData,
@@ -297,7 +300,7 @@ export async function syncAvitoIntegration(
     if (responseData.success === false) {
       const errors = (responseData.errors as AvitoErrorInfo[]) || [];
       const message = (responseData.error as string) || (responseData.message as string) || 'Avito synchronization failed';
-      console.warn('syncAvitoIntegration: Sync returned success: false', {
+      devWarn('syncAvitoIntegration: Sync returned success: false', {
         message,
         errorsCount: errors.length,
       });
@@ -312,14 +315,14 @@ export async function syncAvitoIntegration(
       const isRealError = 'hasError' in responseData && responseData.hasError === true;
       
       if (isRealError) {
-        console.warn('syncAvitoIntegration: Sync completed with errors', {
+        devWarn('syncAvitoIntegration: Sync completed with errors', {
           errorsCount: errors.length,
           success: responseData.success,
         });
         return { success: false, errors };
       } else {
         // These are warnings, sync was successful
-        console.log('syncAvitoIntegration: Sync completed with warnings (but hasError: false)', {
+        devLog('syncAvitoIntegration: Sync completed with warnings (but hasError: false)', {
           errorsCount: errors.length,
           success: responseData.success,
         });
@@ -328,7 +331,7 @@ export async function syncAvitoIntegration(
     }
 
     // Success case
-    console.log('syncAvitoIntegration: Avito sync completed successfully', { 
+    devLog('syncAvitoIntegration: Avito sync completed successfully', { 
       integration_id: integration.id,
       property_id: integration.property_id,
       success: responseData.success,
@@ -340,7 +343,7 @@ export async function syncAvitoIntegration(
   }
 
   // If no data, treat as success (Edge Function might return empty response)
-  console.log('syncAvitoIntegration: Edge Function returned no data, treating as success', {
+  devLog('syncAvitoIntegration: Edge Function returned no data, treating as success', {
     integration_id: integration.id,
   });
   
@@ -480,11 +483,11 @@ export async function syncWithExternalAPIs(
 ): Promise<SyncResult[]> {
   const results: SyncResult[] = [];
   
-  console.log('🔄 Starting API sync...');
+  devLog('🔄 Starting API sync...');
   
   // Avito Sync
   if (isAvitoConfigured()) {
-    console.log('📡 Connecting to Avito...');
+    devLog('📡 Connecting to Avito...');
     const initialized = await initializeAvito();
     
     if (initialized && userId && properties && bookings) {
@@ -505,7 +508,7 @@ export async function syncWithExternalAPIs(
         if (mappings.size > 0) {
           const avitoResult = await syncBookingsToAvito(avitoUserId, mappings, bookings);
           results.push(avitoResult);
-          console.log(`✅ Avito: ${avitoResult.message}`);
+          devLog(`✅ Avito: ${avitoResult.message}`);
         } else {
           results.push({
             platform: 'Avito',
@@ -535,7 +538,7 @@ export async function syncWithExternalAPIs(
     success: true,
     message: 'Integration coming soon',
   });
-  console.log('⏳ Airbnb: Integration coming soon');
+  devLog('⏳ Airbnb: Integration coming soon');
   
   // CIAN Sync (placeholder)
   results.push({
@@ -543,7 +546,7 @@ export async function syncWithExternalAPIs(
     success: true,
     message: 'Integration coming soon',
   });
-  console.log('⏳ CIAN: Integration coming soon');
+  devLog('⏳ CIAN: Integration coming soon');
   
   // Booking.com Sync (placeholder - requires their API partnership)
   results.push({
@@ -551,9 +554,9 @@ export async function syncWithExternalAPIs(
     success: true,
     message: 'Integration coming soon',
   });
-  console.log('⏳ Booking.com: Integration coming soon');
+  devLog('⏳ Booking.com: Integration coming soon');
   
-  console.log('🎉 Sync completed');
+  devLog('🎉 Sync completed');
   
   return results;
 }

@@ -16,16 +16,6 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const oauthProcessedRef = useRef(false);
 
-  // Логируем при монтировании компонента
-  useEffect(() => {
-    // Component mounted/updated
-
-    // Always render properties, even if groups error
-    if (properties.length > 0) {
-      console.log('PropertiesView: Rendering properties list (always show, groups error does not hide properties)');
-    }
-  }, [properties]);
-
   // Сбрасываем флаг обработки OAuth при закрытии модального окна
   useEffect(() => {
     if (!isModalOpen) {

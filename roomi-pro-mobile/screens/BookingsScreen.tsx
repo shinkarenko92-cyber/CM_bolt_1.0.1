@@ -15,13 +15,9 @@ import {
 } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Constants from 'expo-constants';
-import { supabase, type Booking } from '../lib/supabase';
+import { supabase, type BookingWithProperty } from '../lib/supabase';
 import { colors } from '../constants/colors';
 import { DetailsBookingModal } from './DetailsBookingModal';
-
-export type BookingWithProperty = Booking & {
-  properties?: { name: string } | null;
-};
 
 async function fetchBookings(): Promise<BookingWithProperty[]> {
   if (!supabase) return [];
@@ -109,7 +105,6 @@ export function BookingsScreen() {
             const guestName = (record.guest_name as string) || 'гостя';
             const checkIn = (record.check_in as string)?.split?.('T')?.[0] ?? '';
             if (__DEV__ && isExpoGo) {
-              console.log('Пуш в dev-client:', guestName, checkIn);
               return;
             }
             try {

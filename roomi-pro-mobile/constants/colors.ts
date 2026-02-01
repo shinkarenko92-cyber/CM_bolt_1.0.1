@@ -23,7 +23,9 @@ export const colors = {
   warningCalendar: '#F59E0B',
   cancelled: '#EF4444',
   inactiveBadge: '#94a3b8',
+  /** Фон ячеек Standard rate в таблице доступности. */
+  rateCellBg: '#E0F2FE',
 } as const;
 
 /** Валюта по умолчанию для total left и цен (можно брать item.currency из брони). */
-export const DEFAULT_CURRENCY = '₾';
+export const DEFAULT_CURRENCY = '₽';

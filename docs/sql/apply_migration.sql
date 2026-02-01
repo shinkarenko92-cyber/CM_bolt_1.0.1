@@ -18,4 +18,3 @@ COMMENT ON COLUMN properties.deleted_at IS 'Timestamp when property was soft-del
 SELECT column_name, data_type, is_nullable 
 FROM information_schema.columns 
 WHERE table_name = 'properties' AND column_name = 'deleted_at';
-

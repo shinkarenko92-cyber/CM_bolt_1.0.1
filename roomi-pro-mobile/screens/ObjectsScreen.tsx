@@ -1,120 +1,81 @@
 /**
- * Объекты (Airbnb PMS стиль): календарь с period-разметкой, круговая аналитика
- * Arrival/Departure/Stay, список броней с цветной полосой по статусу, график total left,
- * счёты New/Modified/Cancelled, FAB "+". Выбранный день фильтрует список.
+ * Объекты: таблица доступности и тарифов по комнатам и датам (Airbnb PMS стиль).
+ * Строки — объекты (properties), столбцы — дни месяца; ячейки — цветные блоки броней или пусто.
+ * Под каждой строкой — Standard rate с ценами по дням. Pull-to-refresh, FAB "+".
  */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
+  ScrollView,
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
   Pressable,
-  ScrollView,
   Alert,
-  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Calendar } from 'react-native-calendars';
-import { BarChart } from 'react-native-chart-kit';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase, type Booking } from '../lib/supabase';
-import { colors, DEFAULT_CURRENCY } from '../constants/colors';
+import { supabase, type Property, type BookingWithProperty } from '../lib/supabase';
+import { colors } from '../constants/colors';
+import { DAY_CELL_WIDTH, ROOM_NAME_WIDTH } from '../constants/layout';
+import { RoomRow } from '../components/RoomRow';
 
-export type BookingWithProperty = Booking & {
-  properties?: { name: string } | null;
-};
+async function fetchProperties(): Promise<Property[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('properties')
+    .select('*')
+    .is('deleted_at', null)
+    .order('sort_order', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
 
-async function fetchBookingsWithProperty(): Promise<BookingWithProperty[]> {
+async function fetchBookings(): Promise<BookingWithProperty[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('bookings')
     .select('*, properties(name)')
-    .order('check_in', { ascending: false });
+    .order('check_in', { ascending: true });
   if (error) throw error;
   return (data ?? []) as BookingWithProperty[];
 }
 
-/** Все даты между start и end включительно (YYYY-MM-DD). */
-function getDateRange(start: string, end: string): string[] {
+const DAY_LABELS = ['В', 'П', 'С', 'Ч', 'П', 'С', 'В'];
+
+/** Массив дат месяца YYYY-MM-DD для currentMonth (YYYY-MM). Локальная дата, не UTC. */
+function getDatesForMonth(currentMonth: string): string[] {
+  const [y, m] = currentMonth.split('-').map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
   const dates: string[] = [];
-  const startStr = start.split('T')[0];
-  const endStr = end.split('T')[0];
-  const d = new Date(startStr);
-  const endDate = new Date(endStr);
-  while (d <= endDate) {
-    dates.push(d.toISOString().slice(0, 10));
-    d.setDate(d.getDate() + 1);
+  const mm = String(m).padStart(2, '0');
+  for (let day = 1; day <= lastDay; day++) {
+    const dd = String(day).padStart(2, '0');
+    dates.push(`${y}-${mm}-${dd}`);
   }
   return dates;
 }
 
-function statusToColor(status: string): string {
-  if (status === 'confirmed') return colors.successCalendar;
-  if (status === 'pending') return colors.warningCalendar;
-  if (status === 'cancelled') return colors.cancelled;
-  return colors.border;
+/** Формат заголовка месяца (например "August 2026"). */
+function formatMonthTitle(currentMonth: string): string {
+  const [y, m] = currentMonth.split('-').map(Number);
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+  return `${monthNames[m - 1]} ${y}`;
 }
 
-/** Period-разметка: startingDay/endingDay/color по статусу. Свободные даты без разметки (белые). */
-function buildMarkedDatesPeriod(
-  bookings: BookingWithProperty[]
-): Record<string, { type: 'period'; startingDay?: boolean; endingDay?: boolean; color: string }> {
-  const acc: Record<
-    string,
-    { type: 'period'; startingDay?: boolean; endingDay?: boolean; color: string }
-  > = {};
-  for (const b of bookings) {
-    const startStr = b.check_in.split('T')[0];
-    const endStr = b.check_out.split('T')[0];
-    const color = statusToColor(b.status);
-    const range = getDateRange(startStr, endStr);
-    range.forEach((date, i) => {
-      acc[date] = {
-        type: 'period',
-        startingDay: i === 0,
-        endingDay: i === range.length - 1,
-        color,
-      };
-    });
-  }
-  return acc;
-}
-
-/** Бронирования, пересекающиеся с месяцем YYYY-MM. */
-function filterBookingsByMonth(
-  bookings: BookingWithProperty[],
-  month: string
-): BookingWithProperty[] {
-  const [y, m] = month.split('-').map(Number);
-  const firstDay = `${month}-01`;
-  const lastDay = new Date(y, m, 0).getDate();
-  const lastDayStr = `${month}-${String(lastDay).padStart(2, '0')}`;
-  return bookings.filter((b) => {
-    const checkIn = b.check_in.split('T')[0];
-    const checkOut = b.check_out.split('T')[0];
-    return (
-      (checkIn >= firstDay && checkIn <= lastDayStr) ||
-      (checkOut >= firstDay && checkOut <= lastDayStr) ||
-      (checkIn <= firstDay && checkOut >= lastDayStr)
-    );
-  });
-}
-
-/** Бронирования, в которые попадает выбранный день. */
-function filterBookingsByDate(
-  bookings: BookingWithProperty[],
-  date: string
-): BookingWithProperty[] {
-  return bookings.filter((b) => {
-    const checkIn = b.check_in.split('T')[0];
-    const checkOut = b.check_out.split('T')[0];
-    return date >= checkIn && date <= checkOut;
-  });
+/** Буква дня недели и число для заголовка (W / 22). */
+function getDayHeaderParts(dateStr: string): { letter: string; date: number } {
+  const d = new Date(dateStr + 'T12:00:00');
+  const dayOfWeek = d.getDay();
+  const dayNum = d.getDate();
+  const letter = DAY_LABELS[dayOfWeek] ?? '';
+  return { letter, date: dayNum };
 }
 
 function getCurrentMonth(): string {
@@ -122,299 +83,173 @@ function getCurrentMonth(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-/** Аналитика по месяцу. */
-function useMonthAnalytics(
-  bookings: BookingWithProperty[],
-  currentMonth: string,
-  selectedDate: string | null
-) {
-  return useMemo(() => {
-    const byMonth = filterBookingsByMonth(bookings, currentMonth);
-    const [y, m] = currentMonth.split('-').map(Number);
-    const lastDay = new Date(y, m, 0).getDate();
-    const midMonth = `${currentMonth}-${String(Math.min(15, lastDay)).padStart(2, '0')}`;
-    const dayToUse = selectedDate && selectedDate.startsWith(currentMonth) ? selectedDate : midMonth;
-
-    let arrivalsCount = 0;
-    let departuresCount = 0;
-    let staysCount = 0;
-    for (const b of byMonth) {
-      const checkIn = b.check_in.split('T')[0];
-      const checkOut = b.check_out.split('T')[0];
-      if (checkIn.startsWith(currentMonth)) arrivalsCount += 1;
-      if (checkOut.startsWith(currentMonth)) departuresCount += 1;
-      if (dayToUse >= checkIn && dayToUse <= checkOut) staysCount += 1;
-    }
-
-    const newCount = byMonth.filter((b) => b.created_at.startsWith(currentMonth)).length;
-    const modifiedCount = byMonth.filter(
-      (b) => b.updated_at.startsWith(currentMonth) && b.updated_at !== b.created_at
-    ).length;
-    const cancelledCount = byMonth.filter((b) => b.status === 'cancelled').length;
-
-    const totalLeftSum = byMonth
-      .filter((b) => b.status === 'confirmed')
-      .reduce((sum, b) => sum + (b.total_price ?? 0), 0);
-
-    return {
-      arrivalsCount,
-      departuresCount,
-      staysCount,
-      newCount,
-      modifiedCount,
-      cancelledCount,
-      totalLeftSum,
-      bookingsInMonth: byMonth,
-    };
-  }, [bookings, currentMonth, selectedDate]);
-}
-
-function BookingCard({
-  item,
-  currency,
-}: {
-  item: BookingWithProperty;
-  currency: string;
-}) {
-  const checkIn = item.check_in.split('T')[0];
-  const checkOut = item.check_out.split('T')[0];
-  const propertyName = item.properties?.name ?? '—';
-  const price = item.total_price != null ? item.total_price : 0;
-  const curr = item.currency || currency;
-  return (
-    <View style={styles.bookingCard}>
-      <View style={[styles.bookingStrip, { backgroundColor: statusToColor(item.status) }]} />
-      <View style={styles.bookingCardContent}>
-        <Text style={styles.bookingGuest}>{item.guest_name}</Text>
-        <Text style={styles.bookingDates}>
-          {checkIn} — {checkOut}
-        </Text>
-        <Text style={styles.bookingProperty}>{propertyName}</Text>
-        <Text style={styles.bookingPrice}>
-          {price} {curr}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-/** Круг аналитики с иконкой. */
-function AnalyticsCircle({
-  label,
-  value,
-  total,
-  color,
-  icon,
-}: {
-  label: string;
-  value: number;
-  total: number;
-  color: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}) {
-  return (
-    <View style={styles.analyticsCircleWrap}>
-      <View style={[styles.analyticsCircle, { borderColor: color }, styles.analyticsCircleShadow]}>
-        <Ionicons name={icon} size={20} color={color} style={styles.analyticsIcon} />
-        <Text style={styles.analyticsCircleText}>
-          {value}/{total}
-        </Text>
-      </View>
-      <Text style={styles.analyticsLabel}>{label}</Text>
-    </View>
-  );
-}
-
-const chartConfig = {
-  backgroundColor: colors.background,
-  backgroundGradientFrom: colors.background,
-  backgroundGradientTo: colors.background,
-  decimalPlaces: 0,
-  color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
-  labelColor: () => colors.textSecondary,
-};
-
 export function ObjectsScreen() {
   const queryClient = useQueryClient();
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonth);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  const {
+    data: properties = [],
+    isLoading: loadingProperties,
+    isError: errorProperties,
+    refetch: refetchProperties,
+    isRefetching,
+  } = useQuery({ queryKey: ['properties'], queryFn: fetchProperties });
 
   const {
     data: bookings = [],
-    isLoading,
-    isError,
-    refetch,
-    isRefetching,
-  } = useQuery({ queryKey: ['bookings'], queryFn: fetchBookingsWithProperty });
+    isLoading: loadingBookings,
+    isError: errorBookings,
+    refetch: refetchBookings,
+  } = useQuery({ queryKey: ['bookings'], queryFn: fetchBookings });
 
-  const markedDates = useMemo(() => buildMarkedDatesPeriod(bookings), [bookings]);
-  const markedDatesWithSelection = useMemo(() => {
-    if (!selectedDate) return markedDates;
-    const base = markedDates[selectedDate];
-    return {
-      ...markedDates,
-      [selectedDate]: { ...(base || {}), selected: true },
-    };
-  }, [markedDates, selectedDate]);
-  const {
-    arrivalsCount,
-    departuresCount,
-    staysCount,
-    newCount,
-    modifiedCount,
-    cancelledCount,
-    totalLeftSum,
-    bookingsInMonth,
-  } = useMonthAnalytics(bookings, currentMonth, selectedDate);
+  const dates = useMemo(() => getDatesForMonth(currentMonth), [currentMonth]);
+  const tableWidth = Math.max(dates.length * DAY_CELL_WIDTH, 400);
 
-  const listData = useMemo(() => {
-    if (selectedDate) return filterBookingsByDate(bookingsInMonth, selectedDate);
-    return bookingsInMonth;
-  }, [bookingsInMonth, selectedDate]);
-
-  const onDayPress = (day: { dateString: string }) => {
-    setSelectedDate(day.dateString);
+  const goPrevMonth = () => {
+    const [y, m] = currentMonth.split('-').map(Number);
+    if (m === 1) setCurrentMonth(`${y - 1}-12`);
+    else setCurrentMonth(`${y}-${String(m - 1).padStart(2, '0')}`);
   };
 
-  const currency = listData[0]?.currency ?? DEFAULT_CURRENCY;
+  const goNextMonth = () => {
+    const [y, m] = currentMonth.split('-').map(Number);
+    if (m === 12) setCurrentMonth(`${y + 1}-01`);
+    else setCurrentMonth(`${y}-${String(m + 1).padStart(2, '0')}`);
+  };
+
+  const onRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['properties'] });
+    queryClient.invalidateQueries({ queryKey: ['bookings'] });
+  };
+
+  const isLoading = loadingProperties || loadingBookings;
+  const isError = errorProperties || errorBookings;
 
   if (isLoading) {
     return (
-      <View style={[styles.centered, styles.bgLight]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Загрузка...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   if (isError) {
     return (
-      <View style={[styles.centered, styles.bgLight]}>
-        <Text style={styles.errorText}>Не удалось загрузить бронирования</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-          <Text style={styles.retryButtonText}>Повторить</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>Не удалось загрузить данные</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => {
+              refetchProperties();
+              refetchBookings();
+            }}
+          >
+            <Text style={styles.retryButtonText}>Повторить</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
-            onRefresh={() => queryClient.invalidateQueries({ queryKey: ['bookings'] })}
+            onRefresh={onRefresh}
             colors={[colors.primary]}
           />
         }
       >
-        {/* Календарь: свободные даты белые, прошлые серые, period по статусу. */}
-        <Calendar
-          current={`${currentMonth}-01`}
-          onMonthChange={(m) => setCurrentMonth(m.dateString.slice(0, 7))}
-          onDayPress={onDayPress}
-          markedDates={markedDatesWithSelection}
-          markingType="period"
-          theme={{
-            dayTextColor: '#000',
-            textDisabledColor: '#d9e1e8',
-            todayTextColor: colors.primary,
-            selectedDayBackgroundColor: colors.primary,
-            selectedDayTextColor: '#fff',
-            arrowColor: colors.primary,
-          }}
-          style={styles.calendar}
-        />
-
-        {/* Круговая аналитика: Arrival / Departure / Stay с иконками и тенью. */}
-        <View style={styles.analyticsRow}>
-          <AnalyticsCircle
-            label="ARRIVAL"
-            value={arrivalsCount}
-            total={Math.max(arrivalsCount, 1)}
-            color={colors.arrivalGreen}
-            icon="arrow-down"
-          />
-          <AnalyticsCircle
-            label="DEPARTURE"
-            value={departuresCount}
-            total={Math.max(departuresCount, 1)}
-            color={colors.departureBlue}
-            icon="arrow-up"
-          />
-          <AnalyticsCircle
-            label="STAY"
-            value={staysCount}
-            total={Math.max(staysCount, 1)}
-            color={colors.stayLightBlue}
-            icon="bed-outline"
-          />
-        </View>
-
-        {/* All properties — заглушка. */}
+        {/* All properties — заглушка */}
         <Pressable
           style={styles.dropdown}
-          onPress={() => Alert.alert('Скоро', 'Выбор объекта будет доступен в следующей версии.')}
+          onPress={() => Alert.alert('Скоро', 'Выбор объекта будет доступен.')}
         >
           <Text style={styles.dropdownText}>All properties</Text>
           <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
         </Pressable>
 
-        {/* Список броней (по выбранному дню или по месяцу). */}
-        {listData.length === 0 ? (
+        {/* Навигация по месяцу */}
+        <View style={styles.monthRow}>
+          <Pressable onPress={goPrevMonth} style={styles.monthArrow} hitSlop={12}>
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
+          </Pressable>
+          <Text style={styles.monthTitle}>{formatMonthTitle(currentMonth)}</Text>
+          <Pressable onPress={goNextMonth} style={styles.monthArrow} hitSlop={12}>
+            <Ionicons name="chevron-forward" size={24} color={colors.text} />
+          </Pressable>
+        </View>
+
+        {/* Таблица: левая колонка (названия) + горизонтальный скролл (даты и ячейки) */}
+        {properties.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="calendar-outline" size={48} color={colors.textSecondary} />
-            <Text style={styles.emptyText}>Нет броней на этот месяц</Text>
+            <Text style={styles.emptyText}>Нет объектов</Text>
           </View>
         ) : (
-          <>
-            <FlatList
-              data={listData}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => <BookingCard item={item} currency={currency} />}
-              scrollEnabled={false}
-              contentContainerStyle={styles.listContent}
-            />
-
-            {/* Total left — BarChart (один столбец для MVP). */}
-            <View style={styles.chartSection}>
-              <Text style={styles.chartTitle}>Total left</Text>
-              <BarChart
-                data={{
-                  labels: [''],
-                  datasets: [{ data: [totalLeftSum || 0] }],
-                }}
-                width={Dimensions.get('window').width - 48}
-                height={180}
-                chartConfig={chartConfig}
-                style={styles.chart}
-                showBarTops={false}
-                fromZero
-              />
-              <Text style={styles.chartSum}>
-                {totalLeftSum.toLocaleString('ru-RU')} {currency}
-              </Text>
+          <View style={styles.tableRow}>
+            {/* Пустое состояние по броням в месяце */}
+            {bookings.length === 0 && (
+              <View style={styles.emptyBookingsBanner}>
+                <Text style={styles.emptyBookingsText}>Нет броней в этом месяце</Text>
+              </View>
+            )}
+            {/* Левая колонка: заголовок дат (пусто) + для каждой комнаты название и "Standard rate" */}
+            <View style={[styles.leftColumn, { width: ROOM_NAME_WIDTH }]}>
+              <View style={styles.headerCell} />
+              {properties.flatMap((p) => [
+                <View key={p.id} style={styles.roomNameCell}>
+                  <Text style={styles.roomNameText} numberOfLines={2}>
+                    {p.name.toUpperCase()}
+                  </Text>
+                </View>,
+                <View key={`${p.id}-rate`} style={styles.rateLabelCell}>
+                  <Text style={styles.rateLabelText}>Standard rate</Text>
+                </View>,
+              ])}
             </View>
 
-            {/* Счёты: New / Modified / Cancelled (без % к прошлому месяцу — заглушка). */}
-            <View style={styles.countsRow}>
-              <Text style={[styles.countText, { color: colors.successCalendar }]}>
-                New {newCount}
-              </Text>
-              <Text style={[styles.countText, { color: colors.primary }]}>
-                Modified {modifiedCount}
-              </Text>
-              <Text style={[styles.countText, { color: colors.cancelled }]}>
-                Cancelled {cancelledCount}
-              </Text>
-            </View>
-          </>
+            {/* Горизонтальный скролл: контент в колонку (заголовок дат + строки комнат) */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={true}
+              style={styles.horizontalScroll}
+              contentContainerStyle={[styles.horizontalScrollContent, { minWidth: tableWidth, flexDirection: 'column' }]}
+            >
+              {/* Строка заголовков дат: буква дня (W T F...) + дата под ней */}
+              <View style={styles.cellsRow}>
+                {dates.map((date) => {
+                  const { letter, date: dayNum } = getDayHeaderParts(date);
+                  return (
+                    <View key={date} style={styles.headerCellDay}>
+                      <Text style={styles.headerDayLetter}>{letter}</Text>
+                      <Text style={styles.headerDayNum}>{dayNum}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+              {/* Строки комнат: брони + Standard rate */}
+              {properties.map((p) => (
+                <RoomRow
+                  key={p.id}
+                  property={p}
+                  dates={dates}
+                  bookings={bookings.filter((b) => b.property_id === p.id)}
+                />
+              ))}
+            </ScrollView>
+          </View>
         )}
       </ScrollView>
 
-      {/* FAB: добавить бронь (заглушка). */}
+      {/* FAB: добавить бронь — заглушка */}
       <Pressable
         style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
         onPress={() => Alert.alert('Добавить бронь', 'Скоро будет доступно.')}
@@ -430,9 +265,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.backgroundLight,
   },
-  bgLight: {
-    backgroundColor: colors.backgroundLight,
-  },
   scroll: {
     flex: 1,
   },
@@ -444,10 +276,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
   errorText: {
     color: colors.textSecondary,
     fontSize: 16,
     marginBottom: 16,
+    textAlign: 'center',
   },
   retryButton: {
     backgroundColor: colors.primary,
@@ -460,51 +298,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  calendar: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 8,
-    minHeight: 320,
-  },
-  analyticsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
-  analyticsCircleWrap: {
-    alignItems: 'center',
-  },
-  analyticsCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 3,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
-  analyticsCircleShadow: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  analyticsIcon: {
-    position: 'absolute',
-    top: 8,
-  },
-  analyticsCircleText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  analyticsLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 6,
-  },
   dropdown: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -512,7 +305,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 8,
     backgroundColor: colors.background,
     borderRadius: 12,
   },
@@ -521,92 +314,108 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '500',
   },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+  monthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    gap: 16,
   },
-  bookingCard: {
+  monthArrow: {
+    padding: 4,
+  },
+  monthTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    minWidth: 160,
+    textAlign: 'center',
+  },
+  tableRow: {
     flexDirection: 'row',
     backgroundColor: colors.background,
     borderRadius: 12,
-    marginBottom: 12,
-    overflow: 'hidden',
+    marginHorizontal: 16,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
+    overflow: 'hidden',
   },
-  bookingStrip: {
-    width: 4,
-    minHeight: 80,
+  leftColumn: {
+    paddingLeft: 16,
   },
-  bookingCardContent: {
-    flex: 1,
-    padding: 12,
+  headerCell: {
+    width: ROOM_NAME_WIDTH - 16,
+    minHeight: 44,
   },
-  bookingGuest: {
-    fontSize: 16,
+  roomNameCell: {
+    width: ROOM_NAME_WIDTH - 16,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingRight: 8,
+  },
+  roomNameText: {
+    fontSize: 12,
     fontWeight: '600',
     color: colors.text,
   },
-  bookingDates: {
-    fontSize: 14,
+  rateLabelCell: {
+    width: ROOM_NAME_WIDTH - 16,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingRight: 8,
+  },
+  rateLabelText: {
+    fontSize: 11,
     color: colors.textSecondary,
-    marginTop: 4,
   },
-  bookingProperty: {
-    fontSize: 14,
-    color: colors.primary,
-    marginTop: 4,
+  horizontalScroll: {
+    flex: 1,
   },
-  bookingPrice: {
-    fontSize: 14,
+  horizontalScrollContent: {
+    flexGrow: 0,
+  },
+  cellsRow: {
+    flexDirection: 'row',
+  },
+  headerCellDay: {
+    width: DAY_CELL_WIDTH,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 1,
+  },
+  headerDayLetter: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  headerDayNum: {
+    fontSize: 12,
     fontWeight: '600',
     color: colors.text,
-    marginTop: 4,
+    marginTop: 2,
   },
   emptyState: {
-    alignItems: 'center',
     paddingVertical: 48,
+    alignItems: 'center',
   },
   emptyText: {
     fontSize: 16,
     color: colors.textSecondary,
-    marginTop: 12,
   },
-  chartSection: {
-    marginHorizontal: 16,
-    marginBottom: 24,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 16,
-  },
-  chartTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  chart: {
-    borderRadius: 8,
-  },
-  chartSum: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.primary,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  countsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+  emptyBookingsBanner: {
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    marginBottom: 24,
+    alignItems: 'center',
+    backgroundColor: colors.backgroundLight,
   },
-  countText: {
+  emptyBookingsText: {
     fontSize: 14,
-    fontWeight: '600',
+    color: colors.textSecondary,
   },
   fab: {
     position: 'absolute',
