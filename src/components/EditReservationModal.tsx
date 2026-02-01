@@ -347,12 +347,12 @@ export function EditReservationModal({
               </div>
             </div>
           ) : (
-            <Tabs defaultValue="main" className="flex-1 flex flex-col min-h-0">
-              <TabsList className="mx-6 mt-2 w-auto">
+            <Tabs defaultValue="main" className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <TabsList className="mx-6 mt-2 w-auto shrink-0">
                 <TabsTrigger value="main">Основное</TabsTrigger>
                 <TabsTrigger value="history">История</TabsTrigger>
               </TabsList>
-              <ScrollArea className="flex-1">
+              <ScrollArea className="flex-1 min-h-0">
                 <TabsContent value="main" className="mt-0 p-6 pt-4">
                   <form onSubmit={handleSubmit} className="space-y-4">
                     {error && (
