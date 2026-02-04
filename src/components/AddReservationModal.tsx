@@ -524,7 +524,7 @@ export function AddReservationModal({
                 <TabsTrigger value="extra">Дополнительно</TabsTrigger>
                 <TabsTrigger value="payments">Платежи</TabsTrigger>
               </TabsList>
-              <ScrollArea className="flex-1 min-h-0 px-6">
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6">
                 <TabsContent value="main" className="mt-4 space-y-4 pb-6">
                   <div className="space-y-2">
                     <Label>
@@ -858,7 +858,7 @@ export function AddReservationModal({
                     </Select>
                   </div>
                 </TabsContent>
-              </ScrollArea>
+              </div>
             </Tabs>
 
             <div className="flex gap-3 justify-end p-6 border-t border-border">
