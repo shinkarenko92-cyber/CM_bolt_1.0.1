@@ -1,9 +1,10 @@
 /**
- * Объекты: таблица доступности и тарифов по комнатам и датам (Airbnb PMS стиль).
- * Строки — объекты (properties), столбцы — дни месяца; ячейки — цветные блоки броней или пусто.
- * Под каждой строкой — Standard rate с ценами по дням. Pull-to-refresh, FAB "+".
+ * Объекты: таблица доступности по комнатам и датам (Airbnb PMS стиль).
+ * Горизонтальный скролл по датам, строки — объекты (название + Standard rate с ценами по дням).
+ * Ячейки броней — цветные блоки по статусу; блок на несколько дней, внутри имя гостя.
+ * Синхронизация скролла заголовка дней и ячеек (ref.scrollTo). Pull-to-refresh, FAB "+".
  */
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useRef, useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -14,6 +15,8 @@ import {
   TouchableOpacity,
   Pressable,
   Alert,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -46,7 +49,7 @@ async function fetchBookings(): Promise<BookingWithProperty[]> {
 
 const DAY_LABELS = ['В', 'П', 'С', 'Ч', 'П', 'С', 'В'];
 
-/** Массив дат месяца YYYY-MM-DD для currentMonth (YYYY-MM). Локальная дата, не UTC. */
+/** Даты месяца YYYY-MM-DD для currentMonth (YYYY-MM). */
 function getDatesForMonth(currentMonth: string): string[] {
   const [y, m] = currentMonth.split('-').map(Number);
   const lastDay = new Date(y, m, 0).getDate();
@@ -59,17 +62,15 @@ function getDatesForMonth(currentMonth: string): string[] {
   return dates;
 }
 
-/** Формат заголовка месяца (например "August 2026"). */
 function formatMonthTitle(currentMonth: string): string {
   const [y, m] = currentMonth.split('-').map(Number);
   const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+    'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
   ];
   return `${monthNames[m - 1]} ${y}`;
 }
 
-/** Буква дня недели и число для заголовка (W / 22). */
 function getDayHeaderParts(dateStr: string): { letter: string; date: number } {
   const d = new Date(dateStr + 'T12:00:00');
   const dayOfWeek = d.getDay();
@@ -83,9 +84,21 @@ function getCurrentMonth(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
+/** Брони, пересекающиеся с текущим месяцем. */
+function bookingsInMonth(bookings: BookingWithProperty[], firstDate: string, lastDate: string): BookingWithProperty[] {
+  return bookings.filter((b) => {
+    const ci = b.check_in.split('T')[0];
+    const co = b.check_out.split('T')[0];
+    return ci <= lastDate && co >= firstDate;
+  });
+}
+
 export function ObjectsScreen() {
   const queryClient = useQueryClient();
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonth);
+  const headerScrollRef = useRef<ScrollView>(null);
+  const bodyScrollRef = useRef<ScrollView>(null);
+  const lastSyncedX = useRef(0);
 
   const {
     data: properties = [],
@@ -103,7 +116,41 @@ export function ObjectsScreen() {
   } = useQuery({ queryKey: ['bookings'], queryFn: fetchBookings });
 
   const dates = useMemo(() => getDatesForMonth(currentMonth), [currentMonth]);
-  const tableWidth = Math.max(dates.length * DAY_CELL_WIDTH, 400);
+  // Ширина с учётом отступов между ячейками (marginHorizontal: 1)
+  const tableWidth = Math.max(dates.length * (DAY_CELL_WIDTH + 2), 400);
+  const firstDate = dates[0] ?? '';
+  const lastDate = dates[dates.length - 1] ?? '';
+  const bookingsInCurrentMonth = useMemo(
+    () => bookingsInMonth(bookings, firstDate, lastDate),
+    [bookings, firstDate, lastDate]
+  );
+  const hasNoBookingsInMonth = properties.length > 0 && bookingsInCurrentMonth.length === 0;
+
+  const syncScrollToBody = useCallback((x: number) => {
+    if (Math.abs(x - lastSyncedX.current) < 1) return;
+    lastSyncedX.current = x;
+    bodyScrollRef.current?.scrollTo({ x, animated: false });
+  }, []);
+
+  const syncScrollToHeader = useCallback((x: number) => {
+    if (Math.abs(x - lastSyncedX.current) < 1) return;
+    lastSyncedX.current = x;
+    headerScrollRef.current?.scrollTo({ x, animated: false });
+  }, []);
+
+  const onHeaderScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      syncScrollToBody(e.nativeEvent.contentOffset.x);
+    },
+    [syncScrollToBody]
+  );
+
+  const onBodyScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      syncScrollToHeader(e.nativeEvent.contentOffset.x);
+    },
+    [syncScrollToHeader]
+  );
 
   const goPrevMonth = () => {
     const [y, m] = currentMonth.split('-').map(Number);
@@ -168,16 +215,14 @@ export function ObjectsScreen() {
           />
         }
       >
-        {/* All properties — заглушка */}
         <Pressable
           style={styles.dropdown}
           onPress={() => Alert.alert('Скоро', 'Выбор объекта будет доступен.')}
         >
-          <Text style={styles.dropdownText}>All properties</Text>
+          <Text style={styles.dropdownText}>Все объекты</Text>
           <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
         </Pressable>
 
-        {/* Навигация по месяцу */}
         <View style={styles.monthRow}>
           <Pressable onPress={goPrevMonth} style={styles.monthArrow} hitSlop={12}>
             <Ionicons name="chevron-back" size={24} color={colors.text} />
@@ -188,26 +233,25 @@ export function ObjectsScreen() {
           </Pressable>
         </View>
 
-        {/* Таблица: левая колонка (названия) + горизонтальный скролл (даты и ячейки) */}
+        {hasNoBookingsInMonth && (
+          <View style={styles.emptyBookingsBanner}>
+            <Text style={styles.emptyBookingsText}>Нет броней в этом месяце</Text>
+          </View>
+        )}
+
         {properties.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>Нет объектов</Text>
           </View>
         ) : (
           <View style={styles.tableRow}>
-            {/* Пустое состояние по броням в месяце */}
-            {bookings.length === 0 && (
-              <View style={styles.emptyBookingsBanner}>
-                <Text style={styles.emptyBookingsText}>Нет броней в этом месяце</Text>
-              </View>
-            )}
-            {/* Левая колонка: заголовок дат (пусто) + для каждой комнаты название и "Standard rate" */}
+            {/* Левая колонка: заголовок дат (пусто) + для каждой комнаты название и Standard rate */}
             <View style={[styles.leftColumn, { width: ROOM_NAME_WIDTH }]}>
               <View style={styles.headerCell} />
               {properties.flatMap((p) => [
                 <View key={p.id} style={styles.roomNameCell}>
                   <Text style={styles.roomNameText} numberOfLines={2}>
-                    {p.name.toUpperCase()}
+                    {p.name}
                   </Text>
                 </View>,
                 <View key={`${p.id}-rate`} style={styles.rateLabelCell}>
@@ -216,40 +260,52 @@ export function ObjectsScreen() {
               ])}
             </View>
 
-            {/* Горизонтальный скролл: контент в колонку (заголовок дат + строки комнат) */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={true}
-              style={styles.horizontalScroll}
-              contentContainerStyle={[styles.horizontalScrollContent, { minWidth: tableWidth, flexDirection: 'column' }]}
-            >
-              {/* Строка заголовков дат: буква дня (W T F...) + дата под ней */}
-              <View style={styles.cellsRow}>
-                {dates.map((date) => {
-                  const { letter, date: dayNum } = getDayHeaderParts(date);
-                  return (
-                    <View key={date} style={styles.headerCellDay}>
-                      <Text style={styles.headerDayLetter}>{letter}</Text>
-                      <Text style={styles.headerDayNum}>{dayNum}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-              {/* Строки комнат: брони + Standard rate */}
-              {properties.map((p) => (
-                <RoomRow
-                  key={p.id}
-                  property={p}
-                  dates={dates}
-                  bookings={bookings.filter((b) => b.property_id === p.id)}
-                />
-              ))}
-            </ScrollView>
+            {/* Правая часть: два горизонтальных скролла (заголовок дней + ячейки), синхронизация по ref.scrollTo */}
+            <View style={styles.rightPart}>
+              <ScrollView
+                ref={headerScrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.headerScroll}
+                contentContainerStyle={[styles.horizontalScrollContent, { width: tableWidth }]}
+                onScroll={onHeaderScroll}
+                scrollEventThrottle={16}
+              >
+                <View style={styles.cellsRow}>
+                  {dates.map((date) => {
+                    const { letter, date: dayNum } = getDayHeaderParts(date);
+                    return (
+                      <View key={date} style={styles.headerCellDay}>
+                        <Text style={styles.headerDayLetter}>{letter}</Text>
+                        <Text style={styles.headerDayNum}>{dayNum}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+              <ScrollView
+                ref={bodyScrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={true}
+                style={styles.bodyScroll}
+                contentContainerStyle={[styles.horizontalScrollContent, { width: tableWidth, flexDirection: 'column' }]}
+                onScroll={onBodyScroll}
+                scrollEventThrottle={16}
+              >
+                {properties.map((p) => (
+                  <RoomRow
+                    key={p.id}
+                    property={p}
+                    dates={dates}
+                    bookings={bookings.filter((b) => b.property_id === p.id)}
+                  />
+                ))}
+              </ScrollView>
+            </View>
           </View>
         )}
       </ScrollView>
 
-      {/* FAB: добавить бронь — заглушка */}
       <Pressable
         style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
         onPress={() => Alert.alert('Добавить бронь', 'Скоро будет доступно.')}
@@ -331,12 +387,31 @@ const styles = StyleSheet.create({
     minWidth: 160,
     textAlign: 'center',
   },
+  emptyBookingsBanner: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    backgroundColor: colors.backgroundLight,
+    marginBottom: 8,
+  },
+  emptyBookingsText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  emptyState: {
+    paddingVertical: 48,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
   tableRow: {
     flexDirection: 'row',
     backgroundColor: colors.background,
     borderRadius: 12,
     marginHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
@@ -353,7 +428,7 @@ const styles = StyleSheet.create({
   },
   roomNameCell: {
     width: ROOM_NAME_WIDTH - 16,
-    minHeight: 44,
+    minHeight: 40,
     justifyContent: 'center',
     paddingRight: 8,
   },
@@ -364,7 +439,7 @@ const styles = StyleSheet.create({
   },
   rateLabelCell: {
     width: ROOM_NAME_WIDTH - 16,
-    minHeight: 44,
+    minHeight: 40,
     justifyContent: 'center',
     paddingRight: 8,
   },
@@ -372,7 +447,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
   },
-  horizontalScroll: {
+  rightPart: {
+    flex: 1,
+    flexDirection: 'column',
+  },
+  headerScroll: {
+    maxHeight: 44,
+  },
+  bodyScroll: {
     flex: 1,
   },
   horizontalScrollContent: {
@@ -399,24 +481,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginTop: 2,
   },
-  emptyState: {
-    paddingVertical: 48,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-  emptyBookingsBanner: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    backgroundColor: colors.backgroundLight,
-  },
-  emptyBookingsText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
   fab: {
     position: 'absolute',
     right: 20,
@@ -424,7 +488,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.primary,
+    backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
