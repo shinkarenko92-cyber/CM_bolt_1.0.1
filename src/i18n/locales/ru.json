@@ -125,6 +125,7 @@
     "noComparisonData": "Нет данных",
     "avgPricePerNight": "Средняя цена за ночь",
     "avgDailyRevenue": "Средний доход в день",
+    "avgDailyRevenueTooltip": "Средний доход в день — выручка всех объектов за период, делённая на количество дней в периоде",
     "occupancyRate": "Загруженность",
     "revenueByMonth": "Доходы по месяцам",
     "revenueBySource": "Доход по источникам",

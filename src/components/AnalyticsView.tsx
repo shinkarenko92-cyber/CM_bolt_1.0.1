@@ -18,7 +18,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
@@ -27,6 +27,7 @@ import {
   Line,
   Legend,
 } from 'recharts';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './ui/tooltip';
 
 const CHART_HEIGHT = 256;
 
@@ -61,6 +62,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
   });
   const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('sply');
   const [bookingsDynamicsPeriod, setBookingsDynamicsPeriod] = useState<'month' | 'halfYear'>('month');
+  const [openTooltip, setOpenTooltip] = useState<'revenue' | 'adr' | 'daily' | 'occupancy' | null>(null);
 
   const convertToRUB = (amount: number, currency: string) => {
     const rates: { [key: string]: number } = {
@@ -537,13 +539,21 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
           </div>
         </div>
 
+        <TooltipProvider delayDuration={0}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-primary/10 cursor-help" title={t('analytics.monthlyRevenueTooltip')}>
-                  <DollarSign className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-                </div>
+                <Tooltip open={openTooltip === 'revenue'} onOpenChange={(open) => setOpenTooltip(open ? 'revenue' : null)}>
+                  <TooltipTrigger asChild>
+                    <button type="button" onClick={() => setOpenTooltip((p) => (p === 'revenue' ? null : 'revenue'))} className="p-2 rounded-lg bg-primary/10 cursor-pointer hover:bg-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/50" aria-label={t('analytics.monthlyRevenueTooltip')}>
+                      <DollarSign className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[280px]">
+                    {t('analytics.monthlyRevenueTooltip')}
+                  </TooltipContent>
+                </Tooltip>
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {t('analytics.monthlyRevenue')}
                 </CardTitle>
@@ -576,9 +586,16 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{t('analytics.avgPricePerNight')}</CardTitle>
-              <div className="p-2 rounded-lg bg-blue-500/10 cursor-help" title={t('analytics.adrTooltip')}>
-                <BedDouble className="h-5 w-5 md:h-6 md:w-6 text-blue-500" />
-              </div>
+              <Tooltip open={openTooltip === 'adr'} onOpenChange={(open) => setOpenTooltip(open ? 'adr' : null)}>
+                <TooltipTrigger asChild>
+                  <button type="button" onClick={() => setOpenTooltip((p) => (p === 'adr' ? null : 'adr'))} className="p-2 rounded-lg bg-blue-500/10 cursor-pointer hover:bg-blue-500/20 focus:outline-none focus:ring-2 focus:ring-blue-500/50" aria-label={t('analytics.adrTooltip')}>
+                    <BedDouble className="h-5 w-5 md:h-6 md:w-6 text-blue-500" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[280px]">
+                  {t('analytics.adrTooltip')}
+                </TooltipContent>
+              </Tooltip>
             </CardHeader>
             <CardContent>
               <p className="text-lg md:text-2xl font-bold">{formatCurrency(analytics.adr)} ₽</p>
@@ -589,22 +606,36 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{t('analytics.avgDailyRevenue')}</CardTitle>
-              <div className="p-2 rounded-lg bg-purple-500/10 cursor-help" title={t('analytics.revParTooltip')}>
-                <Home className="h-5 w-5 md:h-6 md:w-6 text-purple-500" />
-              </div>
+              <Tooltip open={openTooltip === 'daily'} onOpenChange={(open) => setOpenTooltip(open ? 'daily' : null)}>
+                <TooltipTrigger asChild>
+                  <button type="button" onClick={() => setOpenTooltip((p) => (p === 'daily' ? null : 'daily'))} className="p-2 rounded-lg bg-purple-500/10 cursor-pointer hover:bg-purple-500/20 focus:outline-none focus:ring-2 focus:ring-purple-500/50" aria-label={t('analytics.avgDailyRevenueTooltip')}>
+                    <Home className="h-5 w-5 md:h-6 md:w-6 text-purple-500" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[280px]">
+                  {t('analytics.avgDailyRevenueTooltip')}
+                </TooltipContent>
+              </Tooltip>
             </CardHeader>
             <CardContent>
-              <p className="text-lg md:text-2xl font-bold">{formatCurrency(analytics.revPar)} ₽</p>
-              <span className="text-xs text-purple-500 font-medium">RevPAR</span>
+              <p className="text-lg md:text-2xl font-bold">{formatCurrency(analytics.dailyAvgRevenue)} ₽</p>
+              <span className="text-xs text-purple-500 font-medium">₽/день</span>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{t('analytics.occupancyRate')}</CardTitle>
-              <div className="p-2 rounded-lg bg-green-500/10 cursor-help" title={t('analytics.occupancyRateTooltip')}>
-                <Percent className="h-5 w-5 md:h-6 md:w-6 text-green-500" />
-              </div>
+              <Tooltip open={openTooltip === 'occupancy'} onOpenChange={(open) => setOpenTooltip(open ? 'occupancy' : null)}>
+                <TooltipTrigger asChild>
+                  <button type="button" onClick={() => setOpenTooltip((p) => (p === 'occupancy' ? null : 'occupancy'))} className="p-2 rounded-lg bg-green-500/10 cursor-pointer hover:bg-green-500/20 focus:outline-none focus:ring-2 focus:ring-green-500/50" aria-label={t('analytics.occupancyRateTooltip')}>
+                    <Percent className="h-5 w-5 md:h-6 md:w-6 text-green-500" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[280px]">
+                  {t('analytics.occupancyRateTooltip')}
+                </TooltipContent>
+              </Tooltip>
             </CardHeader>
             <CardContent>
               <p className="text-lg md:text-2xl font-bold">{analytics.occupancyRate.toFixed(1)}%</p>
@@ -619,6 +650,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             </CardContent>
           </Card>
         </div>
+        </TooltipProvider>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
@@ -635,7 +667,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                     <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
                     <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip content={<CustomTooltip />} />
+                    <RechartsTooltip content={<CustomTooltip />} />
                     <Bar dataKey="revenue" name={t('analytics.revenue')} fill="#14b8a6" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -671,7 +703,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: number | undefined) => value !== undefined ? [`${formatCurrency(value)} ₽`, t('analytics.revenue')] : ['', '']} />
+                      <RechartsTooltip formatter={(value: number | undefined) => value !== undefined ? [`${formatCurrency(value)} ₽`, t('analytics.revenue')] : ['', '']} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -697,7 +729,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                     <XAxis type="number" stroke="#9ca3af" fontSize={12} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                     <YAxis dataKey="name" type="category" stroke="#9ca3af" fontSize={11} width={100} />
-                    <Tooltip 
+                    <RechartsTooltip 
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           const data = payload[0].payload;
@@ -791,7 +823,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                 />
                 <YAxis yAxisId="left" stroke="#9ca3af" fontSize={12} />
                 <YAxis yAxisId="right" orientation="right" stroke="#9ca3af" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip 
+                <RechartsTooltip 
                   content={({ active, payload, label }) => {
                     if (active && payload && payload.length) {
                       const data = payload[0].payload;
