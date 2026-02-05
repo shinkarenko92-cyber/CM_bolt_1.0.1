@@ -31,6 +31,9 @@ import {
 
 const CHART_HEIGHT = 256;
 
+/** Статусы бронирований, учитываемые в аналитике (confirmed, paid, completed) */
+const ANALYTICS_BOOKING_STATUSES = new Set(['confirmed', 'paid', 'completed']);
+
 interface AnalyticsViewProps {
   bookings: Booking[];
   properties: Property[];
@@ -39,6 +42,7 @@ interface AnalyticsViewProps {
 const COLORS = ['#14b8a6', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#22c55e'];
 
 type DateRangeType = 'month' | 'custom';
+type ComparisonMode = 'sply' | 'previous_month' | 'none';
 
 export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
   const { t } = useTranslation();
@@ -56,7 +60,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     const now = new Date();
     return now.toISOString().split('T')[0];
   });
-  const [comparisonMode, setComparisonMode] = useState(false);
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('sply');
   const [bookingsDynamicsPeriod, setBookingsDynamicsPeriod] = useState<'month' | 'halfYear'>('month');
 
   const convertToRUB = (amount: number, currency: string) => {
@@ -68,134 +72,105 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     return amount * (rates[currency] || 1);
   };
 
-  // Calculate date range based on selection type
+  // MTD: для выбранного месяца periodEnd = min(сегодня, последний день месяца)
   const dateRange = useMemo(() => {
     if (dateRangeType === 'custom') {
       return {
-        start: new Date(customStartDate),
+        start: new Date(customStartDate + 'T00:00:00'),
         end: new Date(customEndDate + 'T23:59:59'),
       };
     }
+    const now = new Date();
     const [year, month] = selectedMonth.split('-').map(Number);
-    return {
-      start: new Date(year, month - 1, 1),
-      end: new Date(year, month, 0, 23, 59, 59),
-    };
+    const start = new Date(year, month - 1, 1, 0, 0, 0);
+    const lastDay = new Date(year, month, 0).getDate();
+    const isCurrentMonth = now.getFullYear() === year && now.getMonth() + 1 === month;
+    const endDay = isCurrentMonth ? Math.min(now.getDate(), lastDay) : lastDay;
+    const end = new Date(year, month - 1, endDay, 23, 59, 59);
+    return { start, end };
   }, [dateRangeType, selectedMonth, customStartDate, customEndDate]);
 
   const analytics = useMemo(() => {
     const { start: currentStart, end: currentEnd } = dateRange;
 
-    // Calculate previous period for comparison
-    const periodLength = currentEnd.getTime() - currentStart.getTime();
-    const previousEnd = new Date(currentStart.getTime() - 1);
-    const previousStart = new Date(previousEnd.getTime() - periodLength);
+    // Только подтверждённые/оплаченные/завершённые брони
+    const activeBookings = bookings.filter((b) =>
+      ANALYTICS_BOOKING_STATUSES.has((b.status || '').toLowerCase())
+    );
 
-    // Calculate comparison period (year-over-year for month mode)
+    // Период сравнения: SPLY (тот же период прошлый год) или тот же период предыдущий месяц
+    const daysInPeriod = Math.ceil((currentEnd.getTime() - currentStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     let comparisonStart: Date;
     let comparisonEnd: Date;
 
-    if (dateRangeType === 'month') {
-      // Same month, previous year
+    if (comparisonMode === 'sply') {
       comparisonStart = new Date(currentStart);
       comparisonStart.setFullYear(comparisonStart.getFullYear() - 1);
-      comparisonEnd = new Date(currentEnd);
-      comparisonEnd.setFullYear(comparisonEnd.getFullYear() - 1);
+      comparisonEnd = new Date(comparisonStart);
+      comparisonEnd.setDate(comparisonEnd.getDate() + daysInPeriod - 1);
+      comparisonEnd.setHours(23, 59, 59, 999);
+    } else if (comparisonMode === 'previous_month') {
+      comparisonStart = new Date(currentStart.getFullYear(), currentStart.getMonth() - 1, 1, 0, 0, 0);
+      const lastDayPrevMonth = new Date(comparisonStart.getFullYear(), comparisonStart.getMonth() + 1, 0).getDate();
+      const prevEndDay = Math.min(daysInPeriod, lastDayPrevMonth);
+      comparisonEnd = new Date(comparisonStart.getFullYear(), comparisonStart.getMonth(), prevEndDay, 23, 59, 59);
     } else {
-      // Previous period of same length
-      comparisonEnd = new Date(currentStart.getTime() - 1);
-      comparisonStart = new Date(comparisonEnd.getTime() - periodLength);
+      comparisonStart = new Date(0);
+      comparisonEnd = new Date(0);
     }
 
+    // Бронирование пересекается с периодом: check_in ≤ periodEnd и check_out > periodStart
     const filterBookingsByDateRange = (start: Date, end: Date) => {
-      return bookings.filter((booking) => {
+      return activeBookings.filter((booking) => {
         const checkIn = new Date(booking.check_in);
         const checkOut = new Date(booking.check_out);
-        return (
-          (checkIn >= start && checkIn <= end) ||
-          (checkOut >= start && checkOut <= end) ||
-          (checkIn <= start && checkOut >= end)
-        );
+        return checkIn <= end && checkOut > start;
       });
     };
 
-    // Helper function to calculate proportional revenue for a single booking
     const getProportionalRevenue = (booking: Booking, start: Date, end: Date): number => {
       const checkIn = new Date(booking.check_in);
       const checkOut = new Date(booking.check_out);
-      
-      // Calculate total nights in booking
       const totalNights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-      
-      // Calculate nights within the period
       const effectiveStart = checkIn > start ? checkIn : start;
       const effectiveEnd = checkOut < end ? checkOut : end;
-      
       let nightsInPeriod = 0;
       if (effectiveStart < effectiveEnd) {
-        const diffTime = effectiveEnd.getTime() - effectiveStart.getTime();
-        nightsInPeriod = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        nightsInPeriod = Math.ceil((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24));
       }
-      
-      // Calculate proportional revenue for nights in period
       const totalRevenue = convertToRUB(booking.total_price, booking.currency);
-      const proportionalRevenue = totalNights > 0 ? (totalRevenue / totalNights) * nightsInPeriod : 0;
-      
-      return proportionalRevenue;
+      return totalNights > 0 ? (totalRevenue / totalNights) * nightsInPeriod : 0;
     };
 
-    const calculateRevenue = (bookingsList: Booking[], start: Date, end: Date) => {
-      return bookingsList.reduce((sum, booking) => {
-        return sum + getProportionalRevenue(booking, start, end);
-      }, 0);
-    };
+    const calculateRevenue = (list: Booking[], start: Date, end: Date) =>
+      list.reduce((sum, b) => sum + getProportionalRevenue(b, start, end), 0);
 
-    const calculateOccupiedNights = (bookingsList: Booking[], start: Date, end: Date) => {
-      let totalNights = 0;
-
-      bookingsList.forEach((booking) => {
+    const calculateOccupiedNights = (list: Booking[], start: Date, end: Date) => {
+      let total = 0;
+      list.forEach((booking) => {
         const checkIn = new Date(booking.check_in);
         const checkOut = new Date(booking.check_out);
-
         const effectiveStart = checkIn > start ? checkIn : start;
         const effectiveEnd = checkOut < end ? checkOut : end;
-
         if (effectiveStart < effectiveEnd) {
-          const diffTime = effectiveEnd.getTime() - effectiveStart.getTime();
-          const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          totalNights += nights;
+          total += Math.ceil((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24));
         }
       });
-
-      return totalNights;
+      return total;
     };
 
     const currentBookings = filterBookingsByDateRange(currentStart, currentEnd);
-    const previousBookings = filterBookingsByDateRange(previousStart, previousEnd);
-
     const currentRevenue = calculateRevenue(currentBookings, currentStart, currentEnd);
-    const previousRevenue = calculateRevenue(previousBookings, previousStart, previousEnd);
-    const revenueChange = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
-
-    const daysInPeriod = Math.ceil((currentEnd.getTime() - currentStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    const totalPossibleNights = properties.length * daysInPeriod;
     const occupiedNights = calculateOccupiedNights(currentBookings, currentStart, currentEnd);
+    const totalPossibleNights = properties.length > 0 ? properties.length * daysInPeriod : daysInPeriod;
     const occupancyRate = totalPossibleNights > 0 ? (occupiedNights / totalPossibleNights) * 100 : 0;
 
-    // ADR (Average Daily Rate) - average revenue per occupied night
     const adr = occupiedNights > 0 ? currentRevenue / occupiedNights : 0;
-
-    // RevPAR (Revenue Per Available Room) - revenue per available room night
     const revPar = totalPossibleNights > 0 ? currentRevenue / totalPossibleNights : 0;
-
-    // For backwards compatibility
     const avgPricePerNight = adr;
     const dailyAvgRevenue = daysInPeriod > 0 ? currentRevenue / daysInPeriod : 0;
-
-    // Average booking value
     const avgBookingValue = currentBookings.length > 0 ? currentRevenue / currentBookings.length : 0;
 
-    // Average length of stay
     const totalNightsBooked = currentBookings.reduce((sum, b) => {
       const checkIn = new Date(b.check_in);
       const checkOut = new Date(b.check_out);
@@ -203,38 +178,36 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     }, 0);
     const avgLengthOfStay = currentBookings.length > 0 ? totalNightsBooked / currentBookings.length : 0;
 
-    // Функция маппинга источников из Excel в стандартные
+    let previousRevenue = 0;
+    let revenueChange: number | null = null;
+    let comparisonBookings: Booking[] = [];
+    let comparisonRevenue = 0;
+    let comparisonOccupancyRate = 0;
+
+    if (comparisonMode !== 'none' && comparisonEnd > comparisonStart) {
+      comparisonBookings = filterBookingsByDateRange(comparisonStart, comparisonEnd);
+      previousRevenue = calculateRevenue(comparisonBookings, comparisonStart, comparisonEnd);
+      if (previousRevenue > 0) {
+        revenueChange = ((currentRevenue - previousRevenue) / previousRevenue) * 100;
+      }
+      comparisonRevenue = previousRevenue;
+      const compOccupied = calculateOccupiedNights(comparisonBookings, comparisonStart, comparisonEnd);
+      const compDays = Math.ceil((comparisonEnd.getTime() - comparisonStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const compPossible = properties.length * compDays;
+      comparisonOccupancyRate = compPossible > 0 ? (compOccupied / compPossible) * 100 : 0;
+    }
+
     const mapSourceToStandard = (source: string): string => {
       const normalized = source.toLowerCase().trim().replace(/\s+/g, '');
-
-      // Маппинг русских и английских названий в стандартные
       const sourceMap: { [key: string]: string } = {
-        'авито': 'avito',
-        'avito': 'avito',
-        'booking': 'booking',
-        'booking.com': 'booking',
-        'airbnb': 'airbnb',
-        'cian': 'cian',
-        'циан': 'cian',
-        'manual': 'manual',
-        'вручную': 'manual',
-        'excel_import': 'manual', // Если источник не распознан, используем manual вместо excel_import
+        'авито': 'avito', avito: 'avito', booking: 'booking', 'booking.com': 'booking',
+        airbnb: 'airbnb', cian: 'cian', 'циан': 'cian', manual: 'manual', 'вручную': 'manual',
+        excel_import: 'manual',
       };
-
-      // Проверяем точное совпадение
-      if (sourceMap[normalized]) {
-        return sourceMap[normalized];
-      }
-
-      // Проверяем частичное совпадение
+      if (sourceMap[normalized]) return sourceMap[normalized];
       for (const [key, value] of Object.entries(sourceMap)) {
-        if (normalized.includes(key) || key.includes(normalized)) {
-          return value;
-        }
+        if (normalized.includes(key) || key.includes(normalized)) return value;
       }
-
-      // Если источник не распознан и это не excel_import, возвращаем оригинал
-      // Если это excel_import, возвращаем manual
       return source === 'excel_import' ? 'manual' : source;
     };
 
@@ -252,10 +225,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     }, {} as { [key: string]: number });
 
     const topProperties = Object.entries(propertyBreakdown)
-      .map(([id, revenue]) => ({
-        property: properties.find((p) => p.id === id),
-        revenue,
-      }))
+      .map(([id, revenue]) => ({ property: properties.find((p) => p.id === id), revenue }))
       .filter((item) => item.property)
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
@@ -271,19 +241,17 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
       occupancyRate,
       occupiedNights,
       totalPossibleNights,
+      daysInPeriod,
       currentBookings: currentBookings.length,
       avgBookingValue,
       avgLengthOfStay,
       sourceBreakdown,
       topProperties,
-      // Comparison period data
-      comparisonBookings: comparisonMode ? filterBookingsByDateRange(comparisonStart, comparisonEnd) : [],
-      comparisonRevenue: comparisonMode ? calculateRevenue(filterBookingsByDateRange(comparisonStart, comparisonEnd), comparisonStart, comparisonEnd) : 0,
-      comparisonOccupancyRate: comparisonMode ? (
-        totalPossibleNights > 0
-          ? (calculateOccupiedNights(filterBookingsByDateRange(comparisonStart, comparisonEnd), comparisonStart, comparisonEnd) / totalPossibleNights) * 100
-          : 0
-      ) : 0,
+      comparisonBookings,
+      comparisonRevenue,
+      comparisonOccupancyRate,
+      periodEndLabel: currentEnd,
+      periodStartLabel: currentStart,
     };
   }, [bookings, properties, dateRange, comparisonMode, dateRangeType]);
 
@@ -563,78 +531,105 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
               </div>
             )}
 
-            <Button
-              variant={comparisonMode ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setComparisonMode(!comparisonMode)}
-              title={dateRangeType === 'month' ? 'Сравнить с прошлым годом' : 'Сравнить с предыдущим периодом'}
-            >
-              {comparisonMode ? '✓ Сравнение' : 'Сравнить'}
-            </Button>
+            <Select value={comparisonMode} onValueChange={(v) => setComparisonMode(v as ComparisonMode)}>
+              <SelectTrigger className="w-[220px] h-10" aria-label={t('analytics.compareWith')}>
+                <SelectValue placeholder={t('analytics.compareWith')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sply">{t('analytics.compareSply')}</SelectItem>
+                <SelectItem value="previous_month">{t('analytics.comparePreviousMonth')}</SelectItem>
+                <SelectItem value="none">{t('analytics.compareNone')}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
+        {/* Подзаголовок периода MTD: "по 5 февраля 2026" */}
+        {dateRangeType === 'month' && (
+          <p className="text-sm text-muted-foreground">
+            {t('analytics.mtdSubtitle', {
+              date: analytics.periodEndLabel.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }),
+            })}
+          </p>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card title={t('analytics.monthlyRevenueTooltip')}>
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <DollarSign className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-              </div>
-              {analytics.revenueChange !== 0 && (
-                <div className={`flex items-center gap-1 text-xs md:text-sm font-medium ${analytics.revenueChange > 0 ? 'text-green-500' : 'text-destructive'}`}>
-                  {analytics.revenueChange > 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                  {Math.abs(analytics.revenueChange).toFixed(1)}%
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <DollarSign className="h-5 w-5 md:h-6 md:w-6 text-primary" />
                 </div>
-              )}
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  {dateRangeType === 'month' ? t('analytics.revenueMtd') : t('analytics.monthlyRevenue')}
+                </CardTitle>
+              </div>
+              <div className="flex items-center gap-1">
+                {analytics.revenueChange !== null && analytics.revenueChange !== undefined ? (
+                  <span
+                    className={`flex items-center gap-0.5 text-xs md:text-sm font-medium ${
+                      analytics.revenueChange > 0 ? 'text-green-500' : analytics.revenueChange < 0 ? 'text-destructive' : 'text-muted-foreground'
+                    }`}
+                  >
+                    {analytics.revenueChange > 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                    {Math.abs(analytics.revenueChange).toFixed(1)}%
+                  </span>
+                ) : comparisonMode !== 'none' ? (
+                  <span className="text-xs text-muted-foreground">{t('analytics.noComparisonData')}</span>
+                ) : null}
+              </div>
             </CardHeader>
             <CardContent>
               <p className="text-lg md:text-2xl font-bold">{formatCurrency(analytics.currentRevenue)} ₽</p>
-              {comparisonMode && analytics.comparisonRevenue > 0 && (
+              {comparisonMode !== 'none' && analytics.comparisonRevenue > 0 && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  {dateRangeType === 'month' ? 'Прошлый год' : 'Прошлый период'}: {formatCurrency(analytics.comparisonRevenue)} ₽
+                  {comparisonMode === 'sply' ? t('analytics.compareSply') : t('analytics.comparePreviousMonth')}: {formatCurrency(analytics.comparisonRevenue)} ₽
                 </p>
               )}
-              <CardDescription className="mt-1">{t('analytics.monthlyRevenue')}</CardDescription>
+              <CardDescription className="mt-1">{t('analytics.monthlyRevenueTooltip')}</CardDescription>
             </CardContent>
           </Card>
 
-          <Card title={t('analytics.adrTooltip')}>
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t('analytics.adrTooltip')}</CardTitle>
               <div className="p-2 rounded-lg bg-blue-500/10">
                 <BedDouble className="h-5 w-5 md:h-6 md:w-6 text-blue-500" />
               </div>
-              <span className="text-xs text-blue-500 font-medium">ADR</span>
             </CardHeader>
             <CardContent>
               <p className="text-lg md:text-2xl font-bold">{formatCurrency(analytics.adr)} ₽</p>
+              <span className="text-xs text-blue-500 font-medium">ADR</span>
               <CardDescription className="mt-1">{t('analytics.avgPricePerNight')}</CardDescription>
             </CardContent>
           </Card>
 
-          <Card title={t('analytics.revParTooltip')}>
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t('analytics.revParTooltip')}</CardTitle>
               <div className="p-2 rounded-lg bg-purple-500/10">
                 <Home className="h-5 w-5 md:h-6 md:w-6 text-purple-500" />
               </div>
-              <span className="text-xs text-purple-500 font-medium">RevPAR</span>
             </CardHeader>
             <CardContent>
               <p className="text-lg md:text-2xl font-bold">{formatCurrency(analytics.revPar)} ₽</p>
+              <span className="text-xs text-purple-500 font-medium">RevPAR</span>
               <CardDescription className="mt-1">{t('analytics.avgDailyRevenue')}</CardDescription>
             </CardContent>
           </Card>
 
-          <Card title={t('analytics.occupancyRateTooltip')}>
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t('analytics.occupancyRateTooltip')}</CardTitle>
               <div className="p-2 rounded-lg bg-green-500/10">
                 <Percent className="h-5 w-5 md:h-6 md:w-6 text-green-500" />
               </div>
             </CardHeader>
             <CardContent>
               <p className="text-lg md:text-2xl font-bold">{analytics.occupancyRate.toFixed(1)}%</p>
-              {comparisonMode && analytics.comparisonOccupancyRate > 0 && (
+              {comparisonMode !== 'none' && analytics.comparisonRevenue > 0 && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  {dateRangeType === 'month' ? 'Прошлый год' : 'Прошлый период'}: {analytics.comparisonOccupancyRate.toFixed(1)}%
+                  {comparisonMode === 'sply' ? t('analytics.compareSply') : t('analytics.comparePreviousMonth')}: {analytics.comparisonOccupancyRate.toFixed(1)}%
                 </p>
               )}
               <CardDescription className="mt-1">
