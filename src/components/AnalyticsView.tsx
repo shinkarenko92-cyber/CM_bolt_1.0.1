@@ -71,7 +71,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     return amount * (rates[currency] || 1);
   };
 
-  // MTD: для выбранного месяца periodEnd = min(сегодня, последний день месяца)
+  // Полный месяц: 1-е число — последний день месяца (все брони, включая будущие)
   const dateRange = useMemo(() => {
     if (dateRangeType === 'custom') {
       return {
@@ -79,13 +79,10 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
         end: new Date(customEndDate + 'T23:59:59'),
       };
     }
-    const now = new Date();
     const [year, month] = selectedMonth.split('-').map(Number);
     const start = new Date(year, month - 1, 1, 0, 0, 0);
     const lastDay = new Date(year, month, 0).getDate();
-    const isCurrentMonth = now.getFullYear() === year && now.getMonth() + 1 === month;
-    const endDay = isCurrentMonth ? Math.min(now.getDate(), lastDay) : lastDay;
-    const end = new Date(year, month - 1, endDay, 23, 59, 59);
+    const end = new Date(year, month - 1, lastDay, 23, 59, 59);
     return { start, end };
   }, [dateRangeType, selectedMonth, customStartDate, customEndDate]);
 
@@ -105,9 +102,8 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     if (comparisonMode === 'sply') {
       comparisonStart = new Date(currentStart);
       comparisonStart.setFullYear(comparisonStart.getFullYear() - 1);
-      comparisonEnd = new Date(comparisonStart);
-      comparisonEnd.setDate(comparisonEnd.getDate() + daysInPeriod - 1);
-      comparisonEnd.setHours(23, 59, 59, 999);
+      const lastDayPrevYear = new Date(comparisonStart.getFullYear(), comparisonStart.getMonth() + 1, 0).getDate();
+      comparisonEnd = new Date(comparisonStart.getFullYear(), comparisonStart.getMonth(), lastDayPrevYear, 23, 59, 59);
     } else if (comparisonMode === 'previous_month') {
       comparisonStart = new Date(currentStart.getFullYear(), currentStart.getMonth() - 1, 1, 0, 0, 0);
       const lastDayPrevMonth = new Date(comparisonStart.getFullYear(), comparisonStart.getMonth() + 1, 0).getDate();
@@ -249,8 +245,6 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
       comparisonBookings,
       comparisonRevenue,
       comparisonOccupancyRate,
-      periodEndLabel: currentEnd,
-      periodStartLabel: currentStart,
     };
   }, [bookings, properties, dateRange, comparisonMode]);
 
@@ -543,24 +537,15 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
           </div>
         </div>
 
-        {/* Подзаголовок периода MTD: "по 5 февраля 2026" */}
-        {dateRangeType === 'month' && (
-          <p className="text-sm text-muted-foreground">
-            {t('analytics.mtdSubtitle', {
-              date: analytics.periodEndLabel.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }),
-            })}
-          </p>
-        )}
-
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-primary/10">
+                <div className="p-2 rounded-lg bg-primary/10 cursor-help" title={t('analytics.monthlyRevenueTooltip')}>
                   <DollarSign className="h-5 w-5 md:h-6 md:w-6 text-primary" />
                 </div>
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {dateRangeType === 'month' ? t('analytics.revenueMtd') : t('analytics.monthlyRevenue')}
+                  {t('analytics.monthlyRevenue')}
                 </CardTitle>
               </div>
               <div className="flex items-center gap-1">
@@ -585,42 +570,39 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                   {comparisonMode === 'sply' ? t('analytics.compareSply') : t('analytics.comparePreviousMonth')}: {formatCurrency(analytics.comparisonRevenue)} ₽
                 </p>
               )}
-              <CardDescription className="mt-1">{t('analytics.monthlyRevenueTooltip')}</CardDescription>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{t('analytics.adrTooltip')}</CardTitle>
-              <div className="p-2 rounded-lg bg-blue-500/10">
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t('analytics.avgPricePerNight')}</CardTitle>
+              <div className="p-2 rounded-lg bg-blue-500/10 cursor-help" title={t('analytics.adrTooltip')}>
                 <BedDouble className="h-5 w-5 md:h-6 md:w-6 text-blue-500" />
               </div>
             </CardHeader>
             <CardContent>
               <p className="text-lg md:text-2xl font-bold">{formatCurrency(analytics.adr)} ₽</p>
               <span className="text-xs text-blue-500 font-medium">ADR</span>
-              <CardDescription className="mt-1">{t('analytics.avgPricePerNight')}</CardDescription>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{t('analytics.revParTooltip')}</CardTitle>
-              <div className="p-2 rounded-lg bg-purple-500/10">
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t('analytics.avgDailyRevenue')}</CardTitle>
+              <div className="p-2 rounded-lg bg-purple-500/10 cursor-help" title={t('analytics.revParTooltip')}>
                 <Home className="h-5 w-5 md:h-6 md:w-6 text-purple-500" />
               </div>
             </CardHeader>
             <CardContent>
               <p className="text-lg md:text-2xl font-bold">{formatCurrency(analytics.revPar)} ₽</p>
               <span className="text-xs text-purple-500 font-medium">RevPAR</span>
-              <CardDescription className="mt-1">{t('analytics.avgDailyRevenue')}</CardDescription>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{t('analytics.occupancyRateTooltip')}</CardTitle>
-              <div className="p-2 rounded-lg bg-green-500/10">
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t('analytics.occupancyRate')}</CardTitle>
+              <div className="p-2 rounded-lg bg-green-500/10 cursor-help" title={t('analytics.occupancyRateTooltip')}>
                 <Percent className="h-5 w-5 md:h-6 md:w-6 text-green-500" />
               </div>
             </CardHeader>
@@ -632,7 +614,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                 </p>
               )}
               <CardDescription className="mt-1">
-                {t('analytics.occupancyRate')} ({analytics.occupiedNights}/{analytics.totalPossibleNights})
+                {analytics.occupiedNights}/{analytics.totalPossibleNights}
               </CardDescription>
             </CardContent>
           </Card>
