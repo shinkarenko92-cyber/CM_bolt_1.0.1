@@ -24,7 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
-import { ScrollArea } from './ui/scroll-area';
 import { cn } from '@/lib/utils';
 
 interface EditReservationModalProps {
@@ -157,7 +156,14 @@ export function EditReservationModal({
         .eq('booking_id', bookingId)
         .order('timestamp', { ascending: false })
         .limit(50);
-      if (error) throw error;
+      if (error) {
+        // Таблица booking_logs может отсутствовать, если миграции не применены
+        if ((error as { code?: string }).code === 'PGRST205') {
+          setBookingLogs([]);
+          return;
+        }
+        throw error;
+      }
       setBookingLogs(data || []);
     } catch (err) {
       console.error('Error loading booking logs:', err);
@@ -352,7 +358,7 @@ export function EditReservationModal({
                 <TabsTrigger value="main">Основное</TabsTrigger>
                 <TabsTrigger value="history">История</TabsTrigger>
               </TabsList>
-              <ScrollArea className="flex-1 min-h-0">
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
                 <TabsContent value="main" className="mt-0 p-6 pt-4">
                   <form onSubmit={handleSubmit} className="space-y-4">
                     {error && (
@@ -610,7 +616,7 @@ export function EditReservationModal({
                     </ul>
                   )}
                 </TabsContent>
-              </ScrollArea>
+              </div>
             </Tabs>
           )}
         </DialogContent>
