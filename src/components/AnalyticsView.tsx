@@ -3,7 +3,6 @@ import { TrendingUp, TrendingDown, DollarSign, Percent, Home, BedDouble, Calenda
 import { useTranslation } from 'react-i18next';
 import { Booking, Property } from '../lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
 import { Input } from './ui/input';
 import {
   Select,
@@ -253,7 +252,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
       periodEndLabel: currentEnd,
       periodStartLabel: currentStart,
     };
-  }, [bookings, properties, dateRange, comparisonMode, dateRangeType]);
+  }, [bookings, properties, dateRange, comparisonMode]);
 
   // Helper function to calculate proportional revenue for a single booking
   const getProportionalRevenue = useCallback((booking: Booking, start: Date, end: Date): number => {
