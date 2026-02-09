@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Shield, UserX, UserCheck, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Shield, UserX, UserCheck, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { supabase, Profile, Property, Booking, DeletionRequest } from '../lib/supabase';
@@ -14,7 +14,7 @@ type AdminStats = {
 };
 
 type ConfirmAction = {
-  type: 'makeAdmin' | 'activate' | 'deactivate';
+  type: 'makeAdmin' | 'activate' | 'deactivate' | 'forceDelete';
   userId: string;
   userName?: string;
 } | null;
@@ -120,15 +120,65 @@ export function AdminView() {
         throw updateError;
       }
 
-      // Delete the user account (this will cascade delete related data)
-      const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);
-
-      if (deleteError) throw deleteError;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error(t('admin.actionFailed', { defaultValue: 'Action failed' }));
+        return;
+      }
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const res = await fetch(`${supabaseUrl}/functions/v1/delete-user-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 403) toast.error(t('admin.actionFailed', { defaultValue: 'Action failed' }) + ' (403)');
+        else toast.error((data as { error?: string }).error || `Error ${res.status}`);
+        return;
+      }
 
       toast.success(t('admin.deletionApproved', { defaultValue: 'Deletion request approved, account deleted' }));
       await loadAdminData();
     } catch (error) {
       console.error('Error approving deletion:', error);
+      toast.error(error instanceof Error ? error.message : t('admin.actionFailed', { defaultValue: 'Action failed' }));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleForceDeleteUser = async (targetUserId: string) => {
+    setActionLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error(t('admin.actionFailed', { defaultValue: 'Action failed' }));
+        return;
+      }
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const res = await fetch(`${supabaseUrl}/functions/v1/delete-user-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ userId: targetUserId }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        if (res.status === 403) toast.error(t('admin.actionFailed', { defaultValue: 'Action failed' }) + ' (403)');
+        else toast.error(data.error || `Error ${res.status}`);
+        return;
+      }
+      toast.success(t('admin.deletionApproved', { defaultValue: 'Deletion request approved, account deleted' }));
+      setConfirmAction(null);
+      await loadAdminData();
+    } catch (error) {
+      console.error('Error force-deleting user:', error);
       toast.error(error instanceof Error ? error.message : t('admin.actionFailed', { defaultValue: 'Action failed' }));
     } finally {
       setActionLoading(false);
@@ -343,10 +393,10 @@ export function AdminView() {
                       </button>
                     )}
                     <button
-                      onClick={() => setConfirmAction({ 
-                        type: profile.is_active ? 'deactivate' : 'activate', 
+                      onClick={() => setConfirmAction({
+                        type: profile.is_active ? 'deactivate' : 'activate',
                         userId: profile.id,
-                        userName: profile.email || profile.full_name || ''
+                        userName: profile.email || profile.full_name || '',
                       })}
                       disabled={actionLoading}
                       className={`inline-flex items-center gap-1 px-3 py-1 rounded text-xs transition-colors disabled:opacity-50 ${
@@ -367,6 +417,16 @@ export function AdminView() {
                         </>
                       )}
                     </button>
+                    {profile.id !== user?.id && (
+                      <button
+                        onClick={() => setConfirmAction({ type: 'forceDelete', userId: profile.id, userName: profile.email || profile.full_name || '' })}
+                        disabled={actionLoading}
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-slate-600 hover:bg-red-700 text-red-300 hover:text-white rounded text-xs transition-colors disabled:opacity-50"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        {t('admin.forceDelete', { defaultValue: 'Force delete' })}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -760,7 +820,7 @@ export function AdminView() {
 
       <ConfirmModal
         isOpen={confirmAction !== null}
-        onClose={() => setConfirmAction(null)}
+        onClose={() => !actionLoading && setConfirmAction(null)}
         onConfirm={() => {
           if (confirmAction?.type === 'makeAdmin') {
             handleMakeAdmin(confirmAction.userId);
@@ -768,23 +828,35 @@ export function AdminView() {
             handleToggleUserStatus(confirmAction.userId, false);
           } else if (confirmAction?.type === 'deactivate') {
             handleToggleUserStatus(confirmAction.userId, true);
+          } else if (confirmAction?.type === 'forceDelete') {
+            handleForceDeleteUser(confirmAction.userId);
           }
         }}
         title={
-          confirmAction?.type === 'makeAdmin' 
+          confirmAction?.type === 'makeAdmin'
             ? t('admin.makeAdmin')
-            : confirmAction?.type === 'activate' 
+            : confirmAction?.type === 'activate'
               ? t('admin.activate')
-              : t('admin.deactivate')
+              : confirmAction?.type === 'deactivate'
+                ? t('admin.deactivate')
+                : confirmAction?.type === 'forceDelete'
+                  ? t('admin.forceDelete', { defaultValue: 'Force delete user' })
+                  : ''
         }
         message={
           confirmAction?.type === 'makeAdmin'
             ? t('admin.confirmMakeAdmin')
             : confirmAction?.type === 'activate'
               ? t('admin.confirmActivate')
-              : t('admin.confirmDeactivate')
+              : confirmAction?.type === 'deactivate'
+                ? t('admin.confirmDeactivate')
+                : confirmAction?.type === 'forceDelete'
+                  ? t('admin.confirmForceDelete', {
+                      defaultValue: 'Permanently delete this user and all their data (properties, bookings, guests, chats)? This cannot be undone.',
+                    })
+                  : ''
         }
-        variant={confirmAction?.type === 'deactivate' ? 'danger' : 'info'}
+        variant={confirmAction?.type === 'deactivate' || confirmAction?.type === 'forceDelete' ? 'danger' : 'info'}
         loading={actionLoading}
       />
     </div>

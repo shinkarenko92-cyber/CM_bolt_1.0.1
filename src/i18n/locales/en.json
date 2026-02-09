@@ -158,6 +158,8 @@
     "confirmMakeAdmin": "Are you sure you want to make this user an admin?",
     "confirmDeactivate": "Are you sure you want to deactivate this user?",
     "confirmActivate": "Are you sure you want to activate this user?",
+    "forceDelete": "Force delete",
+    "confirmForceDelete": "Permanently delete this user and all their data (properties, bookings, guests, chats)? This cannot be undone.",
     "userPromoted": "User promoted to admin",
     "userActivated": "User activated",
     "userDeactivated": "User deactivated",
@@ -226,7 +228,11 @@
     "integrations": "Integrations",
     "requestDeletion": "Request Account Deletion",
     "deletionRequestSent": "Account deletion request sent. An administrator will review it shortly.",
-    "deletionReason": "Reason for deletion (optional)"
+    "deletionReason": "Reason for deletion (optional)",
+    "deleteAccountNow": "Delete account now",
+    "deleteAccountNowTitle": "Delete account permanently",
+    "deleteAccountNowMessage": "All your data (properties, bookings, guests, chats) will be permanently deleted and cannot be restored. Are you sure?",
+    "deleteAccountNowConfirm": "Delete permanently"
   },
   "sources": {
     "manual": "Manual",

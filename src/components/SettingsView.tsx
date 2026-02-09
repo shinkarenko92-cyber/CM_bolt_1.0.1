@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { 
-  Download, 
-  Globe, 
+import {
+  Download,
+  Globe,
   FileSpreadsheet,
   FileText,
-  Trash2
+  Trash2,
 } from 'lucide-react';
 import { Booking, Property, supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { ConfirmModal } from './ConfirmModal';
 
 interface SettingsViewProps {
   bookings: Booking[];
@@ -17,7 +19,10 @@ interface SettingsViewProps {
 
 export function SettingsView({ bookings, properties }: SettingsViewProps) {
   const { t, i18n } = useTranslation();
+  const { deleteAccount } = useAuth();
   const [exportDateRange, setExportDateRange] = useState('all');
+  const [deleteNowModalOpen, setDeleteNowModalOpen] = useState(false);
+  const [deleteNowLoading, setDeleteNowLoading] = useState(false);
 
   const convertToRUB = (amount: number, currency: string) => {
     const rates: { [key: string]: number } = { RUB: 1, EUR: 100, USD: 92 };
@@ -212,6 +217,18 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
     }
   };
 
+  const handleDeleteNowConfirm = async () => {
+    setDeleteNowLoading(true);
+    try {
+      await deleteAccount();
+      setDeleteNowModalOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Ошибка удаления аккаунта');
+    } finally {
+      setDeleteNowLoading(false);
+    }
+  };
+
   return (
     <div className="flex-1 overflow-auto p-4 md:p-6">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -325,10 +342,11 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
           </div>
           
           <p className="text-slate-400 text-sm mb-4">
-            Для удаления аккаунта отправьте запрос администратору. 
+            Для удаления аккаунта отправьте запрос администратору.
             После одобрения все ваши данные будут безвозвратно удалены.
+            Либо удалите аккаунт сразу — без запроса (все данные будут удалены без возможности восстановления).
           </p>
-          
+
           <div className="space-y-3">
             <textarea
               value={deletionReason}
@@ -336,16 +354,36 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
               placeholder={t('settings.deletionReason', { defaultValue: 'Reason for deletion (optional)' })}
               className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white min-h-[80px] resize-y"
             />
-          <button
-              onClick={handleRequestDeletion}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-          >
-              {t('settings.requestDeletion', { defaultValue: 'Request Account Deletion' })}
-          </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={handleRequestDeletion}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                {t('settings.requestDeletion', { defaultValue: 'Request Account Deletion' })}
+              </button>
+              <button
+                onClick={() => setDeleteNowModalOpen(true)}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-red-400 border border-red-500/50 rounded-lg transition-colors"
+              >
+                {t('settings.deleteAccountNow', { defaultValue: 'Delete account now' })}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
+      <ConfirmModal
+        isOpen={deleteNowModalOpen}
+        onClose={() => !deleteNowLoading && setDeleteNowModalOpen(false)}
+        onConfirm={handleDeleteNowConfirm}
+        title={t('settings.deleteAccountNowTitle', { defaultValue: 'Delete account now' })}
+        message={t('settings.deleteAccountNowMessage', {
+          defaultValue: 'All your data (properties, bookings, guests, chats) will be permanently deleted and cannot be restored. Are you sure?',
+        })}
+        confirmText={t('settings.deleteAccountNowConfirm', { defaultValue: 'Delete permanently' })}
+        variant="danger"
+        loading={deleteNowLoading}
+      />
     </div>
   );
 }

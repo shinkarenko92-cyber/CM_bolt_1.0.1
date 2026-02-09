@@ -1,6 +1,7 @@
 /**
  * Delete User Account Edge Function
- * Deletes auth user and all associated data
+ * Deletes auth user and all associated data.
+ * Modes: self-delete (JWT only) or admin delete (body { userId }, caller must be admin).
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -8,14 +9,44 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function jsonResponse(body: unknown, status: number) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+async function deleteUserData(adminClient: ReturnType<typeof createClient>, userId: string): Promise<void> {
+  const { data: userProperties } = await adminClient
+    .from("properties")
+    .select("id")
+    .eq("owner_id", userId);
+
+  const propertyIds = userProperties?.map((p) => p.id) ?? [];
+  if (propertyIds.length > 0) {
+    await adminClient.from("bookings").delete().in("property_id", propertyIds);
+    await adminClient.from("property_rates").delete().in("property_id", propertyIds);
+    await adminClient.from("integrations").delete().in("property_id", propertyIds);
+    await adminClient.from("avito_items").delete().in("property_id", propertyIds);
+    await adminClient.from("avito_sync_queue").delete().in("property_id", propertyIds);
+  }
+
+  await adminClient.from("properties").delete().eq("owner_id", userId);
+  await adminClient.from("guests").delete().eq("owner_id", userId);
+  await adminClient.from("chats").delete().eq("owner_id", userId);
+  await adminClient.from("deletion_requests").delete().eq("user_id", userId);
+  await adminClient.from("profiles").delete().eq("id", userId);
+}
+
 Deno.serve(async (req: Request) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders, status: 200 });
+    return new Response(null, { headers: corsHeaders, status: 204 });
   }
 
   try {
@@ -23,108 +54,65 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
     if (!supabaseUrl || !supabaseServiceRoleKey) {
-      throw new Error("Missing Supabase configuration");
+      return jsonResponse({ error: "Missing Supabase configuration" }, 500);
     }
 
-    // Get authorization header
     const authHeader = req.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return new Response(
-        JSON.stringify({ error: "Missing or invalid authorization header" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ error: "Missing or invalid authorization header" }, 401);
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-
-    // Verify user session
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Invalid or expired token" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log(`Deleting account for user ${user.id}`);
-
-    // Create service role client for admin operations
     const adminClient = createClient(supabaseUrl, supabaseServiceRoleKey);
+    const { data: { user: caller }, error: callerError } = await adminClient.auth.getUser(token);
 
-    // 1. Get all properties for the user
-    const { data: userProperties } = await adminClient
-      .from("properties")
-      .select("id")
-      .eq("owner_id", user.id);
-
-    if (userProperties && userProperties.length > 0) {
-      const propertyIds = userProperties.map(p => p.id);
-      
-      // 2. Delete bookings for all user properties
-      await adminClient
-        .from("bookings")
-        .delete()
-        .in("property_id", propertyIds);
-
-      // 3. Delete property_rates for all properties
-      await adminClient
-        .from("property_rates")
-        .delete()
-        .in("property_id", propertyIds);
-
-      // 4. Delete integrations for all properties
-      await adminClient
-        .from("integrations")
-        .delete()
-        .in("property_id", propertyIds);
-      
-      // 5. Delete avito_items for all properties
-      await adminClient
-        .from("avito_items")
-        .delete()
-        .in("property_id", propertyIds);
-      
-      // 6. Delete avito_sync_queue for all properties
-      await adminClient
-        .from("avito_sync_queue")
-        .delete()
-        .in("property_id", propertyIds);
+    if (callerError || !caller) {
+      return jsonResponse({ error: "Invalid or expired token" }, 401);
     }
 
-      // 7. Delete all properties
-      await adminClient
-        .from("properties")
-        .delete()
-        .eq("owner_id", user.id);
+    let targetUserId: string;
 
-      // 8. Delete profile
-      await adminClient
+    const contentType = req.headers.get("Content-Type") || "";
+    const hasBody = req.method === "POST" && (req.body && contentType.includes("application/json"));
+    if (hasBody) {
+      const body = (await req.json().catch(() => ({}))) as { userId?: string };
+      const userIdFromBody = body?.userId;
+      if (typeof userIdFromBody !== "string" || !UUID_REGEX.test(userIdFromBody)) {
+        return jsonResponse({ error: "Invalid or missing userId in body" }, 400);
+      }
+      const { data: profile } = await adminClient
         .from("profiles")
-        .delete()
-        .eq("id", user.id);
+        .select("role, is_active")
+        .eq("id", caller.id)
+        .single();
+      if (profile?.role !== "admin" || profile?.is_active !== true) {
+        return jsonResponse({ error: "Forbidden: admin role required" }, 403);
+      }
+      targetUserId = userIdFromBody;
+    } else {
+      targetUserId = caller.id;
+    }
 
-      // 9. Delete auth user (requires admin client)
-    const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id);
+    console.log(`Deleting account for user ${targetUserId} (caller: ${caller.id})`);
+
+    await deleteUserData(adminClient, targetUserId);
+
+    const { error: deleteError } = await adminClient.auth.admin.deleteUser(targetUserId);
     if (deleteError) {
       console.error("Error deleting auth user:", deleteError);
-      return new Response(
-        JSON.stringify({ error: `Failed to delete auth user: ${deleteError.message}` }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      return jsonResponse(
+        { error: `Failed to delete auth user: ${deleteError.message}` },
+        500
       );
     }
 
-    console.log(`Account deleted successfully for user ${user.id}`);
-
-    return new Response(
-      JSON.stringify({ success: true, message: "Account deleted successfully" }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    console.log(`Account deleted successfully for user ${targetUserId}`);
+    return jsonResponse({ success: true, message: "Account deleted successfully" }, 200);
   } catch (error) {
     console.error("Unexpected error:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    return jsonResponse(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      500
     );
   }
 });

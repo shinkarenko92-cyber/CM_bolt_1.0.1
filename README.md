@@ -233,11 +233,19 @@ VITE_AVITO_REDIRECT_URI=https://app.roomi.pro/auth/avito-callback
 
 5. **Примените миграции базы данных**
 
-Выполните SQL миграции из папки `supabase/migrations/` в вашем Supabase проекте через SQL Editor.
+Выполните SQL миграции из папки `supabase/migrations/` в вашем Supabase проекте через SQL Editor или `supabase db push`. Для полной работы бронирований и истории изменений нужны в том числе:
+- `20251224000000_add_booking_audit_log.sql` — таблица `booking_logs`, колонки `created_by`/`updated_by` в `bookings`
+- `20260126000000_add_deposit_fields_to_bookings.sql` — колонки `deposit_amount`, `deposit_received`, `deposit_returned` в `bookings`
 
 6. **Разверните Edge Functions**
 
-Разверните все функции из `supabase/functions/` в Supabase Dashboard → Edge Functions.
+Разверните все функции из `supabase/functions/` в тот же проект Supabase, что и приложение. Для истории изменений бронирований обязательна функция `log-booking-change`:
+
+```bash
+supabase functions deploy log-booking-change --project-ref <ваш-project-ref>
+```
+
+Остальные функции — через Supabase Dashboard → Edge Functions или `supabase functions deploy`.
 
 7. **Запустите проект**
 ```bash
@@ -387,9 +395,19 @@ CM_bolt_1.0.1/
 - **avito-close-availability** — закрытие доступности на Avito
 - **ical** — генерация iCal файлов для экспорта календаря
 - **import-bookings** — импорт бронирований из Excel
-- **delete-user-account** — удаление аккаунта пользователя
+- **delete-user-account** — полное удаление пользователя и всех связанных данных (см. ниже)
+
 - **apply-migration** — применение миграций БД
 - **seed-test-data** — генерация тестовых данных
+
+#### Удаление пользователя (delete-user-account)
+
+Удаление выполняется через Edge Function `delete-user-account` в том же проекте Supabase, что и приложение. Два сценария:
+
+1. **Самоудаление** — пользователь вызывает функцию с заголовком `Authorization: Bearer <jwt>` без тела; удаляется текущий пользователь.
+2. **Удаление админом** — админ передаёт в теле запроса `{ "userId": "<uuid>" }` и заголовок с своим JWT; функция проверяет роль `admin` и удаляет указанного пользователя.
+
+Порядок каскадного удаления: bookings → property_rates, integrations, avito_items, avito_sync_queue → properties → guests → chats (messages каскадом) → deletion_requests → profiles → auth.admin.deleteUser. Функцию необходимо задеплоить: `supabase functions deploy delete-user-account --project-ref <ваш-project-ref>`.
 
 ### API Endpoints
 
@@ -420,7 +438,7 @@ CM_bolt_1.0.1/
 
 ### Миграции
 
-Все миграции находятся в `supabase/migrations/` и применяются автоматически при деплое или вручную через Supabase Dashboard.
+Все миграции находятся в `supabase/migrations/` и применяются вручную через Supabase Dashboard (SQL Editor) или `supabase db push`. Для создания/редактирования бронирований и истории изменений должны быть применены миграции, добавляющие в `bookings` колонки `created_by`, `updated_by`, `deposit_*`, а также таблицу `booking_logs`. Edge Function `log-booking-change` должна быть задеплоена в тот же проект.
 
 ---
 
