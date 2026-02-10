@@ -89,12 +89,12 @@ export function SignupForm() {
       <div className="absolute top-4 right-4 z-10">
         <LanguageSelector />
       </div>
-      <Card className={cn('relative w-full max-w-md glass-card border-border shadow-2xl')}>
+      <Card className={cn('relative w-full max-w-md glass-card border-border shadow-2xl text-foreground')}>
         <CardHeader className="space-y-2 text-center pb-4">
-          <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight">Roomi Pro</CardTitle>
-          <CardDescription>Регистрация</CardDescription>
+          <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Roomi</CardTitle>
+          <CardDescription className="text-foreground/90">Регистрация</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="text-foreground [&_.ant-form-item-label]:!text-foreground [&_.ant-input]:text-foreground [&_.ant-input]:bg-background [&_.ant-input-affix-wrapper]:text-foreground [&_.ant-input-affix-wrapper]:bg-background [&_.ant-checkbox-wrapper]:text-foreground">
           <form onSubmit={handleSubmit((data: SignupFormValues) => onSubmit(data))}>
             <Form layout="vertical">
               <Form.Item label="Имя" validateStatus={errors.firstName ? 'error' : undefined} help={errors.firstName?.message}>
@@ -124,7 +124,7 @@ export function SignupForm() {
               </Form.Item>
               <Form.Item label="Телефон" validateStatus={errors.phone ? 'error' : undefined} help={errors.phone?.message}>
                 <Input
-                  placeholder="+995 5XX XXX XXX"
+                  placeholder="Телефон"
                   {...register('phone')}
                   onChange={(e) => setValue('phone', e.target.value, { shouldValidate: true })}
                   className="h-11"
@@ -158,14 +158,14 @@ export function SignupForm() {
                   disabled={!termsAccepted || !isValid || loading}
                   loading={loading}
                   block
-                  className="h-11"
+                  className="h-11 font-semibold !min-h-11 bg-primary text-primary-foreground hover:!bg-primary/90 disabled:!opacity-100 disabled:!bg-muted disabled:!text-muted-foreground disabled:!border disabled:!border-border"
                 >
                   Зарегистрироваться
                 </Button>
               </Form.Item>
             </Form>
           </form>
-          <p className="text-center text-sm text-muted-foreground mt-4">
+          <p className="text-center text-sm text-foreground/90 mt-4">
             <Link to="/login" className="text-primary hover:underline">Уже есть аккаунт? Войти</Link>
           </p>
         </CardContent>

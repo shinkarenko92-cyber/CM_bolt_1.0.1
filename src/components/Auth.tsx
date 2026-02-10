@@ -87,14 +87,14 @@ export function Auth({ showSignUpToggle = true }: AuthProps) {
         <LanguageSelector />
       </div>
 
-      <Card className={cn('relative w-full max-w-md glass-card border-border shadow-2xl transition-transform duration-300 hover:scale-[1.01]')}>
+      <Card className={cn('relative w-full max-w-md glass-card border-border shadow-2xl transition-transform duration-300 hover:scale-[1.01] text-foreground')}>
         <CardHeader className="space-y-2 text-center pb-4">
-          <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight">Roomi Pro</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Roomi</CardTitle>
+          <CardDescription className="text-foreground/90">
             {isForgotPassword ? t('auth.resetPassword') : showSignUpToggle && isSignUp ? t('auth.createAccount') : t('auth.signIn')}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="text-foreground">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">{t('auth.email')}</Label>

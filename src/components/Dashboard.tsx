@@ -1746,7 +1746,7 @@ export function Dashboard() {
           <div className="flex-1 flex items-center justify-center p-6">
             <Card className="max-w-lg w-full">
               <CardHeader>
-                <CardTitle>Добро пожаловать в Roomi Pro</CardTitle>
+                <CardTitle>Добро пожаловать в Roomi</CardTitle>
                 <CardDescription>
                   Начни с загрузки своего файла с бронированиями — мы не даём шаблон, используй свой Excel.
                 </CardDescription>
