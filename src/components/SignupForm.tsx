@@ -112,11 +112,14 @@ export function SignupForm() {
             console.error('send-otp:', e);
           }
         }
-        Modal.success({
-          content: 'Проверьте почту — на неё пришло письмо для подтверждения.',
-          okText: 'Понятно',
-          onOk: () => navigate('/verify-phone', { replace: true }),
-        });
+        setTimeout(() => {
+          Modal.success({
+            content: 'Проверьте почту — на неё пришло письмо для подтверждения.',
+            okText: 'Понятно',
+            getContainer: () => document.body,
+            onOk: () => navigate('/login', { replace: true, state: { fromSignup: true } }),
+          });
+        }, 0);
       }
     } catch (err: unknown) {
       setSubmitError(err instanceof Error ? err.message : 'Ошибка регистрации');

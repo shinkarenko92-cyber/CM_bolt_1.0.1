@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -16,6 +16,8 @@ type AuthProps = {
 
 export function Auth({ showSignUpToggle = true }: AuthProps) {
   const { t } = useTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -24,6 +26,13 @@ export function Auth({ showSignUpToggle = true }: AuthProps) {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn, signUp } = useAuth();
+
+  useEffect(() => {
+    if (location.state?.fromSignup) {
+      setSuccess('Проверьте почту — на неё пришло письмо для подтверждения.');
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state?.fromSignup, location.pathname, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
