@@ -57,22 +57,26 @@ CREATE INDEX IF NOT EXISTS idx_messages_is_read ON messages(is_read) WHERE is_re
 -- Enable RLS on chats table
 ALTER TABLE chats ENABLE ROW LEVEL SECURITY;
 
--- RLS policies for chats
+-- RLS policies for chats (idempotent)
+DROP POLICY IF EXISTS "Users can view their own chats" ON chats;
 CREATE POLICY "Users can view their own chats"
 ON chats FOR SELECT
 TO authenticated
 USING (owner_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can create their own chats" ON chats;
 CREATE POLICY "Users can create their own chats"
 ON chats FOR INSERT
 TO authenticated
 WITH CHECK (owner_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can update their own chats" ON chats;
 CREATE POLICY "Users can update their own chats"
 ON chats FOR UPDATE
 TO authenticated
 USING (owner_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can delete their own chats" ON chats;
 CREATE POLICY "Users can delete their own chats"
 ON chats FOR DELETE
 TO authenticated
@@ -81,22 +85,26 @@ USING (owner_id = auth.uid());
 -- Enable RLS on messages table
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
--- RLS policies for messages
+-- RLS policies for messages (idempotent)
+DROP POLICY IF EXISTS "Users can view messages in their chats" ON messages;
 CREATE POLICY "Users can view messages in their chats"
 ON messages FOR SELECT
 TO authenticated
 USING (chat_id IN (SELECT id FROM chats WHERE owner_id = auth.uid()));
 
+DROP POLICY IF EXISTS "Users can create messages in their chats" ON messages;
 CREATE POLICY "Users can create messages in their chats"
 ON messages FOR INSERT
 TO authenticated
 WITH CHECK (chat_id IN (SELECT id FROM chats WHERE owner_id = auth.uid()));
 
+DROP POLICY IF EXISTS "Users can update messages in their chats" ON messages;
 CREATE POLICY "Users can update messages in their chats"
 ON messages FOR UPDATE
 TO authenticated
 USING (chat_id IN (SELECT id FROM chats WHERE owner_id = auth.uid()));
 
+DROP POLICY IF EXISTS "Users can delete messages in their chats" ON messages;
 CREATE POLICY "Users can delete messages in their chats"
 ON messages FOR DELETE
 TO authenticated
