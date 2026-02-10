@@ -1,7 +1,8 @@
 /**
  * Delete User Account Edge Function
  * Deletes auth user and all associated data.
- * Modes: self-delete (JWT only) or admin delete (body { userId }, caller must be admin).
+ * Requires POST with Content-Type: application/json and a body.
+ * Modes: self-delete (body {} or no userId) or admin delete (body { userId }, caller must be admin when target !== caller).
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -70,25 +71,42 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Invalid or expired token" }, 401);
     }
 
-    let targetUserId: string;
-
     const contentType = req.headers.get("Content-Type") || "";
-    const hasBody = req.method === "POST" && (req.body && contentType.includes("application/json"));
-    if (hasBody) {
-      const body = (await req.json().catch(() => ({}))) as { userId?: string };
-      const userIdFromBody = body?.userId;
-      if (typeof userIdFromBody !== "string" || !UUID_REGEX.test(userIdFromBody)) {
-        return jsonResponse({ error: "Invalid or missing userId in body" }, 400);
-      }
-      const { data: profile } = await adminClient
-        .from("profiles")
-        .select("role, is_active")
-        .eq("id", caller.id)
-        .single();
-      if (profile?.role !== "admin" || profile?.is_active !== true) {
-        return jsonResponse({ error: "Forbidden: admin role required" }, 403);
-      }
+    if (
+      req.method !== "POST" ||
+      !req.body ||
+      !contentType.includes("application/json")
+    ) {
+      return jsonResponse(
+        { error: "Content-Type: application/json and request body required" },
+        400
+      );
+    }
+
+    let body: { userId?: string };
+    try {
+      body = (await req.json()) as { userId?: string };
+    } catch {
+      return jsonResponse({ error: "Invalid JSON body" }, 400);
+    }
+
+    const userIdFromBody = body?.userId;
+    const hasValidTarget =
+      typeof userIdFromBody === "string" && UUID_REGEX.test(userIdFromBody);
+
+    let targetUserId: string;
+    if (hasValidTarget) {
       targetUserId = userIdFromBody;
+      if (targetUserId !== caller.id) {
+        const { data: profile } = await adminClient
+          .from("profiles")
+          .select("role, is_active")
+          .eq("id", caller.id)
+          .single();
+        if (profile?.role !== "admin" || profile?.is_active !== true) {
+          return jsonResponse({ error: "Forbidden: admin role required" }, 403);
+        }
+      }
     } else {
       targetUserId = caller.id;
     }
