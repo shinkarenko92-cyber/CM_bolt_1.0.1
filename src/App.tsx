@@ -9,6 +9,7 @@ import { SignupForm } from './components/SignupForm';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { VerifyPhonePage } from './pages/VerifyPhonePage';
+import { OnboardingImport } from './pages/OnboardingImport';
 
 function AvitoCallbackHandler() {
   useEffect(() => {
@@ -95,6 +96,7 @@ function AppContent() {
         <Route path="/login" element={<AuthLayout><Auth showSignUpToggle={false} /></AuthLayout>} />
         <Route path="/signup" element={<AuthLayout><SignupForm /></AuthLayout>} />
         <Route path="/verify-phone" element={<RequireAuth><VerifyPhonePage /></RequireAuth>} />
+        <Route path="/onboarding/import" element={<RequireAuth><OnboardingImport /></RequireAuth>} />
         <Route path="/" element={<MainOrRedirect />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

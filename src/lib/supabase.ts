@@ -96,6 +96,7 @@ export type Profile = {
   role: 'user' | 'admin';
   is_active: boolean;
   theme?: 'light' | 'dark';
+  onboarding_survey?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 };

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Bell, User } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Search, Bell, User, Upload } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Avatar, AvatarFallback } from './ui/avatar';
@@ -37,6 +38,7 @@ import { showAvitoErrors } from '../services/avitoErrors';
 import { avitoApi } from '../services/avitoApi';
 import { DeletePropertyModal } from './DeletePropertyModal';
 import { ImportBookingsModal } from './ImportBookingsModal';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { logBookingChange, getBookingChanges } from '../services/bookingLog';
 
 type NewReservation = {
@@ -1740,6 +1742,25 @@ export function Dashboard() {
 
         {loading ? (
           <SkeletonCalendar />
+        ) : bookings.length === 0 && properties.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center p-6">
+            <Card className="max-w-lg w-full">
+              <CardHeader>
+                <CardTitle>Добро пожаловать в Roomi Pro</CardTitle>
+                <CardDescription>
+                  Начни с загрузки своего файла с бронированиями — мы не даём шаблон, используй свой Excel.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild className="w-full" size="lg">
+                  <Link to="/onboarding/import">
+                    <Upload className="mr-2 h-4 w-4" />
+                    Загрузить свой Excel прямо сейчас
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         ) : currentView === 'properties' ? (
           <PropertiesView
             properties={properties || []}
