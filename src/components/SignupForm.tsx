@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
-import { Form, Input, Checkbox, Button } from 'antd';
+import { Form, Input, Checkbox, Button, Modal } from 'antd';
 import { useAuth } from '../contexts/AuthContext';
 import { signupSchema, type SignupFormValues } from '../schemas/auth';
 import { LanguageSelector } from './LanguageSelector';
@@ -112,7 +112,11 @@ export function SignupForm() {
             console.error('send-otp:', e);
           }
         }
-        navigate('/verify-phone', { replace: true });
+        Modal.success({
+          content: 'Проверьте почту — на неё пришло письмо для подтверждения.',
+          okText: 'Понятно',
+          onOk: () => navigate('/verify-phone', { replace: true }),
+        });
       }
     } catch (err: unknown) {
       setSubmitError(err instanceof Error ? err.message : 'Ошибка регистрации');

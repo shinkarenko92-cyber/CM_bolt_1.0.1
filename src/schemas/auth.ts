@@ -9,7 +9,7 @@ export const signupSchema = z.object({
   phone: z
     .string()
     .min(9, 'Введите номер в международном формате')
-    .refine((val) => phoneRegex.test(val.replace(/[\s\-()]/g, '')), 'Международный формат, например +995 5XX XXX XXX'),
+    .refine((val) => phoneRegex.test(val.replace(/[\s\-()]/g, '')), 'Введите номер в международном формате'),
   password: z.string().min(6, 'Минимум 6 символов'),
   termsAccepted: z.boolean().refine((v) => v === true, { message: 'Необходимо согласие' }),
 });
