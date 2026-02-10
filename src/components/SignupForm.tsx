@@ -94,7 +94,7 @@ export function SignupForm() {
           <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Roomi</CardTitle>
           <CardDescription className="text-foreground/90">Регистрация</CardDescription>
         </CardHeader>
-        <CardContent className="text-foreground [&_.ant-form-item-label]:!text-foreground [&_.ant-input]:text-foreground [&_.ant-input]:bg-background [&_.ant-input-affix-wrapper]:text-foreground [&_.ant-input-affix-wrapper]:bg-background [&_.ant-checkbox-wrapper]:text-foreground">
+        <CardContent className="text-foreground [&_.ant-form-item-label]:!text-foreground [&_.ant-checkbox-wrapper]:!text-foreground [&_.ant-input]:!bg-white [&_.ant-input]:!text-gray-900 [&_.ant-input]:placeholder:!text-gray-500 [&_.ant-input-affix-wrapper]:!bg-white [&_.ant-input-affix-wrapper_.ant-input]:!bg-transparent [&_.ant-input-affix-wrapper_.ant-input]:!text-gray-900 [&_.ant-input-affix-wrapper_.ant-input]:placeholder:!text-gray-500">
           <form onSubmit={handleSubmit((data: SignupFormValues) => onSubmit(data))}>
             <Form layout="vertical">
               <Form.Item label="Имя" validateStatus={errors.firstName ? 'error' : undefined} help={errors.firstName?.message}>
