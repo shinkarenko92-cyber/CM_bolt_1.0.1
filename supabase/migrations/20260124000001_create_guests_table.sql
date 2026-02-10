@@ -20,22 +20,26 @@ CREATE UNIQUE INDEX IF NOT EXISTS guests_owner_phone_idx ON guests(owner_id, pho
 -- Enable RLS on guests
 ALTER TABLE guests ENABLE ROW LEVEL SECURITY;
 
--- Policies for guests
+-- Policies for guests (idempotent)
+DROP POLICY IF EXISTS "Users can view their own guests" ON guests;
 CREATE POLICY "Users can view their own guests"
 ON guests FOR SELECT
 TO authenticated
 USING (owner_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can create their own guests" ON guests;
 CREATE POLICY "Users can create their own guests"
 ON guests FOR INSERT
 TO authenticated
 WITH CHECK (owner_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can update their own guests" ON guests;
 CREATE POLICY "Users can update their own guests"
 ON guests FOR UPDATE
 TO authenticated
 USING (owner_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can delete their own guests" ON guests;
 CREATE POLICY "Users can delete their own guests"
 ON guests FOR DELETE
 TO authenticated
