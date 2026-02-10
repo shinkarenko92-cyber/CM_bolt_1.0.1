@@ -7,9 +7,21 @@ import { useAuth } from '../contexts/AuthContext';
 import { signupSchema, type SignupFormValues } from '../schemas/auth';
 import { LanguageSelector } from './LanguageSelector';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { cn } from '@/lib/utils';
 
 const normalizePhone = (v: string) => v.replace(/[\s\-()]/g, '');
+
+const inputClassName =
+  'h-11 !bg-slate-800 !border-slate-600 !text-gray-100 placeholder:!text-gray-500 focus:!ring-2 focus:!ring-blue-500 focus:!border-blue-500';
+
+const cardContentClassName = [
+  '[&_.ant-form-item-label]>label:!text-slate-200 [&_.ant-form-item-label]>label:!font-medium',
+  '[&_.ant-input]:!bg-slate-800 [&_.ant-input]:!border-slate-600 [&_.ant-input]:!text-gray-100 [&_.ant-input]:placeholder:!text-gray-500',
+  '[&_.ant-input]:focus:!ring-2 [&_.ant-input]:focus:!ring-blue-500 [&_.ant-input]:focus:!border-blue-500',
+  '[&_.ant-input-affix-wrapper]:!bg-slate-800 [&_.ant-input-affix-wrapper]:!border-slate-600 [&_.ant-input-affix-wrapper_.ant-input]:!bg-transparent [&_.ant-input-affix-wrapper_.ant-input]:!text-gray-100 [&_.ant-input-affix-wrapper_.ant-input]:placeholder:!text-gray-500',
+  '[&_.ant-input-affix-wrapper]:focus-within:!ring-2 [&_.ant-input-affix-wrapper]:focus-within:!ring-blue-500 [&_.ant-input-affix-wrapper]:focus-within:!border-blue-500',
+  '[&_.ant-form-item-explain]:!text-gray-400 [&_.ant-form-item-explain-error]:!text-red-400',
+  '[&_.ant-checkbox-wrapper]:!text-gray-300 [&_.ant-checkbox-wrapper:hover]:!text-white [&_.ant-checkbox-checked_.ant-checkbox-inner]:!bg-blue-600 [&_.ant-checkbox-wrapper_.ant-checkbox-inner]:!border-slate-500',
+].join(' ');
 
 export function SignupForm() {
   const navigate = useNavigate();
@@ -89,20 +101,20 @@ export function SignupForm() {
       <div className="absolute top-4 right-4 z-10">
         <LanguageSelector />
       </div>
-      <Card className={cn('relative w-full max-w-md glass-card border-border shadow-2xl text-foreground')}>
-        <CardHeader className="space-y-2 text-center pb-4">
-          <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Roomi</CardTitle>
-          <CardDescription className="text-foreground/90">Регистрация</CardDescription>
+      <Card className="relative w-full max-w-md mx-auto p-8 bg-slate-900/80 rounded-2xl shadow-2xl border border-slate-700">
+        <CardHeader className="space-y-2 text-center pb-4 px-0 pt-0">
+          <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight text-white">Roomi</CardTitle>
+          <CardDescription className="text-gray-400">Регистрация</CardDescription>
         </CardHeader>
-        <CardContent className="text-foreground [&_.ant-form-item-label]:!text-foreground [&_.ant-checkbox-wrapper]:!text-foreground [&_.ant-input]:!bg-white [&_.ant-input]:!text-gray-900 [&_.ant-input]:placeholder:!text-gray-500 [&_.ant-input-affix-wrapper]:!bg-white [&_.ant-input-affix-wrapper_.ant-input]:!bg-transparent [&_.ant-input-affix-wrapper_.ant-input]:!text-gray-900 [&_.ant-input-affix-wrapper_.ant-input]:placeholder:!text-gray-500">
+        <CardContent className={cardContentClassName}>
           <form onSubmit={handleSubmit((data: SignupFormValues) => onSubmit(data))}>
-            <Form layout="vertical">
+            <Form layout="vertical" labelCol={{ span: 24 }} wrapperCol={{ span: 24 }}>
               <Form.Item label="Имя" validateStatus={errors.firstName ? 'error' : undefined} help={errors.firstName?.message}>
                 <Input
                   placeholder="Имя"
                   {...register('firstName')}
                   onChange={(e) => setValue('firstName', e.target.value, { shouldValidate: true })}
-                  className="h-11"
+                  className={inputClassName}
                 />
               </Form.Item>
               <Form.Item label="Фамилия" validateStatus={errors.lastName ? 'error' : undefined} help={errors.lastName?.message}>
@@ -110,7 +122,7 @@ export function SignupForm() {
                   placeholder="Фамилия"
                   {...register('lastName')}
                   onChange={(e) => setValue('lastName', e.target.value, { shouldValidate: true })}
-                  className="h-11"
+                  className={inputClassName}
                 />
               </Form.Item>
               <Form.Item label="Email" validateStatus={errors.email ? 'error' : undefined} help={errors.email?.message}>
@@ -119,7 +131,7 @@ export function SignupForm() {
                   placeholder="you@example.com"
                   {...register('email')}
                   onChange={(e) => setValue('email', e.target.value, { shouldValidate: true })}
-                  className="h-11"
+                  className={inputClassName}
                 />
               </Form.Item>
               <Form.Item label="Телефон" validateStatus={errors.phone ? 'error' : undefined} help={errors.phone?.message}>
@@ -127,7 +139,7 @@ export function SignupForm() {
                   placeholder="Телефон"
                   {...register('phone')}
                   onChange={(e) => setValue('phone', e.target.value, { shouldValidate: true })}
-                  className="h-11"
+                  className={inputClassName}
                 />
               </Form.Item>
               <Form.Item label="Пароль" validateStatus={errors.password ? 'error' : undefined} help={errors.password?.message}>
@@ -135,19 +147,29 @@ export function SignupForm() {
                   placeholder="••••••••"
                   {...register('password')}
                   onChange={(e) => setValue('password', e.target.value, { shouldValidate: true })}
-                  className="h-11"
+                  className={inputClassName}
                 />
               </Form.Item>
               <Form.Item validateStatus={errors.termsAccepted ? 'error' : undefined} help={errors.termsAccepted?.message}>
                 <Checkbox
                   checked={termsAccepted}
                   onChange={(e) => setValue('termsAccepted', e.target.checked, { shouldValidate: true })}
+                  className="text-gray-300 hover:text-white [&_.ant-checkbox-inner]:!border-slate-500"
                 >
-                  Я согласен с <Link to="/terms">Условиями использования</Link> и <Link to="/privacy">Политикой конфиденциальности</Link>
+                  <span className="text-gray-300">
+                    Я согласен с{' '}
+                    <Link to="/terms" className="text-gray-400 hover:text-gray-200 underline">
+                      Условиями использования
+                    </Link>{' '}
+                    и{' '}
+                    <Link to="/privacy" className="text-gray-400 hover:text-gray-200 underline">
+                      Политикой конфиденциальности
+                    </Link>
+                  </span>
                 </Checkbox>
               </Form.Item>
               {submitError && (
-                <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive mb-4">
+                <div className="rounded-md border border-red-500/50 bg-red-500/10 px-3 py-2 text-sm text-red-400 mb-4">
                   {submitError}
                 </div>
               )}
@@ -158,15 +180,17 @@ export function SignupForm() {
                   disabled={!termsAccepted || !isValid || loading}
                   loading={loading}
                   block
-                  className="h-11 font-semibold !min-h-11 bg-primary text-primary-foreground hover:!bg-primary/90 disabled:!opacity-100 disabled:!bg-muted disabled:!text-muted-foreground disabled:!border disabled:!border-border"
+                  className="h-11 font-semibold min-h-11 !bg-blue-600 hover:!bg-blue-700 !border-0"
                 >
                   Зарегистрироваться
                 </Button>
               </Form.Item>
             </Form>
           </form>
-          <p className="text-center text-sm text-foreground/90 mt-4">
-            <Link to="/login" className="text-primary hover:underline">Уже есть аккаунт? Войти</Link>
+          <p className="text-center text-sm mt-4">
+            <Link to="/login" className="text-blue-400 hover:text-blue-300 underline">
+              Уже есть аккаунт? Войти
+            </Link>
           </p>
         </CardContent>
       </Card>
