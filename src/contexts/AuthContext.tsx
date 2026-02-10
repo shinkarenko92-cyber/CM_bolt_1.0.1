@@ -2,13 +2,21 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase, Profile } from '../lib/supabase';
 
+export type SignUpParams = {
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+};
+
 type AuthContextType = {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
   isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<{ data: { user: User | null }; error: Error | null }>;
+  signUp: (params: SignUpParams) => Promise<{ data: { user: User | null }; error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   deleteAccount: () => Promise<void>;
@@ -117,42 +125,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (params: SignUpParams) => {
+    const { email, password, firstName, lastName, phone } = params;
     const result = await supabase.auth.signUp({ email, password });
     if (result.error) throw result.error;
 
     if (result.data.user) {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Check if profile exists
       let profileData = await fetchProfile(result.data.user.id);
 
-      // If no profile exists, create one
       if (!profileData) {
-        // Check if this is the first user
         const { count } = await supabase
           .from('profiles')
           .select('*', { count: 'exact', head: true });
-
         const isFirstUser = count === 0;
-
-        // Create profile - default role is 'user', only first user gets 'admin'
         const { data: newProfile, error: profileError } = await supabase
           .from('profiles')
           .insert({
             id: result.data.user.id,
             email: result.data.user.email,
-            role: isFirstUser ? 'admin' : 'user', // Default to 'user', only first user is 'admin'
+            role: isFirstUser ? 'admin' : 'user',
             is_active: true,
           })
           .select()
           .single();
-
         if (profileError) {
           console.error('Error creating profile:', profileError);
         } else {
           profileData = newProfile;
         }
+      }
+
+      if (profileData && (firstName != null || lastName != null || phone != null)) {
+        const updates: { first_name?: string; last_name?: string; full_name?: string; phone?: string } = {};
+        if (firstName != null) updates.first_name = firstName;
+        if (lastName != null) updates.last_name = lastName;
+        if (phone != null) updates.phone = phone;
+        if (firstName != null && lastName != null) updates.full_name = `${firstName} ${lastName}`.trim();
+        const { data: updated } = await supabase
+          .from('profiles')
+          .update(updates)
+          .eq('id', result.data.user.id)
+          .select()
+          .single();
+        if (updated) profileData = updated;
       }
 
       setProfile(profileData);

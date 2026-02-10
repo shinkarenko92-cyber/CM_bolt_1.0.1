@@ -84,10 +84,13 @@ export type BookingLog = {
 export type Profile = {
   id: string;
   full_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
   business_name: string | null;
   telegram_id: string | null;
   email: string | null;
   phone: string | null;
+  phone_confirmed_at: string | null;
   subscription_tier: string;
   subscription_expires_at: string | null;
   role: 'user' | 'admin';

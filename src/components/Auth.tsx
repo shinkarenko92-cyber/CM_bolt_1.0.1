@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -9,7 +10,11 @@ import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { cn } from '@/lib/utils';
 
-export function Auth() {
+type AuthProps = {
+  showSignUpToggle?: boolean;
+};
+
+export function Auth({ showSignUpToggle = true }: AuthProps) {
   const { t } = useTranslation();
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -34,8 +39,8 @@ export function Auth() {
         if (error) throw error;
         setSuccess(t('auth.passwordResetSent'));
         setEmail('');
-      } else if (isSignUp) {
-        const { data, error } = await signUp(email, password);
+      } else if (showSignUpToggle && isSignUp) {
+        const { data, error } = await signUp({ email, password });
         if (error) throw error;
 
         if (data?.user?.id) {
@@ -86,7 +91,7 @@ export function Auth() {
         <CardHeader className="space-y-2 text-center pb-4">
           <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight">Roomi Pro</CardTitle>
           <CardDescription>
-            {isForgotPassword ? t('auth.resetPassword') : isSignUp ? t('auth.createAccount') : t('auth.signIn')}
+            {isForgotPassword ? t('auth.resetPassword') : showSignUpToggle && isSignUp ? t('auth.createAccount') : t('auth.signIn')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -137,14 +142,14 @@ export function Auth() {
                 ? t('common.loading')
                 : isForgotPassword
                   ? t('auth.resetPassword')
-                  : isSignUp
+                  : showSignUpToggle && isSignUp
                     ? t('auth.signUp')
                     : t('auth.signIn')}
             </Button>
           </form>
 
           <div className="mt-6 text-center space-y-2">
-            {!isForgotPassword && !isSignUp && (
+            {!isForgotPassword && !(showSignUpToggle && isSignUp) && (
               <button
                 type="button"
                 onClick={() => {
@@ -158,21 +163,27 @@ export function Auth() {
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={() => {
-                if (isForgotPassword) {
-                  setIsForgotPassword(false);
-                } else {
-                  setIsSignUp(!isSignUp);
-                }
-                setError('');
-                setSuccess('');
-              }}
-              className="text-sm text-primary hover:underline"
-            >
-              {isForgotPassword ? t('auth.backToSignIn') : isSignUp ? t('auth.alreadyHaveAccount') : t('auth.noAccount')}
-            </button>
+            {showSignUpToggle ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (isForgotPassword) {
+                    setIsForgotPassword(false);
+                  } else {
+                    setIsSignUp(!isSignUp);
+                  }
+                  setError('');
+                  setSuccess('');
+                }}
+                className="text-sm text-primary hover:underline"
+              >
+                {isForgotPassword ? t('auth.backToSignIn') : isSignUp ? t('auth.alreadyHaveAccount') : t('auth.noAccount')}
+              </button>
+            ) : (
+              <Link to="/signup" className="text-sm text-primary hover:underline block">
+                {t('auth.noAccount')}
+              </Link>
+            )}
           </div>
         </CardContent>
       </Card>
