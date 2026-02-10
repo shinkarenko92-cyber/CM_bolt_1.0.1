@@ -32,13 +32,13 @@ CREATE INDEX IF NOT EXISTS idx_phone_otp_expires_at ON phone_otp(expires_at);
 
 ALTER TABLE phone_otp ENABLE ROW LEVEL SECURITY;
 
--- Only the owning user can read their own OTP row (for verify flow)
+-- Policies (idempotent)
+DROP POLICY IF EXISTS "Users can read own phone_otp" ON phone_otp;
 CREATE POLICY "Users can read own phone_otp"
   ON phone_otp FOR SELECT TO authenticated
   USING (auth.uid() = user_id);
 
--- Service/edge function will insert via service_role; no insert for authenticated users
--- Allow authenticated to delete own row after successful verify (optional)
+DROP POLICY IF EXISTS "Users can delete own phone_otp" ON phone_otp;
 CREATE POLICY "Users can delete own phone_otp"
   ON phone_otp FOR DELETE TO authenticated
   USING (auth.uid() = user_id);
