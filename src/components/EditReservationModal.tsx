@@ -157,8 +157,9 @@ export function EditReservationModal({
         .order('timestamp', { ascending: false })
         .limit(50);
       if (error) {
-        // Таблица booking_logs может отсутствовать, если миграции не применены
-        if ((error as { code?: string }).code === 'PGRST205') {
+        // Таблица booking_logs может отсутствовать (миграции не применены) — 404 / PGRST205 / PGRST301
+        const err = error as { code?: string; status?: number; message?: string };
+        if (err.code === 'PGRST205' || err.status === 404 || err.message?.includes('404') || err.code === 'PGRST301') {
           setBookingLogs([]);
           return;
         }

@@ -25,6 +25,8 @@ export const colors = {
   inactiveBadge: '#94a3b8',
   /** Фон ячеек Standard rate в таблице доступности. */
   rateCellBg: '#E0F2FE',
+  /** Акцент календаря (header/drawer teal). */
+  teal: '#00BFA5',
 } as const;
 
 /** Валюта по умолчанию для total left и цен (можно брать item.currency из брони). */

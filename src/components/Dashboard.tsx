@@ -925,39 +925,49 @@ export function Dashboard() {
       let payload: BookingInsertPayload = reservationWithAudit;
       let { data, error } = await supabase.from('bookings').insert([payload]).select();
 
-      // Handle PGRST204 error (column not found) - retry without audit fields
-      if (error && (error.code === 'PGRST204' || error.message?.includes('Could not find the') || error.message?.includes('created_by'))) {
-        // Retry without audit fields - create new object without created_by and updated_by
+      const is400OrColumnError = (e: unknown) => {
+        const err = e as { code?: string; status?: number; message?: string };
+        return err?.code === 'PGRST204' || err?.status === 400 || err?.message?.includes('400') || err?.message?.includes('Could not find the') || err?.message?.includes('created_by') || err?.message?.includes('deposit_received') || err?.message?.includes('deposit_returned') || err?.message?.includes('deposit_amount') || err?.message?.includes('guest_id') || err?.message?.includes('extra_services');
+      };
+
+      // Retry without audit fields (created_by, updated_by)
+      if (error && is400OrColumnError(error)) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { created_by, updated_by, ...rest } = payload;
         payload = rest as typeof payload;
-
         const retryResult = await supabase.from('bookings').insert([payload]).select();
         data = retryResult.data;
         error = retryResult.error;
       }
 
-      // Handle 400 / column not found - retry without deposit_received/deposit_returned (migration may not be applied)
-      if (error && (error.code === 'PGRST204' || (error as { code?: string }).code === '400' || error.message?.includes('deposit_received') || error.message?.includes('deposit_returned'))) {
-        // Strip deposit flags from current payload (already without audit if first retry ran)
+      // Retry without deposit_received, deposit_returned
+      if (error && is400OrColumnError(error)) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { deposit_received, deposit_returned, ...rest } = payload;
         payload = rest as typeof payload;
-
         const retryDeposit = await supabase.from('bookings').insert([payload]).select();
         data = retryDeposit.data;
         error = retryDeposit.error;
       }
 
-      // Handle deposit_amount column not found (migration 20260126000000 may not be applied)
-      if (error && (error.code === 'PGRST204' || error.message?.includes('deposit_amount'))) {
+      // Retry without deposit_amount
+      if (error && is400OrColumnError(error)) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { deposit_amount, ...rest } = payload;
         payload = rest as typeof payload;
-
         const retryDepositAmount = await supabase.from('bookings').insert([payload]).select();
         data = retryDepositAmount.data;
         error = retryDepositAmount.error;
+      }
+
+      // Retry without guest_id, extra_services_amount (older schemas may not have them)
+      if (error && is400OrColumnError(error)) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { guest_id, extra_services_amount, ...rest } = payload;
+        payload = rest as typeof payload;
+        const retryExtra = await supabase.from('bookings').insert([payload]).select();
+        data = retryExtra.data;
+        error = retryExtra.error;
       }
 
       if (error) throw error;
@@ -1071,26 +1081,47 @@ export function Dashboard() {
 
       let { error } = await supabase.from('bookings').update(dataWithAudit).eq('id', id);
 
-      // Handle PGRST204 error (column not found) - retry without audit fields
-      let finalData = dataWithAudit;
-      if (error && (error.code === 'PGRST204' || error.message?.includes('Could not find the') || error.message?.includes('updated_by'))) {
-        // Retry without audit fields - create new object without updated_by
+      const is400OrColumnErrorUpdate = (e: unknown) => {
+        const err = e as { code?: string; status?: number; message?: string };
+        return err?.code === 'PGRST204' || err?.status === 400 || err?.message?.includes('400') || err?.message?.includes('Could not find the') || err?.message?.includes('updated_by') || err?.message?.includes('deposit_received') || err?.message?.includes('deposit_returned') || err?.message?.includes('deposit_amount') || err?.message?.includes('guest_id') || err?.message?.includes('extra_services');
+      };
+
+      let finalData: Partial<Booking> = dataWithAudit;
+
+      // Retry without updated_by
+      if (error && is400OrColumnErrorUpdate(error)) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { updated_by, ...dataWithoutAudit } = dataWithAudit;
         finalData = dataWithoutAudit;
-
         const retryResult = await supabase.from('bookings').update(dataWithoutAudit).eq('id', id);
         error = retryResult.error;
       }
 
-      // Handle 400 / column not found - retry without deposit fields (migration may not be applied)
-      if (error && (error.code === 'PGRST204' || (error as { code?: string }).code === '400' || error.message?.includes('deposit_received') || error.message?.includes('deposit_returned'))) {
+      // Retry without deposit_received, deposit_returned
+      if (error && is400OrColumnErrorUpdate(error)) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { deposit_received, deposit_returned, ...dataWithoutDeposit } = finalData as typeof finalData & { deposit_received?: boolean; deposit_returned?: boolean };
         finalData = dataWithoutDeposit;
-
         const retryDeposit = await supabase.from('bookings').update(dataWithoutDeposit).eq('id', id);
         error = retryDeposit.error;
+      }
+
+      // Retry without deposit_amount
+      if (error && is400OrColumnErrorUpdate(error)) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { deposit_amount, ...dataWithoutDepositAmount } = finalData as typeof finalData & { deposit_amount?: number | null };
+        finalData = dataWithoutDepositAmount;
+        const retryDepositAmount = await supabase.from('bookings').update(dataWithoutDepositAmount).eq('id', id);
+        error = retryDepositAmount.error;
+      }
+
+      // Retry without guest_id, extra_services_amount
+      if (error && is400OrColumnErrorUpdate(error)) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { guest_id, extra_services_amount, ...dataWithoutExtra } = finalData as typeof finalData & { guest_id?: string | null; extra_services_amount?: number };
+        finalData = dataWithoutExtra;
+        const retryExtra = await supabase.from('bookings').update(dataWithoutExtra).eq('id', id);
+        error = retryExtra.error;
       }
 
       if (error) throw error;

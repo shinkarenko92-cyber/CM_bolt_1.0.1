@@ -137,11 +137,21 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
         .order('timestamp', { ascending: false })
         .limit(100);
 
-      if (error) throw error;
+      if (error) {
+        // Таблица booking_logs может отсутствовать (миграции не применены) — 404 / PGRST205 / PGRST301
+        const err = error as { code?: string; status?: number; message?: string };
+        if (err.code === 'PGRST205' || err.status === 404 || err.message?.includes('404') || err.code === 'PGRST301') {
+          setBookingLogs([]);
+          return;
+        }
+        throw error;
+      }
       setBookingLogs(data || []);
     } catch (err) {
       console.error('Error loading booking logs:', err);
-      toast.error('Ошибка загрузки истории');
+      // Не показывать toast при 404 (таблица отсутствует)
+      const is404 = err && typeof err === 'object' && ((err as { status?: number }).status === 404 || (err as Error).message?.includes('404'));
+      if (!is404) toast.error('Ошибка загрузки истории');
     } finally {
       setLoadingLogs(false);
     }

@@ -17,6 +17,7 @@ import Toast from 'react-native-toast-message';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginScreen } from './screens/LoginScreen';
+import { CalendarScreen } from './screens/CalendarScreen';
 import { ObjectsScreen } from './screens/ObjectsScreen';
 import { BookingsScreen } from './screens/BookingsScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
@@ -96,6 +97,14 @@ function MainTabs() {
       }}
     >
       <Tab.Screen
+        name="Calendar"
+        component={CalendarScreen}
+        options={{
+          title: 'Календарь',
+          tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
         name="Objects"
         component={ObjectsScreen}
         options={{
@@ -108,7 +117,7 @@ function MainTabs() {
         component={BookingsScreen}
         options={{
           title: 'Бронирования',
-          tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="list-outline" size={size} color={color} />,
         }}
       />
       <Tab.Screen
