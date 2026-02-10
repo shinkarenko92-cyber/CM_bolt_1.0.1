@@ -102,7 +102,7 @@ export function AddBookingModal({
       next.setDate(next.getDate() + 1);
       setValue('check_out', next.toISOString().slice(0, 10));
     }
-  }, [selectedProperty?.id, visible, setValue]);
+  }, [selectedProperty, visible, setValue]);
 
   const onSubmit = async (data: AddBookingFormValues) => {
     if (!supabase) {

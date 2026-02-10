@@ -963,7 +963,7 @@ export function Dashboard() {
       // Retry without guest_id, extra_services_amount (older schemas may not have them)
       if (error && is400OrColumnError(error)) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { guest_id, extra_services_amount, ...rest } = payload;
+        const { guest_id, extra_services_amount, ...rest } = payload as typeof payload & { guest_id?: string | null; extra_services_amount?: number };
         payload = rest as typeof payload;
         const retryExtra = await supabase.from('bookings').insert([payload]).select();
         data = retryExtra.data;
