@@ -12,7 +12,7 @@ const normalizePhone = (v: string) => v.replace(/[\s\-()]/g, '');
 
 const labelClassName = 'text-slate-200 font-medium text-base';
 const inputClassName =
-  'h-11 !bg-slate-700 !border-slate-600 !text-white placeholder:!text-slate-500 placeholder:!opacity-100 focus:!border-slate-600 focus:!shadow-none focus:!ring-0 hover:!bg-slate-700';
+  'h-11 !bg-[#24303F] !border-transparent !text-white placeholder:!text-[#7A899E] placeholder:!opacity-100 focus:!border-transparent focus:!shadow-none focus:!ring-0 hover:!bg-[#24303F]';
 
 const signupFormOverrides = `
   .signup-form-dark .ant-form-item-label > label {
@@ -28,26 +28,26 @@ const signupFormOverrides = `
   .signup-form-dark .ant-input-affix-wrapper input.ant-input:hover,
   .signup-form-dark .ant-input-affix-wrapper input.ant-input:focus {
     color: #ffffff !important;
-    background-color: #334155 !important;
-    border-color: #475569 !important;
+    background-color: #24303F !important;
+    border-color: transparent !important;
   }
   .signup-form-dark .ant-input:focus,
   .signup-form-dark .ant-input-affix-wrapper:focus-within {
-    border-color: #475569 !important;
+    border-color: transparent !important;
     box-shadow: none !important;
     outline: none !important;
   }
   .signup-form-dark .ant-input::placeholder,
   .signup-form-dark .ant-input-affix-wrapper input.ant-input::placeholder {
-    color: #64748b !important;
+    color: #7A899E !important;
     opacity: 1 !important;
   }
   .signup-form-dark .ant-input-affix-wrapper,
   .signup-form-dark .ant-input-affix-wrapper:hover,
   .signup-form-dark .ant-input-affix-wrapper:focus,
   .signup-form-dark .ant-input-affix-wrapper-focused {
-    background-color: #334155 !important;
-    border-color: #475569 !important;
+    background-color: #24303F !important;
+    border-color: transparent !important;
   }
   .signup-form-dark .ant-checkbox-wrapper + span,
   .signup-form-dark .ant-checkbox-wrapper .ant-checkbox + span {
@@ -156,10 +156,10 @@ export function SignupForm() {
         <div className="absolute top-4 right-4 z-10">
           <LanguageSelector />
         </div>
-        <Card className="signup-form-dark relative w-full max-w-md mx-auto p-8 bg-slate-700 rounded-2xl shadow-2xl border border-slate-600">
+        <Card className="signup-form-dark relative w-full max-w-md mx-auto p-8 bg-[#2F3C4F] rounded-2xl shadow-2xl border-0">
           <CardHeader className="space-y-2 text-center pb-4 px-0 pt-0">
             <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight text-white">Roomi</CardTitle>
-            <CardDescription className="text-slate-400">Регистрация</CardDescription>
+            <CardDescription className="text-[#99A1AA]">Регистрация</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit((data: SignupFormValues) => onSubmit(data))}>
