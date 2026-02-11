@@ -12,7 +12,7 @@ const normalizePhone = (v: string) => v.replace(/[\s\-()]/g, '');
 
 const labelClassName = 'text-slate-200 font-medium text-base';
 const inputClassName =
-  'h-11 !bg-slate-800 !border-slate-600 !text-white placeholder:!text-slate-500 placeholder:!opacity-100 focus:!border-slate-600 focus:!shadow-none focus:!ring-0';
+  'h-11 !bg-slate-700 !border-slate-600 !text-white placeholder:!text-slate-500 placeholder:!opacity-100 focus:!border-slate-600 focus:!shadow-none focus:!ring-0 hover:!bg-slate-700';
 
 const signupFormOverrides = `
   .signup-form-dark .ant-form-item-label > label {
@@ -21,9 +21,14 @@ const signupFormOverrides = `
     font-weight: 500 !important;
   }
   .signup-form-dark .ant-input,
-  .signup-form-dark .ant-input-affix-wrapper input.ant-input {
+  .signup-form-dark .ant-input:hover,
+  .signup-form-dark .ant-input:focus,
+  .signup-form-dark .ant-input-focused,
+  .signup-form-dark .ant-input-affix-wrapper input.ant-input,
+  .signup-form-dark .ant-input-affix-wrapper input.ant-input:hover,
+  .signup-form-dark .ant-input-affix-wrapper input.ant-input:focus {
     color: #ffffff !important;
-    background-color: #1e293b !important;
+    background-color: #334155 !important;
     border-color: #475569 !important;
   }
   .signup-form-dark .ant-input:focus,
@@ -37,8 +42,11 @@ const signupFormOverrides = `
     color: #64748b !important;
     opacity: 1 !important;
   }
-  .signup-form-dark .ant-input-affix-wrapper {
-    background-color: #1e293b !important;
+  .signup-form-dark .ant-input-affix-wrapper,
+  .signup-form-dark .ant-input-affix-wrapper:hover,
+  .signup-form-dark .ant-input-affix-wrapper:focus,
+  .signup-form-dark .ant-input-affix-wrapper-focused {
+    background-color: #334155 !important;
     border-color: #475569 !important;
   }
   .signup-form-dark .ant-checkbox-wrapper + span,
