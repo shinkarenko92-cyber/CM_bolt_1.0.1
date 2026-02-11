@@ -1,12 +1,10 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
 import { Form, Input, Checkbox, Button, Modal, message } from 'antd';
 import { useAuth } from '../contexts/AuthContext';
-import { signupSchema, type SignupFormValues } from '../schemas/auth';
 import { LanguageSelector } from './LanguageSelector';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { supabase } from '../lib/supabase';
 
 const normalizePhone = (v: string) => v.replace(/[\s\-()]/g, '');
 
@@ -69,45 +67,39 @@ const signupFormOverrides = `
   }
 `;
 
+type SignupFields = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  password: string;
+  termsAccepted: boolean;
+};
+
 export function SignupForm() {
   const navigate = useNavigate();
   const { signUp } = useAuth();
+  const [form] = Form.useForm<SignupFields>();
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors, isValid },
-  } = useForm<SignupFormValues>({
-    resolver: zodResolver(signupSchema),
-    mode: 'onChange',
-    defaultValues: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      password: '',
-      termsAccepted: false,
-    },
-  });
 
-  const termsAccepted = watch('termsAccepted');
-
-  const onSubmit = async (data: SignupFormValues) => {
+  /**
+   * Обработчик onFinish — вызывается только после успешной валидации AntD Form.
+   * Никакого нативного submit: кнопка вызывает form.submit(), не отправляет форму в браузере.
+   */
+  const handleSignup = async (values: SignupFields) => {
     setSubmitError('');
     setLoading(true);
-    const phoneNormalized = normalizePhone(data.phone);
-    const email = data.email;
+    const phoneNormalized = normalizePhone(values.phone);
+    const email = values.email;
 
     try {
       console.log('[SignupForm] Calling signUp with email:', email);
       const { data: result, error } = await signUp({
-        email: data.email,
-        password: data.password,
-        firstName: data.firstName,
-        lastName: data.lastName,
+        email: values.email,
+        password: values.password,
+        firstName: values.firstName,
+        lastName: values.lastName,
         phone: phoneNormalized || undefined,
       });
       console.log('[SignupForm] signUp result:', { user: result?.user?.id, session: !!result?.session, error: error?.message });
@@ -118,7 +110,7 @@ export function SignupForm() {
         return;
       }
 
-      // Подтверждение email включено: есть user, но сессии ещё нет
+      // Подтверждение email включено: есть user, сессии ещё нет — письмо отправлено
       if (result?.user && !result?.session) {
         message.success(`Письмо отправлено на ${email}. Проверьте почту!`);
         setTimeout(() => {
@@ -135,7 +127,6 @@ export function SignupForm() {
       // Подтверждение email выключено: есть сессия — редирект
       if (result?.user?.id) {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const { supabase } = await import('../lib/supabase');
         const { data: session } = await supabase.auth.getSession();
         if (session?.session?.access_token && phoneNormalized) {
           try {
@@ -163,9 +154,9 @@ export function SignupForm() {
     }
   };
 
-  // Кнопка НЕ сабмитит форму — только вызывает RHF handleSubmit. GET-запроса не будет.
+  /** Кнопка только вызывает form.submit() — никакого GET, только onFinish. */
   const onButtonClick = () => {
-    handleSubmit(onSubmit)();
+    form.submit();
   };
 
   return (
@@ -188,75 +179,59 @@ export function SignupForm() {
             <CardDescription className="text-[#99A1AA]">Регистрация</CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Без нативного <form>, чтобы исключить GET-сабмит. Вся отправка через кнопку и handleSubmit. */}
-            <Form layout="vertical" labelCol={{ span: 24 }} wrapperCol={{ span: 24 }}>
+            {/* Только AntD Form, без нативного <form> — submit только через form.submit() в onClick кнопки. */}
+            <Form
+              form={form}
+              layout="vertical"
+              labelCol={{ span: 24 }}
+              wrapperCol={{ span: 24 }}
+              onFinish={handleSignup}
+              initialValues={{ termsAccepted: false }}
+            >
               <Form.Item
                 label={<span className={labelClassName}>Имя</span>}
-                validateStatus={errors.firstName ? 'error' : undefined}
-                help={errors.firstName?.message}
+                name="firstName"
+                rules={[{ required: true, message: 'Введите имя' }, { min: 2, message: 'Минимум 2 символа' }]}
               >
-                <Input
-                  placeholder="Имя"
-                  {...register('firstName')}
-                  onChange={(e) => setValue('firstName', e.target.value, { shouldValidate: true })}
-                  className={inputClassName}
-                />
+                <Input placeholder="Имя" className={inputClassName} />
               </Form.Item>
               <Form.Item
                 label={<span className={labelClassName}>Фамилия</span>}
-                validateStatus={errors.lastName ? 'error' : undefined}
-                help={errors.lastName?.message}
+                name="lastName"
+                rules={[{ required: true, message: 'Введите фамилию' }, { min: 2, message: 'Минимум 2 символа' }]}
               >
-                <Input
-                  placeholder="Фамилия"
-                  {...register('lastName')}
-                  onChange={(e) => setValue('lastName', e.target.value, { shouldValidate: true })}
-                  className={inputClassName}
-                />
+                <Input placeholder="Фамилия" className={inputClassName} />
               </Form.Item>
               <Form.Item
                 label={<span className={labelClassName}>Email</span>}
-                validateStatus={errors.email ? 'error' : undefined}
-                help={errors.email?.message}
+                name="email"
+                rules={[{ required: true, message: 'Введите email' }, { type: 'email', message: 'Некорректный email' }]}
               >
-                <Input
-                  type="email"
-                  placeholder="you@example.com"
-                  {...register('email')}
-                  onChange={(e) => setValue('email', e.target.value, { shouldValidate: true })}
-                  className={inputClassName}
-                />
+                <Input type="email" placeholder="you@example.com" className={inputClassName} />
               </Form.Item>
               <Form.Item
                 label={<span className={labelClassName}>Телефон</span>}
-                validateStatus={errors.phone ? 'error' : undefined}
-                help={errors.phone?.message}
+                name="phone"
+                rules={[
+                  { required: true, message: 'Введите телефон' },
+                  { min: 9, message: 'Введите номер в международном формате' },
+                ]}
               >
-                <Input
-                  placeholder="Телефон"
-                  {...register('phone')}
-                  onChange={(e) => setValue('phone', e.target.value, { shouldValidate: true })}
-                  className={inputClassName}
-                />
+                <Input placeholder="Телефон" className={inputClassName} />
               </Form.Item>
               <Form.Item
                 label={<span className={labelClassName}>Пароль</span>}
-                validateStatus={errors.password ? 'error' : undefined}
-                help={errors.password?.message}
+                name="password"
+                rules={[{ required: true, message: 'Введите пароль' }, { min: 6, message: 'Минимум 6 символов' }]}
               >
-                <Input.Password
-                  placeholder="••••••••"
-                  {...register('password')}
-                  onChange={(e) => setValue('password', e.target.value, { shouldValidate: true })}
-                  className={inputClassName}
-                />
+                <Input.Password placeholder="••••••••" className={inputClassName} />
               </Form.Item>
-              <Form.Item validateStatus={errors.termsAccepted ? 'error' : undefined} help={errors.termsAccepted?.message}>
-                <Checkbox
-                  checked={termsAccepted}
-                  onChange={(e) => setValue('termsAccepted', e.target.checked, { shouldValidate: true })}
-                  className="[&_.ant-checkbox-inner]:!border-slate-500"
-                >
+              <Form.Item
+                name="termsAccepted"
+                valuePropName="checked"
+                rules={[{ validator: (_, value) => (value ? Promise.resolve() : Promise.reject(new Error('Необходимо согласие'))) }]}
+              >
+                <Checkbox className="[&_.ant-checkbox-inner]:!border-slate-500">
                   <span className="text-slate-300 hover:text-slate-200">
                     Я согласен с{' '}
                     <Link to="/terms" className="text-slate-400 hover:text-slate-200 underline">
@@ -278,7 +253,6 @@ export function SignupForm() {
                 <Button
                   type="primary"
                   htmlType="button"
-                  disabled={!termsAccepted || !isValid || loading}
                   loading={loading}
                   block
                   onClick={onButtonClick}
