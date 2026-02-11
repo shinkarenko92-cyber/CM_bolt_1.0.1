@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User } from '@supabase/supabase-js';
+import { User, Session } from '@supabase/supabase-js';
 import { supabase, Profile } from '../lib/supabase';
 
 export type SignUpParams = {
@@ -16,7 +16,7 @@ type AuthContextType = {
   loading: boolean;
   isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (params: SignUpParams) => Promise<{ data: { user: User | null }; error: Error | null }>;
+  signUp: (params: SignUpParams) => Promise<{ data: { user: User | null; session: Session | null }; error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   deleteAccount: () => Promise<void>;
