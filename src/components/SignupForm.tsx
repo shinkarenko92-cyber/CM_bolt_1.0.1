@@ -4,13 +4,12 @@ import { Form, Input, Checkbox, Button, Modal, message } from 'antd';
 import { useAuth } from '../contexts/AuthContext';
 import { LanguageSelector } from './LanguageSelector';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { supabase } from '../lib/supabase';
 
 const normalizePhone = (v: string) => v.replace(/[\s\-()]/g, '');
 
 const labelClassName = 'text-slate-200 font-medium text-base';
 const inputClassName =
-  'h-11 !bg-[#24303F] !border-transparent !text-white placeholder:!text-[#7A899E] placeholder:!opacity-100 focus:!border-transparent focus:!shadow-none focus:!ring-0 hover:!bg-[#24303F]';
+  'h-11 !bg-slate-800 !border-slate-600 !text-white placeholder:!text-slate-500 placeholder:!opacity-100 focus:!border-transparent focus:!shadow-none focus:!ring-0 hover:!bg-slate-800';
 
 const signupFormOverrides = `
   .signup-form-dark .ant-form-item-label > label {
@@ -26,7 +25,7 @@ const signupFormOverrides = `
   .signup-form-dark .ant-input-affix-wrapper input.ant-input:hover,
   .signup-form-dark .ant-input-affix-wrapper input.ant-input:focus {
     color: #ffffff !important;
-    background-color: #24303F !important;
+    background-color: #1e293b !important;
     border-color: transparent !important;
   }
   .signup-form-dark .ant-input:focus,
@@ -37,14 +36,14 @@ const signupFormOverrides = `
   }
   .signup-form-dark .ant-input::placeholder,
   .signup-form-dark .ant-input-affix-wrapper input.ant-input::placeholder {
-    color: #7A899E !important;
+    color: #64748b !important;
     opacity: 1 !important;
   }
   .signup-form-dark .ant-input-affix-wrapper,
   .signup-form-dark .ant-input-affix-wrapper:hover,
   .signup-form-dark .ant-input-affix-wrapper:focus,
   .signup-form-dark .ant-input-affix-wrapper-focused {
-    background-color: #24303F !important;
+    background-color: #1e293b !important;
     border-color: transparent !important;
   }
   .signup-form-dark .ant-checkbox-wrapper + span,
@@ -84,25 +83,30 @@ export function SignupForm() {
   const [submitError, setSubmitError] = useState('');
 
   /**
-   * Обработчик onFinish — вызывается только после успешной валидации AntD Form.
-   * Никакого нативного submit: кнопка вызывает form.submit(), не отправляет форму в браузере.
+   * onFinish — вызывается только при программном form.submit() после валидации.
+   * Нативного <form> нет: кнопка htmlType="button", только onClick → form.submit().
+   * Регистрация через AuthContext.signUp (внутри supabase.auth.signUp с emailRedirectTo и data).
    */
   const handleSignup = async (values: SignupFields) => {
     setSubmitError('');
     setLoading(true);
+
+    console.log('Форма отправлена:', values);
+
     const phoneNormalized = normalizePhone(values.phone);
     const email = values.email;
 
     try {
-      console.log('[SignupForm] Calling signUp with email:', email);
-      const { data: result, error } = await signUp({
+      // AuthContext.signUp внутри вызывает supabase.auth.signUp с options
+      const { data, error } = await signUp({
         email: values.email,
         password: values.password,
         firstName: values.firstName,
         lastName: values.lastName,
         phone: phoneNormalized || undefined,
       });
-      console.log('[SignupForm] signUp result:', { user: result?.user?.id, session: !!result?.session, error: error?.message });
+
+      console.log('Supabase:', { data, error });
 
       if (error) {
         message.error(error.message);
@@ -110,9 +114,9 @@ export function SignupForm() {
         return;
       }
 
-      // Подтверждение email включено: есть user, сессии ещё нет — письмо отправлено
-      if (result?.user && !result?.session) {
-        message.success(`Письмо отправлено на ${email}. Проверьте почту!`);
+      // Подтверждение email включено: user есть, session ещё нет — письмо отправлено
+      if (data?.user && !data?.session) {
+        message.success(`Письмо отправлено на ${email}. Проверь почту (и спам)!`);
         setTimeout(() => {
           Modal.success({
             content: 'Проверьте почту — на неё пришло письмо для подтверждения.',
@@ -124,26 +128,24 @@ export function SignupForm() {
         return;
       }
 
-      // Подтверждение email выключено: есть сессия — редирект
-      if (result?.user?.id) {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const { data: session } = await supabase.auth.getSession();
-        if (session?.session?.access_token && phoneNormalized) {
-          try {
-            await fetch(`${supabaseUrl}/functions/v1/send-otp`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${session.session.access_token}`,
-              },
-              body: JSON.stringify({ phone: phoneNormalized }),
-            });
-          } catch (e) {
-            console.error('send-otp:', e);
-          }
-        }
+      // Подтверждение email выключено: есть session — успех и редирект на главную (Dashboard)
+      if (data?.session) {
         message.success('Регистрация прошла успешно');
-        navigate('/verify-phone', { replace: true });
+        navigate('/', { replace: true });
+        return;
+      }
+
+      // user есть, но session нет (редкий кейс) — всё равно показываем письмо
+      if (data?.user) {
+        message.success(`Письмо отправлено на ${email}. Проверь почту (и спам)!`);
+        setTimeout(() => {
+          Modal.success({
+            content: 'Проверьте почту — на неё пришло письмо для подтверждения.',
+            okText: 'Понятно',
+            getContainer: () => document.body,
+            onOk: () => navigate('/login', { replace: true, state: { fromSignup: true } }),
+          });
+        }, 0);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Ошибка регистрации';
@@ -154,9 +156,16 @@ export function SignupForm() {
     }
   };
 
-  /** Кнопка только вызывает form.submit() — никакого GET, только onFinish. */
+  /** Только программный submit — никакого GET. Enter в поле тоже перехватываем. */
   const onButtonClick = () => {
     form.submit();
+  };
+
+  const onWrapperKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      form.submit();
+    }
   };
 
   return (
@@ -179,89 +188,91 @@ export function SignupForm() {
             <CardDescription className="text-[#99A1AA]">Регистрация</CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Только AntD Form, без нативного <form> — submit только через form.submit() в onClick кнопки. */}
-            <Form
-              form={form}
-              layout="vertical"
-              labelCol={{ span: 24 }}
-              wrapperCol={{ span: 24 }}
-              onFinish={handleSignup}
-              initialValues={{ termsAccepted: false }}
-            >
-              <Form.Item
-                label={<span className={labelClassName}>Имя</span>}
-                name="firstName"
-                rules={[{ required: true, message: 'Введите имя' }, { min: 2, message: 'Минимум 2 символа' }]}
+            {/* Нет нативного <form>: только AntD Form. Submit только через form.submit() по кнопке или Enter. */}
+            <div onKeyDown={onWrapperKeyDown}>
+              <Form
+                form={form}
+                layout="vertical"
+                labelCol={{ span: 24 }}
+                wrapperCol={{ span: 24 }}
+                onFinish={handleSignup}
+                initialValues={{ termsAccepted: false }}
               >
-                <Input placeholder="Имя" className={inputClassName} />
-              </Form.Item>
-              <Form.Item
-                label={<span className={labelClassName}>Фамилия</span>}
-                name="lastName"
-                rules={[{ required: true, message: 'Введите фамилию' }, { min: 2, message: 'Минимум 2 символа' }]}
-              >
-                <Input placeholder="Фамилия" className={inputClassName} />
-              </Form.Item>
-              <Form.Item
-                label={<span className={labelClassName}>Email</span>}
-                name="email"
-                rules={[{ required: true, message: 'Введите email' }, { type: 'email', message: 'Некорректный email' }]}
-              >
-                <Input type="email" placeholder="you@example.com" className={inputClassName} />
-              </Form.Item>
-              <Form.Item
-                label={<span className={labelClassName}>Телефон</span>}
-                name="phone"
-                rules={[
-                  { required: true, message: 'Введите телефон' },
-                  { min: 9, message: 'Введите номер в международном формате' },
-                ]}
-              >
-                <Input placeholder="Телефон" className={inputClassName} />
-              </Form.Item>
-              <Form.Item
-                label={<span className={labelClassName}>Пароль</span>}
-                name="password"
-                rules={[{ required: true, message: 'Введите пароль' }, { min: 6, message: 'Минимум 6 символов' }]}
-              >
-                <Input.Password placeholder="••••••••" className={inputClassName} />
-              </Form.Item>
-              <Form.Item
-                name="termsAccepted"
-                valuePropName="checked"
-                rules={[{ validator: (_, value) => (value ? Promise.resolve() : Promise.reject(new Error('Необходимо согласие'))) }]}
-              >
-                <Checkbox className="[&_.ant-checkbox-inner]:!border-slate-500">
-                  <span className="text-slate-300 hover:text-slate-200">
-                    Я согласен с{' '}
-                    <Link to="/terms" className="text-slate-400 hover:text-slate-200 underline">
-                      Условиями использования
-                    </Link>{' '}
-                    и{' '}
-                    <Link to="/privacy" className="text-slate-400 hover:text-slate-200 underline">
-                      Политикой конфиденциальности
-                    </Link>
-                  </span>
-                </Checkbox>
-              </Form.Item>
-              {submitError && (
-                <div className="rounded-md border border-red-500/50 bg-red-500/10 px-3 py-2 text-sm text-red-400 mb-4">
-                  {submitError}
-                </div>
-              )}
-              <Form.Item>
-                <Button
-                  type="primary"
-                  htmlType="button"
-                  loading={loading}
-                  block
-                  onClick={onButtonClick}
-                  className="h-11 font-medium min-h-11 !bg-blue-600 hover:!bg-blue-700 !text-white !border-0"
+                <Form.Item
+                  label={<span className={labelClassName}>Имя</span>}
+                  name="firstName"
+                  rules={[{ required: true, message: 'Введите имя' }, { min: 2, message: 'Минимум 2 символа' }]}
                 >
-                  Зарегистрироваться
-                </Button>
-              </Form.Item>
-            </Form>
+                  <Input placeholder="Имя" className={inputClassName} />
+                </Form.Item>
+                <Form.Item
+                  label={<span className={labelClassName}>Фамилия</span>}
+                  name="lastName"
+                  rules={[{ required: true, message: 'Введите фамилию' }, { min: 2, message: 'Минимум 2 символа' }]}
+                >
+                  <Input placeholder="Фамилия" className={inputClassName} />
+                </Form.Item>
+                <Form.Item
+                  label={<span className={labelClassName}>Email</span>}
+                  name="email"
+                  rules={[{ required: true, message: 'Введите email' }, { type: 'email', message: 'Некорректный email' }]}
+                >
+                  <Input type="email" placeholder="you@example.com" className={inputClassName} />
+                </Form.Item>
+                <Form.Item
+                  label={<span className={labelClassName}>Телефон</span>}
+                  name="phone"
+                  rules={[
+                    { required: true, message: 'Введите телефон' },
+                    { min: 9, message: 'Введите номер в международном формате' },
+                  ]}
+                >
+                  <Input placeholder="Телефон" className={inputClassName} />
+                </Form.Item>
+                <Form.Item
+                  label={<span className={labelClassName}>Пароль</span>}
+                  name="password"
+                  rules={[{ required: true, message: 'Введите пароль' }, { min: 6, message: 'Минимум 6 символов' }]}
+                >
+                  <Input.Password placeholder="••••••••" className={inputClassName} />
+                </Form.Item>
+                <Form.Item
+                  name="termsAccepted"
+                  valuePropName="checked"
+                  rules={[{ required: true }, { validator: (_, value) => (value ? Promise.resolve() : Promise.reject(new Error('Необходимо согласие'))) }]}
+                >
+                  <Checkbox className="[&_.ant-checkbox-inner]:!border-slate-500">
+                    <span className="text-slate-300 hover:text-slate-200">
+                      Я согласен с{' '}
+                      <Link to="/terms" className="text-slate-400 hover:text-slate-200 underline">
+                        Условиями использования
+                      </Link>{' '}
+                      и{' '}
+                      <Link to="/privacy" className="text-slate-400 hover:text-slate-200 underline">
+                        Политикой конфиденциальности
+                      </Link>
+                    </span>
+                  </Checkbox>
+                </Form.Item>
+                {submitError && (
+                  <div className="rounded-md border border-red-500/50 bg-red-500/10 px-3 py-2 text-sm text-red-400 mb-4">
+                    {submitError}
+                  </div>
+                )}
+                <Form.Item>
+                  <Button
+                    type="primary"
+                    htmlType="button"
+                    loading={loading}
+                    block
+                    onClick={onButtonClick}
+                    className="h-11 font-medium min-h-11 !bg-blue-600 hover:!bg-blue-700 !text-white !border-0"
+                  >
+                    Зарегистрироваться
+                  </Button>
+                </Form.Item>
+              </Form>
+            </div>
             <p className="text-center text-sm mt-4">
               <Link to="/login" className="text-blue-400 hover:text-blue-300 underline">
                 Уже есть аккаунт? Войти
