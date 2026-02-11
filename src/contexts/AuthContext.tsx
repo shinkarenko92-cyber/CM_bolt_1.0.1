@@ -127,7 +127,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (params: SignUpParams) => {
     const { email, password, firstName, lastName, phone } = params;
-    const result = await supabase.auth.signUp({ email, password });
+    const result = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/dashboard`,
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          phone: phone ?? undefined,
+        },
+      },
+    });
     if (result.error) throw result.error;
 
     if (result.data.user) {

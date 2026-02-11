@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
-import { Form, Input, Checkbox, Button, Modal } from 'antd';
+import { Form, Input, Checkbox, Button, Modal, message } from 'antd';
 import { useAuth } from '../contexts/AuthContext';
 import { signupSchema, type SignupFormValues } from '../schemas/auth';
 import { LanguageSelector } from './LanguageSelector';
@@ -98,8 +98,11 @@ export function SignupForm() {
   const onSubmit = async (data: SignupFormValues) => {
     setSubmitError('');
     setLoading(true);
+    const phoneNormalized = normalizePhone(data.phone);
+    const email = data.email;
+
     try {
-      const phoneNormalized = normalizePhone(data.phone);
+      console.log('[SignupForm] Calling signUp with email:', email);
       const { data: result, error } = await signUp({
         email: data.email,
         password: data.password,
@@ -107,7 +110,29 @@ export function SignupForm() {
         lastName: data.lastName,
         phone: phoneNormalized || undefined,
       });
-      if (error) throw error;
+      console.log('[SignupForm] signUp result:', { user: result?.user?.id, session: !!result?.session, error: error?.message });
+
+      if (error) {
+        message.error(error.message);
+        setSubmitError(error.message);
+        return;
+      }
+
+      // Подтверждение email включено: есть user, но сессии ещё нет
+      if (result?.user && !result?.session) {
+        message.success(`Письмо отправлено на ${email}. Проверьте почту!`);
+        setTimeout(() => {
+          Modal.success({
+            content: 'Проверьте почту — на неё пришло письмо для подтверждения.',
+            okText: 'Понятно',
+            getContainer: () => document.body,
+            onOk: () => navigate('/login', { replace: true, state: { fromSignup: true } }),
+          });
+        }, 0);
+        return;
+      }
+
+      // Подтверждение email выключено: есть сессия — редирект в дашборд или verify-phone
       if (result?.user?.id) {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const { supabase } = await import('../lib/supabase');
@@ -126,20 +151,23 @@ export function SignupForm() {
             console.error('send-otp:', e);
           }
         }
-        setTimeout(() => {
-          Modal.success({
-            content: 'Проверьте почту — на неё пришло письмо для подтверждения.',
-            okText: 'Понятно',
-            getContainer: () => document.body,
-            onOk: () => navigate('/login', { replace: true, state: { fromSignup: true } }),
-          });
-        }, 0);
+        message.success('Регистрация прошла успешно');
+        navigate('/verify-phone', { replace: true });
       }
     } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : 'Ошибка регистрации');
+      const msg = err instanceof Error ? err.message : 'Ошибка регистрации';
+      message.error(msg);
+      setSubmitError(msg);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Перехват submit: всегда preventDefault, затем валидация и onSubmit через RHF
+  const onFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleSubmit(onSubmit)(e);
   };
 
   return (
@@ -162,7 +190,7 @@ export function SignupForm() {
             <CardDescription className="text-[#99A1AA]">Регистрация</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit((data: SignupFormValues) => onSubmit(data))}>
+            <form onSubmit={onFormSubmit} noValidate>
               <Form layout="vertical" labelCol={{ span: 24 }} wrapperCol={{ span: 24 }}>
                 <Form.Item
                   label={<span className={labelClassName}>Имя</span>}
