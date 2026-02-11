@@ -132,7 +132,7 @@ export function SignupForm() {
         return;
       }
 
-      // Подтверждение email выключено: есть сессия — редирект в дашборд или verify-phone
+      // Подтверждение email выключено: есть сессия — редирект
       if (result?.user?.id) {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const { supabase } = await import('../lib/supabase');
@@ -163,11 +163,9 @@ export function SignupForm() {
     }
   };
 
-  // Перехват submit: всегда preventDefault, затем валидация и onSubmit через RHF
-  const onFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    handleSubmit(onSubmit)(e);
+  // Кнопка НЕ сабмитит форму — только вызывает RHF handleSubmit. GET-запроса не будет.
+  const onButtonClick = () => {
+    handleSubmit(onSubmit)();
   };
 
   return (
@@ -190,106 +188,106 @@ export function SignupForm() {
             <CardDescription className="text-[#99A1AA]">Регистрация</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={onFormSubmit} noValidate>
-              <Form layout="vertical" labelCol={{ span: 24 }} wrapperCol={{ span: 24 }}>
-                <Form.Item
-                  label={<span className={labelClassName}>Имя</span>}
-                  validateStatus={errors.firstName ? 'error' : undefined}
-                  help={errors.firstName?.message}
+            {/* Без нативного <form>, чтобы исключить GET-сабмит. Вся отправка через кнопку и handleSubmit. */}
+            <Form layout="vertical" labelCol={{ span: 24 }} wrapperCol={{ span: 24 }}>
+              <Form.Item
+                label={<span className={labelClassName}>Имя</span>}
+                validateStatus={errors.firstName ? 'error' : undefined}
+                help={errors.firstName?.message}
+              >
+                <Input
+                  placeholder="Имя"
+                  {...register('firstName')}
+                  onChange={(e) => setValue('firstName', e.target.value, { shouldValidate: true })}
+                  className={inputClassName}
+                />
+              </Form.Item>
+              <Form.Item
+                label={<span className={labelClassName}>Фамилия</span>}
+                validateStatus={errors.lastName ? 'error' : undefined}
+                help={errors.lastName?.message}
+              >
+                <Input
+                  placeholder="Фамилия"
+                  {...register('lastName')}
+                  onChange={(e) => setValue('lastName', e.target.value, { shouldValidate: true })}
+                  className={inputClassName}
+                />
+              </Form.Item>
+              <Form.Item
+                label={<span className={labelClassName}>Email</span>}
+                validateStatus={errors.email ? 'error' : undefined}
+                help={errors.email?.message}
+              >
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  {...register('email')}
+                  onChange={(e) => setValue('email', e.target.value, { shouldValidate: true })}
+                  className={inputClassName}
+                />
+              </Form.Item>
+              <Form.Item
+                label={<span className={labelClassName}>Телефон</span>}
+                validateStatus={errors.phone ? 'error' : undefined}
+                help={errors.phone?.message}
+              >
+                <Input
+                  placeholder="Телефон"
+                  {...register('phone')}
+                  onChange={(e) => setValue('phone', e.target.value, { shouldValidate: true })}
+                  className={inputClassName}
+                />
+              </Form.Item>
+              <Form.Item
+                label={<span className={labelClassName}>Пароль</span>}
+                validateStatus={errors.password ? 'error' : undefined}
+                help={errors.password?.message}
+              >
+                <Input.Password
+                  placeholder="••••••••"
+                  {...register('password')}
+                  onChange={(e) => setValue('password', e.target.value, { shouldValidate: true })}
+                  className={inputClassName}
+                />
+              </Form.Item>
+              <Form.Item validateStatus={errors.termsAccepted ? 'error' : undefined} help={errors.termsAccepted?.message}>
+                <Checkbox
+                  checked={termsAccepted}
+                  onChange={(e) => setValue('termsAccepted', e.target.checked, { shouldValidate: true })}
+                  className="[&_.ant-checkbox-inner]:!border-slate-500"
                 >
-                  <Input
-                    placeholder="Имя"
-                    {...register('firstName')}
-                    onChange={(e) => setValue('firstName', e.target.value, { shouldValidate: true })}
-                    className={inputClassName}
-                  />
-                </Form.Item>
-                <Form.Item
-                  label={<span className={labelClassName}>Фамилия</span>}
-                  validateStatus={errors.lastName ? 'error' : undefined}
-                  help={errors.lastName?.message}
+                  <span className="text-slate-300 hover:text-slate-200">
+                    Я согласен с{' '}
+                    <Link to="/terms" className="text-slate-400 hover:text-slate-200 underline">
+                      Условиями использования
+                    </Link>{' '}
+                    и{' '}
+                    <Link to="/privacy" className="text-slate-400 hover:text-slate-200 underline">
+                      Политикой конфиденциальности
+                    </Link>
+                  </span>
+                </Checkbox>
+              </Form.Item>
+              {submitError && (
+                <div className="rounded-md border border-red-500/50 bg-red-500/10 px-3 py-2 text-sm text-red-400 mb-4">
+                  {submitError}
+                </div>
+              )}
+              <Form.Item>
+                <Button
+                  type="primary"
+                  htmlType="button"
+                  disabled={!termsAccepted || !isValid || loading}
+                  loading={loading}
+                  block
+                  onClick={onButtonClick}
+                  className="h-11 font-medium min-h-11 !bg-blue-600 hover:!bg-blue-700 !text-white !border-0"
                 >
-                  <Input
-                    placeholder="Фамилия"
-                    {...register('lastName')}
-                    onChange={(e) => setValue('lastName', e.target.value, { shouldValidate: true })}
-                    className={inputClassName}
-                  />
-                </Form.Item>
-                <Form.Item
-                  label={<span className={labelClassName}>Email</span>}
-                  validateStatus={errors.email ? 'error' : undefined}
-                  help={errors.email?.message}
-                >
-                  <Input
-                    type="email"
-                    placeholder="you@example.com"
-                    {...register('email')}
-                    onChange={(e) => setValue('email', e.target.value, { shouldValidate: true })}
-                    className={inputClassName}
-                  />
-                </Form.Item>
-                <Form.Item
-                  label={<span className={labelClassName}>Телефон</span>}
-                  validateStatus={errors.phone ? 'error' : undefined}
-                  help={errors.phone?.message}
-                >
-                  <Input
-                    placeholder="Телефон"
-                    {...register('phone')}
-                    onChange={(e) => setValue('phone', e.target.value, { shouldValidate: true })}
-                    className={inputClassName}
-                  />
-                </Form.Item>
-                <Form.Item
-                  label={<span className={labelClassName}>Пароль</span>}
-                  validateStatus={errors.password ? 'error' : undefined}
-                  help={errors.password?.message}
-                >
-                  <Input.Password
-                    placeholder="••••••••"
-                    {...register('password')}
-                    onChange={(e) => setValue('password', e.target.value, { shouldValidate: true })}
-                    className={inputClassName}
-                  />
-                </Form.Item>
-                <Form.Item validateStatus={errors.termsAccepted ? 'error' : undefined} help={errors.termsAccepted?.message}>
-                  <Checkbox
-                    checked={termsAccepted}
-                    onChange={(e) => setValue('termsAccepted', e.target.checked, { shouldValidate: true })}
-                    className="[&_.ant-checkbox-inner]:!border-slate-500"
-                  >
-                    <span className="text-slate-300 hover:text-slate-200">
-                      Я согласен с{' '}
-                      <Link to="/terms" className="text-slate-400 hover:text-slate-200 underline">
-                        Условиями использования
-                      </Link>{' '}
-                      и{' '}
-                      <Link to="/privacy" className="text-slate-400 hover:text-slate-200 underline">
-                        Политикой конфиденциальности
-                      </Link>
-                    </span>
-                  </Checkbox>
-                </Form.Item>
-                {submitError && (
-                  <div className="rounded-md border border-red-500/50 bg-red-500/10 px-3 py-2 text-sm text-red-400 mb-4">
-                    {submitError}
-                  </div>
-                )}
-                <Form.Item>
-                  <Button
-                    type="primary"
-                    htmlType="submit"
-                    disabled={!termsAccepted || !isValid || loading}
-                    loading={loading}
-                    block
-                    className="h-11 font-medium min-h-11 !bg-blue-600 hover:!bg-blue-700 !text-white !border-0"
-                  >
-                    Зарегистрироваться
-                  </Button>
-                </Form.Item>
-              </Form>
-            </form>
+                  Зарегистрироваться
+                </Button>
+              </Form.Item>
+            </Form>
             <p className="text-center text-sm mt-4">
               <Link to="/login" className="text-blue-400 hover:text-blue-300 underline">
                 Уже есть аккаунт? Войти
