@@ -7,32 +7,41 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 
 const normalizePhone = (v: string) => v.replace(/[\s\-()]/g, '');
 
-const labelClassName = 'text-slate-200 font-medium text-base';
+const labelClassName = 'text-slate-300 font-medium text-base';
 const inputClassName =
-  'h-11 !bg-slate-800 !border-slate-600 !text-white placeholder:!text-slate-500 placeholder:!opacity-100 focus:!border-transparent focus:!shadow-none focus:!ring-0 hover:!bg-slate-800';
+  'h-11 !bg-slate-800 !border-slate-600 !text-white placeholder:!text-slate-500 placeholder:!opacity-100 hover:!border-slate-500 focus:!border-blue-500 focus:!ring-2 focus:!ring-blue-500/30 focus:!bg-slate-800 focus:!shadow-none';
 
 const signupFormOverrides = `
+  .signup-form-dark .ant-form-item-required .ant-form-item-required-mark,
+  .signup-form-dark .ant-form-item-required .ant-form-item-required-mark-optional {
+    display: none !important;
+  }
   .signup-form-dark .ant-form-item-label > label {
-    color: #e2e8f0 !important;
+    color: #cbd5e1 !important;
     font-size: 1rem !important;
     font-weight: 500 !important;
   }
   .signup-form-dark .ant-input,
   .signup-form-dark .ant-input:hover,
-  .signup-form-dark .ant-input:focus,
-  .signup-form-dark .ant-input-focused,
   .signup-form-dark .ant-input-affix-wrapper input.ant-input,
-  .signup-form-dark .ant-input-affix-wrapper input.ant-input:hover,
-  .signup-form-dark .ant-input-affix-wrapper input.ant-input:focus {
+  .signup-form-dark .ant-input-affix-wrapper input.ant-input:hover {
     color: #ffffff !important;
     background-color: #1e293b !important;
-    border-color: transparent !important;
+    border-color: #475569 !important;
   }
   .signup-form-dark .ant-input:focus,
-  .signup-form-dark .ant-input-affix-wrapper:focus-within {
-    border-color: transparent !important;
-    box-shadow: none !important;
+  .signup-form-dark .ant-input-focused,
+  .signup-form-dark .ant-input-affix-wrapper:focus-within,
+  .signup-form-dark .ant-input-affix-wrapper-focused {
+    color: #ffffff !important;
+    background-color: #1e293b !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
     outline: none !important;
+  }
+  .signup-form-dark .ant-input:hover,
+  .signup-form-dark .ant-input-affix-wrapper:hover {
+    border-color: #64748b !important;
   }
   .signup-form-dark .ant-input::placeholder,
   .signup-form-dark .ant-input-affix-wrapper input.ant-input::placeholder {
@@ -40,11 +49,15 @@ const signupFormOverrides = `
     opacity: 1 !important;
   }
   .signup-form-dark .ant-input-affix-wrapper,
-  .signup-form-dark .ant-input-affix-wrapper:hover,
-  .signup-form-dark .ant-input-affix-wrapper:focus,
+  .signup-form-dark .ant-input-affix-wrapper:hover {
+    background-color: #1e293b !important;
+    border-color: #475569 !important;
+  }
+  .signup-form-dark .ant-input-affix-wrapper:focus-within,
   .signup-form-dark .ant-input-affix-wrapper-focused {
     background-color: #1e293b !important;
-    border-color: transparent !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
   }
   .signup-form-dark .ant-checkbox-wrapper + span,
   .signup-form-dark .ant-checkbox-wrapper .ant-checkbox + span {
@@ -53,6 +66,9 @@ const signupFormOverrides = `
   .signup-form-dark .ant-checkbox-wrapper:hover .ant-checkbox + span,
   .signup-form-dark .ant-checkbox-wrapper:hover span.ant-checkbox-span {
     color: #e2e8f0 !important;
+  }
+  .signup-form-dark .ant-checkbox-inner {
+    border-color: #64748b !important;
   }
   .signup-form-dark .ant-checkbox-checked .ant-checkbox-inner {
     background-color: #3b82f6 !important;
@@ -82,22 +98,14 @@ export function SignupForm() {
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
-  /**
-   * onFinish — вызывается только при программном form.submit() после валидации.
-   * Нативного <form> нет: кнопка htmlType="button", только onClick → form.submit().
-   * Регистрация через AuthContext.signUp (внутри supabase.auth.signUp с emailRedirectTo и data).
-   */
   const handleSignup = async (values: SignupFields) => {
     setSubmitError('');
     setLoading(true);
-
-    console.log('Форма отправлена:', values);
-
     const phoneNormalized = normalizePhone(values.phone);
     const email = values.email;
 
     try {
-      // AuthContext.signUp внутри вызывает supabase.auth.signUp с options
+      console.log('Форма отправлена:', values);
       const { data, error } = await signUp({
         email: values.email,
         password: values.password,
@@ -105,7 +113,6 @@ export function SignupForm() {
         lastName: values.lastName,
         phone: phoneNormalized || undefined,
       });
-
       console.log('Supabase:', { data, error });
 
       if (error) {
@@ -114,7 +121,6 @@ export function SignupForm() {
         return;
       }
 
-      // Подтверждение email включено: user есть, session ещё нет — письмо отправлено
       if (data?.user && !data?.session) {
         message.success(`Письмо отправлено на ${email}. Проверь почту (и спам)!`);
         setTimeout(() => {
@@ -128,14 +134,12 @@ export function SignupForm() {
         return;
       }
 
-      // Подтверждение email выключено: есть session — успех и редирект на главную (Dashboard)
       if (data?.session) {
         message.success('Регистрация прошла успешно');
         navigate('/', { replace: true });
         return;
       }
 
-      // user есть, но session нет (редкий кейс) — всё равно показываем письмо
       if (data?.user) {
         message.success(`Письмо отправлено на ${email}. Проверь почту (и спам)!`);
         setTimeout(() => {
@@ -156,11 +160,7 @@ export function SignupForm() {
     }
   };
 
-  /** Только программный submit — никакого GET. Enter в поле тоже перехватываем. */
-  const onButtonClick = () => {
-    form.submit();
-  };
-
+  const onButtonClick = () => form.submit();
   const onWrapperKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -182,13 +182,12 @@ export function SignupForm() {
         <div className="absolute top-4 right-4 z-10">
           <LanguageSelector />
         </div>
-        <Card className="signup-form-dark relative w-full max-w-md mx-auto p-8 bg-[#2F3C4F] rounded-2xl shadow-2xl border-0">
+        <Card className="signup-form-dark relative w-full max-w-md mx-auto p-8 bg-slate-900/80 rounded-2xl shadow-2xl border border-slate-700">
           <CardHeader className="space-y-2 text-center pb-4 px-0 pt-0">
             <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight text-white">Roomi</CardTitle>
-            <CardDescription className="text-[#99A1AA]">Регистрация</CardDescription>
+            <CardDescription className="text-slate-400">Регистрация</CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Нет нативного <form>: только AntD Form. Submit только через form.submit() по кнопке или Enter. */}
             <div onKeyDown={onWrapperKeyDown}>
               <Form
                 form={form}
@@ -197,6 +196,7 @@ export function SignupForm() {
                 wrapperCol={{ span: 24 }}
                 onFinish={handleSignup}
                 initialValues={{ termsAccepted: false }}
+                requiredMark={false}
               >
                 <Form.Item
                   label={<span className={labelClassName}>Имя</span>}
