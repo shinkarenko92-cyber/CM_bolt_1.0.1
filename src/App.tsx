@@ -9,7 +9,6 @@ import { SignupForm } from './components/SignupForm';
 import { YandexMetrika } from './components/YandexMetrika';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
-import { VerifyPhonePage } from './pages/VerifyPhonePage';
 import { OnboardingImport } from './pages/OnboardingImport';
 
 function AvitoCallbackHandler() {
@@ -41,7 +40,7 @@ function AvitoCallbackHandler() {
 }
 
 function MainOrRedirect() {
-  const { user, profile, loading } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -57,10 +56,6 @@ function MainOrRedirect() {
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  if (profile?.phone && !profile?.phone_confirmed_at) {
-    return <Navigate to="/verify-phone" replace />;
   }
 
   return <Dashboard />;
@@ -96,7 +91,6 @@ function AppContent() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/login" element={<AuthLayout><Auth showSignUpToggle={false} /></AuthLayout>} />
         <Route path="/signup" element={<AuthLayout><SignupForm /></AuthLayout>} />
-        <Route path="/verify-phone" element={<RequireAuth><VerifyPhonePage /></RequireAuth>} />
         <Route path="/onboarding/import" element={<RequireAuth><OnboardingImport /></RequireAuth>} />
         <Route path="/" element={<MainOrRedirect />} />
         <Route path="*" element={<Navigate to="/" replace />} />
