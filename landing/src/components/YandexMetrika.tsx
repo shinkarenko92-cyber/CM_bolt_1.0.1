@@ -50,7 +50,7 @@ export function YandexMetrika() {
       clickmap: true,
       ecommerce: "dataLayer",
       referrer: document.referrer,
-      url: location.href,
+      url: window.location.href,
       accurateTrackBounce: true,
       trackLinks: true,
     });
