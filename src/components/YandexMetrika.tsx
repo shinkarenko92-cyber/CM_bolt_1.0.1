@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-const METRIKA_ID = 106793451;
+const METRIKA_ID = 106793939;
 const METRIKA_SRC = `https://mc.yandex.ru/metrika/tag.js?id=${METRIKA_ID}`;
 
 type YmFunction = ((...args: unknown[]) => void) & {
