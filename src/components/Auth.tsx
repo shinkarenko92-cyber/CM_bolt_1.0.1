@@ -30,10 +30,10 @@ export function Auth({ showSignUpToggle = true }: AuthProps) {
 
   useEffect(() => {
     if (location.state?.fromSignup) {
-      setSuccess('Проверьте почту — на неё пришло письмо для подтверждения.');
+      setSuccess(t('auth.verifyEmailNotice'));
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [location.state?.fromSignup, location.pathname, navigate]);
+  }, [location.state?.fromSignup, location.pathname, navigate, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +77,7 @@ export function Auth({ showSignUpToggle = true }: AuthProps) {
         await signIn(email, password);
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : t('errors.somethingWentWrong'));
     } finally {
       setLoading(false);
     }
@@ -100,8 +100,8 @@ export function Auth({ showSignUpToggle = true }: AuthProps) {
 
       <Card className={cn('relative w-full max-w-md glass-card border-border shadow-2xl transition-transform duration-300 hover:scale-[1.01] text-foreground')}>
         <CardHeader className="space-y-2 text-center pb-4">
-          <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Roomi</CardTitle>
-          <CardDescription className="text-foreground/90">
+          <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight text-primary">Roomi</CardTitle>
+          <CardDescription className="text-sky-500/90">
             {isForgotPassword ? t('auth.resetPassword') : showSignUpToggle && isSignUp ? t('auth.createAccount') : t('auth.signIn')}
           </CardDescription>
         </CardHeader>

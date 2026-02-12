@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { Form, Input, Checkbox, Button, Modal, message } from 'antd';
 import { useAuth } from '../contexts/AuthContext';
@@ -93,6 +94,7 @@ type SignupFields = {
 };
 
 export function SignupForm() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { signUp } = useAuth();
   const [form] = Form.useForm<SignupFields>();
@@ -123,11 +125,11 @@ export function SignupForm() {
       }
 
       if (data?.user && !data?.session) {
-        message.success(`Письмо отправлено на ${email}. Проверь почту (и спам)!`);
+        message.success(t('auth.signupEmailSent', { email }));
         setTimeout(() => {
           Modal.success({
-            content: 'Проверьте почту — на неё пришло письмо для подтверждения.',
-            okText: 'Понятно',
+            content: t('auth.verifyEmailNotice'),
+            okText: t('common.confirm'),
             getContainer: () => document.body,
             onOk: () => navigate('/login', { replace: true, state: { fromSignup: true } }),
           });
@@ -136,24 +138,24 @@ export function SignupForm() {
       }
 
       if (data?.session) {
-        message.success('Регистрация прошла успешно');
+        message.success(t('auth.signupSuccess'));
         navigate('/', { replace: true });
         return;
       }
 
       if (data?.user) {
-        message.success(`Письмо отправлено на ${email}. Проверь почту (и спам)!`);
+        message.success(t('auth.signupEmailSent', { email }));
         setTimeout(() => {
           Modal.success({
-            content: 'Проверьте почту — на неё пришло письмо для подтверждения.',
-            okText: 'Понятно',
+            content: t('auth.verifyEmailNotice'),
+            okText: t('common.confirm'),
             getContainer: () => document.body,
             onOk: () => navigate('/login', { replace: true, state: { fromSignup: true } }),
           });
         }, 0);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Ошибка регистрации';
+      const msg = err instanceof Error ? err.message : t('errors.somethingWentWrong');
       message.error(msg);
       setSubmitError(msg);
     } finally {
@@ -186,8 +188,8 @@ export function SignupForm() {
         </div>
         <Card className="signup-form-dark relative w-full max-w-md mx-auto p-8 bg-slate-900/80 rounded-2xl shadow-2xl border border-slate-700">
           <CardHeader className="space-y-2 text-center pb-4 px-0 pt-0">
-            <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight text-white">Roomi</CardTitle>
-            <CardDescription className="text-slate-400">Регистрация</CardDescription>
+            <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight text-primary">Roomi</CardTitle>
+            <CardDescription className="text-sky-500/90">{t('auth.signUp')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div onKeyDown={onWrapperKeyDown}>
@@ -201,57 +203,57 @@ export function SignupForm() {
                 requiredMark={false}
               >
                 <Form.Item
-                  label={<span className={labelClassName}>Имя</span>}
+                  label={<span className={labelClassName}>{t('auth.firstName')}</span>}
                   name="firstName"
-                  rules={[{ required: true, message: 'Введите имя' }, { min: 2, message: 'Минимум 2 символа' }]}
+                  rules={[{ required: true, message: t('auth.enterFirstName') }, { min: 2, message: t('auth.minTwoChars') }]}
                 >
-                  <Input placeholder="Имя" className={inputClassName} />
+                  <Input placeholder={t('auth.firstName')} className={inputClassName} />
                 </Form.Item>
                 <Form.Item
-                  label={<span className={labelClassName}>Фамилия</span>}
+                  label={<span className={labelClassName}>{t('auth.lastName')}</span>}
                   name="lastName"
-                  rules={[{ required: true, message: 'Введите фамилию' }, { min: 2, message: 'Минимум 2 символа' }]}
+                  rules={[{ required: true, message: t('auth.enterLastName') }, { min: 2, message: t('auth.minTwoChars') }]}
                 >
-                  <Input placeholder="Фамилия" className={inputClassName} />
+                  <Input placeholder={t('auth.lastName')} className={inputClassName} />
                 </Form.Item>
                 <Form.Item
-                  label={<span className={labelClassName}>Email</span>}
+                  label={<span className={labelClassName}>{t('auth.email')}</span>}
                   name="email"
-                  rules={[{ required: true, message: 'Введите email' }, { type: 'email', message: 'Некорректный email' }]}
+                  rules={[{ required: true, message: t('auth.enterEmail') }, { type: 'email', message: t('errors.invalidEmail') }]}
                 >
                   <Input type="email" placeholder="you@example.com" className={inputClassName} />
                 </Form.Item>
                 <Form.Item
-                  label={<span className={labelClassName}>Телефон</span>}
+                  label={<span className={labelClassName}>{t('auth.phone')}</span>}
                   name="phone"
                   rules={[
-                    { required: true, message: 'Введите телефон' },
-                    { min: 9, message: 'Введите номер в международном формате' },
+                    { required: true, message: t('auth.enterPhone') },
+                    { min: 9, message: t('auth.internationalPhoneFormat') },
                   ]}
                 >
-                  <Input placeholder="Телефон" className={inputClassName} />
+                  <Input placeholder={t('auth.phone')} className={inputClassName} />
                 </Form.Item>
                 <Form.Item
-                  label={<span className={labelClassName}>Пароль</span>}
+                  label={<span className={labelClassName}>{t('auth.password')}</span>}
                   name="password"
-                  rules={[{ required: true, message: 'Введите пароль' }, { min: 6, message: 'Минимум 6 символов' }]}
+                  rules={[{ required: true, message: t('auth.enterPassword') }, { min: 6, message: t('auth.passwordMinChars') }]}
                 >
                   <Input.Password placeholder="••••••••" className={inputClassName} />
                 </Form.Item>
                 <Form.Item
                   name="termsAccepted"
                   valuePropName="checked"
-                  rules={[{ required: true }, { validator: (_, value) => (value ? Promise.resolve() : Promise.reject(new Error('Необходимо согласие'))) }]}
+                  rules={[{ required: true }, { validator: (_, value) => (value ? Promise.resolve() : Promise.reject(new Error(t('auth.requiredConsent')))) }]}
                 >
                   <Checkbox className="[&_.ant-checkbox-inner]:!border-slate-500">
                     <span className="text-slate-300 hover:text-slate-200">
-                      Я согласен с{' '}
+                      {t('auth.agreeWith')}{' '}
                       <Link to="/terms" className="text-slate-400 hover:text-slate-200 underline" onClick={(e) => e.stopPropagation()}>
-                        Условиями использования
+                        {t('auth.termsOfUse')}
                       </Link>{' '}
-                      и{' '}
+                      {t('common.and')}{' '}
                       <Link to="/privacy" className="text-slate-400 hover:text-slate-200 underline" onClick={(e) => e.stopPropagation()}>
-                        Политикой конфиденциальности
+                        {t('auth.privacyPolicy')}
                       </Link>
                     </span>
                   </Checkbox>
@@ -270,14 +272,14 @@ export function SignupForm() {
                     onClick={onButtonClick}
                     className="h-11 font-medium min-h-11 !bg-blue-600 hover:!bg-blue-700 !text-white !border-0"
                   >
-                    Зарегистрироваться
+                    {t('auth.signUp')}
                   </Button>
                 </Form.Item>
               </Form>
             </div>
             <p className="text-center text-sm mt-4">
               <Link to="/login" className="text-blue-400 hover:text-blue-300 underline">
-                Уже есть аккаунт? Войти
+                {t('auth.alreadyHaveAccount')}
               </Link>
             </p>
           </CardContent>
