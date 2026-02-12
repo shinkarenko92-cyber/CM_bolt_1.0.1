@@ -6,6 +6,7 @@ import { Auth } from './components/Auth';
 import { AuthLayout } from './components/AuthLayout';
 import { Dashboard } from './components/Dashboard';
 import { SignupForm } from './components/SignupForm';
+import { YandexMetrika } from './components/YandexMetrika';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { VerifyPhonePage } from './pages/VerifyPhonePage';
@@ -114,6 +115,7 @@ function App() {
     <AuthProvider>
       <ThemeProvider>
         <BrowserRouter>
+          <YandexMetrika />
           <AppWithTheme />
         </BrowserRouter>
       </ThemeProvider>
