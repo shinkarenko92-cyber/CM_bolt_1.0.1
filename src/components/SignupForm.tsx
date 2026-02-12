@@ -244,11 +244,11 @@ export function SignupForm() {
                   <Checkbox className="[&_.ant-checkbox-inner]:!border-slate-500">
                     <span className="text-slate-300 hover:text-slate-200">
                       Я согласен с{' '}
-                      <Link to="/terms" className="text-slate-400 hover:text-slate-200 underline">
+                      <Link to="/terms" className="text-slate-400 hover:text-slate-200 underline" onClick={(e) => e.stopPropagation()}>
                         Условиями использования
                       </Link>{' '}
                       и{' '}
-                      <Link to="/privacy" className="text-slate-400 hover:text-slate-200 underline">
+                      <Link to="/privacy" className="text-slate-400 hover:text-slate-200 underline" onClick={(e) => e.stopPropagation()}>
                         Политикой конфиденциальности
                       </Link>
                     </span>
