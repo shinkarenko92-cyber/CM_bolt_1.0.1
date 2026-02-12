@@ -56,7 +56,6 @@ export function SignupForm() {
     setSubmitError('');
     setLoading(true);
     const phoneNormalized = normalizePhone(values.phone);
-    const email = values.email;
 
     try {
       console.log('Форма отправлена:', values);
@@ -76,7 +75,6 @@ export function SignupForm() {
       }
 
       if (data?.user && !data?.session) {
-        message.success(t('auth.signupEmailSent', { email }));
         setTimeout(() => {
           Modal.success({
             content: t('auth.verifyEmailNotice'),
@@ -95,7 +93,6 @@ export function SignupForm() {
       }
 
       if (data?.user) {
-        message.success(t('auth.signupEmailSent', { email }));
         setTimeout(() => {
           Modal.success({
             content: t('auth.verifyEmailNotice'),

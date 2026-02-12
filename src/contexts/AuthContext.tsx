@@ -113,7 +113,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
     if (data.session) {
       setUser(data.user);
-      const profileData = await fetchProfile(data.user.id);
+      let profileData = await fetchProfile(data.user.id);
+
+      // For users who confirmed email later, profile might be absent after first login.
+      // Create it here under authenticated session to satisfy RLS.
+      if (!profileData) {
+        const metadata = (data.user.user_metadata ?? {}) as Record<string, unknown>;
+        const firstName = typeof metadata.first_name === 'string' ? metadata.first_name : undefined;
+        const lastName = typeof metadata.last_name === 'string' ? metadata.last_name : undefined;
+        const phone = typeof metadata.phone === 'string' ? metadata.phone : undefined;
+        const fullName = [firstName, lastName].filter(Boolean).join(' ').trim() || undefined;
+
+        const { count } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
+        const isFirstUser = count === 0;
+
+        const { data: newProfile, error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email: data.user.email,
+            role: isFirstUser ? 'admin' : 'user',
+            is_active: true,
+            first_name: firstName,
+            last_name: lastName,
+            full_name: fullName,
+            phone,
+          })
+          .select()
+          .single();
+
+        if (profileError) {
+          console.error('Error creating profile on sign-in:', profileError);
+        } else {
+          profileData = newProfile;
+        }
+      }
       
       // Проверяем, что профиль активен
       if (profileData && profileData.is_active === false) {
@@ -141,7 +177,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     if (result.error) throw result.error;
 
-    if (result.data.user) {
+    // If email confirmation is enabled, session is null after signUp.
+    // In this case we cannot write to profiles due to RLS (authenticated role required).
+    if (result.data.user && result.data.session) {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       let profileData = await fetchProfile(result.data.user.id);
