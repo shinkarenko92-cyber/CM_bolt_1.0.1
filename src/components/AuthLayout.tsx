@@ -6,9 +6,9 @@ type AuthLayoutProps = {
 
 export function AuthLayout({ children }: AuthLayoutProps) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden bg-background">
-      <div className="flex-1 flex items-center justify-center w-full">{children}</div>
-      <footer className="py-4 text-center text-sm text-muted-foreground">
+    <div className="relative min-h-screen overflow-hidden bg-background">
+      <div className="relative min-h-screen w-full">{children}</div>
+      <footer className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 text-center text-sm text-muted-foreground whitespace-nowrap">
         <Link to="/terms" className="hover:underline">Условия использования</Link>
         {' · '}
         <Link to="/privacy" className="hover:underline">Политика конфиденциальности</Link>

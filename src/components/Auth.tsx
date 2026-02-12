@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { LanguageSelector } from './LanguageSelector';
+import { ThemeToggle } from './ThemeToggle';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
@@ -92,7 +93,8 @@ export function Auth({ showSignUpToggle = true }: AuthProps) {
         }}
       />
 
-      <div className="absolute top-4 right-4 z-10">
+      <div className="fixed top-4 right-4 z-30 flex items-center gap-2">
+        <ThemeToggle />
         <LanguageSelector />
       </div>
 
