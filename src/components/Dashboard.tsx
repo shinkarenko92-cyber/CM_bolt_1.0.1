@@ -1017,6 +1017,12 @@ export function Dashboard() {
           } else {
             toast.success('Синхронизация успешна! Цены и даты обновлены в Avito');
           }
+          if (syncResult.warnings?.length || syncResult.warningMessage) {
+            toast(syncResult.warningMessage || syncResult.warnings?.map(w => w.message).join(' ') || 'Есть предупреждения по Avito', {
+              icon: '⚠️',
+              duration: 6000,
+            });
+          }
         } else {
           // Sync failed - show error only when integration was active (not skipUserError)
           toast.dismiss(syncToastId);
@@ -1164,8 +1170,13 @@ export function Dashboard() {
           // If syncResult.success === true, it means hasError was false or not present
           if (syncResult.success) {
             toast.dismiss(syncToastId);
-            // Show success message
             toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
+            if (syncResult.warnings?.length || syncResult.warningMessage) {
+              toast(syncResult.warningMessage || syncResult.warnings?.map(w => w.message).join(' ') || 'Есть предупреждения по Avito', {
+                icon: '⚠️',
+                duration: 6000,
+              });
+            }
           } else {
             // Sync failed - show error only when integration was active (not skipUserError)
             toast.dismiss(syncToastId);
@@ -1256,8 +1267,13 @@ export function Dashboard() {
             // If syncResult.success === true, it means hasError was false or not present
             if (syncResult.success) {
               toast.dismiss(syncToastId);
-              // Show success message
               toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
+              if (syncResult.warnings?.length || syncResult.warningMessage) {
+                toast(syncResult.warningMessage || syncResult.warnings?.map(w => w.message).join(' ') || 'Есть предупреждения по Avito', {
+                  icon: '⚠️',
+                  duration: 6000,
+                });
+              }
               console.log('Dashboard: Avito sync completed successfully after booking deletion', {
                 bookingId: id,
                 source: bookingSource,

@@ -369,6 +369,12 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
         } else {
           toast.success(t('avito.success.syncCompleted', { defaultValue: 'Синхронизация с Avito завершена успешно' }));
         }
+        if (syncResult.warnings?.length || syncResult.warningMessage) {
+          toast(syncResult.warningMessage || syncResult.warnings?.map(w => w.message).join(' ') || 'Есть предупреждения по Avito', {
+            icon: '⚠️',
+            duration: 6000,
+          });
+        }
       } else if (!syncResult.skipUserError) {
         if (syncResult.errors && syncResult.errors.length > 0) {
           showAvitoErrors(syncResult.errors, t).catch((err) => {
@@ -477,7 +483,6 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       if (property && avitoIntegration?.is_active && hasRelevantChanges) {
         try {
           const syncResult = await syncAvitoIntegration(property.id);
-          // Показываем успешное уведомление - check if pushSuccess for specific message
           if (syncResult.pushSuccess) {
             toast.success('Синхронизация успешна! Цены и даты обновлены в Avito');
           } else if (syncResult.pricesSuccess && syncResult.intervalsFailed) {
@@ -486,8 +491,14 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
               icon: '⚠️',
               duration: 6000,
             });
-          } else {
+          } else if (syncResult.success) {
             toast.success('Синхронизация успешна! Цены и даты обновлены в Avito');
+          }
+          if (syncResult.success && (syncResult.warnings?.length || syncResult.warningMessage)) {
+            toast(syncResult.warningMessage || syncResult.warnings?.map(w => w.message).join(' ') || 'Есть предупреждения по Avito', {
+              icon: '⚠️',
+              duration: 6000,
+            });
           }
         } catch (error) {
           console.error('Failed to sync prices to Avito:', error);

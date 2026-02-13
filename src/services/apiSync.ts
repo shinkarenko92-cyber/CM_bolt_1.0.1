@@ -95,6 +95,8 @@ export async function syncAvitoIntegration(
   pricesSuccess?: boolean;
   intervalsFailed?: boolean;
   skipUserError?: boolean;
+  warnings?: AvitoErrorInfo[];
+  warningMessage?: string;
 }> {
   // Get integration from database
   const integration = await getPropertyIntegration(propertyId, 'avito');
@@ -219,6 +221,8 @@ export async function syncAvitoIntegration(
   // Check response data
   if (data && typeof data === 'object') {
     const responseData = data as Record<string, unknown>;
+    const warnings = (responseData.warnings as AvitoErrorInfo[] | undefined);
+    const warningMessage = responseData.warningMessage as string | undefined;
     
     // PRIORITY: Check pushSuccess - if push operations (prices/intervals) succeeded, return success
     if ('pushSuccess' in responseData && responseData.pushSuccess === true) {
@@ -228,7 +232,7 @@ export async function syncAvitoIntegration(
         pushSuccess: responseData.pushSuccess,
         hasError: responseData.hasError,
       });
-      return { success: true, pushSuccess: true };
+      return { success: true, pushSuccess: true, warnings, warningMessage };
     }
 
     // Check if prices succeeded but intervals failed (404 - activation required)
@@ -251,6 +255,8 @@ export async function syncAvitoIntegration(
           pushSuccess: false,
           pricesSuccess: true,
           intervalsFailed: true,
+          warnings,
+          warningMessage,
         };
       }
     }
@@ -265,7 +271,7 @@ export async function syncAvitoIntegration(
         hasError: responseData.hasError,
         errorsCount: responseData.errorsCount,
       });
-      return { success: true };
+      return { success: true, warnings, warningMessage };
     }
 
     // If hasError === true, it's a real error
@@ -326,7 +332,7 @@ export async function syncAvitoIntegration(
           errorsCount: errors.length,
           success: responseData.success,
         });
-        return { success: true, errors }; // Return errors for display but mark as success
+        return { success: true, errors, warnings, warningMessage };
       }
     }
 
@@ -339,7 +345,7 @@ export async function syncAvitoIntegration(
       hasErrors: false,
     });
     
-    return { success: true };
+    return { success: true, warnings, warningMessage };
   }
 
   // If no data, treat as success (Edge Function might return empty response)

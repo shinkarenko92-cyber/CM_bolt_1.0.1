@@ -1321,11 +1321,18 @@ Deno.serve(async (req: Request) => {
           priceWithMarkup,
         });
 
-        // Массив для сбора всех ошибок во время синхронизации
+        // Массив для сбора критичных ошибок (влияют на success)
         const syncErrors: Array<{
           operation: string;
           statusCode?: number;
           errorCode?: string;
+          message: string;
+          details?: unknown;
+        }> = [];
+        // Некритичные предупреждения (404 на base — календарь и цены при этом могут быть OK)
+        const syncWarnings: Array<{
+          operation: string;
+          statusCode?: number;
           message: string;
           details?: unknown;
         }> = [];
@@ -1582,16 +1589,15 @@ Deno.serve(async (req: Request) => {
             }
 
         if (!baseParamsResponse.ok) {
-          // Handle 404 - item not found
+          // 404 на base — не критично: календарь и цены могут быть успешны, пишем в warnings
           if (baseParamsResponse.status === 404) {
-            const errorMessage = "Объявление не найдено в Avito. Проверь ID объявления — должен быть длинный номер вроде 2336174775";
-            syncErrors.push({
+            syncWarnings.push({
               operation: 'base_params_update',
               statusCode: 404,
-              message: errorMessage,
+              message: "Календарь и цены обновлены. Базовые параметры объявления не найдены (404) — проверь item_id.",
               details: { item_id: itemId },
             });
-                console.error("Avito item not found (404)", { item_id: itemId, response_status: baseParamsResponse.status });
+            console.warn("Avito base params 404 (non-blocking)", { item_id: itemId });
           } else {
                 const errorText = await baseParamsResponse.text().catch(() => 'Failed to read error response');
             let errorDetails: unknown = errorText;
@@ -2624,6 +2630,7 @@ Deno.serve(async (req: Request) => {
             integration_id,
             hasError,
             errors_count: syncErrors.length,
+            warnings_count: syncWarnings.length,
             pricesPushSuccess,
             intervalsPushSuccess,
             pushSuccess,
@@ -2639,6 +2646,8 @@ Deno.serve(async (req: Request) => {
               intervalsPushSuccess,
               errorMessage: hasError ? syncErrors.map(e => e.message || 'Ошибка синхронизации').join('; ') : undefined,
               errors: syncErrors.length > 0 ? syncErrors : undefined,
+              warnings: syncWarnings.length > 0 ? syncWarnings : undefined,
+              warningMessage: syncWarnings.length > 0 ? syncWarnings.map(w => w.message).join(' ') : undefined,
             }),
             {
               status: 200,
