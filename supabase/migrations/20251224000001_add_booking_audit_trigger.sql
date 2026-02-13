@@ -91,8 +91,8 @@ BEGIN
       to_jsonb(NEW) - 'id' - 'created_at' - 'updated_at' - 'created_by' - 'updated_by'
     );
     
-    -- Only log if there are actual changes
-    IF jsonb_object_keys(v_changes) IS NOT NULL THEN
+    -- Only log if there are actual changes (avoid set-returning jsonb_object_keys in scalar context)
+    IF v_changes IS NOT NULL AND v_changes <> '{}'::jsonb THEN
       v_source := COALESCE(NEW.source, OLD.source, 'manual');
       v_property_id := NEW.property_id;
       
