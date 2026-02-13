@@ -39,7 +39,7 @@ export function AvitoConnectModal({
   const [oauthRedirecting, setOauthRedirecting] = useState(false);
   const [userId, setUserId] = useState<string>('');
   const [itemId, setItemId] = useState<string>('');
-  const [markup, setMarkup] = useState<number>(15);
+  const [markup, setMarkup] = useState<number>(0);
   const [markupType, setMarkupType] = useState<'percent' | 'rub'>('percent');
   const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -671,7 +671,7 @@ export function AvitoConnectModal({
                   min={0}
                   max={markupType === 'percent' ? 100 : undefined}
                   value={markup}
-                  onChange={(value) => setMarkup(value !== null && value !== undefined ? value : (markupType === 'percent' ? 15 : 0))}
+                  onChange={(value) => setMarkup(value !== null && value !== undefined ? value : (markupType === 'percent' ? 0 : 0))}
                   formatter={(value) => markupType === 'percent' ? `${value}%` : `${value} руб`}
                   parser={(value) => parseFloat(value?.replace(/[%\sруб]/g, '') || '0')}
                 />

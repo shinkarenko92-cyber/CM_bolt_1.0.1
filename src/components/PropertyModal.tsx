@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { X, Trash2, Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
-import { Badge, Button, Input, InputNumber, Modal, Select, Tabs } from 'antd';
+import { X, Trash2, Upload, Image as ImageIcon, Loader2, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Button, Input, InputNumber, Modal, Select, Tabs } from 'antd';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { Property, PropertyIntegration, BookingLog } from '../lib/supabase';
@@ -10,6 +10,8 @@ import { getOAuthSuccess, getOAuthError, parseOAuthState } from '../services/avi
 import { syncAvitoIntegration, AvitoSyncError } from '../services/apiSync';
 import { showAvitoErrors } from '../services/avitoErrors';
 import { BookingLogsTable } from './BookingLogsTable';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
+import { Switch } from './ui/switch';
 
 interface PropertyModalProps {
   isOpen: boolean;
@@ -42,11 +44,11 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   const [avitoIntegration, setAvitoIntegration] = useState<PropertyIntegration | null>(null);
   const [isAvitoModalOpen, setIsAvitoModalOpen] = useState(false);
   const [isEditMarkupModalOpen, setIsEditMarkupModalOpen] = useState(false);
-  const [newMarkup, setNewMarkup] = useState<number>(15);
+  const [newMarkup, setNewMarkup] = useState<number>(0);
   const [newMarkupType, setNewMarkupType] = useState<'percent' | 'rub'>('percent');
   const [isEditingItemId, setIsEditingItemId] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string>('');
-  const [syncingNow, setSyncingNow] = useState(false);
+  const [apiIntegrationsOpen, setApiIntegrationsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('main');
   const [bookingLogs, setBookingLogs] = useState<BookingLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
@@ -63,15 +65,23 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
     // Load Avito integration
     setAvitoIntegration(data);
-    if (data?.avito_markup) {
-      const markupValue = data.avito_markup;
-      if (markupValue < 0) {
-        setNewMarkupType('rub');
-        setNewMarkup(Math.abs(markupValue));
+    if (data != null) {
+      const m = data.avito_markup;
+      if (m != null && m !== undefined) {
+        if (m < 0) {
+          setNewMarkupType('rub');
+          setNewMarkup(Math.abs(m));
+        } else {
+          setNewMarkupType('percent');
+          setNewMarkup(m);
+        }
       } else {
         setNewMarkupType('percent');
-        setNewMarkup(markupValue);
+        setNewMarkup(0);
       }
+    } else {
+      setNewMarkupType('percent');
+      setNewMarkup(0);
     }
 
     // Show warning if old integration (missing avito_item_id)
@@ -236,10 +246,10 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
   const handleDisconnectAvito = () => {
     Modal.confirm({
-      title: 'Отключить Avito?',
-      content: 'Синхронизация будет остановлена. Вы можете подключить заново позже.',
-      okText: 'Отключить',
-      cancelText: 'Отмена',
+      title: t('avito.integration.disconnectConfirmTitle'),
+      content: t('avito.integration.disconnectConfirmContent'),
+      okText: t('avito.integration.disable'),
+      cancelText: t('avito.integration.cancel'),
       okButtonProps: { danger: true },
       onOk: async () => {
         if (!avitoIntegration) return;
@@ -264,10 +274,10 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
   const handleDeleteAvito = () => {
     Modal.confirm({
-      title: 'Удалить интеграцию Avito?',
-      content: 'Интеграция будет полностью удалена из базы данных. Это действие нельзя отменить.',
-      okText: 'Удалить',
-      cancelText: 'Отмена',
+      title: t('avito.integration.deleteConfirmTitle'),
+      content: t('avito.integration.deleteConfirmContent'),
+      okText: t('avito.integration.delete'),
+      cancelText: t('avito.integration.cancel'),
       okButtonProps: { danger: true },
       onOk: async () => {
         if (!avitoIntegration) return;
@@ -305,7 +315,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
       if (error) throw error;
 
-      toast.success('Наценка обновлена');
+      toast.success(t('avito.integration.markupUpdated'));
       setIsEditMarkupModalOpen(false);
       loadAvitoIntegration();
     } catch (error) {
@@ -352,48 +362,6 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     }
   };
 
-  const handleSyncNow = async () => {
-    if (!property || !avitoIntegration?.is_active) return;
-
-    setSyncingNow(true);
-    try {
-      const syncResult = await syncAvitoIntegration(property.id);
-
-      if (syncResult.success) {
-        if (syncResult.pricesSuccess && syncResult.intervalsFailed) {
-          toast.success(t('avito.sync.pricesUpdated', { defaultValue: 'Цены обновлены в Avito' }));
-          toast(t('avito.sync.partialCalendarWarning', { defaultValue: 'Часть календаря Avito пока не обновлена. Повтори синхронизацию позже.' }), {
-            icon: '⚠️',
-            duration: 6000,
-          });
-        } else {
-          toast.success(t('avito.success.syncCompleted', { defaultValue: 'Синхронизация с Avito завершена успешно' }));
-        }
-        if (syncResult.warnings?.length || syncResult.warningMessage) {
-          toast(syncResult.warningMessage || syncResult.warnings?.map(w => w.message).join(' ') || 'Есть предупреждения по Avito', {
-            icon: '⚠️',
-            duration: 6000,
-          });
-        }
-      } else if (!syncResult.skipUserError) {
-        if (syncResult.errors && syncResult.errors.length > 0) {
-          showAvitoErrors(syncResult.errors, t).catch((err) => {
-            console.error('Error showing Avito error modals:', err);
-          });
-        } else {
-          toast.error(syncResult.message || t('avito.errors.syncFailed', { defaultValue: 'Ошибка синхронизации с Avito' }));
-        }
-      }
-
-      await loadAvitoIntegration();
-    } catch (error) {
-      console.error('Failed to sync Avito integration manually:', error);
-      toast.error(t('avito.errors.syncFailed', { defaultValue: 'Ошибка синхронизации с Avito' }));
-    } finally {
-      setSyncingNow(false);
-    }
-  };
-
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Никогда';
     return new Date(dateString).toLocaleString('ru-RU', {
@@ -426,18 +394,11 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     return expired;
   }, [avitoIntegration?.token_expires_at]);
 
-  // Memoize status badge to avoid recalculating on every render
-  const avitoStatusBadge = useMemo(() => {
+  const avitoSynced = useMemo(() => {
     const isActive = avitoIntegration?.is_active;
     const tokenValid = !isTokenExpired;
-    const showActive = isActive && tokenValid;
-
-    // Status check
-    return showActive ? (
-      <Badge status="success" text="синхронизировано" />
-    ) : (
-      <Badge status="default" text="отключено" />
-    );
+    const hasItemId = avitoIntegration?.avito_item_id && String(avitoIntegration.avito_item_id).length >= 10;
+    return !!(isActive && tokenValid && hasItemId);
   }, [avitoIntegration, isTokenExpired]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -854,134 +815,136 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
                       {/* API интеграции */}
                       {property && (
-                        <div className="border-t border-slate-700 pt-6">
-                          <h3 className="text-lg font-medium text-white mb-4">API интеграции</h3>
+                        <div className="border-t border-slate-700 pt-6 min-w-0">
+                          <h3 className="text-lg font-medium text-white mb-4">{t('avito.integration.apiIntegrations')}</h3>
 
-                          {/* Avito Integration Section */}
-                          <div className="bg-slate-700/50 rounded-lg p-4 space-y-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <h4 className="text-white font-medium">Avito</h4>
-                                {avitoStatusBadge}
-                              </div>
-                            </div>
-
-                            {avitoIntegration?.is_active ? (
-                              <>
-                                {/* Warning for old integrations with short avito_item_id */}
-                                {avitoIntegration.avito_item_id &&
-                                  String(avitoIntegration.avito_item_id).length < 10 && (
-                                    <div className="bg-yellow-500/20 border border-yellow-500/50 rounded p-3 mb-3">
-                                      <p className="text-yellow-300 text-sm font-medium mb-1">⚠️ Требуется обновление</p>
-                                      <p className="text-yellow-200 text-xs">
-                                        Обнови ID объявления — должен быть длинный номер (10-11 цифр) из Avito.
-                                        Нажми "Редактировать ID объявления" ниже.
-                                      </p>
-                                    </div>
-                                  )}
-                                {/* Warning for missing avito_item_id */}
-                                {!avitoIntegration.avito_item_id && (
-                                  <div className="bg-yellow-500/20 border border-yellow-500/50 rounded p-3 mb-3">
-                                    <p className="text-yellow-300 text-sm font-medium mb-1">⚠️ Требуется обновление</p>
-                                    <p className="text-yellow-200 text-xs">
-                                      Обнови ID объявления — должен быть длинный номер (10-11 цифр) из Avito.
-                                      Нажми "Редактировать ID объявления" ниже.
-                                    </p>
-                                  </div>
-                                )}
-                                <div className="text-sm text-slate-300 mb-2">
-                                  <span className="font-medium">Статус:</span> Avito подключён
-                                </div>
-                                <div className="text-sm text-slate-400 mb-2">
-                                  Цены обновляются автоматически
-                                </div>
-
-                                {/* Display current item_id */}
-                                {avitoIntegration.avito_item_id && String(avitoIntegration.avito_item_id).length >= 10 && (
-                                  <div className="text-sm text-slate-400 mb-2">
-                                    ID объявления: {avitoIntegration.avito_item_id}
-                                  </div>
-                                )}
-                                <div className="text-sm text-slate-400 mb-2">
-                                  Последняя синхронизация: {formatDate(avitoIntegration.last_sync_at)}
-                                </div>
-                                <div className="text-sm text-slate-400 mb-4">
-                                  Наценка: {avitoIntegration.avito_markup || 15}%
-                                </div>
-
-                                {/* Inline form for editing item_id */}
-                                {isEditingItemId ? (
-                                  <div className="mt-3 p-3 bg-slate-600/50 rounded border border-slate-500">
-                                    <label className="block text-sm text-white mb-2">ID объявления на Avito</label>
-                                    <Input
-                                      placeholder="Например, 2336174775"
-                                      value={editingItemId}
-                                      onChange={(e) => {
-                                        const value = e.target.value.replace(/\D/g, '').slice(0, 11);
-                                        setEditingItemId(value);
-                                      }}
-                                      maxLength={11}
-                                    />
-                                    {editingItemId && !/^[0-9]{10,11}$/.test(editingItemId) && (
-                                      <p className="text-xs text-red-400 mt-1">
-                                        ID объявления должен содержать 10-11 цифр
-                                      </p>
-                                    )}
-                                    <div className="flex gap-2 mt-3">
-                                      <Button
-                                        type="primary"
-                                        size="small"
-                                        onClick={handleSaveItemId}
-                                        disabled={!editingItemId || !/^[0-9]{10,11}$/.test(editingItemId)}
-                                        loading={loading}
-                                      >
-                                        Сохранить
-                                      </Button>
-                                      <Button
-                                        size="small"
-                                        onClick={() => {
-                                          setIsEditingItemId(false);
-                                          setEditingItemId('');
-                                        }}
-                                        disabled={loading}
-                                      >
-                                        Отмена
-                                      </Button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="flex gap-2 mt-3">
-                                    <Button onClick={handleSyncNow} loading={syncingNow}>
-                                      {syncingNow
-                                        ? t('avito.sync.syncingNow', { defaultValue: 'Синхронизация...' })
-                                        : t('avito.sync.syncNow', { defaultValue: 'Синхронизировать сейчас' })}
-                                    </Button>
-                                    <Button onClick={handleEditMarkup}>Редактировать наценку</Button>
-                                    <Button onClick={handleEditItemId}>Редактировать ID объявления</Button>
-                                    <Button onClick={handleDisconnectAvito}>
-                                      Отключить
-                                    </Button>
-                                    <Button
-                                      onClick={handleDeleteAvito}
-                                      className="bg-red-600 hover:bg-red-700 text-white border-red-600"
-                                      icon={<Trash2 className="w-4 h-4" />}
-                                    >
-                                      Удалить
-                                    </Button>
-                                  </div>
-                                )}
-                              </>
+                          <div className="bg-slate-700/50 rounded-lg p-4 min-w-0 overflow-hidden">
+                            {!avitoIntegration ? (
+                              <Button type="primary" onClick={() => setIsAvitoModalOpen(true)}>
+                                {t('avito.integration.connectAvito')}
+                              </Button>
                             ) : (
-                              <div>
-                                {avitoIntegration && !avitoIntegration.is_active && (
-                                  <div className="mb-3 p-3 bg-yellow-500/20 border border-yellow-500/50 rounded">
-                                    <p className="text-yellow-300 text-sm">Переподключи Avito</p>
+                              <Collapsible open={apiIntegrationsOpen} onOpenChange={setApiIntegrationsOpen}>
+                                <div className="flex items-center justify-between gap-2 min-w-0">
+                                  <div className="flex items-center gap-3 min-w-0 shrink">
+                                    <span className="text-white font-medium shrink-0">Avito</span>
+                                    {avitoSynced ? (
+                                      <span className="flex items-center gap-1.5 text-green-400 text-sm shrink-0">
+                                        <Check className="h-4 w-4" />
+                                        {t('avito.integration.synced')}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400 text-sm shrink-0">{t('avito.integration.disabled')}</span>
+                                    )}
                                   </div>
-                                )}
-                                <Button type="primary" onClick={() => setIsAvitoModalOpen(true)}>
-                                  {avitoIntegration ? 'Подключить заново' : 'Подключить Avito'}
-                                </Button>
-                              </div>
+                                  <CollapsibleTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      size="small"
+                                      className="shrink-0"
+                                      onClick={() => setApiIntegrationsOpen((o) => !o)}
+                                    >
+                                      {apiIntegrationsOpen ? t('avito.integration.collapse') : t('avito.integration.expand')}
+                                    </Button>
+                                  </CollapsibleTrigger>
+                                </div>
+                                <CollapsibleContent>
+                                  <div className="mt-4 space-y-4">
+                                    {!avitoIntegration.is_active && (
+                                      <Button type="primary" onClick={() => setIsAvitoModalOpen(true)}>
+                                        {t('avito.integration.reconnect')}
+                                      </Button>
+                                    )}
+                                    {/* Warnings inside expanded block */}
+                                    {avitoIntegration.avito_item_id && String(avitoIntegration.avito_item_id).length < 10 && (
+                                      <div className="bg-yellow-500/20 border border-yellow-500/50 rounded p-3">
+                                        <p className="text-yellow-300 text-sm font-medium mb-1">{t('avito.integration.warningUpdateItemId')}</p>
+                                        <p className="text-yellow-200 text-xs">{t('avito.integration.warningUpdateItemIdHint')}</p>
+                                      </div>
+                                    )}
+                                    {!avitoIntegration.avito_item_id && (
+                                      <div className="bg-yellow-500/20 border border-yellow-500/50 rounded p-3">
+                                        <p className="text-yellow-300 text-sm font-medium mb-1">{t('avito.integration.warningUpdateItemId')}</p>
+                                        <p className="text-yellow-200 text-xs">{t('avito.integration.warningUpdateItemIdHint')}</p>
+                                      </div>
+                                    )}
+
+                                    {/* ID объявления */}
+                                    <div className="min-w-0">
+                                      <label className="block text-sm text-slate-400 mb-1">{t('avito.integration.itemId')}</label>
+                                      {isEditingItemId ? (
+                                        <div className="p-3 bg-slate-600/50 rounded border border-slate-500 space-y-2">
+                                          <Input
+                                            placeholder={t('avito.integration.itemIdPlaceholder')}
+                                            value={editingItemId}
+                                            onChange={(e) => {
+                                              const value = e.target.value.replace(/\D/g, '').slice(0, 11);
+                                              setEditingItemId(value);
+                                            }}
+                                            maxLength={11}
+                                            className="min-w-0"
+                                          />
+                                          {editingItemId && !/^[0-9]{10,11}$/.test(editingItemId) && (
+                                            <p className="text-xs text-red-400">{t('avito.integration.itemIdInvalid')}</p>
+                                          )}
+                                          <div className="flex flex-wrap gap-2">
+                                            <Button type="primary" size="small" onClick={handleSaveItemId} disabled={!editingItemId || !/^[0-9]{10,11}$/.test(editingItemId)} loading={loading}>
+                                              {t('avito.integration.save')}
+                                            </Button>
+                                            <Button size="small" onClick={() => { setIsEditingItemId(false); setEditingItemId(''); }} disabled={loading}>
+                                              {t('avito.integration.cancel')}
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <span className="text-white truncate min-w-0" title={avitoIntegration.avito_item_id || ''}>
+                                            {avitoIntegration.avito_item_id || '—'}
+                                          </span>
+                                          <Button size="small" onClick={handleEditItemId} disabled={loading}>
+                                            {t('avito.integration.editItemId')}
+                                          </Button>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Наценка */}
+                                    <div>
+                                      <label className="block text-sm text-slate-400 mb-1">{t('avito.integration.markup')}</label>
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-white">
+                                          {avitoIntegration.avito_markup != null && avitoIntegration.avito_markup < 0
+                                            ? `${Math.abs(avitoIntegration.avito_markup)} руб`
+                                            : `${avitoIntegration.avito_markup ?? 0}%`}
+                                        </span>
+                                        <Button size="small" onClick={handleEditMarkup}>{t('avito.integration.editMarkup')}</Button>
+                                      </div>
+                                    </div>
+
+                                    {/* Отключить (Switch) */}
+                                    {avitoIntegration.is_active && (
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="text-sm text-slate-300">{t('avito.integration.disable')}</span>
+                                        <Switch
+                                          checked={!!avitoIntegration.is_active}
+                                          onCheckedChange={(checked) => { if (!checked) handleDisconnectAvito(); }}
+                                        />
+                                      </div>
+                                    )}
+
+                                    {/* Удалить интеграцию */}
+                                    <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-slate-600">
+                                      <Button
+                                        onClick={handleDeleteAvito}
+                                        className="bg-red-600 hover:bg-red-700 text-white border-red-600"
+                                        icon={<Trash2 className="w-4 h-4" />}
+                                      >
+                                        {t('avito.integration.delete')}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </CollapsibleContent>
+                              </Collapsible>
                             )}
                           </div>
                         </div>
@@ -989,9 +952,9 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
                       {!property && (
                         <div className="border-t border-slate-700 pt-6">
-                          <h3 className="text-lg font-medium text-white mb-2">API интеграции</h3>
+                          <h3 className="text-lg font-medium text-white mb-2">{t('avito.integration.apiIntegrations')}</h3>
                           <p className="text-sm text-slate-400">
-                            Сначала сохраните объект, чтобы настроить интеграции с площадками.
+                            {t('avito.integration.saveFirst')}
                           </p>
                         </div>
                       )}
@@ -1068,15 +1031,15 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
         {/* Edit Markup Modal */}
         <Modal
-          title="Редактировать наценку"
+          title={t('avito.integration.editMarkup')}
           open={isEditMarkupModalOpen}
           onOk={handleSaveMarkup}
           onCancel={() => setIsEditMarkupModalOpen(false)}
-          okText="Сохранить"
-          cancelText="Отмена"
+          okText={t('avito.integration.save')}
+          cancelText={t('avito.integration.cancel')}
         >
           <div className="py-4">
-            <label className="block text-sm text-slate-300 mb-2">Наценка</label>
+            <label className="block text-sm text-slate-300 mb-2">{t('avito.integration.markup')}</label>
             <div className="flex gap-2 mb-2">
               <Select
                 value={newMarkupType}
@@ -1092,7 +1055,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                 min={0}
                 max={newMarkupType === 'percent' ? 100 : undefined}
                 value={newMarkup}
-                onChange={(value) => setNewMarkup(value !== null && value !== undefined ? value : (newMarkupType === 'percent' ? 15 : 0))}
+                onChange={(value) => setNewMarkup(value !== null && value !== undefined ? value : (newMarkupType === 'percent' ? 0 : 0))}
                 formatter={(value) => newMarkupType === 'percent' ? `${value}%` : `${value} руб`}
                 parser={(value) => parseFloat(value?.replace(/[%\sруб]/g, '') || '0')}
               />

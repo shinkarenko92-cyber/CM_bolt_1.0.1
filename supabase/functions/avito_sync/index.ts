@@ -843,14 +843,14 @@ Deno.serve(async (req: Request) => {
           external_id: itemIdString,
             avito_account_id,
           avito_item_id: itemIdString, // Store as TEXT for API calls
-            avito_markup: avito_markup !== null && avito_markup !== undefined ? parseFloat(avito_markup) : 15.0,
+            avito_markup: avito_markup !== null && avito_markup !== undefined ? parseFloat(avito_markup) : 0,
             // Token will be encrypted by Vault trigger (create trigger in migration)
             access_token_encrypted: access_token,
             token_expires_at: tokenExpiresAt.toISOString(),
             is_active: true,
             is_enabled: true,
             markup_type: "percent",
-            markup_value: avito_markup !== null && avito_markup !== undefined ? parseFloat(avito_markup) : 15.0,
+            markup_value: avito_markup !== null && avito_markup !== undefined ? parseFloat(avito_markup) : 0,
         };
 
         // Add refresh_token if provided
@@ -1258,7 +1258,7 @@ Deno.serve(async (req: Request) => {
         // Calculate prices with markup
         // Negative values = rub, positive = %
         const basePrice = property?.base_price || 0;
-        const markup = integration.avito_markup !== null && integration.avito_markup !== undefined ? integration.avito_markup : 15;
+        const markup = integration.avito_markup ?? 0;
         const priceWithMarkup = markup < 0 
           ? Math.round(basePrice + Math.abs(markup))  // Fixed rub markup
           : Math.round(basePrice * (1 + markup / 100));  // Percentage markup

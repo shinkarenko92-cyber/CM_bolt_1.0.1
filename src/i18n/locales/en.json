@@ -334,6 +334,33 @@
     },
     "success": {
       "syncCompleted": "Avito synchronization completed successfully"
+    },
+    "integration": {
+      "expand": "Expand",
+      "collapse": "Hide details",
+      "synced": "Synced",
+      "disabled": "Disabled",
+      "markup": "Markup",
+      "disable": "Disable",
+      "delete": "Delete integration",
+      "itemId": "Listing ID",
+      "editItemId": "Edit listing ID",
+      "editMarkup": "Edit markup",
+      "reconnect": "Reconnect",
+      "connectAvito": "Connect Avito",
+      "apiIntegrations": "API integrations",
+      "saveFirst": "Save the property first to configure integrations.",
+      "itemIdPlaceholder": "e.g. 2336174775",
+      "itemIdInvalid": "Listing ID must be 10-11 digits",
+      "save": "Save",
+      "cancel": "Cancel",
+      "markupUpdated": "Markup updated",
+      "disconnectConfirmTitle": "Disconnect Avito?",
+      "disconnectConfirmContent": "Synchronization will stop. You can reconnect later.",
+      "deleteConfirmTitle": "Delete Avito integration?",
+      "deleteConfirmContent": "The integration will be permanently removed. This cannot be undone.",
+      "warningUpdateItemId": "Update required",
+      "warningUpdateItemIdHint": "Update listing ID — must be 10-11 digits from Avito."
     }
   },
   "messages": {

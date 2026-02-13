@@ -344,6 +344,33 @@
     },
     "success": {
       "syncCompleted": "Синхронизация с Avito завершена успешно"
+    },
+    "integration": {
+      "expand": "Развернуть",
+      "collapse": "Скрыть информацию",
+      "synced": "Синхронизировано",
+      "disabled": "Отключено",
+      "markup": "Наценка",
+      "disable": "Отключить",
+      "delete": "Удалить интеграцию",
+      "itemId": "ID объявления",
+      "editItemId": "Редактировать ID объявления",
+      "editMarkup": "Редактировать наценку",
+      "reconnect": "Подключить заново",
+      "connectAvito": "Подключить Avito",
+      "apiIntegrations": "API интеграции",
+      "saveFirst": "Сначала сохраните объект, чтобы настроить интеграции с площадками.",
+      "itemIdPlaceholder": "Например, 2336174775",
+      "itemIdInvalid": "ID объявления должен содержать 10-11 цифр",
+      "save": "Сохранить",
+      "cancel": "Отмена",
+      "markupUpdated": "Наценка обновлена",
+      "disconnectConfirmTitle": "Отключить Avito?",
+      "disconnectConfirmContent": "Синхронизация будет остановлена. Вы можете подключить заново позже.",
+      "deleteConfirmTitle": "Удалить интеграцию Avito?",
+      "deleteConfirmContent": "Интеграция будет полностью удалена из базы данных. Это действие нельзя отменить.",
+      "warningUpdateItemId": "Требуется обновление",
+      "warningUpdateItemIdHint": "Обнови ID объявления — должен быть длинный номер (10-11 цифр) из Avito."
     }
   },
   "messages": {
