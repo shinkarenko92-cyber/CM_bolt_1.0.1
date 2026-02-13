@@ -1248,6 +1248,7 @@ Deno.serve(async (req: Request) => {
           .eq("id", integration.property_id)
           .single();
 
+        // Only confirmed bookings close dates in Avito (we create as confirmed)
         const { data: bookings } = await supabase
           .from("bookings")
           .select("*")
