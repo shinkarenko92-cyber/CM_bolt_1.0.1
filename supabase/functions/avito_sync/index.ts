@@ -1667,80 +1667,49 @@ Deno.serve(async (req: Request) => {
             // Continue with other operations
           }
 
-        // 3. Отправка интервалов через POST /realty/v1/accounts/{user_id}/items/{item_id}/intervals для закрытия дат
-        // Avito API: intervals array с date_start и date_end закрывает эти даты
-        // Пустой массив intervals открывает все даты
-        // Отправляем только закрытые интервалы (занятые даты), остальные открыты по умолчанию
-        const intervalsToSend: Array<{
-          date_start: string;
-          date_end: string;
-        }> = [];
-
-        // Преобразуем бронирования в интервалы (только даты, без комментариев)
+        // 3. Заполнение календаря занятости: POST /core/v1/accounts/{user_id}/items/{item_id}/bookings (Avito STR spec)
+        // Тело: PostCalendarData — bookings[] с date_start, date_end, type ("manual" | "booking"), source
+        const bookingsPayload: Array<{ date_start: string; date_end: string; type?: "manual" | "booking" }> = [];
         for (const booking of bookingsForAvito) {
-          // Убеждаемся, что даты в формате YYYY-MM-DD (обрезаем время, если есть)
-          const dateStart = booking.check_in.split('T')[0];
-          const dateEnd = booking.check_out.split('T')[0];
-          
-          intervalsToSend.push({
+          const dateStart = booking.check_in.split("T")[0];
+          const dateEnd = booking.check_out.split("T")[0];
+          bookingsPayload.push({
             date_start: dateStart,
             date_end: dateEnd,
+            type: "booking",
           });
         }
+        const calendarUrl = `${AVITO_API_BASE}/core/v1/accounts/${userId}/items/${itemId}/bookings`;
+        const calendarBody = { bookings: bookingsPayload, source: "roomi" };
 
-        // Отправляем интервалы для закрытия дат
-        if (intervalsToSend.length > 0) {
-
-          console.log("Sending intervals to Avito", {
-            endpoint: `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/intervals`,
-            intervalsCount: intervalsToSend.length,
+        if (bookingsPayload.length > 0) {
+          console.log("Sending calendar (bookings) to Avito", {
+            endpoint: calendarUrl,
+            bookingsCount: bookingsPayload.length,
             exclude_booking_id: exclude_booking_id || null,
-            user_id: userId,
-            item_id: itemId,
           });
 
           try {
-            console.log("POST /realty/v1/accounts/{user_id}/items/{item_id}/intervals - starting", { 
-              user_id: userId, 
-              item_id: itemId,
-              user_id_type: typeof userId,
-              item_id_type: typeof itemId,
-              user_id_length: userId?.length,
-              item_id_length: itemId?.length,
-            });
-            let bookingsUpdateResponse = await fetchWithRetry(
-              `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/intervals`,
-            {
+            let bookingsUpdateResponse = await fetchWithRetry(calendarUrl, {
               method: "POST",
               headers: {
                 Authorization: `Bearer ${accessToken}`,
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({
-                item_id: itemId,
-                intervals: intervalsToSend,
-              }),
-            }
-          );
+              body: JSON.stringify(calendarBody),
+            });
 
-            // Handle 401 and retry with refreshed token
             if (bookingsUpdateResponse.status === 401) {
-              console.log("401 Unauthorized, refreshing token and retrying intervals update");
+              console.log("401 Unauthorized, refreshing token and retrying calendar update");
               const refreshedToken = await getAccessToken();
-              bookingsUpdateResponse = await fetchWithRetry(
-                `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/intervals`,
-                {
-                  method: "POST",
-                  headers: {
-                    Authorization: `Bearer ${refreshedToken}`,
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    item_id: itemId,
-                    intervals: intervalsToSend,
-                  }),
-                }
-              );
+              bookingsUpdateResponse = await fetchWithRetry(calendarUrl, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${refreshedToken}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(calendarBody),
+              });
             }
 
           if (!bookingsUpdateResponse.ok) {
@@ -1773,7 +1742,7 @@ Deno.serve(async (req: Request) => {
               
               console.warn(errorMessage, {
                 error: errorText,
-                intervalsCount: intervalsToSend.length,
+                bookingsCount: bookingsPayload.length,
                 excluded_booking_id: exclude_booking_id || null,
               });
               
@@ -1822,10 +1791,10 @@ Deno.serve(async (req: Request) => {
               const responseData = await bookingsUpdateResponse.json().catch(() => null);
               const logMessage = exclude_booking_id 
                 ? "Dates opened in Avito for manual booking delete"
-                : "Avito intervals updated successfully";
+                : "Avito calendar (bookings) updated successfully";
               
               console.log(logMessage, {
-                intervalsCount: intervalsToSend.length,
+                bookingsCount: bookingsPayload.length,
                 excluded_booking_id: exclude_booking_id || null,
                 response: responseData,
               });
@@ -1836,10 +1805,10 @@ Deno.serve(async (req: Request) => {
               await supabase.from("avito_logs").insert({
                 integration_id: integration.id,
                 property_id: integration.property_id,
-                action: exclude_booking_id ? "open_dates_after_delete" : "sync_intervals",
+                action: exclude_booking_id ? "open_dates_after_delete" : "sync_calendar_bookings",
                 status: "success",
                 details: {
-                  intervals_count: intervalsToSend.length,
+                  bookings_count: bookingsPayload.length,
                   excluded_booking_id: exclude_booking_id || null,
                 },
               });
@@ -1847,17 +1816,16 @@ Deno.serve(async (req: Request) => {
                 console.error("Failed to log success", { error: logError });
               }
             } catch {
-              console.log("Avito intervals updated successfully", {
-                intervalsCount: intervalsToSend.length,
+              console.log("Avito calendar (bookings) updated successfully", {
+                bookingsCount: bookingsPayload.length,
                 status: bookingsUpdateResponse.status,
                 excluded_booking_id: exclude_booking_id || null,
               });
             }
           }
         } catch (fetchError) {
-          // Network error or other fetch failure
           const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError);
-          console.error("Network error updating Avito bookings/intervals", {
+          console.error("Network error updating Avito calendar (bookings)", {
             error: errorMessage,
             itemId: itemId,
           });
@@ -1869,28 +1837,22 @@ Deno.serve(async (req: Request) => {
           // Continue with other operations
           }
         } else {
-          // No bookings to block - send empty intervals to open all dates
-          // This happens when all bookings are deleted or none are future
+          // No bookings to block — send empty bookings to open all dates (POST /core/v1/.../bookings)
           if (exclude_booking_id) {
             console.log("No bookings left after deletion, opening all dates in Avito", {
               excluded_booking_id: exclude_booking_id,
             });
 
             try {
-            const openAllResponse = await fetchWithRetry(
-                `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/intervals`,
-              {
+              const openAllUrl = `${AVITO_API_BASE}/core/v1/accounts/${userId}/items/${itemId}/bookings`;
+              const openAllResponse = await fetchWithRetry(openAllUrl, {
                 method: "POST",
                 headers: {
                   Authorization: `Bearer ${accessToken}`,
                   "Content-Type": "application/json",
                 },
-                body: JSON.stringify({
-                  item_id: itemId,
-                  intervals: [], // Empty array opens all dates
-                }),
-              }
-            );
+                body: JSON.stringify({ bookings: [], source: "roomi" }),
+              });
 
             if (openAllResponse.ok) {
                 console.log("All dates opened in Avito after manual booking deletion", {
