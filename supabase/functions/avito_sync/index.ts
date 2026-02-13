@@ -1309,10 +1309,10 @@ Deno.serve(async (req: Request) => {
         // Sync property_rates (calendar prices) and availability to Avito
         // According to Avito STR API docs: all endpoints require user_id in path
         // Endpoints:
-        // 1. POST /realty/v1/accounts/{user_id}/items/{item_id}/prices - для обновления цен
-        // 2. PATCH /realty/v1/accounts/{user_id}/items/{item_id} - для базовых параметров (min_stay, base_price)
-        // 3. GET /realty/v1/accounts/{user_id}/items/{item_id}/bookings - для получения бронирований
-        // 4. POST /realty/v1/accounts/{user_id}/items/{item_id}/intervals - для закрытия/открытия дат
+        // 1. POST /realty/v1/accounts/{user_id}/items/{item_id}/prices — цены по периодам
+        // 2. POST /realty/v1/items/{item_id}/base — базовые параметры (night_price, minimal_duration)
+        // 3. POST /core/v1/accounts/{user_id}/items/{item_id}/bookings — календарь занятости
+        // 4. GET /realty/v1/accounts/{user_id}/items/{item_id}/bookings — получение броней с Avito
         console.log("Syncing property_rates to Avito", {
           property_id: integration.property_id,
           itemId,
@@ -1545,61 +1545,40 @@ Deno.serve(async (req: Request) => {
           });
         }
 
-        // 2. Обновление базовых параметров через PATCH /realty/v1/accounts/{user_id}/items/{item_id}
-        // Формат: { night_price, minimal_duration, extra_guest_fee?, extra_guest_threshold?, instant?, refund?, discount? }
-        console.log("Updating base parameters in Avito", {
-          endpoint: `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}`,
-          user_id: userId,
-          itemId: itemId,
+        // 2. Базовые параметры: POST /realty/v1/items/{item_id}/base (Avito STR spec, без user_id в пути)
+        const baseParamsUrl = `${AVITO_API_BASE}/realty/v1/items/${itemId}/base`;
+        const baseParamsBody = {
           night_price: priceWithMarkup,
           minimal_duration: property?.minimum_booking_days || 1,
+        };
+        console.log("Updating base parameters in Avito", {
+          endpoint: baseParamsUrl,
+          itemId: itemId,
+          night_price: priceWithMarkup,
+          minimal_duration: baseParamsBody.minimal_duration,
         });
 
           try {
-            console.log("PATCH /realty/v1/accounts/{user_id}/items/{item_id} - starting", { 
-              user_id: userId, 
-              item_id: itemId,
-              user_id_type: typeof userId,
-              item_id_type: typeof itemId,
-              user_id_length: userId?.length,
-              item_id_length: itemId?.length,
+            let baseParamsResponse = await fetchWithRetry(baseParamsUrl, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(baseParamsBody),
             });
-            let baseParamsResponse = await fetchWithRetry(
-              `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}`,
-              {
-                method: "PATCH",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              night_price: priceWithMarkup,
-              minimal_duration: property?.minimum_booking_days || 1,
-              // TODO: Добавить поддержку extra_guest_fee и extra_guest_threshold когда поля будут в БД
-              // extra_guest_fee: property?.extra_guest_fee,
-              // extra_guest_threshold: property?.extra_guest_threshold,
-            }),
-          }
-        );
 
-            // Handle 401 and retry with refreshed token
             if (baseParamsResponse.status === 401) {
               console.log("401 Unauthorized, refreshing token and retrying base params update");
               const refreshedToken = await getAccessToken();
-              baseParamsResponse = await fetchWithRetry(
-                `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}`,
-                {
-                  method: "PATCH",
-                  headers: {
-                    Authorization: `Bearer ${refreshedToken}`,
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    night_price: priceWithMarkup,
-                    minimal_duration: property?.minimum_booking_days || 1,
-                  }),
-                }
-              );
+              baseParamsResponse = await fetchWithRetry(baseParamsUrl, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${refreshedToken}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(baseParamsBody),
+              });
             }
 
         if (!baseParamsResponse.ok) {
