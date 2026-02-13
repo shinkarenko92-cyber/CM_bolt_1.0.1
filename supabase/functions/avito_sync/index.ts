@@ -1747,15 +1747,23 @@ Deno.serve(async (req: Request) => {
               const errorText = await bookingsUpdateResponse.text().catch(() => 'Failed to read error response');
             const errorStatus = bookingsUpdateResponse.status;
             
-            // Handle 404 - intervals push skipped (activation required)
+            // 404 - возвращаем как ошибку с телом ответа Avito
             if (errorStatus === 404) {
-              console.log("Intervals push skipped (404 - активация Avito)", {
-                item_id: itemId,
-                message: "Avito объявление может требовать активации для закрытия дат",
+              let errMsg = "Даты в Avito не обновились (404).";
+              try {
+                const errJson = JSON.parse(errorText || "{}");
+                const apiMsg = errJson?.message ?? errJson?.error ?? errJson?.error_description;
+                if (apiMsg) errMsg += ` ${typeof apiMsg === "string" ? apiMsg : JSON.stringify(apiMsg)}`;
+              } catch {
+                if (errorText) errMsg += ` Ответ: ${errorText.substring(0, 200)}`;
+              }
+              syncErrors.push({
+                operation: "bookings_update",
+                statusCode: 404,
+                message: errMsg,
+                details: { item_id: itemId, response_body: errorText?.substring?.(0, 500) },
               });
-              // Не добавляем в syncErrors - это ожидаемая ситуация при активации
-              intervalsPushSuccess = false; // Помечаем как неуспешный для показа fallback
-              // Continue with other operations
+              intervalsPushSuccess = false;
             }
             // Специальная обработка ошибки 409 (конфликт с оплаченными бронями)
             else if (errorStatus === 409) {
@@ -1888,7 +1896,7 @@ Deno.serve(async (req: Request) => {
                 console.log("All dates opened in Avito after manual booking deletion", {
                   itemId: itemId,
                 });
-              
+                intervalsPushSuccess = true;
               // Log success to avito_logs
                 try {
               await supabase.from("avito_logs").insert({
@@ -1935,6 +1943,8 @@ Deno.serve(async (req: Request) => {
               bookingsForAvitoCount: bookingsForAvito.length,
               today: new Date().toISOString().split('T')[0],
             });
+            // No intervals to push = nothing to fail
+            intervalsPushSuccess = true;
           }
         }
 
@@ -2666,11 +2676,9 @@ Deno.serve(async (req: Request) => {
             // Don't fail sync if update fails
           }
 
-          // Return success if push operations (prices/intervals) succeeded
-          // Even if bookings pull failed with 404, we consider sync successful if push OK
-          const pushSuccess = pricesPushSuccess || intervalsPushSuccess;
-          const hasError = syncErrors.length > 0 && !pushSuccess;
-          
+          const hasError = syncErrors.length > 0;
+          const pushSuccess = pricesPushSuccess && intervalsPushSuccess;
+
           console.log("Sync operation completed", {
             integration_id,
             hasError,
@@ -2683,13 +2691,13 @@ Deno.serve(async (req: Request) => {
         return new Response(
           JSON.stringify({ 
               success: !hasError,
-              hasError: !pushSuccess && syncErrors.length > 0,
+              hasError,
               hasData: true,
-              pushSuccess,
+              pushSuccess: !hasError && pushSuccess,
               pricesPushSuccess,
               intervalsPushSuccess,
               errorMessage: hasError ? syncErrors.map(e => e.message || 'Ошибка синхронизации').join('; ') : undefined,
-              errors: hasError ? syncErrors : undefined,
+              errors: syncErrors.length > 0 ? syncErrors : undefined,
             }),
             {
               status: 200,
