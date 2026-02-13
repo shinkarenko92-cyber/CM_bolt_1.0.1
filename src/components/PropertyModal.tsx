@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { X, Calendar, Copy, Trash2, Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { X, Trash2, Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Badge, Button, Input, InputNumber, Modal, Select, Tabs } from 'antd';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -9,7 +9,6 @@ import { AvitoConnectModal } from './AvitoConnectModal';
 import { getOAuthSuccess, getOAuthError, parseOAuthState } from '../services/avito';
 import { syncAvitoIntegration, AvitoSyncError } from '../services/apiSync';
 import { showAvitoErrors } from '../services/avitoErrors';
-import { getIcalUrl } from '../utils/icalUrl';
 import { BookingLogsTable } from './BookingLogsTable';
 
 interface PropertyModalProps {
@@ -47,15 +46,10 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   const [newMarkupType, setNewMarkupType] = useState<'percent' | 'rub'>('percent');
   const [isEditingItemId, setIsEditingItemId] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string>('');
+  const [syncingNow, setSyncingNow] = useState(false);
   const [activeTab, setActiveTab] = useState('main');
   const [bookingLogs, setBookingLogs] = useState<BookingLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
-
-  const propertyId = property?.id;
-  const ical = useMemo(() => {
-    if (!propertyId) return { url: '', isLocalhost: false };
-    return getIcalUrl(propertyId);
-  }, [propertyId]);
 
   const loadAvitoIntegration = useCallback(async () => {
     if (!property) return;
@@ -358,6 +352,42 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     }
   };
 
+  const handleSyncNow = async () => {
+    if (!property || !avitoIntegration?.is_active) return;
+
+    setSyncingNow(true);
+    try {
+      const syncResult = await syncAvitoIntegration(property.id);
+
+      if (syncResult.success) {
+        if (syncResult.pricesSuccess && syncResult.intervalsFailed) {
+          toast.success(t('avito.sync.pricesUpdated', { defaultValue: 'Цены обновлены в Avito' }));
+          toast(t('avito.sync.partialCalendarWarning', { defaultValue: 'Часть календаря Avito пока не обновлена. Повтори синхронизацию позже.' }), {
+            icon: '⚠️',
+            duration: 6000,
+          });
+        } else {
+          toast.success(t('avito.success.syncCompleted', { defaultValue: 'Синхронизация с Avito завершена успешно' }));
+        }
+      } else if (!syncResult.skipUserError) {
+        if (syncResult.errors && syncResult.errors.length > 0) {
+          showAvitoErrors(syncResult.errors, t).catch((err) => {
+            console.error('Error showing Avito error modals:', err);
+          });
+        } else {
+          toast.error(syncResult.message || t('avito.errors.syncFailed', { defaultValue: 'Ошибка синхронизации с Avito' }));
+        }
+      }
+
+      await loadAvitoIntegration();
+    } catch (error) {
+      console.error('Failed to sync Avito integration manually:', error);
+      toast.error(t('avito.errors.syncFailed', { defaultValue: 'Ошибка синхронизации с Avito' }));
+    } finally {
+      setSyncingNow(false);
+    }
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Никогда';
     return new Date(dateString).toLocaleString('ru-RU', {
@@ -451,8 +481,8 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
           if (syncResult.pushSuccess) {
             toast.success('Синхронизация успешна! Цены и даты обновлены в Avito');
           } else if (syncResult.pricesSuccess && syncResult.intervalsFailed) {
-            toast.success('Цены обновлены в Avito');
-            toast('Даты не закрыты (ожидаем активацию Avito). Используй iCal URL для закрытия дат.', {
+            toast.success(t('avito.sync.pricesUpdated', { defaultValue: 'Цены обновлены в Avito' }));
+            toast(t('avito.sync.partialCalendarWarning', { defaultValue: 'Часть календаря Avito пока не обновлена. Повтори синхронизацию позже.' }), {
               icon: '⚠️',
               duration: 6000,
             });
@@ -868,52 +898,6 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                                   Наценка: {avitoIntegration.avito_markup || 15}%
                                 </div>
 
-                                {/* iCal URL Block */}
-                                <div className="bg-slate-600/50 rounded-lg p-4 border border-slate-500/50 mb-4">
-                                  <div className="flex items-center gap-2 mb-3">
-                                    <Calendar className="w-5 h-5 text-teal-400" />
-                                    <h5 className="text-white font-medium">Закрытие дат через iCal</h5>
-                                  </div>
-
-                                  <div className="mb-3">
-                                    <label className="block text-xs text-slate-400 mb-2">iCal URL:</label>
-                                    <div className="flex gap-2">
-                                      <input
-                                        type="text"
-                                        readOnly
-                                        value={ical.url}
-                                        className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm font-mono"
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={async () => {
-                                          const icalUrl = ical.url;
-                                          try {
-                                            if (ical.isLocalhost) {
-                                              toast('iCal работает только в prod/staging (Avito не тянет localhost)', { icon: '⚠️' });
-                                            }
-                                            await navigator.clipboard.writeText(icalUrl);
-                                            toast.success('URL скопирован');
-                                          } catch (err) {
-                                            console.error('Failed to copy URL:', err);
-                                            toast.error('Не удалось скопировать URL');
-                                          }
-                                        }}
-                                        className="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded transition flex items-center gap-2"
-                                      >
-                                        <Copy className="w-4 h-4" />
-                                        Скопировать URL
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  <div className="bg-slate-700/50 rounded p-3 border border-slate-600">
-                                    <p className="text-xs text-slate-300">
-                                      Вставь этот URL в Avito → Календарь доступности → Импорт iCal (один раз — и даты закрываются автоматически)
-                                    </p>
-                                  </div>
-                                </div>
-
                                 {/* Inline form for editing item_id */}
                                 {isEditingItemId ? (
                                   <div className="mt-3 p-3 bg-slate-600/50 rounded border border-slate-500">
@@ -956,6 +940,11 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                                   </div>
                                 ) : (
                                   <div className="flex gap-2 mt-3">
+                                    <Button onClick={handleSyncNow} loading={syncingNow}>
+                                      {syncingNow
+                                        ? t('avito.sync.syncingNow', { defaultValue: 'Синхронизация...' })
+                                        : t('avito.sync.syncNow', { defaultValue: 'Синхронизировать сейчас' })}
+                                    </Button>
                                     <Button onClick={handleEditMarkup}>Редактировать наценку</Button>
                                     <Button onClick={handleEditItemId}>Редактировать ID объявления</Button>
                                     <Button onClick={handleDisconnectAvito}>

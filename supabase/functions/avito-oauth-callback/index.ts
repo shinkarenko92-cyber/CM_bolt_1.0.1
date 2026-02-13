@@ -219,11 +219,13 @@ Deno.serve(async (req: Request) => {
       access_token_encrypted: string;
       refresh_token_encrypted?: string;
       token_expires_at: string;
+      scope: string | null;
       is_active: boolean;
       is_enabled: boolean;
     } = {
       access_token_encrypted: tokenData.access_token, // Plain text for testing
       token_expires_at: tokenExpiresAt.toISOString(),
+      scope: tokenData.scope ?? null,
       is_active: true,
       is_enabled: true,
     };

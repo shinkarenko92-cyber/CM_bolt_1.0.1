@@ -326,6 +326,12 @@
         "contactSupport": "If the problem persists, contact support"
       }
     },
+    "sync": {
+      "syncNow": "Sync now",
+      "syncingNow": "Syncing...",
+      "pricesUpdated": "Prices updated in Avito",
+      "partialCalendarWarning": "Part of the Avito calendar is not updated yet. Please retry synchronization later."
+    },
     "success": {
       "syncCompleted": "Avito synchronization completed successfully"
     }

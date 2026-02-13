@@ -96,22 +96,6 @@ export function AddReservationModal({
   const isUpdatingFromPricePerNight = useRef(false);
   const isUpdatingFromTotalPrice = useRef(false);
   const isUpdatingFromConditions = useRef(false);
-  // #region agent log
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!isOpen || !scrollContainerRef.current) return;
-    const el = scrollContainerRef.current;
-    const raf = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const sh = el.scrollHeight;
-        const ch = el.clientHeight;
-        const canScroll = sh > ch;
-        fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'AddReservationModal.tsx:scroll-measure', message: 'scroll container measure', data: { scrollHeight: sh, clientHeight: ch, canScroll }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'H1-H3' }) }).catch(() => {});
-      });
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [isOpen]);
-  // #endregion
 
   useEffect(() => {
     if (!isOpen) {
@@ -541,14 +525,10 @@ export function AddReservationModal({
                 <TabsTrigger value="payments">Платежи</TabsTrigger>
               </TabsList>
               <div
-                ref={scrollContainerRef}
                 className="flex-1 min-h-0 max-h-[min(60vh,500px)] overflow-y-auto overflow-x-hidden px-6 overscroll-contain"
-                // #region agent log
                 onWheel={(e) => {
                   e.stopPropagation();
-                  fetch('http://127.0.0.1:7242/ingest/74454fc7-45ce-477d-906c-20f245bc9847', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'AddReservationModal.tsx:wheel', message: 'wheel on scroll div', data: { defaultPrevented: e.defaultPrevented, targetTag: (e.target as HTMLElement)?.tagName, currentTargetTag: (e.currentTarget as HTMLElement)?.tagName }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'post-fix', hypothesisId: 'H2-H5' }) }).catch(() => {});
                 }}
-                // #endregion
               >
                 <TabsContent value="main" className="mt-4 space-y-4 pb-6">
                   <div className="space-y-2">

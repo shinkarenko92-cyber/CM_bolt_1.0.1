@@ -1009,8 +1009,8 @@ export function Dashboard() {
           if (syncResult.pushSuccess) {
             toast.success('Синхронизация успешна! Цены и даты обновлены в Avito');
           } else if (syncResult.pricesSuccess && syncResult.intervalsFailed) {
-            toast.success('Цены обновлены в Avito');
-            toast('Даты не закрыты (ожидаем активацию Avito). Используй iCal URL для закрытия дат.', {
+            toast.success(t('avito.sync.pricesUpdated', { defaultValue: 'Цены обновлены в Avito' }));
+            toast(t('avito.sync.partialCalendarWarning', { defaultValue: 'Часть календаря Avito пока не обновлена. Повтори синхронизацию позже.' }), {
               icon: '⚠️',
               duration: 6000,
             });

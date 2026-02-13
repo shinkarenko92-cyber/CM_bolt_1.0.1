@@ -970,6 +970,7 @@ Deno.serve(async (req: Request) => {
             });
             return new Response(
               JSON.stringify({ 
+                success: false,
                 hasError: true,
                 errorMessage: "Введи номер аккаунта (4720770)",
                 errors: [{
@@ -997,6 +998,7 @@ Deno.serve(async (req: Request) => {
             });
             return new Response(
               JSON.stringify({ 
+                success: false,
                 hasError: true,
                 errorMessage: "Неверный формат ID объявления. Должен быть длинный номер из URL Avito (10-12 цифр)",
                 errors: [{
@@ -2679,6 +2681,7 @@ Deno.serve(async (req: Request) => {
 
         return new Response(
           JSON.stringify({ 
+              success: !hasError,
               hasError: !pushSuccess && syncErrors.length > 0,
               hasData: true,
               pushSuccess,
@@ -2705,6 +2708,7 @@ Deno.serve(async (req: Request) => {
 
           return new Response(
             JSON.stringify({ 
+              success: false,
               hasError: true,
               hasData: false,
               errorMessage: "Internal server error during sync: " + errorMessage,

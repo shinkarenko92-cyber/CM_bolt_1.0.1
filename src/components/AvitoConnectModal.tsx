@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Modal, Steps, Button, Input, InputNumber, Spin, Select } from 'antd';
-import { CheckCircleOutlined, LoadingOutlined, CopyOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import { Property, supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import {
@@ -20,7 +20,6 @@ import {
   clearOAuthSuccess,
   performInitialSync,
 } from '../services/avito';
-import { getIcalUrl } from '../utils/icalUrl';
 
 interface AvitoConnectModalProps {
   isOpen: boolean;
@@ -44,7 +43,6 @@ export function AvitoConnectModal({
   const [markupType, setMarkupType] = useState<'percent' | 'rub'>('percent');
   const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [icalUrl, setIcalUrl] = useState<string>('');
 
   const handleOAuthCallback = useCallback(async (code: string, state: string) => {
     // Предотвращаем двойной вызов
@@ -208,7 +206,6 @@ export function AvitoConnectModal({
       // Modal opened, loading progress
       // Reset success state when modal opens
       setShowSuccess(false);
-      setIcalUrl('');
       
       const progress = loadConnectionProgress(property.id);
       
@@ -253,7 +250,6 @@ export function AvitoConnectModal({
       setOauthRedirecting(false);
       setIsProcessingOAuth(false);
       setShowSuccess(false);
-      setIcalUrl('');
     }
   }, [isOpen, property.id, handleOAuthCallback]);
 
@@ -425,18 +421,8 @@ export function AvitoConnectModal({
       // Clear progress
       clearConnectionProgress(property.id);
 
-      // Show iCal URL for date blocking fallback
-      const { url: icalUrlValue, isLocalhost } = getIcalUrl(property.id);
-      setIcalUrl(icalUrlValue);
-      if (isLocalhost) {
-        toast('iCal работает только в prod/staging (Avito не тянет localhost)', { icon: '⚠️' });
-      }
-
       // Show success toast
       toast.success('Цены обновлены в Avito 🚀');
-      
-      // Show warning toast
-      toast('Даты закрываются через iCal (полный API после активации)', { icon: '⚠️' });
 
       // Show success block instead of closing modal
       setShowSuccess(true);
@@ -450,7 +436,6 @@ export function AvitoConnectModal({
           if (syncResult.success) {
             if (syncResult.pricesSuccess && syncResult.intervalsFailed) {
               toast.success('Цены обновлены в Avito');
-              // iCal warning already shown above
             } else if (syncResult.errors && syncResult.errors.length > 0) {
               const errorMessages = syncResult.errors.map(e => e.message || 'Ошибка').join(', ');
               toast(`Частичная синхронизация: ${errorMessages}`, { icon: '⚠️' });
@@ -717,55 +702,13 @@ export function AvitoConnectModal({
           </div>
         )}
 
-        {/* Success Block: Show iCal URL after successful save */}
+        {/* Success Block */}
         {showSuccess && (
           <div className="py-4">
             <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
               <div className="flex items-center gap-2 mb-4">
                 <CheckCircleOutlined className="text-green-400 text-2xl" />
                 <h3 className="text-white text-lg font-semibold">Интеграция Avito успешно подключена!</h3>
-              </div>
-              
-              <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded">
-                <p className="text-yellow-200 text-sm font-medium mb-2">
-                  ⚠️ Даты закрываются через iCal (полный API после активации)
-                </p>
-              </div>
-
-              <div className="mb-4">
-                <p className="text-white mb-2 font-medium">iCal URL для закрытия дат:</p>
-                <div className="flex items-center gap-2 p-3 bg-slate-800 rounded border border-slate-700">
-                  <code className="flex-1 text-sm text-slate-300 break-all font-mono">
-                    {icalUrl}
-                  </code>
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<CopyOutlined />}
-                    onClick={async () => {
-                      try {
-                        const { isLocalhost } = getIcalUrl(property.id);
-                        if (isLocalhost) {
-                          toast('iCal работает только в prod/staging (Avito не тянет localhost)', { icon: '⚠️' });
-                        }
-                        await navigator.clipboard.writeText(icalUrl);
-                        toast.success('iCal URL скопирован в буфер обмена');
-                      } catch (err) {
-                        console.error('Failed to copy URL:', err);
-                        toast.error('Не удалось скопировать URL');
-                      }
-                    }}
-                    className="flex-shrink-0"
-                  >
-                    Скопировать URL
-                  </Button>
-                </div>
-              </div>
-
-              <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded">
-                <p className="text-sm text-slate-300">
-                  Вставь этот URL в Avito → Календарь доступности → Импорт iCal (один раз — и даты закрываются автоматически)
-                </p>
               </div>
 
               <div className="flex justify-end mt-6">

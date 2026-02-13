@@ -47,9 +47,17 @@ Deno.serve(async (req: Request) => {
 
     // Process each integration
     for (const item of queueItems) {
+      const intervalSeconds =
+        typeof item.integrations?.sync_interval_seconds === "number" &&
+        item.integrations.sync_interval_seconds > 0
+          ? item.integrations.sync_interval_seconds
+          : 10;
+      const nextSyncAt = new Date(Date.now() + intervalSeconds * 1000).toISOString();
+      const nextRetryAt = new Date(Date.now() + Math.max(intervalSeconds, 60) * 1000).toISOString();
+
       try {
         // Call avito_sync function
-        const { error: syncError } = await supabase.functions.invoke("avito_sync", {
+        const { data: syncData, error: syncError } = await supabase.functions.invoke("avito_sync", {
           body: {
             action: "sync",
             integration_id: item.integration_id,
@@ -60,21 +68,36 @@ Deno.serve(async (req: Request) => {
           throw syncError;
         }
 
-        // Update queue - mark as success and schedule next sync (10 seconds)
+        const payload = (syncData && typeof syncData === "object")
+          ? (syncData as Record<string, unknown>)
+          : null;
+
+        if (payload?.hasError === true || payload?.success === false) {
+          throw new Error(
+            typeof payload.errorMessage === "string"
+              ? payload.errorMessage
+              : "Sync returned error state"
+          );
+        }
+
+        // Keep queue in pending state for periodic sync cycles
         await supabase
           .from("avito_sync_queue")
           .update({
-            status: "success",
-            next_sync_at: new Date(Date.now() + 10000).toISOString(), // +10 seconds
+            status: "pending",
+            next_sync_at: nextSyncAt,
           })
           .eq("id", item.id);
 
         successCount++;
       } catch (error) {
-        // Mark as failed, will retry on next run
+        // Keep pending state and retry later (do not permanently stop queue item)
         await supabase
           .from("avito_sync_queue")
-          .update({ status: "failed" })
+          .update({
+            status: "pending",
+            next_sync_at: nextRetryAt,
+          })
           .eq("id", item.id);
 
         failCount++;
