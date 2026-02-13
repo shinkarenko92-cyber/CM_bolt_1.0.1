@@ -1198,8 +1198,6 @@ export function Dashboard() {
   };
 
   const handleDeleteReservation = async (id: string) => {
-    // Find the booking before deletion to log it
-    const bookingToDelete = bookings.find((b) => b.id === id);
     try {
       // Сохраняем данные брони перед удалением для синхронизации
       const booking = bookings.find(b => b.id === id);
@@ -1215,16 +1213,7 @@ export function Dashboard() {
       setBookings(updatedBookings);
       setFilteredBookings(updatedBookings);
 
-      // Log the deletion
-      if (bookingToDelete) {
-        await logBookingChange(
-          id,
-          bookingToDelete.property_id,
-          'deleted',
-          undefined,
-          bookingToDelete.source || 'manual'
-        );
-      }
+      // Deletion is already logged by DB trigger trigger_log_booking_changes_before_delete
 
       toast.success(t('success.bookingDeleted'));
 

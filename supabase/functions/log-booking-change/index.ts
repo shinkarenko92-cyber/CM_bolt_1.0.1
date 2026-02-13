@@ -79,15 +79,22 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // For 'deleted', booking_id may no longer exist in bookings; insert with null to avoid FK violation
+    const logBookingId = action === 'deleted' ? null : booking_id;
+    const logChanges =
+      action === 'deleted'
+        ? { ...(changes || {}), deleted_booking_id: booking_id }
+        : (changes || null);
+
     // Insert log entry
     const { data: logEntry, error: logError } = await supabase
       .from('booking_logs')
       .insert({
-        booking_id,
+        booking_id: logBookingId,
         property_id,
         user_id: user.id,
         action,
-        changes_json: changes || null,
+        changes_json: logChanges,
         source: source || 'manual',
         timestamp: new Date().toISOString(),
       })
