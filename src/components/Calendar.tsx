@@ -320,15 +320,15 @@ export function Calendar({
         for (let i = 0; i < duration; i++) {
           const targetDate = new Date(dates[dateIndex]);
           targetDate.setDate(targetDate.getDate() + i);
-          affectedDates.add(targetDate.toISOString().split('T')[0]);
+          affectedDates.add(format(targetDate, 'yyyy-MM-dd'));
         }
         setDragOverDates(affectedDates);
 
         const targetDate = dates[dateIndex];
-        const newCheckIn = targetDate.toISOString().split('T')[0];
+        const newCheckIn = format(targetDate, 'yyyy-MM-dd');
         const newCheckOut = new Date(targetDate);
         newCheckOut.setDate(newCheckOut.getDate() + duration);
-        const newCheckOutStr = newCheckOut.toISOString().split('T')[0];
+        const newCheckOutStr = format(newCheckOut, 'yyyy-MM-dd');
 
         const hasOverlap = bookings.some(b => {
           if (b.id === dragState.booking!.id) return false;
@@ -358,7 +358,7 @@ export function Calendar({
     if (!dragState.booking) return;
 
     const targetDate = dates[targetDateIndex];
-    const newCheckIn = targetDate.toISOString().split('T')[0];
+    const newCheckIn = format(targetDate, 'yyyy-MM-dd');
 
     const bookingStart = new Date(dragState.booking.check_in);
     const bookingEnd = new Date(dragState.booking.check_out);
@@ -366,7 +366,7 @@ export function Calendar({
 
     const newCheckOut = new Date(targetDate);
     newCheckOut.setDate(newCheckOut.getDate() + duration);
-    const newCheckOutStr = newCheckOut.toISOString().split('T')[0];
+    const newCheckOutStr = format(newCheckOut, 'yyyy-MM-dd');
 
     const hasOverlap = bookings.some(b => {
       if (b.id === dragState.booking!.id) return false;
@@ -747,7 +747,7 @@ export function Calendar({
 
   const getRateForDate = (propertyId: string, date: Date): PropertyRate | null => {
     const rates = propertyRates.get(propertyId) || [];
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = format(date, 'yyyy-MM-dd');
     return rates.find((r) => r.date === dateString) || null;
   };
 
@@ -852,8 +852,8 @@ export function Calendar({
             onClick={() => {
               setConditionsModalData({
                 propertyId: properties[0]?.id || '',
-                startDate: new Date().toISOString().split('T')[0],
-                endDate: new Date().toISOString().split('T')[0],
+                startDate: format(new Date(), 'yyyy-MM-dd'),
+                endDate: format(new Date(), 'yyyy-MM-dd'),
                 price: properties[0]?.base_price || 0,
                 minStay: properties[0]?.minimum_booking_days || 1,
                 currency: properties[0]?.currency || 'RUB',
@@ -973,7 +973,7 @@ export function Calendar({
                                     {dates.map((date, i) => {
                                       const rate = getRateForDate(property.id, date);
                                       const displayMinStay = rate?.min_stay || property.minimum_booking_days;
-                                      const dateString = date.toISOString().split('T')[0];
+                                      const dateString = format(date, 'yyyy-MM-dd');
                                       const isSelected = minStayDateSelection?.propertyId === property.id && minStayDateSelection?.startDate === dateString;
                                       const isInRange = minStayDateSelection?.propertyId === property.id &&
                                         minStayDateSelection?.startDate &&
@@ -1027,7 +1027,7 @@ export function Calendar({
                                   <div className="relative h-full" style={{ minHeight: `${rowHeight}px` }}>
                                     <div className="absolute inset-0 flex">
                                       {dates.map((date, i) => {
-                                        const dateString = date.toISOString().split('T')[0];
+                                        const dateString = format(date, 'yyyy-MM-dd');
                                         const today = new Date();
                                         const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
                                         const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
