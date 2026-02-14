@@ -64,8 +64,8 @@ export function BookingLogsTable({ logs, loading }: BookingLogsTableProps) {
                 property_id: 'Объект',
               };
               const fieldLabel = fieldLabels[field] || field;
-              const oldVal = change.old !== undefined ? String(change.old) : '—';
-              const newVal = change.new !== undefined ? String(change.new) : '—';
+              const oldVal = change && change.old !== undefined ? String(change.old) : '—';
+              const newVal = change && change.new !== undefined ? String(change.new) : '—';
               return `${fieldLabel}: ${oldVal} → ${newVal}`;
             })
             .join('; ')
@@ -177,8 +177,8 @@ export function BookingLogsTable({ logs, loading }: BookingLogsTableProps) {
           };
           
           const fieldLabel = fieldLabels[field] || field;
-          const oldVal = change.old !== undefined ? String(change.old) : '—';
-          const newVal = change.new !== undefined ? String(change.new) : '—';
+          const oldVal = change && change.old !== undefined ? String(change.old) : '—';
+          const newVal = change && change.new !== undefined ? String(change.new) : '—';
           
           return `${fieldLabel}: ${oldVal} → ${newVal}`;
         });

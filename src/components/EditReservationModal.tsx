@@ -579,8 +579,8 @@ export function EditReservationModal({
                             ? Object.entries(event.changes)
                                 .map(([field, change]) => {
                                   const label = FIELD_LABELS[field] || field;
-                                  const oldVal = change.old !== undefined ? String(change.old) : '—';
-                                  const newVal = change.new !== undefined ? String(change.new) : '—';
+                                  const oldVal = change && change.old !== undefined ? String(change.old) : '—';
+                                  const newVal = change && change.new !== undefined ? String(change.new) : '—';
                                   return `${label}: ${oldVal} → ${newVal}`;
                                 })
                                 .join('; ')
