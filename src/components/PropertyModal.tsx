@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { X, Trash2, Upload, Image as ImageIcon, Loader2, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Trash2, Upload, Image as ImageIcon, Loader2, Check } from 'lucide-react';
 import { Button, Input, InputNumber, Modal, Select, Tabs } from 'antd';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -360,17 +360,6 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Никогда';
-    return new Date(dateString).toLocaleString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   // Memoize token expiration check to avoid recalculating on every render
