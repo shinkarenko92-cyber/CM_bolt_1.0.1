@@ -828,7 +828,6 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                                   </div>
                                   <CollapsibleTrigger asChild>
                                     <Button
-                                      type="button"
                                       size="small"
                                       className="shrink-0"
                                       onClick={() => setApiIntegrationsOpen((o) => !o)}
