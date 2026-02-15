@@ -4,10 +4,12 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal, Steps, Button, Input, InputNumber, Spin, Select } from 'antd';
 import { CheckCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import { Property, supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
+import { showAvitoErrors } from '../services/avitoErrors';
 import {
   generateOAuthUrl,
   parseOAuthState,
@@ -34,6 +36,7 @@ export function AvitoConnectModal({
   property,
   onSuccess,
 }: AvitoConnectModalProps) {
+  const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [oauthRedirecting, setOauthRedirecting] = useState(false);
@@ -443,9 +446,13 @@ export function AvitoConnectModal({
               toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
             }
           } else {
-            // Check for "Объявление не найдено" error
             const errorMessage = syncResult.message || 'Ошибка синхронизации с Avito';
-            if (errorMessage.includes('Объявление не найдено') || errorMessage.includes('404') || errorMessage.includes('не найдено')) {
+            if (syncResult.errors && syncResult.errors.length > 0) {
+              showAvitoErrors(syncResult.errors, t).catch((err) => {
+                console.error('showAvitoErrors failed:', err);
+                toast.error(errorMessage);
+              });
+            } else if (errorMessage.includes('Объявление не найдено') || errorMessage.includes('404') || errorMessage.includes('не найдено')) {
               toast.error('Проверь ID объявления — это длинный номер из URL Avito (10-12 цифр)');
             } else {
               toast.error(errorMessage);

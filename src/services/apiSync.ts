@@ -298,6 +298,7 @@ export async function syncAvitoIntegration(
       console.error('syncAvitoIntegration: Sync failed (hasError: true)', {
         message,
         errorsCount: errors.length,
+        errors: errors.map(e => ({ operation: e.operation, statusCode: e.statusCode, message: e.message })),
       });
       return { success: false, errors, message };
     }
