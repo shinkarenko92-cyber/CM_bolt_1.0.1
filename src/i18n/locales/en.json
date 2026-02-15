@@ -350,7 +350,7 @@
       "connectAvito": "Connect Avito",
       "apiIntegrations": "API integrations",
       "saveFirst": "Save the property first to configure integrations.",
-      "itemIdPlaceholder": "e.g. 2336174775",
+      "itemIdPlaceholder": "10–11 digits",
       "itemIdInvalid": "Listing ID must be 10-11 digits",
       "save": "Save",
       "cancel": "Cancel",

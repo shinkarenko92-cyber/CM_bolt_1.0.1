@@ -604,11 +604,10 @@ export function AvitoConnectModal({
             <div className="mb-6">
               <p className="text-white mb-2 font-medium">Номер аккаунта Avito:</p>
               <p className="text-sm text-slate-300 mb-4">
-                Короткий номер аккаунта (например, <span className="text-teal-400 font-bold">4720770</span>).
-                Можно найти в настройках аккаунта Avito.
+                Короткий номер аккаунта. Можно найти в настройках аккаунта Avito.
               </p>
               <Input
-                placeholder="Например: 4720770"
+                placeholder="Номер аккаунта"
                 value={userId}
                 onChange={(e) => {
                   // Only allow numbers, max 8 digits
@@ -630,11 +629,10 @@ export function AvitoConnectModal({
             <div className="mb-6">
               <p className="text-white mb-2 font-medium">ID объявления на Avito:</p>
               <p className="text-sm text-slate-300 mb-4">
-                ID объявления должен содержать 10-12 цифр. ID можно найти в URL объявления: avito.ru/moskva/kvartiry/
-                <span className="text-teal-400 font-bold">2336174775</span>
+                ID объявления — 10–12 цифр из URL объявления на Avito.
               </p>
               <Input
-                placeholder="Пример: 3123456789 (из URL Avito)"
+                placeholder="ID объявления (10–12 цифр)"
                 value={itemId}
                 onChange={(e) => {
                   // Only allow numbers, max 12 digits

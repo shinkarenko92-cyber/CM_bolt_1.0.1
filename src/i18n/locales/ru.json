@@ -360,7 +360,7 @@
       "connectAvito": "Подключить Avito",
       "apiIntegrations": "API интеграции",
       "saveFirst": "Сначала сохраните объект, чтобы настроить интеграции с площадками.",
-      "itemIdPlaceholder": "Например, 2336174775",
+      "itemIdPlaceholder": "10–11 цифр",
       "itemIdInvalid": "ID объявления должен содержать 10-11 цифр",
       "save": "Сохранить",
       "cancel": "Отмена",
