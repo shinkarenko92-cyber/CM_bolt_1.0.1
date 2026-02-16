@@ -311,10 +311,8 @@ export function Dashboard() {
     }
   }, [user, t]);
 
-  // Sync chats from Avito API
-  // TEMPORARILY DISABLED: Waiting for Avito approval
-   
-  const _syncChatsFromAvito = useCallback(async () => {
+  // Sync chats from Avito API (full API access enabled)
+  const syncChatsFromAvito = useCallback(async () => {
     if (!user) return;
 
     // If no properties loaded yet, skip sync
@@ -418,10 +416,6 @@ export function Dashboard() {
       console.error('Error syncing chats from Avito:', error);
     }
   }, [user, properties, loadChats]);
-
-  // Suppress unused variable warning - function is temporarily disabled
-   
-  void _syncChatsFromAvito;
 
   // Load messages for selected chat
   const loadMessages = useCallback(async (chatId: string, offset = 0, limit = 50) => {
@@ -557,12 +551,24 @@ export function Dashboard() {
     }
   }, [user, chats, loadMessages]);
 
-  // Load chats on mount and when view changes to messages
+  // Load chats and sync from Avito when view changes to messages
   useEffect(() => {
     if (currentView === 'messages' && user) {
       loadChats();
+      syncChatsFromAvito();
     }
-  }, [currentView, user, loadChats]);
+  }, [currentView, user, loadChats, syncChatsFromAvito]);
+
+  // Periodic sync of chats list while on Messages tab (Avito Messenger API)
+  useEffect(() => {
+    if (currentView !== 'messages' || !user) return;
+
+    const intervalId = setInterval(() => {
+      syncChatsFromAvito();
+    }, 15000); // 15 seconds
+
+    return () => clearInterval(intervalId);
+  }, [currentView, user, syncChatsFromAvito]);
 
   // Load messages when chat is selected
   useEffect(() => {
@@ -590,23 +596,6 @@ export function Dashboard() {
       clearInterval(intervalId);
     };
   }, [selectedChatId, syncMessagesFromAvito]);
-
-  // Periodic sync every 15 seconds for chats (always, regardless of view)
-  // TEMPORARILY DISABLED: Waiting for Avito approval
-  // useEffect(() => {
-  //   if (!user) return;
-
-  //   // Initial sync
-  //   _syncChatsFromAvito();
-
-  //   const intervalId = setInterval(() => {
-  //     _syncChatsFromAvito();
-  //   }, 15000); // 15 seconds
-
-  //   return () => {
-  //     clearInterval(intervalId);
-  //   };
-  // }, [user, _syncChatsFromAvito]);
 
   // Handle send message
   const handleSendMessage = useCallback(async (
