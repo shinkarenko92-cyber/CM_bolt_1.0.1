@@ -82,6 +82,7 @@ export function Dashboard() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [prefilledDates, setPrefilledDates] = useState<{ propertyId: string; checkIn: string; checkOut: string } | null>(null);
   const [isDeletePropertyModalOpen, setIsDeletePropertyModalOpen] = useState(false);
+  const [refreshIntegrationsTrigger, setRefreshIntegrationsTrigger] = useState(0);
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
   const [bookingsForDelete, setBookingsForDelete] = useState<Booking[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -1799,6 +1800,7 @@ export function Dashboard() {
             onAdd={handleAddProperty}
             onUpdate={handleUpdateProperty}
             onDelete={handleDeleteProperty}
+            onPropertyModalClose={() => setRefreshIntegrationsTrigger((t) => t + 1)}
           />
         ) : currentView === 'bookings' ? (
           <BookingsView
@@ -1872,6 +1874,7 @@ export function Dashboard() {
               onDateSelectionReset={() => {
                 // Callback for date selection reset (optional)
               }}
+              refreshIntegrationsTrigger={refreshIntegrationsTrigger}
             />
             <AddReservationModal
               isOpen={isAddModalOpen}

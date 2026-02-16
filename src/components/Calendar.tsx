@@ -33,6 +33,8 @@ type CalendarProps = {
   onBookingUpdate: (bookingId: string, updates: Partial<Booking>) => void;
   onPropertiesUpdate?: (properties: Property[]) => void;
   onDateSelectionReset?: () => void;
+  /** Increment to refresh Avito markup (e.g. after editing markup in PropertyModal) */
+  refreshIntegrationsTrigger?: number;
 };
 
 type DateSelection = {
@@ -56,6 +58,7 @@ export function Calendar({
   onBookingUpdate,
   onPropertiesUpdate,
   onDateSelectionReset,
+  refreshIntegrationsTrigger,
 }: CalendarProps) {
   // We want the left edge to show 2 days before the anchor day (today / selected date).
   // With 60 days window where anchor is at index centerOffset, we scroll to (centerOffset - 2).
@@ -73,6 +76,7 @@ export function Calendar({
     new Set(properties.map(p => p.id))
   );
   const [propertyRates, setPropertyRates] = useState<Map<string, PropertyRate[]>>(new Map());
+  const [propertyAvitoMarkup, setPropertyAvitoMarkup] = useState<Map<string, number>>(new Map());
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dateSelection, setDateSelection] = useState<DateSelection>({
     propertyId: '',
@@ -136,8 +140,16 @@ export function Calendar({
 
   useEffect(() => {
     loadPropertyRates();
+    loadPropertyAvitoMarkup();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [properties]);
+
+  useEffect(() => {
+    if (refreshIntegrationsTrigger != null && refreshIntegrationsTrigger > 0) {
+      loadPropertyAvitoMarkup();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshIntegrationsTrigger]);
 
   // Автоматически разворачиваем только действительно новые объекты при их загрузке
   // seenPropertyIds отслеживает все объекты, которые мы когда-либо видели
@@ -476,6 +488,29 @@ export function Calendar({
     }
   };
 
+  const loadPropertyAvitoMarkup = async (): Promise<void> => {
+    if (properties.length === 0) {
+      setPropertyAvitoMarkup(new Map());
+      return;
+    }
+    try {
+      const propertyIds = properties.map(p => p.id);
+      const { data } = await supabase
+        .from('integrations')
+        .select('property_id, avito_markup')
+        .eq('platform', 'avito')
+        .in('property_id', propertyIds);
+      const map = new Map<string, number>();
+      data?.forEach((row: { property_id: string; avito_markup: number | null }) => {
+        const markup = row.avito_markup ?? 0;
+        map.set(row.property_id, markup);
+      });
+      setPropertyAvitoMarkup(map);
+    } catch (error) {
+      console.error('Error loading Avito markup:', error);
+      setPropertyAvitoMarkup(new Map());
+    }
+  };
 
   const togglePropertyExpansion = (propertyId: string) => {
     const newExpanded = new Set(expandedProperties);
@@ -992,7 +1027,11 @@ export function Calendar({
                                           if (startDate) {
                                             const endDate = dateString;
                                             const rate = getRateForDate(property.id, date);
-                                            const displayPrice = rate?.daily_price || property.base_price;
+                                            const basePrice = rate?.daily_price ?? property.base_price ?? 0;
+                                            const markup = propertyAvitoMarkup.get(property.id) ?? 0;
+                                            const displayPrice = markup < 0
+                                              ? Math.round(basePrice + Math.abs(markup))
+                                              : Math.round(basePrice * (1 + markup / 100));
 
                                             setConditionsModalData({
                                               propertyId: property.id,
@@ -1044,7 +1083,11 @@ export function Calendar({
                                           dateString <= dateSelection.endDate;
                                         const isOccupied = isCellOccupied(property.id, date);
                                         const rate = getRateForDate(property.id, date);
-                                        const displayPrice = Math.round(rate?.daily_price || property.base_price);
+                                        const basePrice = rate?.daily_price ?? property.base_price ?? 0;
+                                        const markup = propertyAvitoMarkup.get(property.id) ?? 0;
+                                        const displayPrice = markup < 0
+                                          ? Math.round(basePrice + Math.abs(markup))
+                                          : Math.round(basePrice * (1 + markup / 100));
                                         const isDragOverThisCell = dragOverDates.has(dateString) && dragOverCell?.propertyId === property.id;
                                         const dragOverColor = isDragValid
                                           ? 'bg-emerald-500/40 ring-2 ring-emerald-400 ring-inset'

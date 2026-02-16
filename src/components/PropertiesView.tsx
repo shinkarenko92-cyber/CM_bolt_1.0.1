@@ -9,9 +9,11 @@ interface PropertiesViewProps {
   onAdd: (property: Omit<Property, 'id' | 'owner_id' | 'created_at' | 'updated_at'>) => Promise<void>;
   onUpdate: (id: string, property: Partial<Property>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  /** Called when PropertyModal closes (so parent can refresh calendar integrations) */
+  onPropertyModalClose?: () => void;
 }
 
-export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: PropertiesViewProps) {
+export function PropertiesView({ properties, onAdd, onUpdate, onDelete, onPropertyModalClose }: PropertiesViewProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const oauthProcessedRef = useRef(false);
@@ -216,6 +218,7 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
           onClose={() => {
             setIsModalOpen(false);
             setSelectedProperty(null);
+            onPropertyModalClose?.();
           }}
           property={selectedProperty}
           onSave={async (data) => {
@@ -226,11 +229,13 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete }: Proper
             }
             setIsModalOpen(false);
             setSelectedProperty(null);
+            onPropertyModalClose?.();
           }}
           onDelete={async (id) => {
             await onDelete(id);
             setIsModalOpen(false);
             setSelectedProperty(null);
+            onPropertyModalClose?.();
           }}
         />
       </div>

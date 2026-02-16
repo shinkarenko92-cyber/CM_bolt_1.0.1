@@ -1050,12 +1050,22 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
             </div>
             <div className="mt-3 p-3 bg-slate-800 rounded border border-slate-700">
               <p className="text-sm text-slate-300">
-                <span className="text-slate-400">Base 5000</span>
-                {newMarkupType === 'percent' ? (
-                  <span> + {newMarkup}% = <span className="text-white font-semibold">{Math.round(5000 * (1 + newMarkup / 100))}</span></span>
-                ) : (
-                  <span> + {newMarkup} руб = <span className="text-white font-semibold">{5000 + newMarkup}</span></span>
-                )}
+                {(() => {
+                  const basePrice = property?.base_price ?? parseFloat(formData.base_price) ?? 0;
+                  const withMarkup = newMarkupType === 'percent'
+                    ? Math.round(basePrice * (1 + newMarkup / 100))
+                    : Math.round(basePrice + newMarkup);
+                  return (
+                    <>
+                      <span className="text-slate-400">База {basePrice}</span>
+                      {newMarkupType === 'percent' ? (
+                        <span> + {newMarkup}% = <span className="text-white font-semibold">{withMarkup}</span></span>
+                      ) : (
+                        <span> + {newMarkup} руб = <span className="text-white font-semibold">{withMarkup}</span></span>
+                      )}
+                    </>
+                  );
+                })()}
               </p>
             </div>
           </div>
