@@ -316,6 +316,8 @@
       "bookings_update": "Bookings update",
       "sync": "Synchronization",
       "unknown_operation": "Unknown operation",
+      "recommendationsTitle": "Recommendations",
+      "priceMinValidation": "Night price must not be below minimum. Set price greater than 0 (minimum 1 ₽).",
       "recommendations": {
         "priceTooLow": "Make sure the price meets Avito's minimum requirements",
         "priceTooHigh": "Make sure the price does not exceed the maximum allowed",

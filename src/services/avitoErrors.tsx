@@ -151,6 +151,24 @@ export function formatAvitoError(errorInfo: AvitoErrorInfo, t: TFunction): strin
 }
 
 /**
+ * User-visible message for 422 price validation (Avito: night_price must be greater than 0)
+ */
+export function getDisplayMessage(error: AvitoErrorInfo, t: TFunction): string {
+  if (error.statusCode !== 422) return error.message;
+  const details = error.details as Record<string, unknown> | undefined;
+  const fields = details?.fields as Record<string, string> | undefined;
+  const nightPriceRule = fields?.night_price;
+  const msg = (error.message || '').toLowerCase();
+  if (nightPriceRule || msg.includes('night_price') || msg.includes('greater than 0')) {
+    const out = t('avito.errors.priceMinValidation', {
+      defaultValue: 'Цена за ночь не должна быть меньше минимальной. Укажите цену больше 0 (минимум 1 ₽).',
+    });
+    return typeof out === 'string' ? out : 'Цена за ночь не должна быть меньше минимальной. Укажите цену больше 0 (минимум 1 ₽).';
+  }
+  return error.message;
+}
+
+/**
  * Get recommendations based on error type
  */
 function getRecommendations(errorInfo: AvitoErrorInfo, t: TFunction): string[] {
@@ -167,16 +185,17 @@ function getRecommendations(errorInfo: AvitoErrorInfo, t: TFunction): string[] {
     }
   };
 
-  // Validation errors
-  if (statusCode === 400 || errorCode === 'VALIDATION_ERROR') {
-    if (message.toLowerCase().includes('price') || message.toLowerCase().includes('цена')) {
-      if (message.toLowerCase().includes('low') || message.toLowerCase().includes('низк')) {
-        recommendations.push(safeT('avito.errors.recommendations.priceTooLow', 'Убедитесь, что цена соответствует минимальным требованиям Avito'));
-      } else if (message.toLowerCase().includes('high') || message.toLowerCase().includes('высок')) {
+  // Validation errors (400, 422)
+  if (statusCode === 400 || statusCode === 422 || errorCode === 'VALIDATION_ERROR') {
+    const msg = message.toLowerCase();
+    if (msg.includes('price') || msg.includes('цена') || msg.includes('night_price')) {
+      if (msg.includes('greater than 0') || msg.includes('must be greater') || msg.includes('low') || msg.includes('низк')) {
+        recommendations.push(safeT('avito.errors.recommendations.priceTooLow', 'Убедитесь, что цена соответствует минимальным требованиям Avito (цена за ночь должна быть больше 0)'));
+      } else if (msg.includes('high') || msg.includes('высок')) {
         recommendations.push(safeT('avito.errors.recommendations.priceTooHigh', 'Убедитесь, что цена не превышает максимально допустимую'));
       }
     }
-    if (message.toLowerCase().includes('date') || message.toLowerCase().includes('дата')) {
+    if (msg.includes('date') || msg.includes('дата')) {
       recommendations.push(safeT('avito.errors.recommendations.invalidDateRange', 'Проверьте корректность диапазона дат'));
     }
   }
@@ -249,7 +268,7 @@ export async function showAvitoErrors(
               <strong>{t('avito.errors.operation', { defaultValue: 'Операция' })}:</strong> {operationName}
             </div>
             <div style={{ marginBottom: 12 }}>
-              <strong>{t('avito.errors.message', { defaultValue: 'Сообщение' })}:</strong> {error.message}
+              <strong>{t('avito.errors.message', { defaultValue: 'Сообщение' })}:</strong> {getDisplayMessage(error, t)}
             </div>
             {error.statusCode && (
               <div style={{ marginBottom: 12 }}>
@@ -287,7 +306,7 @@ export async function showAvitoErrors(
               <div style={{ marginTop: 16 }}>
                 <strong>{(() => {
                   try {
-                    const label = t('avito.errors.recommendations', { defaultValue: 'Рекомендации' });
+                    const label = t('avito.errors.recommendationsTitle', { defaultValue: 'Рекомендации' });
                     return typeof label === 'string' ? label : 'Рекомендации';
                   } catch {
                     return 'Рекомендации';

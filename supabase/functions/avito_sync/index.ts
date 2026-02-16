@@ -1259,9 +1259,9 @@ Deno.serve(async (req: Request) => {
         // Negative values = rub, positive = %
         const basePrice = property?.base_price || 0;
         const markup = integration.avito_markup ?? 0;
-        const priceWithMarkup = markup < 0 
+        const priceWithMarkup = Math.max(1, markup < 0 
           ? Math.round(basePrice + Math.abs(markup))  // Fixed rub markup
-          : Math.round(basePrice * (1 + markup / 100));  // Percentage markup
+          : Math.round(basePrice * (1 + markup / 100)));  // Avito: night_price must be > 0
 
         // Prepare blocked dates from bookings
         // Используем реальные check_in и check_out для создания бронирований
@@ -1381,7 +1381,7 @@ Deno.serve(async (req: Request) => {
           } | null = null;
 
           for (const rate of sortedRates) {
-            const priceWithMarkup = Math.round(rate.daily_price * (1 + markup / 100));
+            const priceWithMarkup = Math.max(1, Math.round(rate.daily_price * (1 + markup / 100)));  // Avito: night_price must be > 0
             const minStay = rate.min_stay || property?.minimum_booking_days || 1;
             // TODO: Добавить extra_guest_fee когда поле будет доступно в rate или property
             // const extraGuestFee = rate.extra_guest_fee || property?.extra_guest_fee;
@@ -1420,7 +1420,7 @@ Deno.serve(async (req: Request) => {
           pricesToUpdate.push({
             date_from: today.toISOString().split('T')[0],
             date_to: endDate.toISOString().split('T')[0],
-            night_price: priceWithMarkup,
+            night_price: Math.max(1, priceWithMarkup),  // Avito: night_price must be > 0
             minimal_duration: property?.minimum_booking_days || 1,
             // TODO: Добавить extra_guest_fee когда поле будет доступно в property
             // extra_guest_fee: property?.extra_guest_fee,
@@ -1555,7 +1555,7 @@ Deno.serve(async (req: Request) => {
         // 2. Базовые параметры: POST /realty/v1/items/{item_id}/base (Avito STR spec, без user_id в пути)
         const baseParamsUrl = `${AVITO_API_BASE}/realty/v1/items/${itemId}/base`;
         const baseParamsBody = {
-          night_price: priceWithMarkup,
+          night_price: Math.max(1, priceWithMarkup),  // Avito: night_price must be > 0
           minimal_duration: property?.minimum_booking_days || 1,
         };
         console.log("Updating base parameters in Avito", {

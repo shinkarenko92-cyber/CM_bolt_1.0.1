@@ -1039,6 +1039,15 @@ export function Dashboard() {
           }
           if (!syncResult.skipUserError) {
             console.error('Dashboard: Avito sync failed after booking creation', syncResult);
+            if (syncResult.errors?.length) {
+              syncResult.errors.forEach((e, i) => {
+                console.error(`Dashboard: Avito error ${i + 1}/${syncResult.errors!.length}`, {
+                  operation: e.operation,
+                  statusCode: e.statusCode,
+                  message: e.message,
+                });
+              });
+            }
           }
         }
       } catch (error) {
@@ -1193,6 +1202,15 @@ export function Dashboard() {
             }
             if (!syncResult.skipUserError) {
               console.error('Dashboard: Avito sync failed after booking update', syncResult);
+              if (syncResult.errors?.length) {
+                syncResult.errors.forEach((e, i) => {
+                  console.error(`Dashboard: Avito error ${i + 1}/${syncResult.errors!.length}`, {
+                    operation: e.operation,
+                    statusCode: e.statusCode,
+                    message: e.message,
+                  });
+                });
+              }
             }
           }
         } catch (error) {
@@ -1314,6 +1332,15 @@ export function Dashboard() {
                   isAvitoBooking,
                   syncResult,
                 });
+                if (syncResult.errors?.length) {
+                  syncResult.errors.forEach((e, i) => {
+                    console.error(`Dashboard: Avito error ${i + 1}/${syncResult.errors!.length}`, {
+                      operation: e.operation,
+                      statusCode: e.statusCode,
+                      message: e.message,
+                    });
+                  });
+                }
               }
             }
           } catch (error) {

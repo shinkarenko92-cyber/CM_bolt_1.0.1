@@ -5,7 +5,7 @@
 
 import { Modal } from 'antd';
 import { useTranslation } from 'react-i18next';
-import type { AvitoErrorInfo } from '../services/avitoErrors';
+import { getDisplayMessage, type AvitoErrorInfo } from '../services/avitoErrors';
 
 interface AvitoErrorModalProps {
   isOpen: boolean;
@@ -59,7 +59,7 @@ export function AvitoErrorModal({
           <strong>{t('avito.errors.operation', { defaultValue: 'Операция' })}:</strong> {operationName}
         </div>
         <div style={{ marginBottom: 12 }}>
-          <strong>{t('avito.errors.message', { defaultValue: 'Сообщение' })}:</strong> {error.message}
+          <strong>{t('avito.errors.message', { defaultValue: 'Сообщение' })}:</strong> {getDisplayMessage(error, t)}
         </div>
         {error.statusCode && (
           <div style={{ marginBottom: 12 }}>
@@ -97,7 +97,7 @@ export function AvitoErrorModal({
         })() : null}
         {recommendations.length > 0 && (
           <div style={{ marginTop: 16 }}>
-            <strong>{t('avito.errors.recommendations', { defaultValue: 'Рекомендации' })}:</strong>
+            <strong>{t('avito.errors.recommendationsTitle', { defaultValue: 'Рекомендации' })}:</strong>
             <ul style={{ marginTop: '8px', marginBottom: 0, paddingLeft: '20px' }}>
               {recommendations.map((rec, index) => (
                 <li key={index} style={{ marginBottom: '4px' }}>
