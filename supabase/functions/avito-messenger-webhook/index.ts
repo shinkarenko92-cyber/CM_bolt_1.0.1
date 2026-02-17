@@ -54,6 +54,8 @@ interface AvitoMessengerWebhookPayload {
   timestamp?: string;
 }
 
+type WebhookMessage = NonNullable<AvitoMessengerWebhookPayload["message"]>;
+
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -174,7 +176,7 @@ async function handleNewMessage(
  */
 async function saveMessage(
   chatId: string,
-  message: AvitoMessengerWebhookPayload["message"]!,
+  message: WebhookMessage,
   supabase: ReturnType<typeof createClient>
 ): Promise<void> {
   // Check if message already exists
