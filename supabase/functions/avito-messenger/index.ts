@@ -18,8 +18,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-type Action = "getChats" | "getMessages" | "sendMessage";
-
 interface BodyGetChats {
   action: "getChats";
   integration_id: string;
