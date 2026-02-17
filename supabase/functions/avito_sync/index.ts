@@ -2057,6 +2057,9 @@ Deno.serve(async (req: Request) => {
             base_price?: number; // Стоимость проживания на весь срок бронирования (основное поле)
             total_price?: number; // Fallback для обратной совместимости
             price?: number; // Fallback для обратной совместимости
+            name?: string; // Верхнеуровневые поля (некоторые ответы API)
+            phone?: string;
+            email?: string;
             contact?: {
               name?: string; // Имя гостя
               email?: string; // Email гостя
@@ -2072,6 +2075,9 @@ Deno.serve(async (req: Request) => {
               email?: string;
               phone?: string;
             };
+            booker?: { name?: string; email?: string; phone?: string };
+            renter?: { name?: string; email?: string; phone?: string };
+            profile?: { name?: string; email?: string; phone?: string };
             guest_name?: string; // Fallback для обратной совместимости
             guest_email?: string; // Fallback для обратной совместимости
             guest_phone?: string; // Fallback для обратной совместимости
@@ -2230,7 +2236,16 @@ Deno.serve(async (req: Request) => {
                 // Try to fetch booking details if contact data is missing
                 let bookingWithDetails = booking;
                 const hasContactData = booking.contact?.name || booking.contact?.email || booking.contact?.phone ||
-                                      booking.customer?.name || booking.customer?.email || booking.customer?.phone;
+                                      booking.customer?.name || booking.customer?.email || booking.customer?.phone ||
+                                      booking.guest?.name || booking.guest?.phone || booking.guest?.email ||
+                                      booking.user?.name || booking.user?.phone || booking.user?.email ||
+                                      booking.booker?.name || booking.booker?.phone || booking.booker?.email ||
+                                      booking.renter?.name || booking.renter?.phone || booking.renter?.email ||
+                                      booking.profile?.name || booking.profile?.phone || booking.profile?.email ||
+                                      booking.guest_name || booking.guest_phone || booking.guest_email ||
+                                      (typeof booking.name === "string" && booking.name.trim()) ||
+                                      (typeof booking.phone === "string" && booking.phone.trim()) ||
+                                      (typeof booking.email === "string" && booking.email.trim());
                 
                 if (!hasContactData) {
                   console.log("Contact data missing, attempting to fetch booking details", {
@@ -2246,6 +2261,15 @@ Deno.serve(async (req: Request) => {
                       customer: details.customer || booking.customer,
                       guest: details.guest || booking.guest,
                       user: details.user || booking.user,
+                      booker: details.booker || booking.booker,
+                      renter: details.renter || booking.renter,
+                      profile: details.profile || booking.profile,
+                      name: details.name ?? booking.name,
+                      phone: details.phone ?? booking.phone,
+                      email: details.email ?? booking.email,
+                      guest_name: details.guest_name ?? booking.guest_name,
+                      guest_phone: details.guest_phone ?? booking.guest_phone,
+                      guest_email: details.guest_email ?? booking.guest_email,
                     };
                     console.log("Merged booking details", {
                       bookingId: String(bookingId),
@@ -2256,21 +2280,22 @@ Deno.serve(async (req: Request) => {
 
 
                 // Расширенная функция извлечения имени с проверкой всех возможных полей
-                // Приоритет: customer.name > contact.name > остальные
+                // Приоритет: customer > contact > booker > renter > profile > guest > user > top-level
                 const extractGuestName = (booking: AvitoBookingResponse): string => {
-                  // Приоритет customer.name согласно документации
-                  const name = booking.customer?.name 
-                    || booking.contact?.name 
-                    || booking.guest_name 
+                  const name = booking.customer?.name
+                    || booking.contact?.name
+                    || booking.booker?.name
+                    || booking.renter?.name
+                    || booking.profile?.name
+                    || booking.guest_name
                     || booking.guest?.name
                     || booking.user?.name
-                    || ('name' in booking && typeof booking.name === 'string' ? booking.name : undefined);
-                  
+                    || (typeof booking.name === "string" ? booking.name : undefined);
+
                   if (name && name.trim() && name !== "Гость с Avito") {
                     return name.trim();
                   }
-                  
-                  // Логируем для диагностики, если имя не найдено
+
                   console.warn("Guest name not found in booking", {
                     bookingId: booking.avito_booking_id || booking.id,
                     availableFields: Object.keys(booking),
@@ -2278,34 +2303,41 @@ Deno.serve(async (req: Request) => {
                     customer: booking.customer,
                     guest: booking.guest,
                     user: booking.user,
+                    booker: booking.booker,
+                    renter: booking.renter,
+                    profile: booking.profile,
                   });
-                  
-                  return "Гость Avito"; // Fallback только если действительно нет имени
+
+                  return "Гость Avito";
                 };
 
                 // Расширенная функция извлечения телефона
-                // Приоритет: customer.phone > contact.phone > остальные
+                // Приоритет: customer > contact > booker > renter > profile > guest > user > top-level
                 const extractGuestPhone = (booking: AvitoBookingResponse): string | null => {
-                  // Приоритет customer.phone согласно документации
                   const phone = booking.customer?.phone
-                    || booking.contact?.phone 
-                    || booking.guest_phone 
+                    || booking.contact?.phone
+                    || booking.booker?.phone
+                    || booking.renter?.phone
+                    || booking.profile?.phone
+                    || booking.guest_phone
                     || booking.guest?.phone
                     || booking.user?.phone
-                    || ('phone' in booking && typeof booking.phone === 'string' ? booking.phone : undefined);
-                  
+                    || (typeof booking.phone === "string" ? booking.phone : undefined);
+
                   return normalizePhone(phone);
                 };
 
                 // Извлекаем данные гостя используя расширенные функции и bookingWithDetails
-                // Приоритет customer согласно документации
                 const contactName = extractGuestName(bookingWithDetails);
                 const contactEmail = bookingWithDetails.customer?.email
-                  || bookingWithDetails.contact?.email 
-                  || bookingWithDetails.guest_email 
+                  || bookingWithDetails.contact?.email
+                  || bookingWithDetails.booker?.email
+                  || bookingWithDetails.renter?.email
+                  || bookingWithDetails.profile?.email
+                  || bookingWithDetails.guest_email
                   || bookingWithDetails.guest?.email
                   || bookingWithDetails.user?.email
-                  || ('email' in bookingWithDetails && typeof bookingWithDetails.email === 'string' ? bookingWithDetails.email : null)
+                  || (typeof bookingWithDetails.email === "string" ? bookingWithDetails.email : null)
                   || null;
                 const contactPhone = extractGuestPhone(bookingWithDetails);
 

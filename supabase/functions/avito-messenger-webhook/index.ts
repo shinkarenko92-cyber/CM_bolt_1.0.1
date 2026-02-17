@@ -235,14 +235,17 @@ async function handleNewChat(
   const chat = payload.chat;
   const avitoUserId = String(payload.user_id);
 
-  // Find integration by avito_user_id and item_id
-  const { data: integration, error: integrationError } = await supabase
+  // Find integration by avito_user_id; when item_id is present, filter by avito_item_id for correct property
+  let query = supabase
     .from("integrations")
     .select("id, property_id, avito_user_id")
     .eq("avito_user_id", avitoUserId)
     .eq("platform", "avito")
-    .eq("is_active", true)
-    .maybeSingle();
+    .eq("is_active", true);
+  if (payload.item_id != null && payload.item_id !== "") {
+    query = query.eq("avito_item_id", String(payload.item_id));
+  }
+  const { data: integration, error: integrationError } = await query.maybeSingle();
 
   if (integrationError || !integration) {
     console.error("Integration not found", {

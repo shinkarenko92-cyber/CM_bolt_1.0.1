@@ -520,6 +520,59 @@ class AvitoApiService {
   }
 
   /**
+   * Send a message in a chat using provided access token (integration token)
+   */
+  async sendMessageWithToken(
+    userId: string,
+    chatId: string,
+    accessToken: string,
+    text: string,
+    attachments?: Array<{ type: string; url: string; name?: string }>
+  ): Promise<{
+    id: string;
+    chat_id: string;
+    created: string;
+    content: {
+      text?: string;
+      attachments?: Array<{
+        type: string;
+        url: string;
+        name?: string;
+      }>;
+    };
+    author: {
+      user_id: string;
+      name: string;
+    };
+  }> {
+    const body: {
+      text?: string;
+      attachments?: Array<{ type: string; url: string; name?: string }>;
+    } = {};
+    if (text) body.text = text;
+    if (attachments && attachments.length > 0) body.attachments = attachments;
+
+    const response = await fetch(
+      `${AVITO_API_BASE}/messenger/v2/accounts/${userId}/chats/${chatId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Avito API error: ${response.status} - ${errorText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
    * Upload attachment (photo) for message
    * Note: This typically requires a two-step process:
    * 1. Upload file to get URL

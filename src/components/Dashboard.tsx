@@ -616,14 +616,24 @@ export function Dashboard() {
         .eq('id', chat.integration_id || '')
         .single();
 
-      if (!integration?.avito_user_id) {
+      if (!integration?.avito_user_id || !integration?.access_token_encrypted) {
         throw new Error('Integration not found');
       }
 
-      // Send message via Avito API
-      const avitoMessage = await avitoApi.sendMessage(
+      let accessToken = integration.access_token_encrypted;
+      try {
+        const { data: decrypted } = await supabase.rpc('decrypt_avito_token', {
+          encrypted_token: accessToken,
+        });
+        if (decrypted) accessToken = decrypted;
+      } catch {
+        // RPC may not exist or token not encrypted
+      }
+
+      const avitoMessage = await avitoApi.sendMessageWithToken(
         integration.avito_user_id,
         chat.avito_chat_id,
+        accessToken,
         text,
         attachments
       );

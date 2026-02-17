@@ -26,6 +26,9 @@ interface AvitoWebhookPayload {
     id?: string | number;
     check_in: string;
     check_out: string;
+    name?: string;
+    phone?: string;
+    email?: string;
     contact?: {
       name?: string;
       email?: string;
@@ -36,6 +39,13 @@ interface AvitoWebhookPayload {
       email?: string;
       phone?: string;
     };
+    user?: { name?: string; email?: string; phone?: string };
+    booker?: { name?: string; email?: string; phone?: string };
+    renter?: { name?: string; email?: string; phone?: string };
+    profile?: { name?: string; email?: string; phone?: string };
+    guest_name?: string;
+    guest_email?: string;
+    guest_phone?: string;
     guest?: {
       name?: string;
       email?: string;
@@ -164,21 +174,39 @@ async function handleBookingEvent(
     return;
   }
 
-  // Extract guest contact data
+  // Extract guest contact data (same field order as avito_sync)
   const guestName =
     booking.customer?.name ||
     booking.contact?.name ||
+    booking.booker?.name ||
+    booking.renter?.name ||
+    booking.profile?.name ||
+    booking.guest_name ||
     booking.guest?.name ||
+    booking.user?.name ||
+    (typeof booking.name === "string" && booking.name.trim() ? booking.name.trim() : null) ||
     "Гость Avito";
   const guestEmail =
     booking.customer?.email ||
     booking.contact?.email ||
+    booking.booker?.email ||
+    booking.renter?.email ||
+    booking.profile?.email ||
+    booking.guest_email ||
     booking.guest?.email ||
+    booking.user?.email ||
+    (typeof booking.email === "string" ? booking.email : null) ||
     null;
   const guestPhone =
     booking.customer?.phone ||
     booking.contact?.phone ||
+    booking.booker?.phone ||
+    booking.renter?.phone ||
+    booking.profile?.phone ||
+    booking.guest_phone ||
     booking.guest?.phone ||
+    booking.user?.phone ||
+    (typeof booking.phone === "string" ? booking.phone : null) ||
     null;
 
   // Normalize phone number
