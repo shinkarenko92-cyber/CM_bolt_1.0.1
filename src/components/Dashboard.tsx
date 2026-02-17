@@ -59,6 +59,35 @@ type NewReservation = {
   deposit_returned?: boolean | null;
 };
 
+// Avito Messenger API shapes (from avito-messenger Edge Function)
+type AvitoChatUser = { user_id: string; name: string; avatar?: { url: string } };
+type AvitoChat = {
+  id: string;
+  item_id?: string;
+  created: string;
+  updated: string;
+  unread_count: number;
+  last_message?: { text: string; created: string };
+  users?: AvitoChatUser[];
+};
+type AvitoMessage = {
+  id: string;
+  chat_id: string;
+  created: string;
+  content: { text?: string; attachments?: Array<{ type: string; url: string; name?: string }> };
+  author: { user_id: string; name: string };
+};
+type AvitoMessageRow = {
+  chat_id: string;
+  avito_message_id: string;
+  sender_type: string;
+  sender_name: string;
+  text: string | null;
+  attachments: Array<{ type: string; url: string; name?: string }>;
+  created_at: string;
+  is_read: boolean;
+};
+
 export function Dashboard() {
   const { t } = useTranslation();
   const { user, isAdmin } = useAuth();
@@ -354,9 +383,9 @@ export function Dashboard() {
           }
 
           // Transform Avito chats to our format and save to database
-          const chatsToUpsert = avitoResponse.chats.map((avitoChat) => {
+          const chatsToUpsert = avitoResponse.chats.map((avitoChat: AvitoChat) => {
             // Find contact user (not the owner)
-            const contactUser = avitoChat.users?.find((u) => u.user_id !== integration.avito_user_id);
+            const contactUser = avitoChat.users?.find((u: AvitoChatUser) => u.user_id !== integration.avito_user_id);
 
             return {
               owner_id: user.id,
@@ -486,7 +515,7 @@ export function Dashboard() {
         .single();
       const avitoUserId = integration?.avito_user_id != null ? String(integration.avito_user_id) : null;
 
-      const messagesToInsert = avitoResponse.messages.map((avitoMsg) => {
+      const messagesToInsert = avitoResponse.messages.map((avitoMsg: AvitoMessage) => {
         const senderType = avitoUserId && avitoMsg.author.user_id === avitoUserId ? 'user' : 'contact';
         
         return {
@@ -506,7 +535,7 @@ export function Dashboard() {
       const { error: insertError } = await supabase
         .from('messages')
         .upsert(
-          messagesToInsert.map(msg => ({
+          messagesToInsert.map((msg: AvitoMessageRow) => ({
             ...msg,
             updated_at: new Date().toISOString(),
           })),
