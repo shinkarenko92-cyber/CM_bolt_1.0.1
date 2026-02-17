@@ -1,0 +1,6 @@
+# Supabase project config (used by CLI for deploy)
+# https://supabase.com/docs/guides/functions/function-configuration
+
+[functions.avito-messenger]
+# JWT is validated inside the function via auth.getUser(token); gateway 403 avoided.
+verify_jwt = false

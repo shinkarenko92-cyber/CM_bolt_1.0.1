@@ -2,6 +2,9 @@
  * Avito Messenger Proxy - server-side proxy to avoid CORS when calling Avito API from browser.
  * Actions: getChats, getMessages, sendMessage.
  * Documentation: https://developers.avito.ru/api-catalog/messenger/documentation
+ *
+ * Deploy: supabase functions deploy avito-messenger
+ * If you get 403, ensure verify_jwt = false in supabase/config.toml for this function (JWT is validated inside).
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -62,18 +65,17 @@ Deno.serve(async (req: Request) => {
       { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
+  const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
+  const { data: { user }, error: userError } = await supabaseAuth.auth.getUser(token);
   if (userError || !user) {
     return new Response(
-      JSON.stringify({ error: "Unauthorized" }),
+      JSON.stringify({ error: "Unauthorized", details: userError?.message }),
       { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
