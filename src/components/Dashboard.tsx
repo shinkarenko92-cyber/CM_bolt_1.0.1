@@ -35,7 +35,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { getOAuthSuccess, getOAuthError } from '../services/avito';
 import { syncWithExternalAPIs, syncAvitoIntegration } from '../services/apiSync';
 import { showAvitoErrors } from '../services/avitoErrors';
-import { avitoApi } from '../services/avitoApi';
 import { DeletePropertyModal } from './DeletePropertyModal';
 import { ImportBookingsModal } from './ImportBookingsModal';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -334,34 +333,23 @@ export function Dashboard() {
         return;
       }
 
-      // Sync chats for each integration
+      // Sync chats for each integration (via Edge Function to avoid CORS)
       for (const integration of integrations) {
-        if (!integration.avito_user_id || !integration.access_token_encrypted) {
+        if (!integration.avito_user_id) {
           continue;
         }
 
         try {
-          // Decrypt token if needed
-          let accessToken = integration.access_token_encrypted;
-          try {
-            const { data: decrypted } = await supabase.rpc('decrypt_avito_token', {
-              encrypted_token: accessToken,
-            });
-            if (decrypted) {
-              accessToken = decrypted;
-            }
-          } catch {
-            // If RPC fails, assume token is not encrypted or RPC doesn't exist
-            // Use token as-is
-          }
-
-          // Fetch chats from Avito API
-          const avitoResponse = await avitoApi.getChatsWithToken(
-            integration.avito_user_id,
-            accessToken
+          const { data: avitoResponse, error: fnError } = await supabase.functions.invoke(
+            'avito-messenger',
+            { body: { action: 'getChats', integration_id: integration.id } }
           );
 
-          if (!avitoResponse.chats || avitoResponse.chats.length === 0) {
+          if (fnError) {
+            console.error(`avito-messenger getChats error for ${integration.id}:`, fnError);
+            continue;
+          }
+          if (!avitoResponse?.chats || avitoResponse.chats.length === 0) {
             continue;
           }
 
@@ -462,49 +450,44 @@ export function Dashboard() {
         return;
       }
 
-      // Get integration to get avito_user_id and access_token
-      const { data: integration, error: integrationError } = await supabase
-        .from('integrations')
-        .select('avito_user_id, access_token_encrypted')
-        .eq('id', chat.integration_id)
-        .single();
-
-      if (integrationError || !integration?.avito_user_id || !integration?.access_token_encrypted) {
-        console.warn('Integration not found or missing credentials:', integrationError);
+      if (!chat.integration_id) {
+        console.warn('Chat has no integration_id');
         return;
       }
 
-      // Decrypt token if needed (check if RPC exists)
-      let accessToken = integration.access_token_encrypted;
-      try {
-        const { data: decrypted } = await supabase.rpc('decrypt_avito_token', {
-          encrypted_token: accessToken,
-        });
-        if (decrypted) {
-          accessToken = decrypted;
+      // Fetch messages via Edge Function (avoids CORS)
+      const { data: avitoResponse, error: fnError } = await supabase.functions.invoke(
+        'avito-messenger',
+        {
+          body: {
+            action: 'getMessages',
+            integration_id: chat.integration_id,
+            chat_id: chat.avito_chat_id,
+            limit: 20,
+            offset: 0,
+          },
         }
-      } catch {
-        // If RPC fails, assume token is not encrypted or RPC doesn't exist
-        // Use token as-is
-      }
-
-      // Fetch messages from Avito API (last 20 messages)
-      const avitoResponse = await avitoApi.getChatMessagesWithToken(
-        integration.avito_user_id,
-        chat.avito_chat_id,
-        accessToken,
-        20,
-        0
       );
 
-      if (!avitoResponse.messages || avitoResponse.messages.length === 0) {
+      if (fnError) {
+        console.warn('avito-messenger getMessages error:', fnError);
+        return;
+      }
+      if (!avitoResponse?.messages || avitoResponse.messages.length === 0) {
         return;
       }
 
       // Transform Avito messages to our format and save to database
+      // Get avito_user_id for sender_type (from integration; EF doesn't return it in getMessages)
+      const { data: integration } = await supabase
+        .from('integrations')
+        .select('avito_user_id')
+        .eq('id', chat.integration_id)
+        .single();
+      const avitoUserId = integration?.avito_user_id != null ? String(integration.avito_user_id) : null;
+
       const messagesToInsert = avitoResponse.messages.map((avitoMsg) => {
-        // Determine sender type: if author.user_id matches avito_user_id, it's from user, otherwise from contact
-        const senderType = avitoMsg.author.user_id === integration.avito_user_id ? 'user' : 'contact';
+        const senderType = avitoUserId && avitoMsg.author.user_id === avitoUserId ? 'user' : 'contact';
         
         return {
           chat_id: chatId,
@@ -606,37 +589,24 @@ export function Dashboard() {
     if (!user) return;
 
     try {
-      // Get integration to get avito_user_id
       const chat = chats.find(c => c.id === chatId);
-      if (!chat) throw new Error('Chat not found');
+      if (!chat?.integration_id) throw new Error('Chat not found');
 
-      const { data: integration } = await supabase
-        .from('integrations')
-        .select('avito_user_id, access_token_encrypted')
-        .eq('id', chat.integration_id || '')
-        .single();
-
-      if (!integration?.avito_user_id || !integration?.access_token_encrypted) {
-        throw new Error('Integration not found');
-      }
-
-      let accessToken = integration.access_token_encrypted;
-      try {
-        const { data: decrypted } = await supabase.rpc('decrypt_avito_token', {
-          encrypted_token: accessToken,
-        });
-        if (decrypted) accessToken = decrypted;
-      } catch {
-        // RPC may not exist or token not encrypted
-      }
-
-      const avitoMessage = await avitoApi.sendMessageWithToken(
-        integration.avito_user_id,
-        chat.avito_chat_id,
-        accessToken,
-        text,
-        attachments
+      const { data: avitoMessage, error: fnError } = await supabase.functions.invoke(
+        'avito-messenger',
+        {
+          body: {
+            action: 'sendMessage',
+            integration_id: chat.integration_id,
+            chat_id: chat.avito_chat_id,
+            text,
+            attachments,
+          },
+        }
       );
+
+      if (fnError) throw fnError;
+      if (!avitoMessage?.id) throw new Error('No message id from Avito');
 
       // Save message to database
       const { data: newMessage, error } = await supabase
