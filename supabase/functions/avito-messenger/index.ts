@@ -1,10 +1,8 @@
 /**
  * Avito Messenger Proxy - server-side proxy to avoid CORS when calling Avito API from browser.
  * Actions: getChats, getMessages, sendMessage.
- * Documentation: https://developers.avito.ru/api-catalog/messenger/documentation
- *
- * Deploy: supabase functions deploy avito-messenger
- * If you get 403, ensure verify_jwt = false in supabase/config.toml for this function (JWT is validated inside).
+ * Deploy: supabase functions deploy avito-messenger --no-verify-jwt
+ * (JWT is validated inside; gateway must not block with 403.)
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -45,11 +43,16 @@ interface BodySendMessage {
 type Body = BodyGetChats | BodyGetMessages | BodySendMessage;
 
 Deno.serve(async (req: Request) => {
+  const log = (step: string, data?: Record<string, unknown>) => {
+    console.log(`[avito-messenger] ${step}`, data ?? "");
+  };
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   if (req.method !== "POST") {
+    log("rejected", { reason: "method not allowed", method: req.method });
     return new Response(
       JSON.stringify({ error: "Method not allowed" }),
       { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -58,12 +61,14 @@ Deno.serve(async (req: Request) => {
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
+    log("rejected", { reason: "no Bearer token" });
     return new Response(
       JSON.stringify({ error: "Unauthorized" }),
       { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  log("token_received", { tokenLength: token.length, tokenPreview: token.slice(0, 20) + "..." });
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -72,16 +77,19 @@ Deno.serve(async (req: Request) => {
   const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
   const { data: { user }, error: userError } = await supabaseAuth.auth.getUser(token);
   if (userError || !user) {
+    log("auth_failed", { userError: userError?.message, hasUser: !!user });
     return new Response(
       JSON.stringify({ error: "Unauthorized", details: userError?.message }),
       { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
+  log("user_resolved", { userId: user.id, email: user.email });
 
   let body: Body;
   try {
     body = await req.json();
   } catch {
+    log("rejected", { reason: "invalid JSON body" });
     return new Response(
       JSON.stringify({ error: "Invalid JSON body" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -89,11 +97,13 @@ Deno.serve(async (req: Request) => {
   }
 
   if (!body?.action || !body?.integration_id) {
+    log("rejected", { reason: "missing action or integration_id", body: { action: body?.action, integration_id: body?.integration_id } });
     return new Response(
       JSON.stringify({ error: "Missing action or integration_id" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
+  log("body_parsed", { action: body.action, integration_id: body.integration_id });
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -106,11 +116,13 @@ Deno.serve(async (req: Request) => {
     .single();
 
   if (integrationError || !integration) {
+    log("integration_not_found", { integration_id: body.integration_id, error: integrationError?.message });
     return new Response(
       JSON.stringify({ error: "Integration not found" }),
       { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
+  log("integration_found", { integration_id: integration.id, property_id: integration.property_id, hasToken: !!integration.access_token_encrypted });
 
   const { data: property, error: propertyError } = await supabase
     .from("properties")
@@ -118,12 +130,21 @@ Deno.serve(async (req: Request) => {
     .eq("id", integration.property_id)
     .single();
 
-  if (propertyError || !property || property.owner_id !== user.id) {
+  if (propertyError || !property) {
+    log("property_not_found", { property_id: integration.property_id, error: propertyError?.message });
+    return new Response(
+      JSON.stringify({ error: "Property not found" }),
+      { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+  if (property.owner_id !== user.id) {
+    log("forbidden_owner_mismatch", { property_owner_id: property.owner_id, user_id: user.id });
     return new Response(
       JSON.stringify({ error: "Forbidden" }),
       { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
+  log("owner_verified", { owner_id: property.owner_id });
 
   let accessToken = integration.access_token_encrypted;
   try {
@@ -131,17 +152,21 @@ Deno.serve(async (req: Request) => {
       encrypted_token: accessToken,
     });
     if (decrypted) accessToken = decrypted;
-  } catch {
-    // RPC may not exist or token not encrypted
+  } catch (e) {
+    log("decrypt_skipped", { reason: e instanceof Error ? e.message : "unknown" });
   }
+  log("token_ready", { tokenLength: accessToken?.length ?? 0, tokenPreview: accessToken ? accessToken.slice(0, 10) + "..." : "empty" });
 
   const userId = String(integration.avito_user_id ?? integration.avito_account_id ?? "");
   if (!userId) {
+    log("rejected", { reason: "integration missing avito_user_id" });
     return new Response(
       JSON.stringify({ error: "Integration missing avito_user_id" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
+  log("avito_user_id", { userId });
+
   const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
     "Content-Type": "application/json",
@@ -156,9 +181,10 @@ Deno.serve(async (req: Request) => {
       if (b.limit != null) params.append("limit", String(b.limit));
       if (b.offset != null) params.append("offset", String(b.offset));
       if (params.toString()) url += `?${params.toString()}`;
-
+      log("avito_request", { action: "getChats", url });
       const res = await fetch(url, { headers });
       const data = await res.json().catch(() => ({}));
+      log("avito_response", { action: "getChats", status: res.status, ok: res.ok });
       if (!res.ok) {
         return new Response(
           JSON.stringify({ error: "Avito API error", status: res.status, data }),
@@ -183,9 +209,10 @@ Deno.serve(async (req: Request) => {
       if (b.limit != null) params.append("limit", String(b.limit));
       if (b.offset != null) params.append("offset", String(b.offset));
       if (params.toString()) url += `?${params.toString()}`;
-
+      log("avito_request", { action: "getMessages", url });
       const res = await fetch(url, { headers });
       const data = await res.json().catch(() => ({}));
+      log("avito_response", { action: "getMessages", status: res.status, ok: res.ok });
       if (!res.ok) {
         return new Response(
           JSON.stringify({ error: "Avito API error", status: res.status, data }),
@@ -208,12 +235,11 @@ Deno.serve(async (req: Request) => {
       const postBody: { text?: string; attachments?: typeof b.attachments } = {};
       if (b.text) postBody.text = b.text;
       if (b.attachments?.length) postBody.attachments = b.attachments;
-
-      const res = await fetch(
-        `${AVITO_API_BASE}/messenger/v2/accounts/${userId}/chats/${b.chat_id}/messages`,
-        { method: "POST", headers, body: JSON.stringify(postBody) }
-      );
+      const url = `${AVITO_API_BASE}/messenger/v2/accounts/${userId}/chats/${b.chat_id}/messages`;
+      log("avito_request", { action: "sendMessage", url, textLength: b.text?.length ?? 0 });
+      const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(postBody) });
       const data = await res.json().catch(() => ({}));
+      log("avito_response", { action: "sendMessage", status: res.status, ok: res.ok });
       if (!res.ok) {
         return new Response(
           JSON.stringify({ error: "Avito API error", status: res.status, data }),
@@ -230,7 +256,7 @@ Deno.serve(async (req: Request) => {
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    console.error("avito-messenger proxy error:", err);
+    console.error("[avito-messenger] proxy error:", err);
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : "Internal error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

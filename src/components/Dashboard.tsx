@@ -369,6 +369,7 @@ export function Dashboard() {
         }
 
         try {
+          // Edge Function avito-messenger: JWT is sent automatically via supabase client session
           const { data: avitoResponse, error: fnError } = await supabase.functions.invoke(
             'avito-messenger',
             { body: { action: 'getChats', integration_id: integration.id } }
