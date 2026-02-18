@@ -2059,32 +2059,50 @@ Deno.serve(async (req: Request) => {
             price?: number; // Fallback для обратной совместимости
             name?: string; // Верхнеуровневые поля (некоторые ответы API)
             phone?: string;
+            phone_number?: string; // Альтернативное поле телефона в API
+            contact_phone?: string;
             email?: string;
+            first_name?: string; // Имя и фамилия отдельно (API может отдавать так)
+            last_name?: string;
             contact?: {
               name?: string; // Имя гостя
+              first_name?: string;
+              last_name?: string;
               email?: string; // Email гостя
               phone?: string; // Номер телефона
+              phone_number?: string;
+              contact_phone?: string;
             };
             customer?: {  // Приоритетное поле согласно документации
               name?: string;
+              first_name?: string;
+              last_name?: string;
               email?: string;
               phone?: string;
+              phone_number?: string;
+              contact_phone?: string;
             };
             user?: {  // Возможный вариант структуры данных
               name?: string;
+              first_name?: string;
+              last_name?: string;
               email?: string;
               phone?: string;
+              phone_number?: string;
             };
-            booker?: { name?: string; email?: string; phone?: string };
-            renter?: { name?: string; email?: string; phone?: string };
-            profile?: { name?: string; email?: string; phone?: string };
+            booker?: { name?: string; first_name?: string; last_name?: string; email?: string; phone?: string; phone_number?: string };
+            renter?: { name?: string; first_name?: string; last_name?: string; email?: string; phone?: string; phone_number?: string };
+            profile?: { name?: string; first_name?: string; last_name?: string; email?: string; phone?: string; phone_number?: string };
             guest_name?: string; // Fallback для обратной совместимости
             guest_email?: string; // Fallback для обратной совместимости
             guest_phone?: string; // Fallback для обратной совместимости
             guest?: {
               name?: string;
+              first_name?: string;
+              last_name?: string;
               email?: string;
               phone?: string;
+              phone_number?: string;
             };
             guest_count?: number; // Количество гостей (основное поле)
             guests_count?: number; // Fallback для обратной совместимости
@@ -2279,8 +2297,16 @@ Deno.serve(async (req: Request) => {
                 }
 
 
+                // Собирает полное имя из first_name + last_name
+                const fullNameFromParts = (first?: string, last?: string): string | undefined => {
+                  const f = typeof first === "string" ? first.trim() : "";
+                  const l = typeof last === "string" ? last.trim() : "";
+                  if (!f && !l) return undefined;
+                  return (f + " " + l).trim() || undefined;
+                };
+
                 // Расширенная функция извлечения имени с проверкой всех возможных полей
-                // Приоритет: customer > contact > booker > renter > profile > guest > user > top-level
+                // Приоритет: customer > contact > booker > renter > profile > guest > user > top-level; также first_name + last_name
                 const extractGuestName = (booking: AvitoBookingResponse): string => {
                   const name = booking.customer?.name
                     || booking.contact?.name
@@ -2290,7 +2316,15 @@ Deno.serve(async (req: Request) => {
                     || booking.guest_name
                     || booking.guest?.name
                     || booking.user?.name
-                    || (typeof booking.name === "string" ? booking.name : undefined);
+                    || (typeof booking.name === "string" ? booking.name : undefined)
+                    || fullNameFromParts(booking.customer?.first_name, booking.customer?.last_name)
+                    || fullNameFromParts(booking.contact?.first_name, booking.contact?.last_name)
+                    || fullNameFromParts(booking.guest?.first_name, booking.guest?.last_name)
+                    || fullNameFromParts(booking.user?.first_name, booking.user?.last_name)
+                    || fullNameFromParts(booking.booker?.first_name, booking.booker?.last_name)
+                    || fullNameFromParts(booking.renter?.first_name, booking.renter?.last_name)
+                    || fullNameFromParts(booking.profile?.first_name, booking.profile?.last_name)
+                    || fullNameFromParts(booking.first_name, booking.last_name);
 
                   if (name && name.trim() && name !== "Гость с Avito") {
                     return name.trim();
@@ -2312,17 +2346,28 @@ Deno.serve(async (req: Request) => {
                 };
 
                 // Расширенная функция извлечения телефона
-                // Приоритет: customer > contact > booker > renter > profile > guest > user > top-level
+                // Приоритет: customer > contact > booker > renter > profile > guest > user > top-level; также phone_number, contact_phone
                 const extractGuestPhone = (booking: AvitoBookingResponse): string | null => {
                   const phone = booking.customer?.phone
+                    || booking.customer?.phone_number
+                    || booking.customer?.contact_phone
                     || booking.contact?.phone
+                    || booking.contact?.phone_number
+                    || booking.contact?.contact_phone
                     || booking.booker?.phone
+                    || booking.booker?.phone_number
                     || booking.renter?.phone
+                    || booking.renter?.phone_number
                     || booking.profile?.phone
+                    || booking.profile?.phone_number
                     || booking.guest_phone
                     || booking.guest?.phone
+                    || booking.guest?.phone_number
                     || booking.user?.phone
-                    || (typeof booking.phone === "string" ? booking.phone : undefined);
+                    || booking.user?.phone_number
+                    || (typeof booking.phone === "string" ? booking.phone : undefined)
+                    || (typeof booking.phone_number === "string" ? booking.phone_number : undefined)
+                    || (typeof booking.contact_phone === "string" ? booking.contact_phone : undefined);
 
                   return normalizePhone(phone);
                 };

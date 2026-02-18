@@ -935,7 +935,7 @@ export function Calendar({
                   return (
                     <div
                       key={i}
-                      className={`w-16 flex-shrink-0 border-r border-border relative ${isToday ? 'bg-booking/20' : isWeekend ? 'bg-slate-700/50' : ''
+                      className={`w-16 flex-shrink-0 border-r border-border relative ${isToday ? 'bg-booking' : isWeekend ? 'bg-slate-700/50' : ''
                         }`}
                     >
                       <div className="px-2 py-2 text-center relative z-10">

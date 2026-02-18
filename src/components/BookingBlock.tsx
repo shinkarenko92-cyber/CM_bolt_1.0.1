@@ -174,7 +174,7 @@ export function BookingBlock({
           </div>
 
           <div className="text-[10px] font-bold text-white/90 tabular-nums ml-1 flex-shrink-0">
-            {Math.round(booking.total_price / calculateNights(booking.check_in, booking.check_out)).toLocaleString()} {booking.currency === 'RUB' ? '₽' : booking.currency}
+            {booking.total_price.toLocaleString('ru-RU')} {booking.currency === 'RUB' ? '₽' : booking.currency}
           </div>
         </div>
 
