@@ -13,7 +13,7 @@ const AVITO_API_BASE = "https://api.avito.ru";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, x-client-info, apikey, x-supabase-api-version",
 };
 
 interface BodyGetChats {
@@ -68,7 +68,7 @@ Deno.serve(async (req: Request) => {
     );
   }
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-  log("token_received", { tokenLength: token.length, tokenPreview: token.slice(0, 20) + "..." });
+  log("token_received", { tokenLength: token.length, tokenPreview: token.length >= 8 ? `${token.slice(0, 4)}...${token.slice(-4)}` : "***" });
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -155,7 +155,7 @@ Deno.serve(async (req: Request) => {
   } catch (e) {
     log("decrypt_skipped", { reason: e instanceof Error ? e.message : "unknown" });
   }
-  log("token_ready", { tokenLength: accessToken?.length ?? 0, tokenPreview: accessToken ? accessToken.slice(0, 10) + "..." : "empty" });
+  log("token_ready", { tokenLength: accessToken?.length ?? 0, tokenPreview: accessToken && accessToken.length >= 8 ? `${accessToken.slice(0, 4)}...${accessToken.slice(-4)}` : "empty" });
 
   const userId = String(integration.avito_user_id ?? integration.avito_account_id ?? "");
   if (!userId) {
@@ -172,28 +172,52 @@ Deno.serve(async (req: Request) => {
     "Content-Type": "application/json",
   };
 
+  const AVITO_FETCH_MS = 15000;
+  const fetchWithTimeout = async (url: string, init: RequestInit, action: string): Promise<Response> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), AVITO_FETCH_MS);
+    try {
+      const res = await fetch(url, { ...init, signal: controller.signal });
+      clearTimeout(timeoutId);
+      return res;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      console.error(`[avito-messenger] fetch failed for ${action}:`, err);
+      throw err;
+    }
+  };
+
   try {
     if (body.action === "getChats") {
       const b = body as BodyGetChats;
+      const action = "getChats";
       let url = `${AVITO_API_BASE}/messenger/v2/accounts/${userId}/chats`;
       const params = new URLSearchParams();
       if (b.item_id) params.append("item_id", b.item_id);
       if (b.limit != null) params.append("limit", String(b.limit));
       if (b.offset != null) params.append("offset", String(b.offset));
       if (params.toString()) url += `?${params.toString()}`;
-      log("avito_request", { action: "getChats", url });
-      const res = await fetch(url, { headers });
-      const data = await res.json().catch(() => ({}));
-      log("avito_response", { action: "getChats", status: res.status, ok: res.ok });
-      if (!res.ok) {
+      log("avito_request", { action, url });
+      try {
+        const res = await fetchWithTimeout(url, { headers }, action);
+        const data = await res.json().catch(() => ({}));
+        log("avito_response", { action, status: res.status, ok: res.ok });
+        if (!res.ok) {
+          return new Response(
+            JSON.stringify({ error: "Avito API error", status: res.status, data }),
+            { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
         return new Response(
-          JSON.stringify({ error: "Avito API error", status: res.status, data }),
-          { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "Avito request failed", details: message }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
     if (body.action === "getMessages") {
@@ -204,24 +228,33 @@ Deno.serve(async (req: Request) => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      const action = "getMessages";
       let url = `${AVITO_API_BASE}/messenger/v2/accounts/${userId}/chats/${b.chat_id}/messages`;
       const params = new URLSearchParams();
       if (b.limit != null) params.append("limit", String(b.limit));
       if (b.offset != null) params.append("offset", String(b.offset));
       if (params.toString()) url += `?${params.toString()}`;
-      log("avito_request", { action: "getMessages", url });
-      const res = await fetch(url, { headers });
-      const data = await res.json().catch(() => ({}));
-      log("avito_response", { action: "getMessages", status: res.status, ok: res.ok });
-      if (!res.ok) {
+      log("avito_request", { action, url });
+      try {
+        const res = await fetchWithTimeout(url, { headers }, action);
+        const data = await res.json().catch(() => ({}));
+        log("avito_response", { action, status: res.status, ok: res.ok });
+        if (!res.ok) {
+          return new Response(
+            JSON.stringify({ error: "Avito API error", status: res.status, data }),
+            { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
         return new Response(
-          JSON.stringify({ error: "Avito API error", status: res.status, data }),
-          { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "Avito request failed", details: message }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
     if (body.action === "sendMessage") {
@@ -232,23 +265,32 @@ Deno.serve(async (req: Request) => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      const action = "sendMessage";
       const postBody: { text?: string; attachments?: typeof b.attachments } = {};
       if (b.text) postBody.text = b.text;
       if (b.attachments?.length) postBody.attachments = b.attachments;
       const url = `${AVITO_API_BASE}/messenger/v2/accounts/${userId}/chats/${b.chat_id}/messages`;
-      log("avito_request", { action: "sendMessage", url, textLength: b.text?.length ?? 0 });
-      const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(postBody) });
-      const data = await res.json().catch(() => ({}));
-      log("avito_response", { action: "sendMessage", status: res.status, ok: res.ok });
-      if (!res.ok) {
+      log("avito_request", { action, url, textLength: b.text?.length ?? 0 });
+      try {
+        const res = await fetchWithTimeout(url, { method: "POST", headers, body: JSON.stringify(postBody) }, action);
+        const data = await res.json().catch(() => ({}));
+        log("avito_response", { action, status: res.status, ok: res.ok });
+        if (!res.ok) {
+          return new Response(
+            JSON.stringify({ error: "Avito API error", status: res.status, data }),
+            { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
         return new Response(
-          JSON.stringify({ error: "Avito API error", status: res.status, data }),
-          { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "Avito request failed", details: message }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
     return new Response(
@@ -256,9 +298,10 @@ Deno.serve(async (req: Request) => {
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    console.error("[avito-messenger] proxy error:", err);
+    console.error("[avito-messenger] critical error:", err);
+    const message = err instanceof Error ? err.message : String(err);
     return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : "Internal error" }),
+      JSON.stringify({ error: "Internal server error", details: message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

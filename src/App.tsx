@@ -21,7 +21,26 @@ function AvitoCallbackHandler() {
       const errorDescription = params.get('error_description');
       const code = params.get('code');
       const state = params.get('state');
+      const isPopup = typeof window !== 'undefined' && !!window.opener;
 
+      if (isPopup) {
+        // Callback открыт во всплывающем окне — передаём результат в основное окно и закрываем popup
+        if (error) {
+          window.opener?.postMessage(
+            { type: 'avito-oauth-result', success: false, error, error_description: errorDescription || 'Неизвестная ошибка' },
+            window.location.origin
+          );
+        } else if (code && state) {
+          window.opener?.postMessage(
+            { type: 'avito-oauth-result', success: true, code, state },
+            window.location.origin
+          );
+        }
+        window.close();
+        return;
+      }
+
+      // Полный редирект в той же вкладке (fallback) — сохраняем в localStorage
       if (error) {
         const errorData = {
           error,

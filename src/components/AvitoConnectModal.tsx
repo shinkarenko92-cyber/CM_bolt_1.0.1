@@ -3,7 +3,7 @@
  * Uses Ant Design v5 components
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, Steps, Button, Input, InputNumber, Spin, Select } from 'antd';
 import { CheckCircleOutlined, LoadingOutlined } from '@ant-design/icons';
@@ -46,6 +46,7 @@ export function AvitoConnectModal({
   const [markupType, setMarkupType] = useState<'percent' | 'rub'>('percent');
   const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const oauthPopupRef = useRef<Window | null>(null);
 
   const handleOAuthCallback = useCallback(async (code: string, state: string) => {
     // Предотвращаем двойной вызов
@@ -304,12 +305,51 @@ export function AvitoConnectModal({
       const oauthUrl = generateOAuthUrl(property.id);
       setOauthRedirecting(true);
       saveConnectionProgress(property.id, 0, {});
-      window.location.href = oauthUrl;
+      const popup = window.open(
+        oauthUrl,
+        'avito_oauth',
+        'width=600,height=700,scrollbars=yes,resizable=yes'
+      );
+      oauthPopupRef.current = popup;
+      if (!popup) {
+        toast.error('Включите всплывающие окна для этого сайта и попробуйте снова');
+        setOauthRedirecting(false);
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Ошибка при генерации OAuth URL');
       setOauthRedirecting(false);
     }
   };
+
+  // Слушаем результат OAuth из popup (postMessage)
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.data?.type !== 'avito-oauth-result') return;
+      oauthPopupRef.current = null;
+      setOauthRedirecting(false);
+      if (event.data.success && event.data.code && event.data.state) {
+        handleOAuthCallback(event.data.code, event.data.state);
+      } else if (!event.data.success) {
+        const msg = event.data.error_description || event.data.error || 'Ошибка авторизации Avito';
+        toast.error(msg);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [handleOAuthCallback]);
+
+  // Если пользователь закрыл popup без завершения OAuth
+  useEffect(() => {
+    if (!oauthRedirecting || !oauthPopupRef.current) return;
+    const interval = setInterval(() => {
+      if (oauthPopupRef.current?.closed) {
+        oauthPopupRef.current = null;
+        setOauthRedirecting(false);
+        clearInterval(interval);
+      }
+    }, 300);
+    return () => clearInterval(interval);
+  }, [oauthRedirecting]);
 
   const handleSubmit = async () => {
     if (!userId) {
