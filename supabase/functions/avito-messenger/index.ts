@@ -1,8 +1,10 @@
 /**
- * Avito Messenger Proxy - server-side proxy to avoid CORS when calling Avito API from browser.
+ * Avito Messenger Proxy — прокси к Avito Messenger API (https://developers.avito.ru/api-catalog/messenger/documentation).
+ * Требуемые scopes: messenger:read, messenger:write.
+ * Базовый URL: https://api.avito.ru/messenger/v2/
  * Actions: getChats, getMessages, sendMessage.
  * Deploy: supabase functions deploy avito-messenger --no-verify-jwt
- * (JWT is validated inside; gateway must not block with 403.)
+ * (JWT проверяется внутри; шлюз не должен резать по 403.)
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -197,11 +199,11 @@ Deno.serve(async (req: Request) => {
       if (b.limit != null) params.append("limit", String(b.limit));
       if (b.offset != null) params.append("offset", String(b.offset));
       if (params.toString()) url += `?${params.toString()}`;
-      log("avito_request", { action, url });
+      log("avito_request", { action, url, method: "GET" });
       try {
         const res = await fetchWithTimeout(url, { headers }, action);
         const data = await res.json().catch(() => ({}));
-        log("avito_response", { action, status: res.status, ok: res.ok });
+        log("avito_response", { action, status: res.status, ok: res.ok, bodyPreview: JSON.stringify(data).slice(0, 200) });
         if (!res.ok) {
           return new Response(
             JSON.stringify({ error: "Avito API error", status: res.status, data }),
@@ -234,11 +236,11 @@ Deno.serve(async (req: Request) => {
       if (b.limit != null) params.append("limit", String(b.limit));
       if (b.offset != null) params.append("offset", String(b.offset));
       if (params.toString()) url += `?${params.toString()}`;
-      log("avito_request", { action, url });
+      log("avito_request", { action, url, method: "GET" });
       try {
         const res = await fetchWithTimeout(url, { headers }, action);
         const data = await res.json().catch(() => ({}));
-        log("avito_response", { action, status: res.status, ok: res.ok });
+        log("avito_response", { action, status: res.status, ok: res.ok, bodyPreview: JSON.stringify(data).slice(0, 200) });
         if (!res.ok) {
           return new Response(
             JSON.stringify({ error: "Avito API error", status: res.status, data }),
@@ -270,11 +272,11 @@ Deno.serve(async (req: Request) => {
       if (b.text) postBody.text = b.text;
       if (b.attachments?.length) postBody.attachments = b.attachments;
       const url = `${AVITO_API_BASE}/messenger/v2/accounts/${userId}/chats/${b.chat_id}/messages`;
-      log("avito_request", { action, url, textLength: b.text?.length ?? 0 });
+      log("avito_request", { action, url, method: "POST", textLength: b.text?.length ?? 0 });
       try {
         const res = await fetchWithTimeout(url, { method: "POST", headers, body: JSON.stringify(postBody) }, action);
         const data = await res.json().catch(() => ({}));
-        log("avito_response", { action, status: res.status, ok: res.ok });
+        log("avito_response", { action, status: res.status, ok: res.ok, bodyPreview: JSON.stringify(data).slice(0, 200) });
         if (!res.ok) {
           return new Response(
             JSON.stringify({ error: "Avito API error", status: res.status, data }),
