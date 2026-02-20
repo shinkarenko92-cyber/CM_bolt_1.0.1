@@ -756,6 +756,22 @@ export function Calendar({
     };
   }, []);
 
+  const getRateForDate = useCallback((propertyId: string, date: Date): PropertyRate | null => {
+    const rates = propertyRates.get(propertyId) || [];
+    const dateString = format(date, 'yyyy-MM-dd');
+    return rates.find((r) => r.date === dateString) || null;
+  }, [propertyRates]);
+
+  const resetDateSelection = useCallback(() => {
+    setDateSelection({
+      propertyId: '',
+      startDate: null,
+      endDate: null,
+    });
+    setHoverDate(null);
+    onDateSelectionReset?.();
+  }, [onDateSelectionReset]);
+
   const handleCloseConditionsModal = () => {
     setShowConditionsModal(false);
     setConditionsModalData(null);
@@ -769,7 +785,7 @@ export function Calendar({
     setShowRangeChoiceModal(false);
     setRangeChoiceData(null);
     resetDateSelection();
-  }, [rangeChoiceData, onAddReservation]);
+  }, [rangeChoiceData, onAddReservation, resetDateSelection]);
 
   const handleRangeChoiceChangeConditions = useCallback(() => {
     if (!rangeChoiceData) return;
@@ -795,17 +811,7 @@ export function Calendar({
     setShowRangeChoiceModal(false);
     setRangeChoiceData(null);
     resetDateSelection();
-  }, [rangeChoiceData, properties, propertyAvitoMarkup]);
-
-  const resetDateSelection = () => {
-    setDateSelection({
-      propertyId: '',
-      startDate: null,
-      endDate: null,
-    });
-    setHoverDate(null);
-    onDateSelectionReset?.();
-  };
+  }, [rangeChoiceData, properties, propertyAvitoMarkup, getRateForDate, resetDateSelection]);
 
   // Expose resetDateSelection to parent via window
   useEffect(() => {
@@ -815,14 +821,7 @@ export function Calendar({
     return () => {
       delete (window as Window & { __calendarResetDateSelection?: () => void }).__calendarResetDateSelection;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const getRateForDate = (propertyId: string, date: Date): PropertyRate | null => {
-    const rates = propertyRates.get(propertyId) || [];
-    const dateString = format(date, 'yyyy-MM-dd');
-    return rates.find((r) => r.date === dateString) || null;
-  };
+  }, [onDateSelectionReset, resetDateSelection]);
 
   // Плоский список объектов (группы удалены)
   const sortedProperties = useMemo(() => {
