@@ -160,7 +160,8 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 function AppContent() {
   return (
-    <Routes>
+    <>
+      <Routes>
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/login" element={<AuthLayout><Auth showSignUpToggle={false} /></AuthLayout>} />
