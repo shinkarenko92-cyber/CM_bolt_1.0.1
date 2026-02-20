@@ -88,7 +88,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Parse state (base64-encoded JSON or plain JSON)
-    let stateData: { type?: string; property_id?: string; integration_id?: string; timestamp?: number } | null = null;
+    let stateData: { type?: string; property_id?: string; integration_id?: string | null; timestamp?: number; ts?: number } | null = null;
     try {
       try {
         stateData = JSON.parse(atob(state));
@@ -105,12 +105,6 @@ Deno.serve(async (req: Request) => {
     }
 
     const isMessengerAuth = stateData?.type === "messenger_auth";
-    if (isMessengerAuth && !stateData?.integration_id) {
-      return new Response(
-        JSON.stringify({ error: "Invalid state: integration_id required for messenger_auth" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
     if (!isMessengerAuth && !stateData?.property_id && !stateData?.integration_id) {
       return new Response(
         JSON.stringify({ error: "Invalid state: property_id or integration_id not found" }),
@@ -120,7 +114,7 @@ Deno.serve(async (req: Request) => {
 
     const propertyId = stateData.property_id;
     const integrationIdFromState = stateData.integration_id;
-    const redirectUri = redirect_uri || (isMessengerAuth ? "https://app.roomi.pro/auth/avito-callback-messenger" : `${new URL(req.url).origin}/auth/avito-callback`);
+    const redirectUri = redirect_uri || (isMessengerAuth ? "https://app.roomi.pro/auth/avito-callback" : `${new URL(req.url).origin}/auth/avito-callback`);
 
     const clientId = isMessengerAuth ? (Deno.env.get("AVITO_MESSENGER_CLIENT_ID") || avitoClientId) : avitoClientId;
     const clientSecret = isMessengerAuth ? (Deno.env.get("AVITO_MESSENGER_CLIENT_SECRET") || avitoClientSecret) : avitoClientSecret;
@@ -186,8 +180,90 @@ Deno.serve(async (req: Request) => {
       : 3600;
     const tokenExpiresAt = new Date(Date.now() + expiresInSeconds * 1000);
 
-    // Messenger auth flow: extend scope of existing integration
-    if (isMessengerAuth && integrationIdFromState) {
+    // Messenger auth flow: extend scope of existing integration; resolve target by ownership or fallback
+    if (isMessengerAuth) {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader?.startsWith("Bearer ")) {
+        console.log(JSON.stringify({ event: "messenger_auth_rejected", reason: "no_bearer_token" }));
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+      const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+      const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
+      const { data: { user }, error: userError } = await supabaseAuth.auth.getUser(token);
+      if (userError || !user) {
+        console.log(JSON.stringify({ event: "messenger_auth_rejected", reason: "user_resolve_failed", error: userError?.message }));
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      let targetIntegrationId: string | null = null;
+      const integrationIdFromState = stateData.integration_id && String(stateData.integration_id).trim() ? stateData.integration_id : null;
+
+      console.log(JSON.stringify({ event: "messenger_auth_state", integration_id_from_state: integrationIdFromState, user_id: user.id }));
+
+      // If state contains integration_id, verify it belongs to this user
+      if (integrationIdFromState) {
+        const { data: integrationRow } = await supabase
+          .from("integrations")
+          .select("id, property_id")
+          .eq("id", integrationIdFromState)
+          .eq("platform", "avito")
+          .maybeSingle();
+        if (integrationRow?.property_id) {
+          const { data: propertyRow } = await supabase
+            .from("properties")
+            .select("id")
+            .eq("id", integrationRow.property_id)
+            .eq("owner_id", user.id)
+            .maybeSingle();
+          if (propertyRow) {
+            targetIntegrationId = integrationRow.id;
+            console.log(JSON.stringify({ event: "messenger_auth_target", source: "state_ownership_ok", target_id: targetIntegrationId }));
+          }
+        }
+        if (!targetIntegrationId) {
+          console.log(JSON.stringify({ event: "messenger_auth_state_invalid", integration_id: integrationIdFromState, reason: "not_found_or_not_owner" }));
+        }
+      }
+
+      // Fallback: first active Avito integration for this user (by created_at).
+      // Temporary: when most users have multiple integrations, consider asking which account or a "default" integration flag.
+      if (!targetIntegrationId) {
+        const { data: userProperties } = await supabase
+          .from("properties")
+          .select("id")
+          .eq("owner_id", user.id);
+        const propertyIds = (userProperties || []).map((p: { id: string }) => p.id);
+        if (propertyIds.length > 0) {
+          const { data: firstIntegration } = await supabase
+            .from("integrations")
+            .select("id")
+            .eq("platform", "avito")
+            .in("property_id", propertyIds)
+            .order("created_at", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          if (firstIntegration?.id) {
+            targetIntegrationId = firstIntegration.id;
+            console.log(JSON.stringify({ event: "messenger_auth_target", source: "fallback_first_by_created_at", target_id: targetIntegrationId }));
+          }
+        }
+      }
+
+      if (!targetIntegrationId) {
+        console.log(JSON.stringify({ event: "messenger_auth_failed", reason: "no_avito_integration", user_id: user.id }));
+        return new Response(
+          JSON.stringify({ error: "Нет подходящей интеграции Avito для подключения чатов.", reason: "no_avito_integration" }),
+          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       const updateData: {
         access_token_encrypted: string;
         refresh_token_encrypted?: string;
@@ -202,7 +278,6 @@ Deno.serve(async (req: Request) => {
         is_active: true,
         is_enabled: true,
       };
-
       if (tokenData.refresh_token) {
         updateData.refresh_token_encrypted = tokenData.refresh_token;
       }
@@ -210,16 +285,16 @@ Deno.serve(async (req: Request) => {
       const { error: updateError } = await supabase
         .from("integrations")
         .update(updateData)
-        .eq("id", integrationIdFromState);
+        .eq("id", targetIntegrationId);
 
       if (updateError) {
-        console.error("Error updating integration with messenger scope:", updateError);
+        console.log(JSON.stringify({ event: "messenger_auth_update_error", target_id: targetIntegrationId, error: updateError.message }));
         return new Response(
           JSON.stringify({ error: `Ошибка обновления интеграции: ${updateError.message}` }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      console.log("Integration updated with messenger scope", integrationIdFromState);
+      console.log(JSON.stringify({ event: "messenger_auth_success", target_id: targetIntegrationId }));
       return new Response(
         JSON.stringify({ success: true, isMessengerAuth: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }

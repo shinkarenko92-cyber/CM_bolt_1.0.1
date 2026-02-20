@@ -324,10 +324,14 @@ export function Dashboard() {
     loadData();
   }, [loadData]);
 
-  // Open Messages tab when returning from Avito Messenger OAuth callback
+  // Open Messages tab when returning from Avito Messenger OAuth callback; open Properties when no integration
   useEffect(() => {
-    if ((location.state as { openMessages?: boolean })?.openMessages) {
+    const state = location.state as { openMessages?: boolean; openProperties?: boolean };
+    if (state?.openMessages) {
       setCurrentView('messages');
+      navigate(location.pathname, { replace: true, state: {} });
+    } else if (state?.openProperties) {
+      setCurrentView('properties');
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location.state, location.pathname, navigate]);
@@ -612,17 +616,20 @@ export function Dashboard() {
     return () => { cancelled = true; };
   }, [currentView, user, properties]);
 
-  const handleAvitoMessengerAuth = useCallback(async (integrationId: string) => {
-    // Get current scope from integration
-    const { data: integration } = await supabase
-      .from('integrations')
-      .select('scope')
-      .eq('id', integrationId)
-      .single();
-    
-    const authUrl = await generateMessengerOAuthUrl(integrationId, integration?.scope || null);
+  const handleAvitoMessengerAuth = useCallback(async (integrationId?: string | null) => {
+    const effectiveId = integrationId ?? avitoIntegrationsForMessages?.[0]?.id ?? null;
+    let scope: string | null = null;
+    if (effectiveId) {
+      const { data: integration } = await supabase
+        .from('integrations')
+        .select('scope')
+        .eq('id', effectiveId)
+        .single();
+      scope = integration?.scope ?? null;
+    }
+    const authUrl = await generateMessengerOAuthUrl(effectiveId, scope);
     window.location.href = authUrl;
-  }, []);
+  }, [avitoIntegrationsForMessages]);
 
   // Periodic sync of chats list while on Messages tab (Avito Messenger API)
   useEffect(() => {

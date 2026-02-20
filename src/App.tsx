@@ -14,6 +14,7 @@ import { OnboardingImport } from './pages/OnboardingImport';
 
 function AvitoCallbackHandler() {
   const [messengerSuccessModalOpen, setMessengerSuccessModalOpen] = useState(false);
+  const [noAvitoIntegrationDialogOpen, setNoAvitoIntegrationDialogOpen] = useState(false);
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -76,6 +77,9 @@ function AvitoCallbackHandler() {
             });
             if (!fnError && data?.success) {
               setMessengerSuccessModalOpen(true);
+            } else if ((data as { reason?: string })?.reason === 'no_avito_integration') {
+              setNoAvitoIntegrationDialogOpen(true);
+              window.history.replaceState({}, '', '/');
             } else {
               const errorMsg = fnError?.message || (data as { error?: string })?.error || 'Ошибка подключения';
               localStorage.setItem('avito_oauth_error', JSON.stringify({ error: errorMsg }));
@@ -96,6 +100,28 @@ function AvitoCallbackHandler() {
     setMessengerSuccessModalOpen(false);
     navigate('/', { replace: true, state: { openMessages: true } });
   };
+
+  const handleNoAvitoIntegrationClose = () => {
+    setNoAvitoIntegrationDialogOpen(false);
+    navigate('/', { replace: true, state: { openProperties: true } });
+  };
+
+  if (noAvitoIntegrationDialogOpen) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md">
+        <div className="bg-background border border-border rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+          <h2 className="text-lg font-semibold mb-2">{t('messages.noAvitoIntegration.title')}</h2>
+          <p className="text-muted-foreground mb-4">{t('messages.noAvitoIntegration.description')}</p>
+          <button
+            onClick={handleNoAvitoIntegrationClose}
+            className="w-full bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90"
+          >
+            {t('messages.noAvitoIntegration.connectButton')}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!messengerSuccessModalOpen) return null;
 

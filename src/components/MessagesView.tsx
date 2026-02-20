@@ -22,7 +22,7 @@ interface MessagesViewProps {
   /** If false and integrationsForMessenger.length > 0, show CTA to connect Avito Messenger */
   hasMessengerAccess?: boolean;
   integrationsForMessenger?: IntegrationForMessenger[];
-  onRequestMessengerAuth?: (integrationId: string) => void;
+  onRequestMessengerAuth?: (integrationId: string | null) => void;
 }
 
 export function MessagesView({
@@ -156,9 +156,7 @@ export function MessagesView({
               <Button
                 className="bg-emerald-600 hover:bg-emerald-700"
                 onClick={() => {
-                  if (firstIntegrationForMessenger) {
-                    onRequestMessengerAuth?.(firstIntegrationForMessenger.id);
-                  }
+                  onRequestMessengerAuth?.(firstIntegrationForMessenger?.id ?? null);
                   setMessengerAuthModalOpen(false);
                 }}
               >

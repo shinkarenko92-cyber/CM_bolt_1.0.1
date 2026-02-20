@@ -383,6 +383,11 @@
       "title": "Connected successfully!",
       "description": "You can now reply to messages in Avito chats."
     },
+    "noAvitoIntegration": {
+      "title": "No Avito accounts connected",
+      "description": "You don't have any Avito accounts connected yet. Connect one now?",
+      "connectButton": "Connect"
+    },
     "noChats": "No chats",
     "noChatsDescription": "When messages from clients arrive, they will appear here",
     "noMessages": "No messages",
