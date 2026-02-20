@@ -5,16 +5,12 @@ import { GripVertical } from 'lucide-react';
 
 type SortablePropertyRowProps = {
   property: Property;
-  isExpanded: boolean;
-  onToggle: () => void;
   children: React.ReactNode;
   totalRowHeight: number;
 };
 
 export function SortablePropertyRow({
   property,
-  isExpanded,
-  onToggle,
   children,
   totalRowHeight,
 }: SortablePropertyRowProps) {

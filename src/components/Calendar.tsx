@@ -1028,8 +1028,6 @@ export function Calendar({
                         <SortablePropertyRow
                           key={property.id}
                           property={property}
-                          isExpanded={isExpanded}
-                          onToggle={() => togglePropertyExpansion(property.id)}
                           totalRowHeight={totalRowHeight}
                         >
                           <div

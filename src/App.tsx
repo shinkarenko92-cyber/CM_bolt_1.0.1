@@ -216,7 +216,7 @@ function BoltChatWidget() {
       const { data: { session } } = await import('./lib/supabase').then(m => m.supabase.auth.getSession());
       setUserToken(session?.access_token);
     })();
-  }, [user?.id]);
+  }, [user]);
 
   const plan: PlanType = (profile?.subscription_tier === 'pro' || profile?.subscription_tier === 'enterprise')
     ? profile.subscription_tier
