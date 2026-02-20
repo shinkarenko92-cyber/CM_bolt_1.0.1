@@ -72,6 +72,8 @@
   "calendar": {
     "addBooking": "Добавить бронь",
     "changeConditions": "Изменить условия",
+    "rangeChoiceTitle": "Выберите действие",
+    "rangeChoiceDescription": "Добавить бронирование на выбранные даты или изменить условия (цену и минимум ночей)?",
     "objects": "Объекты",
     "noObjects": "Нет объектов. Добавьте первый объект для начала работы.",
     "prevMonth": "Предыдущий месяц",
@@ -378,6 +380,19 @@
   "messages": {
     "title": "Сообщения",
     "subtitle": "Переписка с клиентами Avito",
+    "messengerCta": {
+      "title": "Подключите чаты Avito",
+      "description": "Чтобы видеть и отвечать на сообщения от гостей",
+      "button": "Авторизоваться в Avito",
+      "modalTitle": "Доступ к чатам Avito",
+      "modalDescription": "Вы будете перенаправлены на Avito для выдачи доступа к чатам (messenger:read, messenger:write). После подтверждения чаты появятся здесь.",
+      "modalConfirm": "Продолжить",
+      "errorTitle": "Ошибка подключения"
+    },
+    "messengerSuccess": {
+      "title": "Успешно подключено!",
+      "description": "Теперь вы можете отвечать на сообщения в чатах Avito."
+    },
     "noChats": "Нет чатов",
     "noChatsDescription": "Когда появятся сообщения от клиентов, они отобразятся здесь",
     "noMessages": "Нет сообщений",

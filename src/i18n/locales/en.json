@@ -72,6 +72,8 @@
   "calendar": {
     "addBooking": "Add Booking",
     "changeConditions": "Change Conditions",
+    "rangeChoiceTitle": "Choose action",
+    "rangeChoiceDescription": "Add a booking for the selected dates or change conditions (price and minimum nights)?",
     "objects": "Properties",
     "noObjects": "No properties. Add your first property to get started.",
     "prevMonth": "Previous month",
@@ -368,6 +370,19 @@
   "messages": {
     "title": "Messages",
     "subtitle": "Conversations with Avito clients",
+    "messengerCta": {
+      "title": "Connect Avito chats",
+      "description": "To view and reply to messages from guests",
+      "button": "Authorize in Avito",
+      "modalTitle": "Avito chats access",
+      "modalDescription": "You will be redirected to Avito to grant chat access (messenger:read, messenger:write). After confirming, chats will appear here.",
+      "modalConfirm": "Continue",
+      "errorTitle": "Connection error"
+    },
+    "messengerSuccess": {
+      "title": "Connected successfully!",
+      "description": "You can now reply to messages in Avito chats."
+    },
     "noChats": "No chats",
     "noChatsDescription": "When messages from clients arrive, they will appear here",
     "noMessages": "No messages",

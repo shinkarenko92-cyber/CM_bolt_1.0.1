@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Plus, Settings } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { parseISO, format, isBefore, isSameDay } from 'date-fns';
 import { Property, Booking, PropertyRate, supabase } from '../lib/supabase';
 import { CalendarHeader } from './CalendarHeader';
@@ -24,6 +25,15 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import { Button } from './ui/button';
 
 type CalendarProps = {
   properties: Property[];
@@ -99,13 +109,20 @@ export function Calendar({
     minStay: number;
     currency: string;
   } | null>(null);
-  const [minStayDateSelection, setMinStayDateSelection] = useState<{ propertyId: string; startDate: string | null } | null>(null);
+  const [showRangeChoiceModal, setShowRangeChoiceModal] = useState(false);
+  const [rangeChoiceData, setRangeChoiceData] = useState<{
+    propertyId: string;
+    startDate: string;
+    endDate: string;
+  } | null>(null);
   const [hoverDate, setHoverDate] = useState<string | null>(null);
+  const { t } = useTranslation();
   const calendarRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const seenPropertyIds = useRef<Set<string>>(new Set());
 
   const CELL_WIDTH = 64;
+  const ROW_HEIGHT = 56;
 
   const currentDateTimestamp = currentDate.getTime();
 
@@ -281,26 +298,10 @@ export function Calendar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dragState, dragOverCell]);
 
-  const getPropertyRowHeight = (property: Property) => {
-    const first = dates[0];
-    const firstVisibleDate = new Date(first.getFullYear(), first.getMonth(), first.getDate(), 0, 0, 0, 0);
-    const last = dates[dates.length - 1];
-    const lastVisibleDate = new Date(last.getFullYear(), last.getMonth(), last.getDate(), 23, 59, 59, 999);
-
-    const propertyBookings = bookings.filter((b) => {
-      if (b.property_id !== property.id) return false;
-      const checkInDate = new Date(b.check_in);
-      const checkIn = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
-      const checkOutDate = new Date(b.check_out);
-      const checkOut = new Date(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate());
-      return checkOut > firstVisibleDate && checkIn <= lastVisibleDate;
-    });
-
+  const getPropertyRowHeight = (property: Property): number => {
     const isExpanded = expandedProperties.has(property.id);
-    const bookingLayers = getBookingLayers(propertyBookings);
-    const rowHeight = Math.max(44, bookingLayers.length * 32 + 16);
     const collapsedHeight = 48;
-    return isExpanded ? 32 + rowHeight : collapsedHeight;
+    return isExpanded ? ROW_HEIGHT : collapsedHeight;
   };
 
   const getPropertyAtY = (y: number): { propertyId: string; propertyIndex: number } | null => {
@@ -728,21 +729,23 @@ export function Calendar({
             endDate: null,
           });
         } else {
-          // Обе даты выбраны - сразу открываем форму бронирования
+          // Обе даты выбраны — открываем модалку выбора: бронирование или изменить условия
+          setRangeChoiceData({
+            propertyId,
+            startDate: dateSelection.startDate,
+            endDate: dateString,
+          });
+          setShowRangeChoiceModal(true);
           setDateSelection({
             propertyId,
             startDate: dateSelection.startDate,
             endDate: dateString,
           });
-
-          // check_out равен последней выбранной дате (включительно)
-          // Если выбрано 23-27, то check_out = 27 декабря
-          onAddReservation(propertyId, dateSelection.startDate, dateString);
-          setHoverDate(null); // Reset hover date after adding a reservation
+          setHoverDate(null);
         }
       }
     }, 300); // 300ms debounce delay
-  }, [dateSelection, bookings, onAddReservation, onEditReservation, isCellOccupied]);
+  }, [dateSelection, bookings, onEditReservation, isCellOccupied]);
 
   // Cleanup debounce on unmount
   useEffect(() => {
@@ -758,6 +761,41 @@ export function Calendar({
     setConditionsModalData(null);
     resetDateSelection();
   };
+
+  const handleRangeChoiceAddBooking = useCallback(() => {
+    if (rangeChoiceData) {
+      onAddReservation(rangeChoiceData.propertyId, rangeChoiceData.startDate, rangeChoiceData.endDate);
+    }
+    setShowRangeChoiceModal(false);
+    setRangeChoiceData(null);
+    resetDateSelection();
+  }, [rangeChoiceData, onAddReservation]);
+
+  const handleRangeChoiceChangeConditions = useCallback(() => {
+    if (!rangeChoiceData) return;
+    const property = properties.find(p => p.id === rangeChoiceData.propertyId);
+    if (!property) return;
+    const startDate = parseISO(rangeChoiceData.startDate);
+    const rate = getRateForDate(rangeChoiceData.propertyId, startDate);
+    const basePrice = rate?.daily_price ?? property.base_price ?? 0;
+    const markup = propertyAvitoMarkup.get(rangeChoiceData.propertyId) ?? 0;
+    const displayPrice = markup < 0
+      ? Math.round(basePrice + Math.abs(markup))
+      : Math.round(basePrice * (1 + markup / 100));
+    const displayMinStay = rate?.min_stay ?? property.minimum_booking_days;
+    setConditionsModalData({
+      propertyId: rangeChoiceData.propertyId,
+      startDate: rangeChoiceData.startDate,
+      endDate: rangeChoiceData.endDate,
+      price: displayPrice,
+      minStay: displayMinStay,
+      currency: property.currency,
+    });
+    setShowConditionsModal(true);
+    setShowRangeChoiceModal(false);
+    setRangeChoiceData(null);
+    resetDateSelection();
+  }, [rangeChoiceData, properties, propertyAvitoMarkup]);
 
   const resetDateSelection = () => {
     setDateSelection({
@@ -984,9 +1022,8 @@ export function Calendar({
 
                       const isExpanded = expandedProperties.has(property.id);
                       const bookingLayers = getBookingLayers(propBookings);
-                      const rowHeight = Math.max(44, bookingLayers.length * 32 + 16);
                       const collapsedHeight = 48;
-                      const totalRowHeight = isExpanded ? 32 + rowHeight : collapsedHeight;
+                      const totalRowHeight = isExpanded ? ROW_HEIGHT : collapsedHeight;
 
                       return (
                         <SortablePropertyRow
@@ -998,166 +1035,109 @@ export function Calendar({
                         >
                           <div
                             className="flex-shrink-0"
-                            // Keep grid width aligned with header. Adding +256px here causes a 4-day (256px) visual offset.
                             style={{ width: `${dates.length * CELL_WIDTH}px`, height: `${totalRowHeight}px`, minWidth: `${dates.length * CELL_WIDTH}px` }}
                           >
                             {isExpanded ? (
-                              <div className="flex flex-col h-full">
-                                <div className="border-b border-slate-700/30 bg-slate-800/50">
-                                  <div className="h-8 flex">
-                                    {dates.map((date, i) => {
-                                      const rate = getRateForDate(property.id, date);
-                                      const displayMinStay = rate?.min_stay || property.minimum_booking_days;
-                                      const dateString = format(date, 'yyyy-MM-dd');
-                                      const isSelected = minStayDateSelection?.propertyId === property.id && minStayDateSelection?.startDate === dateString;
-                                      const isInRange = minStayDateSelection?.propertyId === property.id &&
-                                        minStayDateSelection?.startDate &&
-                                        dateString >= minStayDateSelection.startDate;
+                              <div className="relative border-b border-slate-700" style={{ height: `${ROW_HEIGHT}px` }}>
+                                <div className="absolute inset-0 flex">
+                                  {dates.map((date, i) => {
+                                    const dateString = format(date, 'yyyy-MM-dd');
+                                    const today = new Date();
+                                    const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                                    const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                                    const isToday = checkDate.getTime() === localToday.getTime();
+                                    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                                    const isSelected =
+                                      dateSelection.propertyId === property.id &&
+                                      dateSelection.startDate === dateString;
+                                    const isInRange =
+                                      dateSelection.propertyId === property.id &&
+                                      dateSelection.startDate &&
+                                      dateSelection.endDate &&
+                                      dateString >= dateSelection.startDate &&
+                                      dateString <= dateSelection.endDate;
+                                    const isHoverRange =
+                                      dateSelection.startDate && !dateSelection.endDate &&
+                                      dateSelection.propertyId === property.id &&
+                                      hoverDate && dateString >= dateSelection.startDate && dateString <= hoverDate;
+                                    const isOccupied = isCellOccupied(property.id, date);
+                                    const rate = getRateForDate(property.id, date);
+                                    const basePrice = rate?.daily_price ?? property.base_price ?? 0;
+                                    const markup = propertyAvitoMarkup.get(property.id) ?? 0;
+                                    const displayPrice = markup < 0
+                                      ? Math.round(basePrice + Math.abs(markup))
+                                      : Math.round(basePrice * (1 + markup / 100));
+                                    const displayMinStay = rate?.min_stay ?? property.minimum_booking_days;
+                                    const isDragOverThisCell = dragOverDates.has(dateString) && dragOverCell?.propertyId === property.id;
+                                    const dragOverColor = isDragValid
+                                      ? 'bg-emerald-500/40 ring-2 ring-emerald-400 ring-inset'
+                                      : 'bg-rose-500/40 ring-2 ring-rose-400 ring-inset';
+                                    const currencySymbol = property.currency === 'RUB' ? '₽' : property.currency;
 
-                                      const handleMinStayClick = () => {
-                                        if (!minStayDateSelection || minStayDateSelection.propertyId !== property.id) {
-                                          // Первый клик - сохраняем дату как startDate
-                                          setMinStayDateSelection({ propertyId: property.id, startDate: dateString });
-                                        } else if (minStayDateSelection.startDate === dateString) {
-                                          // Клик на ту же дату - сбрасываем выбор
-                                          setMinStayDateSelection(null);
-                                        } else {
-                                          // Второй клик на другую дату - открываем ChangeConditionsModal
-                                          const startDate = minStayDateSelection.startDate;
-                                          if (startDate) {
-                                            const endDate = dateString;
-                                            const rate = getRateForDate(property.id, date);
-                                            const basePrice = rate?.daily_price ?? property.base_price ?? 0;
-                                            const markup = propertyAvitoMarkup.get(property.id) ?? 0;
-                                            const displayPrice = markup < 0
-                                              ? Math.round(basePrice + Math.abs(markup))
-                                              : Math.round(basePrice * (1 + markup / 100));
-
-                                            setConditionsModalData({
-                                              propertyId: property.id,
-                                              startDate,
-                                              endDate,
-                                              price: displayPrice,
-                                              minStay: displayMinStay,
-                                              currency: property.currency,
-                                            });
-                                            setShowConditionsModal(true);
-                                            setMinStayDateSelection(null);
+                                    return (
+                                      <div
+                                        key={i}
+                                        className={`w-16 flex-shrink-0 border-r border-border cursor-pointer transition-all relative flex flex-col overflow-hidden ${isToday ? 'bg-primary/20' : isWeekend ? 'bg-slate-700/50' : ''
+                                          } ${isSelected ? 'bg-booking/30' : ''
+                                          } ${isInRange || isHoverRange ? 'bg-booking/20 shadow-[inset_0_0_15px_rgba(135,221,245,0.3)] ring-1 ring-booking/40 ring-inset' : ''} ${isDragOverThisCell ? dragOverColor : ''} ${!isOccupied ? 'hover:bg-slate-800/30 hover:ring-2 hover:ring-booking/30' : ''}`}
+                                        onClick={() => !isOccupied && handleCellClick(property.id, date)}
+                                        onMouseEnter={() => {
+                                          if (dateSelection.startDate && !dateSelection.endDate && dateSelection.propertyId === property.id) {
+                                            setHoverDate(dateString);
                                           }
-                                        }
-                                      };
-
-                                      return (
-                                        <div
-                                          key={i}
-                                          className={`w-16 flex-shrink-0 border-r border-border flex items-center justify-center cursor-pointer hover:bg-slate-700/50 transition-colors ${isSelected ? 'bg-booking/20' : ''
-                                            } ${isInRange ? 'bg-booking/10' : ''}`}
-                                          onClick={handleMinStayClick}
-                                        >
-                                          <div className="text-[10px] font-medium text-slate-300 tabular-nums">
-                                            {displayMinStay}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
+                                        }}
+                                      >
+                                        {isSelected && (
+                                          <div className="absolute inset-0 ring-1 ring-booking/50 ring-inset shadow-[0_0_12px_rgba(135,221,245,0.25)] pointer-events-none" />
+                                        )}
+                                        {!isOccupied && (
+                                          <>
+                                            <div className="flex-1 flex items-start justify-center pt-1.5 px-0.5 min-h-0">
+                                              <span className="text-sm sm:text-base font-bold text-slate-300 tabular-nums truncate leading-tight">
+                                                {displayPrice} {currencySymbol}
+                                              </span>
+                                            </div>
+                                            <div className="flex justify-end pr-1 pb-1">
+                                              <span className="text-[10px] text-slate-500 tabular-nums">
+                                                {displayMinStay} {displayMinStay === 1 ? t('common.night') : t('common.nights')}
+                                              </span>
+                                            </div>
+                                          </>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
-                                <div className="flex-1 border-b border-slate-700">
-                                  <div className="relative h-full" style={{ minHeight: `${rowHeight}px` }}>
-                                    <div className="absolute inset-0 flex">
-                                      {dates.map((date, i) => {
-                                        const dateString = format(date, 'yyyy-MM-dd');
-                                        const today = new Date();
-                                        const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                                        const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                                        const isToday = checkDate.getTime() === localToday.getTime();
-                                        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                                        const isSelected =
-                                          dateSelection.propertyId === property.id &&
-                                          dateSelection.startDate === dateString;
-                                        const isInRange =
-                                          dateSelection.propertyId === property.id &&
-                                          dateSelection.startDate &&
-                                          dateSelection.endDate &&
-                                          dateString >= dateSelection.startDate &&
-                                          dateString <= dateSelection.endDate;
-                                        const isOccupied = isCellOccupied(property.id, date);
-                                        const rate = getRateForDate(property.id, date);
-                                        const basePrice = rate?.daily_price ?? property.base_price ?? 0;
-                                        const markup = propertyAvitoMarkup.get(property.id) ?? 0;
-                                        const displayPrice = markup < 0
-                                          ? Math.round(basePrice + Math.abs(markup))
-                                          : Math.round(basePrice * (1 + markup / 100));
-                                        const isDragOverThisCell = dragOverDates.has(dateString) && dragOverCell?.propertyId === property.id;
-                                        const dragOverColor = isDragValid
-                                          ? 'bg-emerald-500/40 ring-2 ring-emerald-400 ring-inset'
-                                          : 'bg-rose-500/40 ring-2 ring-rose-400 ring-inset';
 
-                                        return (
-                                          <div
-                                            key={i}
-                                            className={`w-16 flex-shrink-0 border-r border-border cursor-pointer transition-colors relative ${isToday ? 'bg-primary/20' : isWeekend ? 'bg-slate-700/50' : ''
-                                              } ${isSelected ? 'bg-booking/30' : ''
-                                              } ${isInRange || (dateSelection.startDate && !dateSelection.endDate && dateSelection.propertyId === property.id && hoverDate && dateString >= dateSelection.startDate && dateString <= hoverDate) ? 'bg-booking/20 shadow-[inset_0_0_15px_rgba(135,221,245,0.3)] ring-1 ring-booking/40 ring-inset' : ''} ${isDragOverThisCell ? dragOverColor : ''} ${!isOccupied ? 'hover:bg-slate-800/30' : ''}`}
-                                            onClick={() => !isOccupied && handleCellClick(property.id, date)}
-                                            onMouseEnter={() => {
-                                              if (dateSelection.startDate && !dateSelection.endDate && dateSelection.propertyId === property.id) {
-                                                setHoverDate(dateString);
-                                              }
-                                            }}
-                                          >
-                                            {/* Selection glow effect */}
-                                            {isSelected && (
-                                              <div className="absolute inset-0 ring-1 ring-booking/50 ring-inset shadow-[0_0_12px_rgba(135,221,245,0.25)] pointer-events-none" />
-                                            )}
-                                            {!isOccupied && (
-                                              <div className="h-11 flex items-center justify-center text-center px-1">
-                                                <div className="text-[10px] font-bold text-slate-300 dark:text-slate-300 tabular-nums truncate">
-                                                  {displayPrice}
-                                                </div>
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-
-                                    {bookingLayers.map((layer, layerIndex) =>
-                                      layer.map((booking) => {
-                                        const startCol = getBookingStartCol(booking);
-                                        const fullSpan = getBookingSpan(booking);
-                                        const hiddenDaysAtStart = getHiddenDaysAtStart(booking);
-                                        const visibleSpan = fullSpan - hiddenDaysAtStart;
-
-                                        // Используем dates.length вместо daysToShow для правильного отображения всех бронирований
-                                        if (startCol < 0 || startCol >= dates.length) return null;
-
-                                        const isStartTruncated = isBookingStartTruncated(booking);
-                                        const isEndTruncated = isBookingEndTruncated(booking);
-
-                                        return (
-                                          <BookingBlock
-                                            key={booking.id}
-                                            booking={booking}
-                                            startCol={startCol}
-                                            span={Math.min(visibleSpan, dates.length - startCol)}
-                                            layerIndex={layerIndex}
-                                            cellWidth={CELL_WIDTH}
-                                            onClick={() => onEditReservation(booking)}
-                                            onDragStart={(b) => setDragState({ booking: b, originalPropertyId: property.id })}
-                                            onDragEnd={() => setDragState({ booking: null, originalPropertyId: null })}
-                                            isDragging={dragState.booking?.id === booking.id}
-                                            isStartTruncated={isStartTruncated}
-                                            isEndTruncated={isEndTruncated}
-                                          />
-                                        );
-                                      })
-                                    )}
-                                  </div>
-                                </div>
+                                {bookingLayers.map((layer, layerIndex) =>
+                                  layer.map((booking) => {
+                                    const startCol = getBookingStartCol(booking);
+                                    const fullSpan = getBookingSpan(booking);
+                                    const hiddenDaysAtStart = getHiddenDaysAtStart(booking);
+                                    const visibleSpan = fullSpan - hiddenDaysAtStart;
+                                    if (startCol < 0 || startCol >= dates.length) return null;
+                                    const isStartTruncated = isBookingStartTruncated(booking);
+                                    const isEndTruncated = isBookingEndTruncated(booking);
+                                    return (
+                                      <BookingBlock
+                                        key={booking.id}
+                                        booking={booking}
+                                        startCol={startCol}
+                                        span={Math.min(visibleSpan, dates.length - startCol)}
+                                        layerIndex={layerIndex}
+                                        cellWidth={CELL_WIDTH}
+                                        onClick={() => onEditReservation(booking)}
+                                        onDragStart={(b) => setDragState({ booking: b, originalPropertyId: property.id })}
+                                        onDragEnd={() => setDragState({ booking: null, originalPropertyId: null })}
+                                        isDragging={dragState.booking?.id === booking.id}
+                                        isStartTruncated={isStartTruncated}
+                                        isEndTruncated={isEndTruncated}
+                                      />
+                                    );
+                                  })
+                                )}
                               </div>
                             ) : (
-                              // Collapsed состояние - пустая строка, но видимая
                               <div className="h-full bg-slate-800/50 border-b border-slate-700" />
                             )}
                           </div>
@@ -1176,7 +1156,7 @@ export function Calendar({
                   {properties.length === 0 && (
                     <div className="text-center py-12">
                       <p className="text-slate-400">
-                        Нет объектов. Добавьте первый объект для начала работы.
+                        {t('calendar.noObjects')}
                       </p>
                     </div>
                   )}
@@ -1195,6 +1175,28 @@ export function Calendar({
           </div>
         </div>
       </div>
+
+      {showRangeChoiceModal && rangeChoiceData && (
+        <Dialog open={showRangeChoiceModal} onOpenChange={(open) => !open && (setShowRangeChoiceModal(false), setRangeChoiceData(null), resetDateSelection())}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{t('calendar.rangeChoiceTitle')}</DialogTitle>
+              <DialogDescription>{t('calendar.rangeChoiceDescription')}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => (setShowRangeChoiceModal(false), setRangeChoiceData(null), resetDateSelection())}>
+                {t('common.cancel')}
+              </Button>
+              <Button onClick={handleRangeChoiceChangeConditions}>
+                {t('calendar.changeConditions')}
+              </Button>
+              <Button onClick={handleRangeChoiceAddBooking}>
+                {t('calendar.addBooking')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {showConditionsModal && conditionsModalData && (
         <ChangeConditionsModal

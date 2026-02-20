@@ -74,8 +74,8 @@ export function BookingBlock({
   const hasGuestName = booking.guest_name && booking.guest_name.trim() !== '';
 
 
-  const blockHeight = 24;
-  const topOffset = 8 + layerIndex * (blockHeight + 8);
+  const blockHeight = 20;
+  const topOffset = 4 + layerIndex * (blockHeight + 4);
 
   const halfCell = cellWidth / 2;
   const leftMargin = isStartTruncated ? 0 : 2;
@@ -167,13 +167,13 @@ export function BookingBlock({
           {booking.source === 'manual' && <User className="w-3 h-3 text-white/80" />}
 
           <div
-            className={`truncate text-[11px] font-medium font-roboto flex-1 ${hasGuestName ? 'text-white' : 'text-white/90'
+            className={`truncate text-[10px] font-medium flex-1 ${hasGuestName ? 'text-white' : 'text-white/90'
               }`}
           >
             {formatGuestDisplay(booking.guest_name, booking.guest_phone)}
           </div>
 
-          <div className="text-[10px] font-bold text-white/90 tabular-nums ml-1 flex-shrink-0">
+          <div className="text-[9px] font-bold text-white/90 tabular-nums ml-1 flex-shrink-0">
             {booking.total_price.toLocaleString('ru-RU')} {booking.currency === 'RUB' ? '₽' : booking.currency}
           </div>
         </div>
