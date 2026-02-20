@@ -171,7 +171,7 @@ export function BookingBlock({
           {booking.source === 'manual' && <User className="w-3 h-3 text-white/80" />}
 
           <div
-            className={`truncate text-[10px] font-medium flex-1 ${hasGuestName ? 'text-white' : 'text-white/90'
+            className={`truncate text-[10px] font-normal font-sans tracking-tight flex-1 ${hasGuestName ? 'text-white' : 'text-white/90'
               }`}
           >
             {formatGuestDisplay(booking.guest_name, booking.guest_phone)}
@@ -190,7 +190,7 @@ export function BookingBlock({
       <div
         className="absolute left-1/2 -translate-x-1/2 top-full mt-2 hidden group-hover:block z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-xl p-3 min-w-[250px]"
       >
-        <div className="text-white font-semibold mb-2 text-sm">
+        <div className="text-white font-medium mb-2 text-sm">
           {booking.guest_name}
         </div>
         <div className="text-slate-300 text-xs space-y-1">

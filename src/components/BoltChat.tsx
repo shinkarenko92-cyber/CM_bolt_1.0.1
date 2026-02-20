@@ -87,15 +87,7 @@ export default function BoltChat({ userId, userToken, plan }: BoltChatProps) {
           if (typeof window.botpress !== 'undefined') {
             console.log('[BoltChat] window.botpress доступен');
 
-            // Скрываем стандартный виджет, показываем только нашу кнопку
             window.botpress.on('webchat:initialized', () => {
-              try {
-                window.botpress!.config({
-                  configuration: { hideWidget: true },
-                });
-              } catch {
-                // hideWidget может не поддерживаться в этой версии
-              }
               applyUserData();
             });
 
@@ -131,24 +123,5 @@ export default function BoltChat({ userId, userToken, plan }: BoltChatProps) {
     if (window.botpress) applyUserData();
   }, [userId, userToken, plan]);
 
-  const handleOpenChat = useCallback(() => {
-    if (window.botpress) {
-      window.botpress.toggle();
-    } else {
-      console.warn('[BoltChat] botpress ещё не инициализирован');
-    }
-  }, []);
-
-  return (
-    <>
-      <button
-        type="button"
-        aria-label="Открыть чат"
-        onClick={handleOpenChat}
-        className="fixed bottom-6 right-6 z-[9999] flex h-14 w-14 items-center justify-center rounded-full bg-[#007bff] text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[#007bff] focus:ring-offset-2"
-      >
-        <span className="text-[1.5rem]" aria-hidden>💬</span>
-      </button>
-    </>
-  );
+  return null;
 }
