@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Property } from '../lib/supabase';
-import { GripVertical, ChevronDown, ChevronRight } from 'lucide-react';
+import { GripVertical } from 'lucide-react';
 
 type SortablePropertyRowProps = {
   property: Property;
@@ -63,18 +63,7 @@ export function SortablePropertyRow({
         >
           <GripVertical className="w-4 h-4" />
         </div>
-        
-        <button 
-          className="text-slate-400 hover:text-slate-300 flex-shrink-0"
-          onClick={onToggle}
-        >
-          {isExpanded ? (
-            <ChevronDown className="w-4 h-4" />
-          ) : (
-            <ChevronRight className="w-4 h-4" />
-          )}
-        </button>
-        
+
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-white leading-tight truncate">
             {property.name}

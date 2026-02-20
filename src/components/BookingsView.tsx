@@ -217,7 +217,7 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                       <div className="flex-1 space-y-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-lg font-medium font-sans tracking-tight">{booking.guest_name}</h3>
+                          <h3 className="text-lg font-semibold tracking-wide">{booking.guest_name}</h3>
                           <Badge variant="secondary" className="font-normal">
                             {sourceLabel}
                           </Badge>
