@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Search, Bell, User, Upload } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -26,13 +26,13 @@ import { GuestModal } from './GuestModal';
 import { AdminView } from './AdminView';
 import { SettingsView } from './SettingsView';
 import { UserProfileModal } from './UserProfileModal';
-import { MessagesView } from './MessagesView';
+import { MessagesView, type IntegrationForMessenger } from './MessagesView';
 import { ChatPanel } from './ChatPanel';
 import { ThemeToggle } from './ThemeToggle';
 import { SkeletonCalendar } from './Skeleton';
 import { supabase, Property, Booking, Profile, Guest, Chat, Message } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { getOAuthSuccess, getOAuthError } from '../services/avito';
+import { getOAuthSuccess, getOAuthError, generateMessengerOAuthUrl } from '../services/avito';
 import { syncWithExternalAPIs, syncAvitoIntegration } from '../services/apiSync';
 import { showAvitoErrors } from '../services/avitoErrors';
 import { DeletePropertyModal } from './DeletePropertyModal';
@@ -91,6 +91,8 @@ type AvitoMessageRow = {
 export function Dashboard() {
   const { t } = useTranslation();
   const { user, isAdmin } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [currentView, setCurrentView] = useState('calendar');
   const [properties, setProperties] = useState<Property[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -125,6 +127,8 @@ export function Dashboard() {
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const oauthProcessedRef = useRef(false);
+  const [avitoIntegrationsForMessages, setAvitoIntegrationsForMessages] = useState<IntegrationForMessenger[]>([]);
+  const [hasMessengerAccess, setHasMessengerAccess] = useState(false);
 
   // Helper function for retry logic
   type SupabaseQueryResult<T> = {
@@ -319,6 +323,14 @@ export function Dashboard() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Open Messages tab when returning from Avito Messenger OAuth callback
+  useEffect(() => {
+    if ((location.state as { openMessages?: boolean })?.openMessages) {
+      setCurrentView('messages');
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   // Load chats
   const loadChats = useCallback(async () => {
@@ -571,6 +583,46 @@ export function Dashboard() {
       syncChatsFromAvito();
     }
   }, [currentView, user, loadChats, syncChatsFromAvito]);
+
+  // Load Avito integrations for Messages tab (check scope for messenger access)
+  useEffect(() => {
+    if (currentView !== 'messages' || !user || !properties.length) {
+      setAvitoIntegrationsForMessages([]);
+      setHasMessengerAccess(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('integrations')
+        .select('id, property_id, scope')
+        .eq('platform', 'avito')
+        .eq('is_active', true)
+        .in('property_id', properties.map(p => p.id));
+      if (cancelled || error) return;
+      const list: IntegrationForMessenger[] = (data || []).map((r: { id: string; property_id: string }) => ({ id: r.id, property_id: r.property_id }));
+      setAvitoIntegrationsForMessages(list);
+      // Check if any integration has messenger scopes
+      const hasMessenger = (data || []).some((r: { scope?: string | null }) => {
+        const scope = r.scope || '';
+        return scope.includes('messenger:read') && scope.includes('messenger:write');
+      });
+      setHasMessengerAccess(hasMessenger);
+    })();
+    return () => { cancelled = true; };
+  }, [currentView, user, properties]);
+
+  const handleAvitoMessengerAuth = useCallback(async (integrationId: string) => {
+    // Get current scope from integration
+    const { data: integration } = await supabase
+      .from('integrations')
+      .select('scope')
+      .eq('id', integrationId)
+      .single();
+    
+    const authUrl = await generateMessengerOAuthUrl(integrationId, integration?.scope || null);
+    window.location.href = authUrl;
+  }, []);
 
   // Periodic sync of chats list while on Messages tab (Avito Messenger API)
   useEffect(() => {
@@ -1822,6 +1874,9 @@ export function Dashboard() {
                 properties={properties}
                 selectedChatId={selectedChatId}
                 onSelectChat={setSelectedChatId}
+                hasMessengerAccess={hasMessengerAccess}
+                integrationsForMessenger={avitoIntegrationsForMessages}
+                onRequestMessengerAuth={handleAvitoMessengerAuth}
               />
             </div>
             {selectedChatId && (

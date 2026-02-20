@@ -111,7 +111,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: integration, error: integrationError } = await supabase
     .from("integrations")
-    .select("id, property_id, avito_user_id, avito_account_id, access_token_encrypted")
+    .select("id, property_id, avito_user_id, avito_account_id, access_token_encrypted, scope")
     .eq("id", body.integration_id)
     .eq("platform", "avito")
     .eq("is_active", true)
@@ -148,7 +148,24 @@ Deno.serve(async (req: Request) => {
   }
   log("owner_verified", { owner_id: property.owner_id });
 
-  let accessToken = integration.access_token_encrypted;
+  // Check scope for messenger access
+  const scope = integration.scope || "";
+  const hasMessengerRead = scope.includes("messenger:read");
+  const hasMessengerWrite = scope.includes("messenger:write");
+
+  if (!hasMessengerRead) {
+    log("rejected", { reason: "missing messenger:read scope", scope });
+    return new Response(
+      JSON.stringify({ 
+        error: "Требуется повторная авторизация для сообщений. Пожалуйста, авторизуйтесь в Avito через кнопку в разделе Сообщения.",
+        requiresReauth: true 
+      }),
+      { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  // Use main integration token (it now has messenger scope)
+  let accessToken: string | null = integration.access_token_encrypted;
   try {
     const { data: decrypted } = await supabase.rpc("decrypt_avito_token", {
       encrypted_token: accessToken,
@@ -157,7 +174,15 @@ Deno.serve(async (req: Request) => {
   } catch (e) {
     log("decrypt_skipped", { reason: e instanceof Error ? e.message : "unknown" });
   }
-  log("token_ready", { tokenLength: accessToken?.length ?? 0, tokenPreview: accessToken && accessToken.length >= 8 ? `${accessToken.slice(0, 4)}...${accessToken.slice(-4)}` : "empty" });
+  log("token_ready", { tokenLength: accessToken?.length ?? 0, tokenPreview: accessToken && accessToken.length >= 8 ? `${accessToken.slice(0, 4)}...${accessToken.slice(-4)}` : "empty", scope, hasMessengerRead, hasMessengerWrite });
+
+  if (!accessToken) {
+    log("rejected", { reason: "no access token" });
+    return new Response(
+      JSON.stringify({ error: "No Avito token found" }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
 
   const userId = String(integration.avito_user_id ?? integration.avito_account_id ?? "");
   if (!userId) {

@@ -2,19 +2,46 @@ import { useState, useMemo, useCallback } from 'react';
 import { Search, MessageCircle, Clock, User, MapPin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Chat, Property } from '../lib/supabase';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import { Button } from './ui/button';
+
+export type IntegrationForMessenger = { id: string; property_id: string };
 
 interface MessagesViewProps {
   chats: Chat[];
   properties: Property[];
   selectedChatId: string | null;
   onSelectChat: (chatId: string) => void;
+  /** If false and integrationsForMessenger.length > 0, show CTA to connect Avito Messenger */
+  hasMessengerAccess?: boolean;
+  integrationsForMessenger?: IntegrationForMessenger[];
+  onRequestMessengerAuth?: (integrationId: string) => void;
 }
 
-export function MessagesView({ chats, properties, selectedChatId, onSelectChat }: MessagesViewProps) {
+export function MessagesView({
+  chats,
+  properties,
+  selectedChatId,
+  onSelectChat,
+  hasMessengerAccess = true,
+  integrationsForMessenger = [],
+  onRequestMessengerAuth,
+}: MessagesViewProps) {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPropertyId, setFilterPropertyId] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'in_progress' | 'closed'>('all');
+  const [messengerAuthModalOpen, setMessengerAuthModalOpen] = useState(false);
+
+  const showMessengerCta = !hasMessengerAccess && integrationsForMessenger.length > 0 && onRequestMessengerAuth;
+  const firstIntegrationForMessenger = integrationsForMessenger[0];
 
   const getPropertyName = useCallback((propertyId: string | null) => {
     if (!propertyId) return t('common.unknown');
@@ -100,6 +127,46 @@ export function MessagesView({ chats, properties, selectedChatId, onSelectChat }
           <h1 className="text-2xl font-bold text-white mb-1">{t('messages.title')}</h1>
           <p className="text-slate-400">{t('messages.subtitle')}</p>
         </div>
+
+        {showMessengerCta && (
+          <div className="mb-6 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-6">
+            <h2 className="text-lg font-semibold text-white mb-2">{t('messages.messengerCta.title')}</h2>
+            <p className="text-slate-300 mb-4">{t('messages.messengerCta.description')}</p>
+            <Button
+              size="lg"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={() => setMessengerAuthModalOpen(true)}
+            >
+              <MessageCircle className="w-5 h-5 mr-2" />
+              {t('messages.messengerCta.button')}
+            </Button>
+          </div>
+        )}
+
+        <Dialog open={messengerAuthModalOpen} onOpenChange={setMessengerAuthModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{t('messages.messengerCta.modalTitle')}</DialogTitle>
+              <DialogDescription>{t('messages.messengerCta.modalDescription')}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setMessengerAuthModalOpen(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => {
+                  if (firstIntegrationForMessenger) {
+                    onRequestMessengerAuth?.(firstIntegrationForMessenger.id);
+                  }
+                  setMessengerAuthModalOpen(false);
+                }}
+              >
+                {t('messages.messengerCta.modalConfirm')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-slate-800 rounded-lg p-4">

@@ -51,6 +51,41 @@ export function generateOAuthUrl(propertyId: string): string {
 }
 
 /**
+ * Generate OAuth URL to extend scope for Messenger (adds messenger:read, messenger:write to existing scope).
+ * Uses same client_id and redirect_uri as main OAuth flow.
+ */
+export async function generateMessengerOAuthUrl(integrationId: string, currentScope?: string | null): Promise<string> {
+  const clientId = import.meta.env.VITE_AVITO_CLIENT_ID;
+  
+  if (!clientId) {
+    throw new Error('VITE_AVITO_CLIENT_ID is not configured. Please set it in .env file.');
+  }
+
+  // Base scopes for Avito integration
+  const baseScopes = ['user:read', 'short_term_rent:read', 'short_term_rent:write'];
+  // Add messenger scopes
+  const messengerScopes = ['messenger:read', 'messenger:write'];
+  
+  // Combine: existing scope (if any) + base scopes + messenger scopes, remove duplicates
+  const existingScopes = currentScope ? currentScope.split(/\s+/).filter(Boolean) : [];
+  const allScopes = [...new Set([...baseScopes, ...messengerScopes, ...existingScopes])];
+  const scopeString = allScopes.join(' ');
+
+  const state = btoa(
+    JSON.stringify({
+      type: 'messenger_auth',
+      integration_id: integrationId,
+      timestamp: Date.now(),
+      random: Math.random().toString(36).slice(2),
+    })
+  );
+
+  const redirectUri = import.meta.env.VITE_AVITO_REDIRECT_URI || 'https://app.roomi.pro/auth/avito-callback';
+  
+  return `https://www.avito.ru/oauth?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scopeString)}&state=${encodeURIComponent(state)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+}
+
+/**
  * Parse and validate OAuth state
  */
 export function parseOAuthState(state: string): { property_id: string; timestamp: number } | null {

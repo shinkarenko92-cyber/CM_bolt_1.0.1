@@ -87,10 +87,14 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Parse state to get property_id and/or integration_id
-    let stateData: { property_id?: string; integration_id?: string; timestamp?: number } | null = null;
+    // Parse state (base64-encoded JSON or plain JSON)
+    let stateData: { type?: string; property_id?: string; integration_id?: string; timestamp?: number } | null = null;
     try {
-      stateData = JSON.parse(atob(state));
+      try {
+        stateData = JSON.parse(atob(state));
+      } catch {
+        stateData = JSON.parse(state);
+      }
     } catch (stateError: unknown) {
       const errorMessage = stateError instanceof Error ? stateError.message : String(stateError);
       console.error("Failed to parse state:", errorMessage);
@@ -100,7 +104,14 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    if (!stateData?.property_id && !stateData?.integration_id) {
+    const isMessengerAuth = stateData?.type === "messenger_auth";
+    if (isMessengerAuth && !stateData?.integration_id) {
+      return new Response(
+        JSON.stringify({ error: "Invalid state: integration_id required for messenger_auth" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (!isMessengerAuth && !stateData?.property_id && !stateData?.integration_id) {
       return new Response(
         JSON.stringify({ error: "Invalid state: property_id or integration_id not found" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -109,7 +120,10 @@ Deno.serve(async (req: Request) => {
 
     const propertyId = stateData.property_id;
     const integrationIdFromState = stateData.integration_id;
-    const redirectUri = redirect_uri || `${new URL(req.url).origin}/auth/avito-callback`;
+    const redirectUri = redirect_uri || (isMessengerAuth ? "https://app.roomi.pro/auth/avito-callback-messenger" : `${new URL(req.url).origin}/auth/avito-callback`);
+
+    const clientId = isMessengerAuth ? (Deno.env.get("AVITO_MESSENGER_CLIENT_ID") || avitoClientId) : avitoClientId;
+    const clientSecret = isMessengerAuth ? (Deno.env.get("AVITO_MESSENGER_CLIENT_SECRET") || avitoClientSecret) : avitoClientSecret;
 
     console.log("Processing OAuth callback", {
       propertyId,
@@ -127,8 +141,8 @@ Deno.serve(async (req: Request) => {
       },
       body: new URLSearchParams({
         grant_type: "authorization_code",
-        client_id: avitoClientId,
-        client_secret: avitoClientSecret,
+        client_id: clientId,
+        client_secret: clientSecret,
         code,
         redirect_uri: redirectUri,
       }),
@@ -167,16 +181,52 @@ Deno.serve(async (req: Request) => {
       expiresIn: tokenData.expires_in,
     });
 
-    // Step 2: Save to integrations (no account_id needed for STR API)
-    // According to Avito STR API docs: endpoints /items/{item_id}/... don't require account_id
-    // Token itself verifies item_id ownership
-    const expiresInSeconds = tokenData.expires_in && typeof tokenData.expires_in === 'number' && tokenData.expires_in > 0 
-      ? tokenData.expires_in 
+    const expiresInSeconds = tokenData.expires_in && typeof tokenData.expires_in === "number" && tokenData.expires_in > 0
+      ? tokenData.expires_in
       : 3600;
-    
-    // Calculate token expiration: now + expires_in seconds
     const tokenExpiresAt = new Date(Date.now() + expiresInSeconds * 1000);
 
+    // Messenger auth flow: extend scope of existing integration
+    if (isMessengerAuth && integrationIdFromState) {
+      const updateData: {
+        access_token_encrypted: string;
+        refresh_token_encrypted?: string;
+        token_expires_at: string;
+        scope: string;
+        is_active: boolean;
+        is_enabled: boolean;
+      } = {
+        access_token_encrypted: tokenData.access_token,
+        token_expires_at: tokenExpiresAt.toISOString(),
+        scope: tokenData.scope ?? "user:read short_term_rent:read short_term_rent:write messenger:read messenger:write",
+        is_active: true,
+        is_enabled: true,
+      };
+
+      if (tokenData.refresh_token) {
+        updateData.refresh_token_encrypted = tokenData.refresh_token;
+      }
+
+      const { error: updateError } = await supabase
+        .from("integrations")
+        .update(updateData)
+        .eq("id", integrationIdFromState);
+
+      if (updateError) {
+        console.error("Error updating integration with messenger scope:", updateError);
+        return new Response(
+          JSON.stringify({ error: `Ошибка обновления интеграции: ${updateError.message}` }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      console.log("Integration updated with messenger scope", integrationIdFromState);
+      return new Response(
+        JSON.stringify({ success: true, isMessengerAuth: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Step 2: Save to integrations (main OAuth: short_term_rent, etc.)
     console.log("Saving token to integration", {
       propertyId,
       hasAccessToken: !!tokenData.access_token,
@@ -185,7 +235,6 @@ Deno.serve(async (req: Request) => {
       tokenExpiresAt: tokenExpiresAt.toISOString(),
     });
 
-    // Get integration_id: from state if provided, otherwise find by property_id
     let integrationId: string | undefined = integrationIdFromState;
 
     if (!integrationId && propertyId) {
