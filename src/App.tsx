@@ -8,6 +8,7 @@ import { AuthLayout } from './components/AuthLayout';
 import { Dashboard } from './components/Dashboard';
 import { SignupForm } from './components/SignupForm';
 import { YandexMetrika } from './components/YandexMetrika';
+import BoltChat, { type PlanType } from './components/BoltChat';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { OnboardingImport } from './pages/OnboardingImport';
@@ -197,7 +198,36 @@ function AppContent() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <AvitoCallbackHandler />
+      <BoltChatWidget />
     </>
+  );
+}
+
+function BoltChatWidget() {
+  const { user, profile } = useAuth();
+  const [userToken, setUserToken] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (!user) {
+      setUserToken(undefined);
+      return;
+    }
+    (async () => {
+      const { data: { session } } = await import('./lib/supabase').then(m => m.supabase.auth.getSession());
+      setUserToken(session?.access_token);
+    })();
+  }, [user?.id]);
+
+  const plan: PlanType = (profile?.subscription_tier === 'pro' || profile?.subscription_tier === 'enterprise')
+    ? profile.subscription_tier
+    : 'free';
+
+  return (
+    <BoltChat
+      userId={user?.id}
+      userToken={userToken}
+      plan={plan}
+    />
   );
 }
 
