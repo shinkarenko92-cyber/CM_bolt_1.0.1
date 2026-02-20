@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Plus, Settings } from 'lucide-react';
+import { Plus, Settings, Moon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { parseISO, format, isBefore, isSameDay } from 'date-fns';
@@ -1089,20 +1089,15 @@ export function Calendar({
                                         {isSelected && (
                                           <div className="absolute inset-0 ring-1 ring-booking/50 ring-inset shadow-[0_0_12px_rgba(135,221,245,0.25)] pointer-events-none" />
                                         )}
-                                        {!isOccupied && (
-                                          <>
-                                            <div className="flex-1 flex items-start justify-center pt-1.5 px-0.5 min-h-0">
-                                              <span className="text-sm sm:text-base font-bold text-slate-300 tabular-nums truncate leading-tight">
-                                                {displayPrice} {currencySymbol}
-                                              </span>
-                                            </div>
-                                            <div className="flex justify-end pr-1 pb-1">
-                                              <span className="text-[10px] text-slate-500 tabular-nums">
-                                                {displayMinStay} {displayMinStay === 1 ? t('common.night') : t('common.nights')}
-                                              </span>
-                                            </div>
-                                          </>
-                                        )}
+                                        <div className="flex-1 flex items-start justify-center pt-1 px-0.5 min-h-0">
+                                          <span className="text-xs font-medium text-slate-300 tabular-nums truncate leading-tight">
+                                            {displayPrice} {currencySymbol}
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-end items-center gap-0.5 pr-1 pb-1">
+                                          <span className="text-[10px] text-slate-500 tabular-nums">{displayMinStay}</span>
+                                          <Moon className="w-3 h-3 text-slate-500 flex-shrink-0" aria-hidden />
+                                        </div>
                                       </div>
                                     );
                                   })}
@@ -1125,6 +1120,7 @@ export function Calendar({
                                         span={Math.min(visibleSpan, dates.length - startCol)}
                                         layerIndex={layerIndex}
                                         cellWidth={CELL_WIDTH}
+                                        rowHeight={ROW_HEIGHT}
                                         onClick={() => onEditReservation(booking)}
                                         onDragStart={(b) => setDragState({ booking: b, originalPropertyId: property.id })}
                                         onDragEnd={() => setDragState({ booking: null, originalPropertyId: null })}

@@ -8,13 +8,15 @@ type BookingBlockProps = {
   span: number;
   layerIndex: number;
   cellWidth: number;
+  /** Row height in px; when set, block is positioned at bottom of row */
+  rowHeight?: number;
   onClick: () => void;
   onDragStart: (booking: Booking) => void;
   onDragEnd: () => void;
   isDragging: boolean;
   isStartTruncated?: boolean;
   isEndTruncated?: boolean;
-  hasConflict?: boolean; // Для отображения конфликтов
+  hasConflict?: boolean;
 };
 
 // Цвета на основе статуса брони
@@ -66,16 +68,18 @@ export function BookingBlock({
   isStartTruncated = false,
   isEndTruncated = false,
   hasConflict = false,
+  rowHeight,
 }: BookingBlockProps) {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const colorConfig = getBookingColors(booking.status, hasConflict);
 
-  // Определяем, есть ли имя гостя или только телефон
   const hasGuestName = booking.guest_name && booking.guest_name.trim() !== '';
 
-
   const blockHeight = 20;
-  const topOffset = 4 + layerIndex * (blockHeight + 4);
+  const gap = 4;
+  const topOffset = rowHeight != null
+    ? rowHeight - gap - (layerIndex + 1) * blockHeight - layerIndex * gap
+    : 4 + layerIndex * (blockHeight + gap);
 
   const halfCell = cellWidth / 2;
   const leftMargin = isStartTruncated ? 0 : 2;
