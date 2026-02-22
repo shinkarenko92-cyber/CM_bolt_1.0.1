@@ -1721,7 +1721,7 @@ export function Dashboard() {
       <Sidebar currentView={currentView} onViewChange={setCurrentView} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="backdrop-blur-md bg-card/90 border-b border-border px-3 md:px-6 py-3 md:py-4 shadow-lg transition-shadow duration-200">
+        <header className="relative z-40 backdrop-blur-md bg-card/90 border-b border-border px-3 md:px-6 py-3 md:py-4 shadow-lg transition-shadow duration-200">
           <div className="flex items-center justify-between gap-2">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
@@ -1735,7 +1735,7 @@ export function Dashboard() {
                 data-testid="input-search"
               />
               {showSearchDropdown && searchResults.length > 0 && (
-                <div className="absolute top-full mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-96 overflow-y-auto z-50">
+                <div className="absolute top-full mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-96 overflow-y-auto z-[100]">
                   <div className="px-3 py-2 border-b border-border text-xs text-muted-foreground">
                     {t('bookings.found')}: {searchResults.length}
                   </div>
