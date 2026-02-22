@@ -513,16 +513,6 @@ export function Calendar({
     }
   };
 
-  const togglePropertyExpansion = (propertyId: string) => {
-    const newExpanded = new Set(expandedProperties);
-    if (newExpanded.has(propertyId)) {
-      newExpanded.delete(propertyId);
-    } else {
-      newExpanded.add(propertyId);
-    }
-    setExpandedProperties(newExpanded);
-  };
-
   const goToToday = () => {
     const today = new Date();
     const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
