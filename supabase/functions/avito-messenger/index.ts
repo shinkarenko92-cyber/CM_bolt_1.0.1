@@ -111,7 +111,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: integration, error: integrationError } = await supabase
     .from("integrations")
-    .select("id, property_id, avito_user_id, avito_account_id, access_token_encrypted, scope")
+    .select("id, property_id, avito_user_id, avito_account_id, access_token_encrypted, refresh_token_encrypted, token_expires_at, scope")
     .eq("id", body.integration_id)
     .eq("platform", "avito")
     .eq("is_active", true)
@@ -156,15 +156,161 @@ Deno.serve(async (req: Request) => {
   if (!hasMessengerRead) {
     log("rejected", { reason: "missing messenger:read scope", scope });
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: "Требуется повторная авторизация для сообщений. Пожалуйста, авторизуйтесь в Avito через кнопку в разделе Сообщения.",
-        requiresReauth: true 
+        requiresReauth: true,
       }),
       { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 
-  // Use main integration token (it now has messenger scope)
+  // ——— Проверка и refresh токена ———
+  console.log("[avito-messenger] checking token expiration...");
+
+  let expiresAt: string | null = integration.token_expires_at ?? null;
+  if (typeof expiresAt === "string" && !expiresAt.includes("Z") && !expiresAt.includes("+") && !expiresAt.includes("-", 10)) {
+    expiresAt += "Z";
+  }
+
+  const needRefresh =
+    expiresAt != null &&
+    new Date(expiresAt).getTime() < Date.now() + 5 * 60 * 1000;
+
+  if (needRefresh) {
+    console.log("[avito-messenger] token expired, refreshing....");
+
+    if (!integration.refresh_token_encrypted) {
+      return new Response(JSON.stringify({ error: "Re-auth required" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let refreshToken = integration.refresh_token_encrypted;
+    try {
+      const { data: decryptedRefresh } = await supabase.rpc("decrypt_avito_token", {
+        encrypted_token: refreshToken,
+      });
+      if (decryptedRefresh) refreshToken = decryptedRefresh;
+    } catch {
+      // use as-is
+    }
+
+    const clientSecret = Deno.env.get("AVITO_CLIENT_SECRET");
+    if (!clientSecret) {
+      console.error("[avito-messenger] AVITO_CLIENT_SECRET not set");
+      return new Response(
+        JSON.stringify({ error: "Server configuration error" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const tokenUrl = `${AVITO_API_BASE}/token`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    let refreshRes: Response;
+    try {
+      refreshRes = await fetch(tokenUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          refresh_token: refreshToken,
+          client_id: "QPxBGwnCSAu0rx32BRIs",
+          client_secret: clientSecret,
+        }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      clearTimeout(timeoutId);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[avito-messenger] refresh failed:", msg);
+      return new Response(
+        JSON.stringify({ error: "Token refresh failed, please re-auth" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    clearTimeout(timeoutId);
+
+    const errorBody = await refreshRes.text();
+    let refreshData: { access_token?: string; refresh_token?: string; expires_in?: number };
+    try {
+      refreshData = JSON.parse(errorBody);
+    } catch {
+      refreshData = {};
+    }
+
+    if (!refreshRes.ok) {
+      console.error("[avito-messenger] refresh failed:", errorBody);
+      return new Response(
+        JSON.stringify({ error: "Token refresh failed, please re-auth" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const newAccessToken = refreshData.access_token;
+    const newRefreshToken = refreshData.refresh_token;
+    const expiresIn = refreshData.expires_in ?? 3600;
+    const expires_at = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+    if (!newAccessToken) {
+      console.error("[avito-messenger] refresh failed: no access_token in response");
+      return new Response(
+        JSON.stringify({ error: "Token refresh failed, please re-auth" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    let accessTokenEncrypted = newAccessToken;
+    let refreshTokenEncrypted: string | undefined = newRefreshToken;
+    try {
+      const { data: encAccess } = await supabase.rpc("encrypt_avito_token", { token: newAccessToken });
+      if (encAccess) accessTokenEncrypted = encAccess;
+    } catch {
+      // store as-is
+    }
+    if (newRefreshToken) {
+      try {
+        const { data: encRefresh } = await supabase.rpc("encrypt_avito_token", { token: newRefreshToken });
+        if (encRefresh) refreshTokenEncrypted = encRefresh;
+      } catch {
+        // store as-is
+      }
+    }
+
+    const updatePayload: {
+      access_token_encrypted: string;
+      token_expires_at: string;
+      refresh_token_encrypted?: string;
+    } = {
+      access_token_encrypted: accessTokenEncrypted,
+      token_expires_at: expires_at,
+    };
+    if (refreshTokenEncrypted != null) updatePayload.refresh_token_encrypted = refreshTokenEncrypted;
+
+    const { error: updateErr } = await supabase
+      .from("integrations")
+      .update(updatePayload)
+      .eq("id", integration.id);
+
+    if (updateErr) {
+      console.error("[avito-messenger] refresh db update failed:", updateErr.message);
+      return new Response(
+        JSON.stringify({ error: "Token refresh failed, please re-auth" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    integration.access_token_encrypted = newAccessToken;
+    integration.token_expires_at = expires_at;
+    if (newRefreshToken) integration.refresh_token_encrypted = newRefreshToken;
+
+    console.log("[avito-messenger] refresh success, new expires_at:", expires_at);
+    console.log("[avito-messenger] using access_token (preview):", newAccessToken.slice(0, 10) + "...");
+  }
+
+  // Use main integration token (after optional refresh)
   let accessToken: string | null = integration.access_token_encrypted;
   try {
     const { data: decrypted } = await supabase.rpc("decrypt_avito_token", {
