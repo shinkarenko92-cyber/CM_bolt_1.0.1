@@ -181,7 +181,7 @@ Deno.serve(async (req: Request) => {
 
     if (!integration.refresh_token_encrypted) {
       console.error("[avito-messenger] no refresh_token_encrypted");
-      return new Response(JSON.stringify({ error: "Re-auth required: no refresh token" }), {
+      return new Response(JSON.stringify({ error: "Re-auth required" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -227,7 +227,7 @@ Deno.serve(async (req: Request) => {
     if (!refreshRes.ok) {
       const errorText = await refreshRes.text();
       console.error("[avito-messenger] refresh failed:", refreshRes.status, errorText);
-      return new Response(JSON.stringify({ error: "Token refresh failed, please re-auth" }), {
+      return new Response(JSON.stringify({ error: "Refresh failed" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
