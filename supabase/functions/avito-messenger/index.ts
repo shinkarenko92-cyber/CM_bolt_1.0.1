@@ -172,9 +172,10 @@ Deno.serve(async (req: Request) => {
   if (expiresAt && typeof expiresAt === "string" && !expiresAt.includes("Z")) {
     expiresAt += "Z";
   }
-
+  const expiresAtMs = expiresAt != null ? new Date(expiresAt).getTime() : NaN;
+  // Рефрешим при отсутствии даты, невалидной дате или истечении в течение 15 мин
   const needsRefresh =
-    !expiresAt || new Date(expiresAt).getTime() < Date.now() + 5 * 60 * 1000;
+    !expiresAt || Number.isNaN(expiresAtMs) || expiresAtMs < Date.now() + 15 * 60 * 1000;
 
   if (needsRefresh) {
     console.log("[avito-messenger] token expired/near expiry, refreshing...");
