@@ -53,17 +53,19 @@ export function generateOAuthUrl(propertyId: string): string {
 
 /**
  * Generate OAuth URL to extend scope for Messenger (adds messenger:read, messenger:write).
- * Uses same client_id and redirect_uri as main OAuth flow.
+ * Uses VITE_AVITO_MESSENGER_CLIENT_ID if set (отдельное приложение Avito для мессенджера), иначе VITE_AVITO_CLIENT_ID.
+ * Должен совпадать с AVITO_MESSENGER_CLIENT_ID на бэкенде при обмене code на token.
  * integrationId can be null — тогда callback выберет первую интеграцию пользователя (fallback).
  */
 export async function generateMessengerOAuthUrl(
   integrationId: string | null | undefined,
   currentScope?: string | null
 ): Promise<string> {
-  const clientId = import.meta.env.VITE_AVITO_CLIENT_ID;
+  const clientId =
+    import.meta.env.VITE_AVITO_MESSENGER_CLIENT_ID || import.meta.env.VITE_AVITO_CLIENT_ID;
 
   if (!clientId) {
-    throw new Error('VITE_AVITO_CLIENT_ID is not configured. Please set it in .env file.');
+    throw new Error('VITE_AVITO_CLIENT_ID or VITE_AVITO_MESSENGER_CLIENT_ID must be set in .env');
   }
 
   const finalIntegrationId = integrationId ?? null;
