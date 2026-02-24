@@ -147,7 +147,12 @@ export function MessagesView({
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>{t('messages.messengerCta.modalTitle')}</DialogTitle>
-              <DialogDescription>{t('messages.messengerCta.modalDescription')}</DialogDescription>
+              <DialogDescription>
+                {t('messages.messengerCta.modalDescription')}
+                <span className="mt-2 block text-muted-foreground text-sm">
+                  {t('messages.messengerCta.modalHint')}
+                </span>
+              </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setMessengerAuthModalOpen(false)}>

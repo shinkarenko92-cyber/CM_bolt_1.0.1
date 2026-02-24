@@ -390,6 +390,7 @@
       "button": "Authorize in Avito",
       "modalTitle": "Avito chats access",
       "modalDescription": "You will be redirected to Avito to grant chat access (messenger:read, messenger:write). After confirming, chats will appear here.",
+      "modalHint": "Tip: if you're already logged in on avito.ru in this browser, you may not need to enter your password again.",
       "modalConfirm": "Continue",
       "errorTitle": "Connection error",
       "popupBlocked": "Allow popups for this site and try again"
