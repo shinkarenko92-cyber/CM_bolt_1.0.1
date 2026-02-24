@@ -20,7 +20,9 @@ import { EditReservationModal } from './EditReservationModal';
 import { OverlapWarningModal } from './OverlapWarningModal';
 import { PropertiesView } from './PropertiesView';
 import { BookingsView } from './BookingsView';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { AnalyticsView } from './AnalyticsView';
+import { AnalyticsInsights } from './AnalyticsInsights';
 import { GuestsView } from './GuestsView';
 import { GuestModal } from './GuestModal';
 import { AdminView } from './AdminView';
@@ -113,6 +115,7 @@ export function Dashboard() {
   const [prefilledDates, setPrefilledDates] = useState<{ propertyId: string; checkIn: string; checkOut: string } | null>(null);
   const [isDeletePropertyModalOpen, setIsDeletePropertyModalOpen] = useState(false);
   const [refreshIntegrationsTrigger, setRefreshIntegrationsTrigger] = useState(0);
+  const isMobile = useMediaQuery('(max-width: 767px)');
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
   const [bookingsForDelete, setBookingsForDelete] = useState<Booking[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -1991,7 +1994,11 @@ export function Dashboard() {
             )}
           </div>
         ) : currentView === 'analytics' ? (
-          <AnalyticsView bookings={bookings} properties={properties} />
+          isMobile ? (
+            <AnalyticsInsights bookings={bookings} properties={properties} />
+          ) : (
+            <AnalyticsView bookings={bookings} properties={properties} />
+          )
         ) : currentView === 'admin' && isAdmin ? (
           <AdminView />
         ) : currentView === 'settings' ? (
