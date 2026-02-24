@@ -370,6 +370,9 @@
   "messages": {
     "title": "Messages",
     "subtitle": "Conversations with Avito clients",
+    "avito": {
+      "reauthRequired": "Re-authorization required for Avito messages. Click \"Authorize in Avito\" in the Messages section."
+    },
     "messengerCta": {
       "title": "Connect Avito chats",
       "description": "To view and reply to messages from guests",

@@ -159,6 +159,7 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         error: "Требуется повторная авторизация для сообщений. Пожалуйста, авторизуйтесь в Avito через кнопку в разделе Сообщения.",
         requiresReauth: true,
+        error_code: "missing_messenger_scope",
       }),
       { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

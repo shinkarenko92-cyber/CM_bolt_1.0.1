@@ -127,6 +127,7 @@ export function Dashboard() {
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const oauthProcessedRef = useRef(false);
+  const lastAvitoReauthToastRef = useRef(0);
   const [avitoIntegrationsForMessages, setAvitoIntegrationsForMessages] = useState<IntegrationForMessenger[]>([]);
   const [hasMessengerAccess, setHasMessengerAccess] = useState(false);
 
@@ -365,21 +366,28 @@ export function Dashboard() {
     }
 
     try {
-      // Get all active Avito integrations for this user's properties
+      // Get all active Avito integrations for this user's properties (include scope to skip getChats when no messenger scope)
       const { data: integrations, error: integrationsError } = await supabase
         .from('integrations')
-        .select('id, property_id, avito_user_id, access_token_encrypted')
+        .select('id, property_id, avito_user_id, access_token_encrypted, scope')
         .eq('platform', 'avito')
         .eq('is_active', true)
         .in('property_id', properties.map(p => p.id));
 
       if (integrationsError || !integrations || integrations.length === 0) {
-        // No integrations or error - silently return
         return;
       }
 
-      // Sync chats for each integration (via Edge Function to avoid CORS)
-      for (const integration of integrations) {
+      // Only call getChats for integrations that have messenger:read scope (avoids 403 spam)
+      const withMessengerScope = integrations.filter(
+        (i: { scope?: string | null }) => (i.scope ?? '').includes('messenger:read')
+      );
+      if (withMessengerScope.length === 0) {
+        await loadChats();
+        return;
+      }
+
+      for (const integration of withMessengerScope) {
         if (!integration.avito_user_id) {
           continue;
         }
@@ -393,6 +401,16 @@ export function Dashboard() {
 
           if (fnError) {
             console.error(`avito-messenger getChats error for ${integration.id}:`, fnError);
+            const err = fnError as { message?: string; context?: { status?: number }; status?: number };
+            const status = err?.context?.status ?? err?.status ?? (err?.message?.includes('403') ? 403 : err?.message?.includes('401') ? 401 : 0);
+            if (status === 403 || status === 401) {
+              setHasMessengerAccess(false);
+              const now = Date.now();
+              if (now - lastAvitoReauthToastRef.current > 120000) {
+                lastAvitoReauthToastRef.current = now;
+                toast.error(t('messages.avito.reauthRequired', { defaultValue: 'Требуется повторная авторизация для сообщений Avito. Нажмите «Авторизоваться в Avito» в разделе Сообщения.' }));
+              }
+            }
             continue;
           }
           if (!avitoResponse?.chats || avitoResponse.chats.length === 0) {
@@ -449,7 +467,7 @@ export function Dashboard() {
       // Log error but don't block UI
       console.error('Error syncing chats from Avito:', error);
     }
-  }, [user, properties, loadChats]);
+  }, [user, properties, loadChats, t]);
 
   // Load messages for selected chat
   const loadMessages = useCallback(async (chatId: string, offset = 0, limit = 50) => {
