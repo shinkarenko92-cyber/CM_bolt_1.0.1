@@ -380,7 +380,8 @@
       "modalTitle": "Avito chats access",
       "modalDescription": "You will be redirected to Avito to grant chat access (messenger:read, messenger:write). After confirming, chats will appear here.",
       "modalConfirm": "Continue",
-      "errorTitle": "Connection error"
+      "errorTitle": "Connection error",
+      "popupBlocked": "Allow popups for this site and try again"
     },
     "messengerSuccess": {
       "title": "Connected successfully!",

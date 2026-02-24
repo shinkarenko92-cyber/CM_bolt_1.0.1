@@ -128,6 +128,8 @@ export function Dashboard() {
   const [isSyncing, setIsSyncing] = useState(false);
   const oauthProcessedRef = useRef(false);
   const lastAvitoReauthToastRef = useRef(0);
+  const messengerOauthPopupRef = useRef<Window | null>(null);
+  const [messengerOauthInProgress, setMessengerOauthInProgress] = useState(false);
   const [avitoIntegrationsForMessages, setAvitoIntegrationsForMessages] = useState<IntegrationForMessenger[]>([]);
   const [hasMessengerAccess, setHasMessengerAccess] = useState(false);
 
@@ -646,8 +648,69 @@ export function Dashboard() {
       scope = integration?.scope ?? null;
     }
     const authUrl = await generateMessengerOAuthUrl(effectiveId, scope);
-    window.location.href = authUrl;
-  }, [avitoIntegrationsForMessages]);
+    const popup = window.open(authUrl, 'avito_oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
+    messengerOauthPopupRef.current = popup;
+    setMessengerOauthInProgress(true);
+    if (!popup) {
+      toast.error(t('messages.messengerCta.popupBlocked', { defaultValue: 'Включите всплывающие окна для этого сайта и попробуйте снова' }));
+      setMessengerOauthInProgress(false);
+    }
+  }, [avitoIntegrationsForMessages, t]);
+
+  // Обработка результата OAuth messenger из popup (как у бронирований)
+  const redirectUri = import.meta.env.VITE_AVITO_REDIRECT_URI || 'https://app.roomi.pro/auth/avito-callback';
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.data?.type !== 'avito-oauth-result') return;
+      if (!event.data?.isMessengerAuth) return;
+      messengerOauthPopupRef.current = null;
+      setMessengerOauthInProgress(false);
+      if (event.data.success && event.data.code && event.data.state) {
+        (async () => {
+          const { data, error: fnError } = await supabase.functions.invoke('avito-oauth-callback', {
+            body: { code: event.data.code, state: event.data.state, redirect_uri: redirectUri },
+          });
+          if (!fnError && data?.success) {
+            toast.success(t('messages.messengerSuccess.title'));
+            setHasMessengerAccess(true);
+            // Перезагрузить список интеграций для сообщений (scope обновился)
+            const { data: integrations } = await supabase
+              .from('integrations')
+              .select('id, property_id, scope')
+              .eq('platform', 'avito')
+              .eq('is_active', true)
+              .in('property_id', (properties ?? []).map(p => p.id));
+            if (integrations?.length) {
+              setAvitoIntegrationsForMessages(integrations.map((r: { id: string; property_id: string }) => ({ id: r.id, property_id: r.property_id })));
+            }
+          } else if ((data as { reason?: string })?.reason === 'no_avito_integration') {
+            toast.error(t('messages.noAvitoIntegration.title'));
+          } else {
+            const errMsg = fnError?.message ?? (data as { error?: string })?.error ?? 'Ошибка подключения';
+            toast.error(errMsg);
+          }
+        })();
+      } else if (!event.data.success) {
+        const msg = event.data.error_description || event.data.error || 'Ошибка авторизации Avito';
+        toast.error(msg);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [redirectUri, t, properties]);
+
+  // Popup закрыт без завершения OAuth
+  useEffect(() => {
+    if (!messengerOauthInProgress || !messengerOauthPopupRef.current) return;
+    const interval = setInterval(() => {
+      if (messengerOauthPopupRef.current?.closed) {
+        messengerOauthPopupRef.current = null;
+        setMessengerOauthInProgress(false);
+        clearInterval(interval);
+      }
+    }, 300);
+    return () => clearInterval(interval);
+  }, [messengerOauthInProgress]);
 
   // Periodic sync of chats list while on Messages tab (Avito Messenger API)
   useEffect(() => {

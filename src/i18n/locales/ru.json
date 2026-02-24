@@ -390,7 +390,8 @@
       "modalTitle": "Доступ к чатам Avito",
       "modalDescription": "Вы будете перенаправлены на Avito для выдачи доступа к чатам (messenger:read, messenger:write). После подтверждения чаты появятся здесь.",
       "modalConfirm": "Продолжить",
-      "errorTitle": "Ошибка подключения"
+      "errorTitle": "Ошибка подключения",
+      "popupBlocked": "Включите всплывающие окна для этого сайта и попробуйте снова"
     },
     "messengerSuccess": {
       "title": "Успешно подключено!",
