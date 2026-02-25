@@ -21,7 +21,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../contexts/useTheme';
 import { supabase, type Property, type BookingWithProperty } from '../lib/supabase';
 import { DAY_CELL_WIDTH, ROOM_NAME_WIDTH } from '../constants/layout';
 import { RoomRow } from '../components/RoomRow';

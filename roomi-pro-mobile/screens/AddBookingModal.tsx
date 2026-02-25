@@ -21,7 +21,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Property } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../contexts/useTheme';
 
 const schema = z.object({
   property_id: z.string().min(1, 'Выберите объект'),

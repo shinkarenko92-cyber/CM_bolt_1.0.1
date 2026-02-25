@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Hotel PMS Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00bda4",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2321",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+        .ios-blur {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen font-display bg-white">
+<!-- Header -->
+<header class="sticky top-0 z-50 bg-white/95 dark:bg-background-dark/80 ios-blur border-b border-primary/10 px-4 py-3 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden border border-primary/20">
+<img class="w-full h-full object-cover" data-alt="Luxury hotel building exterior with modern architecture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDwj1o3JE--Wt5UJ4Bk7ibbhL4-yCmEdywfCsnxizZXXsPWZ96ZZ15CMO1AEwjakbTzAYrVsxGQmyHA9wFa-vH7rMpi-MzcPtLKHE2VE_MxxzqEMx6VWA1ztrm6iqIbFWkWvtxJzATSP5QC7BtDwcz7M0SuRbv5yTHGup7XepwZ9kV9NGtqhC9Kk8Op_IuFyicDjiJldgrsblt7elumA3R5PXRG0pYbLM0fobgxyM3qrR5CGSPrcsPzUoGO7yXqNmChNa7gYRUx4sL"/>
+</div>
+<div>
+<h1 class="text-sm font-semibold text-slate-500 dark:text-slate-400 leading-none mb-1">Grand Resort</h1>
+<p class="text-lg font-bold leading-none">Dashboard</p>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="size-10 rounded-full bg-primary/5 dark:bg-primary/20 flex items-center justify-center text-slate-700 dark:text-slate-200">
+<span class="material-symbols-outlined text-[24px]">search</span>
+</button>
+<button class="size-10 rounded-full bg-primary/5 dark:bg-primary/20 flex items-center justify-center text-slate-700 dark:text-slate-200 relative">
+<span class="material-symbols-outlined text-[24px]">notifications</span>
+<span class="absolute top-2.5 right-2.5 size-2 bg-red-500 rounded-full border-2 border-white dark:border-background-dark"></span>
+</button>
+</div>
+</header>
+<main class="pb-32 px-4">
+<!-- Today Section -->
+<section class="mt-6">
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-xl font-extrabold tracking-tight">Today</h2>
+<span class="text-xs font-medium text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full">Oct 24, 2023</span>
+</div>
+<div class="grid grid-cols-3 gap-4">
+<!-- Arrivals -->
+<div class="flex flex-col items-center gap-2">
+<div class="aspect-square w-full rounded-full border-4 border-primary/20 flex flex-col items-center justify-center bg-white dark:bg-slate-900 shadow-sm relative overflow-hidden group">
+<div class="absolute inset-0 bg-primary/5 opacity-0 group-active:opacity-100 transition-opacity"></div>
+<span class="text-3xl font-black text-primary">12</span>
+<span class="text-[10px] uppercase font-bold tracking-widest text-slate-400">Arrivals</span>
+</div>
+</div>
+<!-- Departures -->
+<div class="flex flex-col items-center gap-2">
+<div class="aspect-square w-full rounded-full border-4 border-primary/10 flex flex-col items-center justify-center bg-white dark:bg-slate-900 shadow-sm relative overflow-hidden group">
+<div class="absolute inset-0 bg-primary/5 opacity-0 group-active:opacity-100 transition-opacity"></div>
+<span class="text-3xl font-black text-slate-700 dark:text-slate-200">08</span>
+<span class="text-[10px] uppercase font-bold tracking-widest text-slate-400">Departures</span>
+</div>
+</div>
+<!-- Stays -->
+<div class="flex flex-col items-center gap-2">
+<div class="aspect-square w-full rounded-full border-4 border-primary/10 flex flex-col items-center justify-center bg-white dark:bg-slate-900 shadow-sm relative overflow-hidden group">
+<div class="absolute inset-0 bg-primary/5 opacity-0 group-active:opacity-100 transition-opacity"></div>
+<span class="text-3xl font-black text-slate-700 dark:text-slate-200">45</span>
+<span class="text-[10px] uppercase font-bold tracking-widest text-slate-400">Stays</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Stats Overview -->
+<section class="mt-8 grid grid-cols-2 gap-3">
+<div class="bg-primary p-4 rounded-xl text-white shadow-lg shadow-primary/20">
+<p class="text-xs font-bold opacity-80 uppercase tracking-wider">Revenue Today</p>
+<h3 class="text-2xl font-black mt-1">$4,290</h3>
+<div class="flex items-center gap-1 mt-2 text-[10px] font-bold">
+<span class="material-symbols-outlined text-xs">trending_up</span>
+<span>12% VS YESTERDAY</span>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+<p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Avg. Daily Rate</p>
+<h3 class="text-2xl font-black mt-1 text-slate-800 dark:text-slate-100">$185</h3>
+<div class="flex items-center gap-1 mt-2 text-[10px] font-bold text-primary">
+<span class="material-symbols-outlined text-xs">analytics</span>
+<span>STABLE</span>
+</div>
+</div>
+</section>
+<!-- Recent Activity -->
+<section class="mt-8">
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-xl font-extrabold tracking-tight">Recent Activity</h2>
+<button class="text-primary text-sm font-bold">View All</button>
+</div>
+<div class="space-y-3">
+<!-- Activity Item -->
+<div class="flex items-center gap-4 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
+<div class="size-12 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
+<span class="material-symbols-outlined">check_circle</span>
+</div>
+<div class="flex-1">
+<p class="text-sm font-bold text-slate-800 dark:text-slate-100">Room 204 Checked In</p>
+<p class="text-xs text-slate-400 font-medium">Mr. Julian Alvarez · 2 mins ago</p>
+</div>
+<div class="text-right">
+<p class="text-xs font-bold text-primary">$340</p>
+</div>
+</div>
+<!-- Activity Item -->
+<div class="flex items-center gap-4 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
+<div class="size-12 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600">
+<span class="material-symbols-outlined">pending_actions</span>
+</div>
+<div class="flex-1">
+<p class="text-sm font-bold text-slate-800 dark:text-slate-100">New Booking Request</p>
+<p class="text-xs text-slate-400 font-medium">Deluxe Suite · 15 mins ago</p>
+</div>
+<div class="text-right">
+<p class="text-xs font-bold text-slate-400">Pending</p>
+</div>
+</div>
+<!-- Activity Item -->
+<div class="flex items-center gap-4 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
+<div class="size-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
+<span class="material-symbols-outlined">event_note</span>
+</div>
+<div class="flex-1">
+<p class="text-sm font-bold text-slate-800 dark:text-slate-100">Reservation Modified</p>
+<p class="text-xs text-slate-400 font-medium">Room 105 · 1 hour ago</p>
+</div>
+<div class="text-right">
+<span class="material-symbols-outlined text-slate-300">chevron_right</span>
+</div>
+</div>
+<!-- Activity Item -->
+<div class="flex items-center gap-4 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm opacity-80">
+<div class="size-12 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
+<span class="material-symbols-outlined">logout</span>
+</div>
+<div class="flex-1">
+<p class="text-sm font-bold text-slate-800 dark:text-slate-100">Room 302 Checked Out</p>
+<p class="text-xs text-slate-400 font-medium">Mrs. Sarah Jenkins · 2 hours ago</p>
+</div>
+<div class="text-right">
+<p class="text-xs font-bold text-slate-400">Closed</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 inset-x-0 bg-white/95 dark:bg-background-dark/90 ios-blur border-t border-primary/10 pb-6 pt-2 px-4 z-50">
+<!-- Occupancy Bar -->
+<div class="mb-4 px-2">
+<div class="flex justify-between items-end mb-1">
+<span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Occupancy</span>
+<span class="text-sm font-black text-primary">84%</span>
+</div>
+<div class="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 84%;"></div>
+</div>
+</div>
+<div class="flex justify-between items-center gap-1">
+<a class="flex flex-1 flex-col items-center gap-1 group" href="#">
+<div class="flex h-10 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+<span class="material-symbols-outlined text-[28px] fill-[1]">home</span>
+</div>
+<p class="text-[10px] font-bold text-primary uppercase tracking-tighter">Home</p>
+</a>
+<a class="flex flex-1 flex-col items-center gap-1 group" href="#">
+<div class="flex h-10 w-12 items-center justify-center rounded-2xl text-slate-400 group-active:bg-slate-100 dark:group-active:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-[28px]">calendar_today</span>
+</div>
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Calendar</p>
+</a>
+<a class="flex flex-1 flex-col items-center gap-1 group" href="#">
+<div class="flex h-10 w-12 items-center justify-center rounded-2xl text-slate-400 group-active:bg-slate-100 dark:group-active:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-[28px]">book_online</span>
+</div>
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Bookings</p>
+</a>
+<a class="flex flex-1 flex-col items-center gap-1 group" href="#">
+<div class="flex h-10 w-12 items-center justify-center rounded-2xl text-slate-400 group-active:bg-slate-100 dark:group-active:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-[28px]">settings</span>
+</div>
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Settings</p>
+</a>
+</div>
+</nav>
+</body></html>

@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../contexts/useTheme';
 import { supabase, type BookingWithProperty, type Property } from '../lib/supabase';
 import { ScreenHeader } from '../components/ui/ScreenHeader';
 import { StatCard } from '../components/ui/StatCard';

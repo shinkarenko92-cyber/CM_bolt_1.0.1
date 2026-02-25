@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Hotel PMS - Messages</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00bda4",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2321",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .fill-icon {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
+<div class="max-w-md mx-auto min-h-screen bg-white dark:bg-background-dark flex flex-col shadow-2xl">
+<!-- Header -->
+<header class="sticky top-0 z-10 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md">
+<div class="flex flex-col gap-2 p-4">
+<div class="flex items-center justify-between mb-2">
+<span class="material-symbols-outlined text-slate-600 dark:text-slate-400 cursor-pointer">menu</span>
+<div class="flex gap-4">
+<span class="material-symbols-outlined text-slate-600 dark:text-slate-400 cursor-pointer">edit_square</span>
+</div>
+</div>
+<h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Messages</h1>
+</div>
+<!-- Search Bar -->
+<div class="px-4 pb-4">
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-slate-400 text-xl">search</span>
+<input class="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl py-2.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/50 placeholder:text-slate-400" placeholder="Search guests or room numbers" type="text"/>
+</div>
+</div>
+<!-- Filters -->
+<div class="flex border-b border-slate-100 dark:border-slate-800 px-4 gap-6 overflow-x-auto no-scrollbar">
+<button class="border-b-2 border-primary text-slate-900 dark:text-slate-100 pb-3 pt-2 text-sm font-semibold whitespace-nowrap">
+                    All
+                </button>
+<button class="border-b-2 border-transparent text-slate-500 dark:text-slate-400 pb-3 pt-2 text-sm font-medium whitespace-nowrap">
+                    Action Required
+                </button>
+<button class="border-b-2 border-transparent text-slate-500 dark:text-slate-400 pb-3 pt-2 text-sm font-medium whitespace-nowrap flex items-center gap-1">
+                    Unread
+                    <span class="w-2 h-2 bg-primary rounded-full"></span>
+</button>
+</div>
+</header>
+<!-- Message List -->
+<main class="flex-1 overflow-y-auto">
+<!-- Conversation Item (Unread) -->
+<div class="flex gap-4 px-4 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors border-b border-slate-50 dark:border-slate-800/50">
+<div class="relative shrink-0">
+<div class="w-14 h-14 rounded-full bg-slate-200 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Professional portrait of a male hotel guest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDhcs_FDyVFsUApmlf2G0iYanMcPUbvcFBqM-Sxt7DMYMcOWHm8uDJDrttZ0sEm8-YXqRvieFnPUXytKPRXiUy89PVfcq8c-VImeuGBD7WpZTph1jcLzi1CZFEn4Il3HZ4IZIfucOLsMWOfEnXVZIED-CgtVJ0ZNkuwzOMxpoIZqsvswt9m6eO4PGFzAZuLo8Vtk1RlkHPxyTLCxOFfBy4xdKCmmC0HaowGjIUH1lGJB1Z7pNpQ57-PR9z7yJPYC7itpmkhe8NQjSxp"/>
+</div>
+<div class="absolute -right-0.5 -top-0.5 w-4 h-4 bg-primary border-2 border-white dark:border-background-dark rounded-full"></div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h3 class="font-bold text-slate-900 dark:text-slate-100 truncate">John Doe</h3>
+<span class="text-xs font-semibold text-primary">10:24 AM</span>
+</div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-[11px] font-bold px-1.5 py-0.5 bg-primary/10 text-primary rounded border border-primary/20">Action Required</span>
+<span class="text-xs text-slate-400 dark:text-slate-500 truncate">Room 302 • Oct 12-15</span>
+</div>
+<p class="text-sm font-semibold text-slate-700 dark:text-slate-300 truncate">Can I request a late checkout for tomorrow? We have a late flight.</p>
+</div>
+</div>
+<!-- Conversation Item -->
+<div class="flex gap-4 px-4 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors border-b border-slate-50 dark:border-slate-800/50">
+<div class="shrink-0">
+<div class="w-14 h-14 rounded-full bg-slate-200 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Close up portrait of a female hotel guest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDtNKuAleQxZYhttXZqvrvOgTS9ngV_Aorryb5NJnD4Pz8D7Y1H2o1o2KcUBJ1weKtr3ey7zBCednX0Kdl4s_0yNmE7DJwcwp2bkMeUSGJO08UGp68uLB55YwmjbC4mLtTa6lLYP_FOvQyEhPuXfTcvgp4yI2ds4UlEQ3e7tSkndzOPm5UCOyms9KszruPmt0wUwPvHqCYFstLovudzmHKQIt8ImySGr-kJPR8IRmgNCAi0CdCGEq6xN4uBG5IZ4mYQgnCD2_pfXdGI"/>
+</div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h3 class="font-semibold text-slate-900 dark:text-slate-100 truncate">Sarah Miller</h3>
+<span class="text-xs text-slate-400 dark:text-slate-500">9:45 AM</span>
+</div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs text-slate-400 dark:text-slate-500 truncate">Room 105 • Oct 10-14</span>
+</div>
+<p class="text-sm text-slate-500 dark:text-slate-400 truncate">Thank you for the extra towels, they just arrived! Great service.</p>
+</div>
+</div>
+<!-- Conversation Item (Room Service Request) -->
+<div class="flex gap-4 px-4 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors border-b border-slate-50 dark:border-slate-800/50">
+<div class="shrink-0">
+<div class="w-14 h-14 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center bg-primary/10 text-primary">
+<span class="material-symbols-outlined text-2xl">restaurant</span>
+</div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h3 class="font-semibold text-slate-900 dark:text-slate-100 truncate">Marcus Thompson</h3>
+<span class="text-xs text-slate-400 dark:text-slate-500">Yesterday</span>
+</div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs text-slate-400 dark:text-slate-500 truncate">Room 504 • Oct 11-16</span>
+</div>
+<p class="text-sm text-slate-500 dark:text-slate-400 truncate">Order confirmed: 2x Club Sandwich, 1x Sparkling Water.</p>
+</div>
+</div>
+<!-- Conversation Item -->
+<div class="flex gap-4 px-4 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors border-b border-slate-50 dark:border-slate-800/50">
+<div class="shrink-0">
+<div class="w-14 h-14 rounded-full bg-slate-200 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Avatar of a male guest with glasses" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxkF2bYzAJs8aZQYr0SETFUEggmrJmVUwL-S5vp3-VNb_FcUYQ7AE6NqPo2HTaYoLnRxm4677gEuUR_Gmp4b0_p0o9QPNU3dZ7Dd1en4NEH2oTswie8VBaGZGiuP3efLRM2HroYL-NOMVPLHAoOKC2YC2VA2-mRzgkBQbVr2jZQihK6tBgVlut6Zs4eQbqLfx5CfmpP7fYjx8_LtSzZe5KGS6XC6Fnjl0TQAr2vbqhew7_r3nzAQ4MvRRlgxugsmqYNLjoGTD1HK2Q"/>
+</div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h3 class="font-semibold text-slate-900 dark:text-slate-100 truncate">David Chen</h3>
+<span class="text-xs text-slate-400 dark:text-slate-500">Yesterday</span>
+</div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs text-slate-400 dark:text-slate-500 truncate">Room 220 • Oct 12-14</span>
+</div>
+<p class="text-sm text-slate-500 dark:text-slate-400 truncate">Is there a gym in the hotel? I'd like to go early tomorrow.</p>
+</div>
+</div>
+<!-- Conversation Item -->
+<div class="flex gap-4 px-4 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors border-b border-slate-50 dark:border-slate-800/50">
+<div class="shrink-0">
+<div class="w-14 h-14 rounded-full bg-slate-200 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Portrait of a female hotel guest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBH_SCq6wYP-AtS--vW7fZtEcHDdVOoNOH7chH8-FqTy5thEGRf9g-dV5DABpkAEEd1F6fChqpWBUy31TEsobC9qwO2EkMYJiGx5Ob2n0rC0xY5aOPUBrKw4wCgGT-Bmt5SUkseZGSJCN9eFE0xVv36Hl3fNd571oB84QsasvC8mw51elJApuBpTlaWwaOmoIoBqV8jf3pDJbMaQYA2MbVjweBXV3n1BJJLE_BhD-s1iqYAREwO3BPSfm7LTQOrUyGPtVhaAO8uO5dF"/>
+</div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h3 class="font-semibold text-slate-900 dark:text-slate-100 truncate">Elena Rossi</h3>
+<span class="text-xs text-slate-400 dark:text-slate-500">Oct 11</span>
+</div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs text-slate-400 dark:text-slate-500 truncate">Room 411 • Oct 08-12</span>
+</div>
+<p class="text-sm text-slate-500 dark:text-slate-400 truncate">Everything was perfect during our stay. We just checked out. Ciao!</p>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="sticky bottom-0 bg-white/90 dark:bg-background-dark/90 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 px-6 py-2 pb-6">
+<div class="flex justify-between items-center">
+<a class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500" href="#">
+<span class="material-symbols-outlined text-[26px]">home</span>
+<span class="text-[10px] font-semibold">Home</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500" href="#">
+<span class="material-symbols-outlined text-[26px]">calendar_month</span>
+<span class="text-[10px] font-semibold">Calendar</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500" href="#">
+<span class="material-symbols-outlined text-[26px]">book</span>
+<span class="text-[10px] font-semibold">Bookings</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined fill-icon text-[26px]">chat_bubble</span>
+<span class="text-[10px] font-bold">Messages</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500" href="#">
+<span class="material-symbols-outlined text-[26px]">settings</span>
+<span class="text-[10px] font-semibold">Settings</span>
+</a>
+</div>
+</nav>
+</div>
+</body></html>

@@ -13,7 +13,7 @@ import {
   Pressable,
 } from 'react-native';
 import { type Booking } from '../lib/supabase';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../contexts/useTheme';
 
 export type DetailsBookingModalProps = {
   visible: boolean;

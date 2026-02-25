@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../contexts/useTheme';
 import { supabase, type BookingWithProperty, type Property } from '../lib/supabase';
 import { DetailsBookingModal } from './DetailsBookingModal';
 import { AddBookingModal } from './AddBookingModal';

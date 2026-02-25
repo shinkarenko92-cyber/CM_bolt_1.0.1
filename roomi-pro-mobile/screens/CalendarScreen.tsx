@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CalendarList } from 'react-native-calendars';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../contexts/useTheme';
 import { supabase, type Property, type BookingWithProperty } from '../lib/supabase';
 import { ScreenHeader } from '../components/ui/ScreenHeader';
 import { AddBookingModal } from './AddBookingModal';

@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { nativeApplicationVersion, applicationId } from 'expo-application';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../contexts/useTheme';
 import { useQueryClient } from '@tanstack/react-query';
 
 function Row({

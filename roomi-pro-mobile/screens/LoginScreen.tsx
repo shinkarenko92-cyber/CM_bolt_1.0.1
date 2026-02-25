@@ -15,7 +15,7 @@ import {
   Platform,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../contexts/useTheme';
 import { supabase } from '../lib/supabase';
 
 export function LoginScreen() {

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Hotel PMS - Calendar View</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00bda4",
+                        "background-light": "#ffffff",
+                        "background-dark": "#0f2321",
+                        "neutral-soft": "#e0eaea",
+                        "neutral-deep": "#2a4a46"
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+        }
+        .cell-height {
+            aspect-ratio: 1 / 1.1;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-white dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
+<div class="relative flex min-h-screen w-full flex-col max-w-md mx-auto bg-white dark:bg-background-dark shadow-2xl overflow-hidden">
+<header class="flex items-center justify-between p-4 border-b border-neutral-soft dark:border-neutral-deep bg-white dark:bg-background-dark sticky top-0 z-10">
+<div class="flex items-center gap-3">
+<div class="p-2 rounded-lg bg-primary/10 text-primary">
+<span class="material-symbols-outlined">hotel_class</span>
+</div>
+<div>
+<h1 class="text-lg font-bold leading-tight">Property Manager</h1>
+<p class="text-xs text-neutral-deep/60 dark:text-slate-400">Grand Riviera Resort</p>
+</div>
+</div>
+<button class="flex items-center justify-center p-2 rounded-full hover:bg-neutral-soft dark:hover:bg-neutral-deep transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</header>
+<main class="flex-1 overflow-y-auto pb-32">
+<div class="p-4 bg-white dark:bg-background-dark">
+<div class="flex items-center justify-between mb-6">
+<button class="p-2 rounded-full hover:bg-neutral-soft dark:hover:bg-neutral-deep text-neutral-deep dark:text-slate-100">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<div class="text-center">
+<h2 class="text-xl font-bold">October 2023</h2>
+<span class="text-xs font-medium text-primary uppercase tracking-widest">Low Season</span>
+</div>
+<button class="p-2 rounded-full hover:bg-neutral-soft dark:hover:bg-neutral-deep text-neutral-deep dark:text-slate-100">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+<div class="calendar-grid text-center mb-2">
+<div class="text-xs font-bold text-neutral-deep/40 dark:text-slate-500 py-2">SUN</div>
+<div class="text-xs font-bold text-neutral-deep/40 dark:text-slate-500 py-2">MON</div>
+<div class="text-xs font-bold text-neutral-deep/40 dark:text-slate-500 py-2">TUE</div>
+<div class="text-xs font-bold text-neutral-deep/40 dark:text-slate-500 py-2">WED</div>
+<div class="text-xs font-bold text-neutral-deep/40 dark:text-slate-500 py-2">THU</div>
+<div class="text-xs font-bold text-neutral-deep/40 dark:text-slate-500 py-2">FRI</div>
+<div class="text-xs font-bold text-neutral-deep/40 dark:text-slate-500 py-2">SAT</div>
+</div>
+<div class="calendar-grid gap-px bg-neutral-soft dark:bg-neutral-deep border border-neutral-soft dark:border-neutral-deep rounded-xl overflow-hidden">
+<div class="cell-height bg-white dark:bg-background-dark p-1 relative opacity-40">
+<span class="text-xs">28</span>
+</div>
+<div class="cell-height bg-white dark:bg-background-dark p-1 relative opacity-40">
+<span class="text-xs">29</span>
+</div>
+<div class="cell-height bg-white dark:bg-background-dark p-1 relative opacity-40">
+<span class="text-xs">30</span>
+</div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative group cursor-pointer hover:bg-primary/5 transition-colors">
+<span class="text-sm font-bold">1</span>
+<div class="absolute top-1 right-1 text-[9px] font-bold text-primary">$120</div>
+<div class="flex gap-0.5 mt-2 justify-center">
+<div class="size-1.5 rounded-full bg-primary"></div>
+<div class="size-1.5 rounded-full bg-primary"></div>
+<div class="size-1.5 rounded-full bg-primary/20"></div>
+</div>
+</div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative group cursor-pointer hover:bg-primary/5 transition-colors">
+<span class="text-sm font-bold">2</span>
+<div class="absolute top-1 right-1 text-[9px] font-bold text-primary">$120</div>
+<div class="flex gap-0.5 mt-2 justify-center">
+<div class="size-1.5 rounded-full bg-primary"></div>
+<div class="size-1.5 rounded-full bg-primary/20"></div>
+<div class="size-1.5 rounded-full bg-primary/20"></div>
+</div>
+</div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative group cursor-pointer hover:bg-primary/5 transition-colors">
+<span class="text-sm font-bold">3</span>
+<div class="absolute top-1 right-1 text-[9px] font-bold text-primary">$135</div>
+<div class="flex gap-0.5 mt-2 justify-center">
+<div class="size-1.5 rounded-full bg-primary"></div>
+<div class="size-1.5 rounded-full bg-primary"></div>
+<div class="size-1.5 rounded-full bg-primary"></div>
+</div>
+</div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative group cursor-pointer hover:bg-primary/5 transition-colors">
+<span class="text-sm font-bold">4</span>
+<div class="absolute top-1 right-1 text-[9px] font-bold text-primary">$135</div>
+<div class="flex gap-0.5 mt-2 justify-center">
+<div class="size-1.5 rounded-full bg-orange-400"></div>
+<div class="size-1.5 rounded-full bg-orange-400"></div>
+<div class="size-1.5 rounded-full bg-orange-400"></div>
+</div>
+</div>
+<div class="cell-height bg-primary/10 dark:bg-primary/20 p-2 relative ring-2 ring-primary ring-inset">
+<span class="text-sm font-bold text-primary">5</span>
+<div class="absolute top-1 right-1 text-[9px] font-bold text-primary">$140</div>
+<div class="flex gap-0.5 mt-2 justify-center">
+<div class="size-1.5 rounded-full bg-primary"></div>
+<div class="size-1.5 rounded-full bg-primary"></div>
+<div class="size-1.5 rounded-full bg-primary/20"></div>
+</div>
+</div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative group cursor-pointer hover:bg-primary/5 transition-colors">
+<span class="text-sm font-bold">6</span>
+<div class="absolute top-1 right-1 text-[9px] font-bold text-primary">$160</div>
+<div class="flex gap-0.5 mt-2 justify-center">
+<div class="size-1.5 rounded-full bg-red-400"></div>
+<div class="size-1.5 rounded-full bg-red-400"></div>
+<div class="size-1.5 rounded-full bg-red-400"></div>
+</div>
+</div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative group cursor-pointer hover:bg-primary/5 transition-colors">
+<span class="text-sm font-bold">7</span>
+<div class="absolute top-1 right-1 text-[9px] font-bold text-primary">$160</div>
+<div class="flex gap-0.5 mt-2 justify-center">
+<div class="size-1.5 rounded-full bg-red-400"></div>
+<div class="size-1.5 rounded-full bg-red-400"></div>
+<div class="size-1.5 rounded-full bg-red-400"></div>
+</div>
+</div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative"><span class="text-sm font-bold">8</span></div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative"><span class="text-sm font-bold">9</span></div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative"><span class="text-sm font-bold">10</span></div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative"><span class="text-sm font-bold">11</span></div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative"><span class="text-sm font-bold">12</span></div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative"><span class="text-sm font-bold">13</span></div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative"><span class="text-sm font-bold">14</span></div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative"><span class="text-sm font-bold">15</span></div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative"><span class="text-sm font-bold">16</span></div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative"><span class="text-sm font-bold">17</span></div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative"><span class="text-sm font-bold">18</span></div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative"><span class="text-sm font-bold">19</span></div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative"><span class="text-sm font-bold">20</span></div>
+<div class="cell-height bg-white dark:bg-background-dark p-2 relative"><span class="text-sm font-bold">21</span></div>
+</div>
+</div>
+<div class="px-4 py-6">
+<h3 class="text-sm font-bold text-neutral-deep/60 dark:text-slate-400 uppercase tracking-wider mb-4">Key Metrics</h3>
+<div class="grid grid-cols-2 gap-3">
+<div class="p-4 rounded-xl border border-neutral-soft dark:border-neutral-deep bg-white dark:bg-background-dark">
+<p class="text-xs font-medium text-neutral-deep/60 dark:text-slate-400 mb-1">Avg. Occupancy</p>
+<h4 class="text-2xl font-bold">84%</h4>
+<div class="mt-2 h-1 w-full bg-neutral-soft dark:bg-neutral-deep rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[84%]"></div>
+</div>
+</div>
+<div class="p-4 rounded-xl border border-neutral-soft dark:border-neutral-deep bg-white dark:bg-background-dark">
+<p class="text-xs font-medium text-neutral-deep/60 dark:text-slate-400 mb-1">ADR</p>
+<h4 class="text-2xl font-bold">$142</h4>
+<div class="mt-2 flex items-center text-[10px] text-primary font-bold">
+<span class="material-symbols-outlined text-xs">trending_up</span> 12% vs LY
+                        </div>
+</div>
+</div>
+</div>
+</main>
+<div class="fixed bottom-[72px] left-1/2 -translate-x-1/2 w-full max-w-md bg-white dark:bg-background-dark rounded-t-2xl shadow-[0_-8px_30px_rgb(0,0,0,0.12)] border-t border-neutral-soft dark:border-neutral-deep overflow-hidden">
+<div class="w-12 h-1 bg-neutral-soft dark:bg-neutral-deep rounded-full mx-auto my-3"></div>
+<div class="px-4 pb-6">
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-bold text-lg">Thursday, Oct 5</h3>
+<span class="px-2 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase">8 Rooms Left</span>
+</div>
+<div class="space-y-3">
+<div class="flex items-center justify-between p-3 rounded-lg bg-background-light dark:bg-neutral-deep/30">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded bg-slate-200 dark:bg-neutral-deep flex items-center justify-center">
+<span class="material-symbols-outlined text-neutral-deep">king_bed</span>
+</div>
+<div>
+<p class="text-sm font-bold">Deluxe Ocean Suite</p>
+<p class="text-xs text-neutral-deep/60 dark:text-slate-400">3 units available</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-sm font-bold text-primary">$210</p>
+<p class="text-[10px] text-neutral-deep/40 uppercase font-bold">Per Night</p>
+</div>
+</div>
+<div class="flex items-center justify-between p-3 rounded-lg bg-background-light dark:bg-neutral-deep/30">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded bg-slate-200 dark:bg-neutral-deep flex items-center justify-center">
+<span class="material-symbols-outlined text-neutral-deep">single_bed</span>
+</div>
+<div>
+<p class="text-sm font-bold">Standard Double</p>
+<p class="text-xs text-neutral-deep/60 dark:text-slate-400">5 units available</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-sm font-bold text-primary">$140</p>
+<p class="text-[10px] text-neutral-deep/40 uppercase font-bold">Per Night</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white dark:bg-background-dark border-t border-neutral-soft dark:border-neutral-deep px-6 py-2 flex items-center justify-between z-20">
+<a class="flex flex-col items-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">calendar_today</span>
+<span class="text-[10px] font-bold">Calendar</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-neutral-deep/40 dark:text-slate-500" href="#">
+<span class="material-symbols-outlined">book_online</span>
+<span class="text-[10px] font-bold">Reservations</span>
+</a>
+<div class="relative -top-5">
+<button class="bg-primary text-white size-12 rounded-full shadow-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-2xl">add</span>
+</button>
+</div>
+<a class="flex flex-col items-center gap-1 text-neutral-deep/40 dark:text-slate-500" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="text-[10px] font-bold">Guests</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-neutral-deep/40 dark:text-slate-500" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="text-[10px] font-bold">Insights</span>
+</a>
+</nav>
+</div>
+</body></html>

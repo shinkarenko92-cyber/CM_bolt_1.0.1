@@ -1,7 +1,7 @@
 /**
  * Контекст темы: light | dark, палитра из theme.ts, сохранение в AsyncStorage.
  */
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { themePalettes, type ThemeColors, type ThemeMode } from '../constants/theme';
 
@@ -39,7 +39,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     </ThemeContext.Provider>
   );
 }
-
 export function useTheme(): ThemeContextType {
   const ctx = useContext(ThemeContext);
   if (ctx === undefined) {
@@ -47,3 +46,4 @@ export function useTheme(): ThemeContextType {
   }
   return ctx;
 }
+

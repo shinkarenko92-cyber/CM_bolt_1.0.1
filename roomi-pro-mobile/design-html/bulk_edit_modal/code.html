@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00bda4",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2321",
+                        "slate-900": "#101817",
+                        "slate-100": "#f0f5f4",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<title>Bulk Edit - Hotel PMS</title>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-display bg-background-light dark:bg-background-dark min-h-screen">
+<div class="relative flex h-screen w-full flex-col overflow-hidden">
+<!-- Mock Background (PMS Calendar View) -->
+<div class="absolute inset-0 opacity-40 pointer-events-none p-4">
+<div class="flex flex-col gap-4">
+<div class="h-12 w-full bg-white dark:bg-slate-800 rounded-lg shadow-sm flex items-center px-4 justify-between">
+<div class="h-4 w-32 bg-slate-200 dark:bg-slate-700 rounded"></div>
+<div class="flex gap-2">
+<div class="size-8 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+<div class="size-8 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+</div>
+</div>
+<div class="grid grid-cols-7 gap-2">
+<div class="h-32 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700"></div>
+<div class="h-32 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700"></div>
+<div class="h-32 bg-primary/20 rounded-lg border border-primary/40"></div>
+<div class="h-32 bg-primary/20 rounded-lg border border-primary/40"></div>
+<div class="h-32 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700"></div>
+<div class="h-32 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700"></div>
+<div class="h-32 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700"></div>
+</div>
+</div>
+</div>
+<!-- Overlay Sheet -->
+<div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex flex-col justify-end">
+<!-- Bottom Sheet Content -->
+<div class="flex flex-col w-full max-w-2xl mx-auto bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl max-h-[90vh] overflow-hidden">
+<!-- Handle -->
+<button class="flex h-6 w-full items-center justify-center shrink-0">
+<div class="h-1.5 w-12 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+</button>
+<!-- Header -->
+<div class="flex items-center bg-white dark:bg-slate-900 px-6 py-4 border-b border-slate-100 dark:border-slate-800 sticky top-0 z-10">
+<button class="text-slate-900 dark:text-slate-100 flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined">close</span>
+</button>
+<div class="flex-1 text-center">
+<h2 class="text-slate-900 dark:text-slate-100 text-xl font-bold leading-tight tracking-tight">Bulk Edit</h2>
+</div>
+<button class="text-primary text-base font-semibold px-2">Reset</button>
+</div>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto p-6 space-y-8">
+<!-- Date Range Section -->
+<section>
+<h3 class="text-slate-900 dark:text-slate-100 text-lg font-bold mb-4">Select Date Range</h3>
+<div class="bg-background-light dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-800">
+<div class="flex items-center justify-between mb-4">
+<button class="size-10 flex items-center justify-center text-slate-900 dark:text-slate-100">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<p class="text-slate-900 dark:text-slate-100 text-base font-bold">October 2023</p>
+<button class="size-10 flex items-center justify-center text-slate-900 dark:text-slate-100">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+<div class="grid grid-cols-7 text-center gap-y-1">
+<p class="text-slate-400 text-xs font-bold py-2">S</p>
+<p class="text-slate-400 text-xs font-bold py-2">M</p>
+<p class="text-slate-400 text-xs font-bold py-2">T</p>
+<p class="text-slate-400 text-xs font-bold py-2">W</p>
+<p class="text-slate-400 text-xs font-bold py-2">T</p>
+<p class="text-slate-400 text-xs font-bold py-2">F</p>
+<p class="text-slate-400 text-xs font-bold py-2">S</p>
+<button class="aspect-square flex items-center justify-center col-start-4 text-sm font-medium">1</button>
+<button class="aspect-square flex items-center justify-center text-sm font-medium">2</button>
+<button class="aspect-square flex items-center justify-center text-sm font-medium">3</button>
+<button class="aspect-square flex items-center justify-center text-sm font-medium">4</button>
+<button class="aspect-square relative flex items-center justify-center text-white text-sm font-bold bg-primary rounded-l-full">5</button>
+<button class="aspect-square flex items-center justify-center text-slate-900 dark:text-slate-100 bg-primary/20 text-sm font-medium">6</button>
+<button class="aspect-square flex items-center justify-center text-slate-900 dark:text-slate-100 bg-primary/20 text-sm font-medium">7</button>
+<button class="aspect-square flex items-center justify-center text-slate-900 dark:text-slate-100 bg-primary/20 text-sm font-medium">8</button>
+<button class="aspect-square flex items-center justify-center text-slate-900 dark:text-slate-100 bg-primary/20 text-sm font-medium">9</button>
+<button class="aspect-square flex items-center justify-center text-slate-900 dark:text-slate-100 bg-primary/20 text-sm font-medium">10</button>
+<button class="aspect-square relative flex items-center justify-center text-white text-sm font-bold bg-primary rounded-r-full">11</button>
+<button class="aspect-square flex items-center justify-center text-sm font-medium">12</button>
+<button class="aspect-square flex items-center justify-center text-sm font-medium">13</button>
+<button class="aspect-square flex items-center justify-center text-sm font-medium">14</button>
+<button class="aspect-square flex items-center justify-center text-sm font-medium">15</button>
+<button class="aspect-square flex items-center justify-center text-sm font-medium">16</button>
+<button class="aspect-square flex items-center justify-center text-sm font-medium">17</button>
+<button class="aspect-square flex items-center justify-center text-sm font-medium">18</button>
+</div>
+</div>
+</section>
+<!-- Room Types Section -->
+<section>
+<h3 class="text-slate-900 dark:text-slate-100 text-lg font-bold mb-4">Room Types</h3>
+<div class="flex flex-wrap gap-2">
+<button class="px-4 py-2.5 rounded-full border border-primary bg-primary/10 text-primary text-sm font-bold">Standard Double</button>
+<button class="px-4 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-medium">Deluxe Suite</button>
+<button class="px-4 py-2.5 rounded-full border border-primary bg-primary/10 text-primary text-sm font-bold">Single Economy</button>
+<button class="px-4 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-medium">Family Room</button>
+<button class="px-4 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-medium">Penthouse</button>
+</div>
+</section>
+<!-- Adjustments Section -->
+<section>
+<h3 class="text-slate-900 dark:text-slate-100 text-lg font-bold mb-4">Settings</h3>
+<div class="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden">
+<!-- Toggle 1 -->
+<div class="flex items-center justify-between p-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400">monetization_on</span>
+<div>
+<p class="text-slate-900 dark:text-slate-100 font-semibold">Update Price</p>
+<p class="text-slate-500 text-xs">Set new daily rate for selected dates</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center bg-background-light dark:bg-slate-800 rounded-lg px-2 border border-slate-200 dark:border-slate-700">
+<span class="text-slate-400 text-sm font-bold">$</span>
+<input class="w-16 bg-transparent border-none focus:ring-0 text-right font-bold text-slate-900 dark:text-slate-100" type="number" value="120"/>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none dark:bg-slate-700 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+<!-- Toggle 2 -->
+<div class="flex items-center justify-between p-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400">event_available</span>
+<div>
+<p class="text-slate-900 dark:text-slate-100 font-semibold">Availability</p>
+<p class="text-slate-500 text-xs">Open or close rooms for sale</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none dark:bg-slate-700 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<!-- Toggle 3 -->
+<div class="flex items-center justify-between p-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400">timer</span>
+<div>
+<p class="text-slate-900 dark:text-slate-100 font-semibold">Min Stay</p>
+<p class="text-slate-500 text-xs">Minimum nights required</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center bg-background-light dark:bg-slate-800 rounded-lg px-2 border border-slate-200 dark:border-slate-700">
+<input class="w-12 bg-transparent border-none focus:ring-0 text-center font-bold text-slate-900 dark:text-slate-100" type="number" value="2"/>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none dark:bg-slate-700 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Footer Action -->
+<div class="p-6 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">check_circle</span>
+                        Apply Changes
+                    </button>
+<p class="text-center text-slate-400 text-xs mt-3">This will update 7 dates for 2 room types.</p>
+</div>
+</div>
+</div>
+</div>
+</body></html>

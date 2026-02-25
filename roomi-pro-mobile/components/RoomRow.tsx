@@ -5,7 +5,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import type { Property, Booking } from '../lib/supabase';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../contexts/useTheme';
 import { DAY_CELL_WIDTH } from '../constants/layout';
 
 const GUEST_NAME_MAX = 14;

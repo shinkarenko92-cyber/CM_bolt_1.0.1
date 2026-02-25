@@ -7,7 +7,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, TouchableOpacity } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../contexts/useTheme';
 import { TrendBadge } from '../components/ui/TrendBadge';
 
 type PeriodTab = 'day' | 'week' | 'month' | 'year';
