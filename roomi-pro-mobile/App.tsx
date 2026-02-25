@@ -9,7 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import Constants from 'expo-constants';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,10 +17,12 @@ import Toast from 'react-native-toast-message';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginScreen } from './screens/LoginScreen';
+import { DashboardScreen } from './screens/DashboardScreen';
 import { CalendarScreen } from './screens/CalendarScreen';
-import { ObjectsScreen } from './screens/ObjectsScreen';
 import { BookingsScreen } from './screens/BookingsScreen';
+import { MessagesScreen } from './screens/MessagesScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { AnalyticsScreen } from './screens/AnalyticsScreen';
 import { colors } from './constants/colors';
 
 SplashScreen.preventAutoHideAsync();
@@ -66,36 +68,27 @@ async function registerForPushNotificationsAsync(): Promise<void> {
 }
 
 const Stack = createNativeStackNavigator();
-// Native tabs unstable — откатили на стабильные для Expo SDK 54 (Host undefined fix).
 const Tab = createBottomTabNavigator();
-
-function HeaderRight() {
-  const navigation = useNavigation();
-  return (
-    <TouchableOpacity
-      onPress={() => navigation.navigate('Settings' as never)}
-      style={styles.headerRight}
-      hitSlop={12}
-    >
-      <Ionicons name="person-circle-outline" size={28} color="#fff" />
-    </TouchableOpacity>
-  );
-}
 
 function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: colors.backgroundDark },
-        headerTintColor: '#fff',
-        headerTitle: 'Roomi Pro',
-        headerTitleStyle: { fontSize: 18, fontWeight: '600' },
-        headerRight: () => <HeaderRight />,
+        headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: { backgroundColor: colors.background },
+        tabBarStyle: { backgroundColor: colors.backgroundDark, borderTopColor: 'rgba(0,189,164,0.15)' },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
       }}
     >
+      <Tab.Screen
+        name="Dashboard"
+        component={DashboardScreen}
+        options={{
+          title: 'Главная',
+          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
+        }}
+      />
       <Tab.Screen
         name="Calendar"
         component={CalendarScreen}
@@ -105,19 +98,19 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
-        name="Objects"
-        component={ObjectsScreen}
-        options={{
-          title: 'Объекты',
-          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
-        }}
-      />
-      <Tab.Screen
         name="Bookings"
         component={BookingsScreen}
         options={{
           title: 'Бронирования',
-          tabBarIcon: ({ color, size }) => <Ionicons name="list-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="book-outline" size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Messages"
+        component={MessagesScreen}
+        options={{
+          title: 'Сообщения',
+          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles-outline" size={size} color={color} />,
         }}
       />
       <Tab.Screen
@@ -179,7 +172,16 @@ function RootNavigator() {
     );
   }
 
-  return <MainTabs />;
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Main" component={MainTabs} />
+      <Stack.Screen
+        name="Analytics"
+        component={AnalyticsScreen}
+        options={{ headerShown: false }}
+      />
+    </Stack.Navigator>
+  );
 }
 
 export default function App() {
@@ -217,8 +219,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: 12,
     fontSize: 16,
-  },
-  headerRight: {
-    marginRight: 16,
   },
 });

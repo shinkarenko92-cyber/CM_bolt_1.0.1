@@ -21,7 +21,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase, type Property, type BookingWithProperty } from '../lib/supabase';
 import { colors } from '../constants/colors';
+import { ScreenHeader } from '../components/ui/ScreenHeader';
 import { AddBookingModal } from './AddBookingModal';
+import { BulkEditModal } from '../components/BulkEditModal';
 
 async function fetchProperties(): Promise<Property[]> {
   if (!supabase) return [];
@@ -154,18 +156,18 @@ function buildSectionsForDate(
 }
 
 const CALENDAR_THEME = {
-  backgroundColor: colors.background,
-  calendarBackground: colors.background,
+  backgroundColor: colors.backgroundDark,
+  calendarBackground: colors.backgroundDark,
   textSectionTitleColor: colors.textSecondary,
-  selectedDayBackgroundColor: colors.teal,
+  selectedDayBackgroundColor: colors.primary,
   selectedDayTextColor: '#fff',
-  todayTextColor: colors.teal,
-  dayTextColor: colors.text,
-  textDisabledColor: colors.border,
-  dotColor: colors.teal,
+  todayTextColor: colors.primary,
+  dayTextColor: colors.textDark,
+  textDisabledColor: colors.slate800,
+  dotColor: colors.primary,
   selectedDotColor: '#fff',
-  arrowColor: colors.teal,
-  monthTextColor: colors.text,
+  arrowColor: colors.primary,
+  monthTextColor: colors.textDark,
   textDayFontWeight: '500' as const,
   textMonthFontWeight: '700' as const,
 };
@@ -180,6 +182,7 @@ export function CalendarScreen() {
   const { width } = useWindowDimensions();
   const [selectedDate, setSelectedDate] = useState(getTodayString);
   const [addModalVisible, setAddModalVisible] = useState(false);
+  const [bulkEditVisible, setBulkEditVisible] = useState(false);
 
   const {
     data: properties = [],
@@ -305,8 +308,17 @@ export function CalendarScreen() {
     );
   }
 
+  const firstPropertyName = properties[0]?.name ?? '';
+
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScreenHeader
+        title="Календарь"
+        subtitle={firstPropertyName}
+        onSearch={() => setBulkEditVisible(true)}
+        onNotifications={() => {}}
+        dark
+      />
       <CalendarList
         current={selectedDate}
         onDayPress={(day) => setSelectedDate(day.dateString)}
@@ -365,6 +377,11 @@ export function CalendarScreen() {
           queryClient.invalidateQueries({ queryKey: ['bookings'] });
         }}
       />
+      <BulkEditModal
+        visible={bulkEditVisible}
+        onClose={() => setBulkEditVisible(false)}
+        onApply={() => setBulkEditVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -373,7 +390,7 @@ export function CalendarScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.backgroundLight,
+    backgroundColor: colors.backgroundDark,
   },
   centered: {
     flex: 1,
@@ -405,16 +422,18 @@ const styles = StyleSheet.create({
   dayTitle: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: colors.background,
+    backgroundColor: colors.cardDark,
+    borderTopWidth: 1,
+    borderTopColor: colors.slate800,
   },
   dayTitleText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.textDark,
   },
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 100,
+    paddingBottom: 120,
   },
   sectionHeader: {
     marginTop: 16,
@@ -423,7 +442,7 @@ const styles = StyleSheet.create({
   sectionHeaderText: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.text,
+    color: colors.textDark,
   },
   bar: {
     borderRadius: 10,
@@ -466,11 +485,11 @@ const styles = StyleSheet.create({
   rateValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.textDark,
   },
   emptyText: {
     fontSize: 16,
-    color: colors.textSecondary,
+    color: colors.textDark,
     textAlign: 'center',
     marginTop: 24,
   },

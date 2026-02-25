@@ -11,6 +11,7 @@ import {
   Switch,
   ScrollView,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { nativeApplicationVersion, applicationId } from 'expo-application';
 import { useAuth } from '../contexts/AuthContext';
@@ -52,6 +53,7 @@ function Divider() {
 }
 
 export function SettingsScreen() {
+  const navigation = useNavigation();
   const { user, profile, signOut } = useAuth();
   const queryClient = useQueryClient();
   const [notifBookings, setNotifBookings] = useState(true);
@@ -119,6 +121,7 @@ export function SettingsScreen() {
       <SectionTitle title="Приложение" />
       <Row icon="information-circle-outline" label="Версия" value={version} />
       <Row icon="document-text-outline" label="О приложении" onPress={() => {}} />
+      <Row icon="bar-chart-outline" label="Аналитика" onPress={() => navigation.navigate('Analytics' as never)} />
       <Divider />
 
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
