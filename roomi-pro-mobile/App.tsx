@@ -4,7 +4,7 @@
  * Native tabs unstable — откатили на стабильные для Expo SDK 54 (Host undefined fix).
  */
 import React, { useEffect, useRef } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, Alert, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import Constants from 'expo-constants';

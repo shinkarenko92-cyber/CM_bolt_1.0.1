@@ -9,7 +9,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../constants/colors';
-import { ScreenHeader } from '../components/ui/ScreenHeader';
 import { TrendBadge } from '../components/ui/TrendBadge';
 
 type PeriodTab = 'day' | 'week' | 'month' | 'year';
