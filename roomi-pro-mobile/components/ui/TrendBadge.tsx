@@ -1,10 +1,10 @@
 /**
- * Бейдж тренда: +X% (зелёный) или -X% (красный).
+ * Бейдж тренда: +X% (зелёный) или -X% (красный). Цвета из useTheme().
  */
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export interface TrendBadgeProps {
   value: number;
@@ -12,6 +12,7 @@ export interface TrendBadgeProps {
 }
 
 export function TrendBadge({ value, inverted = false }: TrendBadgeProps) {
+  const { colors } = useTheme();
   const isPositive = value >= 0;
   const color = isPositive ? colors.success : colors.error;
   const bg = inverted ? 'rgba(255,255,255,0.2)' : (isPositive ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)');

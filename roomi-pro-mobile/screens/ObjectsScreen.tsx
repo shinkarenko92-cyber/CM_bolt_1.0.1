@@ -21,8 +21,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts/ThemeContext';
 import { supabase, type Property, type BookingWithProperty } from '../lib/supabase';
-import { colors } from '../constants/colors';
 import { DAY_CELL_WIDTH, ROOM_NAME_WIDTH } from '../constants/layout';
 import { RoomRow } from '../components/RoomRow';
 
@@ -94,6 +94,7 @@ function bookingsInMonth(bookings: BookingWithProperty[], firstDate: string, las
 }
 
 export function ObjectsScreen() {
+  const { colors } = useTheme();
   const queryClient = useQueryClient();
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonth);
   const headerScrollRef = useRef<ScrollView>(null);
@@ -174,10 +175,10 @@ export function ObjectsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Загрузка...</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Загрузка...</Text>
         </View>
       </SafeAreaView>
     );
@@ -185,11 +186,11 @@ export function ObjectsScreen() {
 
   if (isError) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
         <View style={styles.centered}>
-          <Text style={styles.errorText}>Не удалось загрузить данные</Text>
+          <Text style={[styles.errorText, { color: colors.textSecondary }]}>Не удалось загрузить данные</Text>
           <TouchableOpacity
-            style={styles.retryButton}
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={() => {
               refetchProperties();
               refetchBookings();
@@ -203,7 +204,7 @@ export function ObjectsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -216,10 +217,10 @@ export function ObjectsScreen() {
         }
       >
         <Pressable
-          style={styles.dropdown}
+          style={[styles.dropdown, { backgroundColor: colors.card }]}
           onPress={() => Alert.alert('Скоро', 'Выбор объекта будет доступен.')}
         >
-          <Text style={styles.dropdownText}>Все объекты</Text>
+          <Text style={[styles.dropdownText, { color: colors.text }]}>Все объекты</Text>
           <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
         </Pressable>
 
@@ -227,35 +228,35 @@ export function ObjectsScreen() {
           <Pressable onPress={goPrevMonth} style={styles.monthArrow} hitSlop={12}>
             <Ionicons name="chevron-back" size={24} color={colors.text} />
           </Pressable>
-          <Text style={styles.monthTitle}>{formatMonthTitle(currentMonth)}</Text>
+          <Text style={[styles.monthTitle, { color: colors.text }]}>{formatMonthTitle(currentMonth)}</Text>
           <Pressable onPress={goNextMonth} style={styles.monthArrow} hitSlop={12}>
             <Ionicons name="chevron-forward" size={24} color={colors.text} />
           </Pressable>
         </View>
 
         {hasNoBookingsInMonth && (
-          <View style={styles.emptyBookingsBanner}>
-            <Text style={styles.emptyBookingsText}>Нет броней в этом месяце</Text>
+          <View style={[styles.emptyBookingsBanner, { backgroundColor: colors.input }]}>
+            <Text style={[styles.emptyBookingsText, { color: colors.textSecondary }]}>Нет броней в этом месяце</Text>
           </View>
         )}
 
         {properties.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>Нет объектов</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Нет объектов</Text>
           </View>
         ) : (
-          <View style={styles.tableRow}>
+          <View style={[styles.tableRow, { backgroundColor: colors.card }]}>
             {/* Левая колонка: заголовок дат (пусто) + для каждой комнаты название и Standard rate */}
             <View style={[styles.leftColumn, { width: ROOM_NAME_WIDTH }]}>
               <View style={styles.headerCell} />
               {properties.flatMap((p) => [
                 <View key={p.id} style={styles.roomNameCell}>
-                  <Text style={styles.roomNameText} numberOfLines={2}>
+                  <Text style={[styles.roomNameText, { color: colors.text }]} numberOfLines={2}>
                     {p.name}
                   </Text>
                 </View>,
                 <View key={`${p.id}-rate`} style={styles.rateLabelCell}>
-                  <Text style={styles.rateLabelText}>Standard rate</Text>
+                  <Text style={[styles.rateLabelText, { color: colors.textSecondary }]}>Standard rate</Text>
                 </View>,
               ])}
             </View>
@@ -276,8 +277,8 @@ export function ObjectsScreen() {
                     const { letter, date: dayNum } = getDayHeaderParts(date);
                     return (
                       <View key={date} style={styles.headerCellDay}>
-                        <Text style={styles.headerDayLetter}>{letter}</Text>
-                        <Text style={styles.headerDayNum}>{dayNum}</Text>
+                        <Text style={[styles.headerDayLetter, { color: colors.textSecondary }]}>{letter}</Text>
+                        <Text style={[styles.headerDayNum, { color: colors.text }]}>{dayNum}</Text>
                       </View>
                     );
                   })}
@@ -307,7 +308,7 @@ export function ObjectsScreen() {
       </ScrollView>
 
       <Pressable
-        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+        style={({ pressed }) => [styles.fab, { backgroundColor: colors.primary }, pressed && styles.fabPressed]}
         onPress={() => Alert.alert('Добавить бронь', 'Скоро будет доступно.')}
       >
         <Ionicons name="add" size={28} color="#fff" />
@@ -319,7 +320,6 @@ export function ObjectsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.backgroundLight,
   },
   scroll: {
     flex: 1,
@@ -335,16 +335,13 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: colors.textSecondary,
   },
   errorText: {
-    color: colors.textSecondary,
     fontSize: 16,
     marginBottom: 16,
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: colors.primary,
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 24,
@@ -362,12 +359,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginHorizontal: 16,
     marginBottom: 8,
-    backgroundColor: colors.background,
     borderRadius: 12,
   },
   dropdownText: {
     fontSize: 16,
-    color: colors.text,
     fontWeight: '500',
   },
   monthRow: {
@@ -383,7 +378,6 @@ const styles = StyleSheet.create({
   monthTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.text,
     minWidth: 160,
     textAlign: 'center',
   },
@@ -391,12 +385,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     alignItems: 'center',
-    backgroundColor: colors.backgroundLight,
     marginBottom: 8,
   },
   emptyBookingsText: {
     fontSize: 14,
-    color: colors.textSecondary,
   },
   emptyState: {
     paddingVertical: 48,
@@ -404,11 +396,9 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: colors.textSecondary,
   },
   tableRow: {
     flexDirection: 'row',
-    backgroundColor: colors.background,
     borderRadius: 12,
     marginHorizontal: 16,
     marginBottom: 8,
@@ -435,7 +425,6 @@ const styles = StyleSheet.create({
   roomNameText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.text,
   },
   rateLabelCell: {
     width: ROOM_NAME_WIDTH - 16,
@@ -445,7 +434,6 @@ const styles = StyleSheet.create({
   },
   rateLabelText: {
     fontSize: 11,
-    color: colors.textSecondary,
   },
   rightPart: {
     flex: 1,
@@ -473,12 +461,10 @@ const styles = StyleSheet.create({
   headerDayLetter: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.textSecondary,
   },
   headerDayNum: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.text,
     marginTop: 2,
   },
   fab: {
@@ -488,7 +474,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

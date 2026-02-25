@@ -21,7 +21,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Property } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
-import { colors } from '../constants/colors';
+import { useTheme } from '../contexts/ThemeContext';
 
 const schema = z.object({
   property_id: z.string().min(1, 'Выберите объект'),
@@ -70,6 +70,7 @@ export function AddBookingModal({
   onClose,
   onSuccess,
 }: AddBookingModalProps) {
+  const { colors } = useTheme();
   const {
     control,
     handleSubmit,
@@ -135,11 +136,11 @@ export function AddBookingModal({
   return (
     <Modal visible={visible} transparent animationType="fade">
       <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.content} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={[styles.content, { backgroundColor: colors.card }]} onPress={(e) => e.stopPropagation()}>
           <View style={styles.header}>
-            <Text style={styles.title}>Новая бронь</Text>
+            <Text style={[styles.title, { color: colors.text }]}>Новая бронь</Text>
             <TouchableOpacity onPress={onClose} hitSlop={12}>
-              <Text style={styles.closeText}>Закрыть</Text>
+              <Text style={[styles.closeText, { color: colors.primary }]}>Закрыть</Text>
             </TouchableOpacity>
           </View>
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -148,22 +149,33 @@ export function AddBookingModal({
               name="property_id"
               render={({ field: { onChange, value } }) => (
                 <View style={styles.field}>
-                  <Text style={styles.label}>Объект *</Text>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Объект *</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
                     {properties.map((p) => (
                       <Pressable
                         key={p.id}
-                        style={[styles.chip, value === p.id && styles.chipSelected]}
+                        style={[
+                          styles.chip,
+                          { backgroundColor: colors.input, borderColor: colors.border },
+                          value === p.id && { backgroundColor: colors.primary, borderColor: colors.primary },
+                        ]}
                         onPress={() => onChange(p.id)}
                       >
-                        <Text style={[styles.chipText, value === p.id && styles.chipTextSelected]} numberOfLines={1}>
+                        <Text
+                          style={[
+                            styles.chipText,
+                            { color: colors.text },
+                            value === p.id && styles.chipTextSelected,
+                          ]}
+                          numberOfLines={1}
+                        >
                           {p.name}
                         </Text>
                       </Pressable>
                     ))}
                   </ScrollView>
                   {errors.property_id && (
-                    <Text style={styles.errorText}>{errors.property_id.message}</Text>
+                    <Text style={[styles.errorText, { color: colors.error }]}>{errors.property_id.message}</Text>
                   )}
                 </View>
               )}
@@ -174,9 +186,9 @@ export function AddBookingModal({
               name="check_in"
               render={({ field: { onChange, onBlur, value } }) => (
                 <View style={styles.field}>
-                  <Text style={styles.label}>Заезд *</Text>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Заезд *</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { borderColor: colors.border, color: colors.text }]}
                     placeholder="YYYY-MM-DD"
                     placeholderTextColor={colors.textSecondary}
                     value={value}
@@ -184,7 +196,7 @@ export function AddBookingModal({
                     onBlur={onBlur}
                   />
                   {errors.check_in && (
-                    <Text style={styles.errorText}>{errors.check_in.message}</Text>
+                    <Text style={[styles.errorText, { color: colors.error }]}>{errors.check_in.message}</Text>
                   )}
                 </View>
               )}
@@ -195,9 +207,9 @@ export function AddBookingModal({
               name="check_out"
               render={({ field: { onChange, onBlur, value } }) => (
                 <View style={styles.field}>
-                  <Text style={styles.label}>Выезд *</Text>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Выезд *</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { borderColor: colors.border, color: colors.text }]}
                     placeholder="YYYY-MM-DD"
                     placeholderTextColor={colors.textSecondary}
                     value={value}
@@ -205,7 +217,7 @@ export function AddBookingModal({
                     onBlur={onBlur}
                   />
                   {errors.check_out && (
-                    <Text style={styles.errorText}>{errors.check_out.message}</Text>
+                    <Text style={[styles.errorText, { color: colors.error }]}>{errors.check_out.message}</Text>
                   )}
                 </View>
               )}
@@ -216,9 +228,9 @@ export function AddBookingModal({
               name="guest_name"
               render={({ field: { onChange, onBlur, value } }) => (
                 <View style={styles.field}>
-                  <Text style={styles.label}>Гость *</Text>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Гость *</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { borderColor: colors.border, color: colors.text }]}
                     placeholder="Имя гостя"
                     placeholderTextColor={colors.textSecondary}
                     value={value}
@@ -226,7 +238,7 @@ export function AddBookingModal({
                     onBlur={onBlur}
                   />
                   {errors.guest_name && (
-                    <Text style={styles.errorText}>{errors.guest_name.message}</Text>
+                    <Text style={[styles.errorText, { color: colors.error }]}>{errors.guest_name.message}</Text>
                   )}
                 </View>
               )}
@@ -237,9 +249,9 @@ export function AddBookingModal({
               name="guest_phone"
               render={({ field: { onChange, onBlur, value } }) => (
                 <View style={styles.field}>
-                  <Text style={styles.label}>Телефон</Text>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Телефон</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { borderColor: colors.border, color: colors.text }]}
                     placeholder="+7..."
                     placeholderTextColor={colors.textSecondary}
                     value={value ?? ''}
@@ -256,9 +268,9 @@ export function AddBookingModal({
               name="total_price"
               render={({ field: { onChange, onBlur, value } }) => (
                 <View style={styles.field}>
-                  <Text style={styles.label}>Сумма *</Text>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Сумма *</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { borderColor: colors.border, color: colors.text }]}
                     placeholder="0"
                     placeholderTextColor={colors.textSecondary}
                     value={value === 0 ? '' : String(value)}
@@ -267,7 +279,7 @@ export function AddBookingModal({
                     keyboardType="numeric"
                   />
                   {errors.total_price && (
-                    <Text style={styles.errorText}>{errors.total_price.message}</Text>
+                    <Text style={[styles.errorText, { color: colors.error }]}>{errors.total_price.message}</Text>
                   )}
                 </View>
               )}
@@ -278,21 +290,29 @@ export function AddBookingModal({
               name="status"
               render={({ field: { onChange, value } }) => (
                 <View style={styles.field}>
-                  <Text style={styles.label}>Статус</Text>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Статус</Text>
                   <View style={styles.row}>
                     <Pressable
-                      style={[styles.chip, value === 'pending' && styles.chipSelected]}
+                      style={[
+                        styles.chip,
+                        { backgroundColor: colors.input, borderColor: colors.border },
+                        value === 'pending' && { backgroundColor: colors.primary, borderColor: colors.primary },
+                      ]}
                       onPress={() => onChange('pending')}
                     >
-                      <Text style={[styles.chipText, value === 'pending' && styles.chipTextSelected]}>
+                      <Text style={[styles.chipText, { color: colors.text }, value === 'pending' && styles.chipTextSelected]}>
                         Ожидание
                       </Text>
                     </Pressable>
                     <Pressable
-                      style={[styles.chip, value === 'confirmed' && styles.chipSelected]}
+                      style={[
+                        styles.chip,
+                        { backgroundColor: colors.input, borderColor: colors.border },
+                        value === 'confirmed' && { backgroundColor: colors.primary, borderColor: colors.primary },
+                      ]}
                       onPress={() => onChange('confirmed')}
                     >
-                      <Text style={[styles.chipText, value === 'confirmed' && styles.chipTextSelected]}>
+                      <Text style={[styles.chipText, { color: colors.text }, value === 'confirmed' && styles.chipTextSelected]}>
                         Подтверждено
                       </Text>
                     </Pressable>
@@ -302,7 +322,7 @@ export function AddBookingModal({
             />
 
             <Pressable
-              style={[styles.submitBtn, isSubmitting && styles.submitBtnDisabled]}
+              style={[styles.submitBtn, { backgroundColor: colors.primary }, isSubmitting && styles.submitBtnDisabled]}
               onPress={handleSubmit(onSubmit as (data: AddBookingFormValues) => void)}
               disabled={isSubmitting}
             >
@@ -328,7 +348,6 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   content: {
-    backgroundColor: colors.background,
     borderRadius: 16,
     padding: 20,
     maxWidth: 400,
@@ -344,10 +363,8 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: colors.text,
   },
   closeText: {
-    color: colors.primary,
     fontSize: 16,
   },
   field: {
@@ -355,17 +372,14 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
-    color: colors.textSecondary,
     marginBottom: 4,
   },
   input: {
     borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: colors.text,
   },
   chipRow: {
     flexDirection: 'row',
@@ -380,17 +394,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: colors.backgroundLight,
     borderWidth: 1,
-    borderColor: colors.border,
-  },
-  chipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
   },
   chipText: {
     fontSize: 14,
-    color: colors.text,
   },
   chipTextSelected: {
     color: '#fff',
@@ -398,11 +405,9 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 12,
-    color: colors.error,
     marginTop: 4,
   },
   submitBtn: {
-    backgroundColor: colors.primary,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

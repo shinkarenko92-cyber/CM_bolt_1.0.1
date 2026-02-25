@@ -1,6 +1,6 @@
 /**
  * Массовое редактирование: макет updated_bulk_edit — bottom sheet,
- * даты, цена, скидка, кнопка Apply. Вызов из Calendar/Dashboard.
+ * даты, цена, скидка, кнопка Apply. Цвета из useTheme().
  */
 import React, { useState } from 'react';
 import {
@@ -14,7 +14,7 @@ import {
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../constants/colors';
+import { useTheme } from '../contexts/ThemeContext';
 
 export interface BulkEditModalProps {
   visible: boolean;
@@ -23,6 +23,7 @@ export interface BulkEditModalProps {
 }
 
 export function BulkEditModal({ visible, onClose, onApply }: BulkEditModalProps) {
+  const { colors } = useTheme();
   const [price, setPrice] = useState('');
   const [discount, setDiscount] = useState('');
 
@@ -41,47 +42,47 @@ export function BulkEditModal({ visible, onClose, onApply }: BulkEditModalProps)
   return (
     <Modal visible={visible} transparent animationType="slide">
       <Pressable style={styles.overlay} onPress={onClose}>
-        <View style={styles.sheet} onStartShouldSetResponder={() => true}>
-          <View style={styles.handle} />
-          <View style={styles.header}>
+        <View style={[styles.sheet, { backgroundColor: colors.card }]} onStartShouldSetResponder={() => true}>
+          <View style={[styles.handle, { backgroundColor: colors.border }]} />
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
-              <Ionicons name="close" size={24} color={colors.textDark} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Массовое редактирование</Text>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>Массовое редактирование</Text>
             <TouchableOpacity onPress={handleReset} style={styles.resetBtn}>
-              <Text style={styles.resetText}>Сброс</Text>
+              <Text style={[styles.resetText, { color: colors.primary }]}>Сброс</Text>
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
-            <Text style={styles.sectionTitle}>Диапазон дат</Text>
-            <View style={styles.dateBlock}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Диапазон дат</Text>
+            <View style={[styles.dateBlock, { backgroundColor: colors.input }]}>
               <TouchableOpacity style={styles.chevron}>
-                <Ionicons name="chevron-back" size={22} color={colors.textDark} />
+                <Ionicons name="chevron-back" size={22} color={colors.text} />
               </TouchableOpacity>
-              <Text style={styles.monthLabel}>Октябрь 2024</Text>
+              <Text style={[styles.monthLabel, { color: colors.text }]}>Октябрь 2024</Text>
               <TouchableOpacity style={styles.chevron}>
-                <Ionicons name="chevron-forward" size={22} color={colors.textDark} />
+                <Ionicons name="chevron-forward" size={22} color={colors.text} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.sectionTitle}>Цена за ночь (₽)</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Цена за ночь (₽)</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.input, color: colors.text }]}
               placeholder="0"
               placeholderTextColor={colors.textSecondary}
               value={price}
               onChangeText={setPrice}
               keyboardType="decimal-pad"
             />
-            <Text style={styles.sectionTitle}>Скидка (%)</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Скидка (%)</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.input, color: colors.text }]}
               placeholder="0"
               placeholderTextColor={colors.textSecondary}
               value={discount}
               onChangeText={setDiscount}
               keyboardType="decimal-pad"
             />
-            <TouchableOpacity style={styles.applyBtn} onPress={handleApply}>
+            <TouchableOpacity style={[styles.applyBtn, { backgroundColor: colors.primary }]} onPress={handleApply}>
               <Text style={styles.applyBtnText}>Применить</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -98,7 +99,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.cardDark,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '90%',
@@ -109,7 +109,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.slate800,
     marginTop: 12,
     marginBottom: 8,
   },
@@ -119,7 +118,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.slate800,
   },
   headerBtn: {
     width: 40,
@@ -132,7 +130,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontWeight: '700',
-    color: colors.textDark,
     textAlign: 'center',
   },
   resetBtn: {
@@ -142,7 +139,6 @@ const styles = StyleSheet.create({
   resetText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.primary,
   },
   body: {
     maxHeight: 400,
@@ -154,7 +150,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.textDark,
     marginBottom: 12,
     marginTop: 20,
   },
@@ -162,7 +157,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.slate800,
     borderRadius: 16,
     padding: 16,
   },
@@ -172,18 +166,14 @@ const styles = StyleSheet.create({
   monthLabel: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.textDark,
   },
   input: {
-    backgroundColor: colors.slate800,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: colors.textDark,
   },
   applyBtn: {
-    backgroundColor: colors.primary,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',

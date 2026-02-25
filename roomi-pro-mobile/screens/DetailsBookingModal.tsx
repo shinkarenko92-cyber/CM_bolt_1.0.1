@@ -13,7 +13,7 @@ import {
   Pressable,
 } from 'react-native';
 import { type Booking } from '../lib/supabase';
-import { colors } from '../constants/colors';
+import { useTheme } from '../contexts/ThemeContext';
 
 export type DetailsBookingModalProps = {
   visible: boolean;
@@ -32,10 +32,17 @@ export function DetailsBookingModal({
   propertyName,
   onClose,
 }: DetailsBookingModalProps) {
+  const { colors } = useTheme();
   if (!booking) return null;
 
   const checkIn = formatDate(booking.check_in);
   const checkOut = formatDate(booking.check_out);
+  const statusBg =
+    booking.status === 'confirmed'
+      ? colors.success
+      : booking.status === 'cancelled'
+        ? colors.error
+        : colors.warning;
 
   const handleConfirm = () => {
     // Заглушка: позже — обновление status через Supabase
@@ -47,74 +54,62 @@ export function DetailsBookingModal({
   return (
     <Modal visible={visible} transparent animationType="fade">
       <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.content} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={[styles.content, { backgroundColor: colors.card }]} onPress={(e) => e.stopPropagation()}>
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.header}>
-              <Text style={styles.title}>Бронирование</Text>
+              <Text style={[styles.title, { color: colors.text }]}>Бронирование</Text>
               <TouchableOpacity onPress={onClose} hitSlop={12}>
-                <Text style={styles.closeText}>Закрыть</Text>
+                <Text style={[styles.closeText, { color: colors.primary }]}>Закрыть</Text>
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.label}>Гость</Text>
-            <Text style={styles.value}>{booking.guest_name}</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Гость</Text>
+            <Text style={[styles.value, { color: colors.text }]}>{booking.guest_name}</Text>
 
             {booking.guest_email ? (
               <>
-                <Text style={styles.label}>Email</Text>
-                <Text style={styles.value}>{booking.guest_email}</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Email</Text>
+                <Text style={[styles.value, { color: colors.text }]}>{booking.guest_email}</Text>
               </>
             ) : null}
             {booking.guest_phone ? (
               <>
-                <Text style={styles.label}>Телефон</Text>
-                <Text style={styles.value}>{booking.guest_phone}</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Телефон</Text>
+                <Text style={[styles.value, { color: colors.text }]}>{booking.guest_phone}</Text>
               </>
             ) : null}
 
-            <Text style={styles.label}>Объект</Text>
-            <Text style={styles.value}>{propertyName ?? '—'}</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Объект</Text>
+            <Text style={[styles.value, { color: colors.text }]}>{propertyName ?? '—'}</Text>
 
-            <Text style={styles.label}>Даты</Text>
-            <Text style={styles.value}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Даты</Text>
+            <Text style={[styles.value, { color: colors.text }]}>
               {checkIn} — {checkOut}
             </Text>
 
-            <Text style={styles.label}>Статус</Text>
-            <View
-              style={[
-                styles.statusBadge,
-                {
-                  backgroundColor:
-                    booking.status === 'confirmed'
-                      ? colors.successCalendar
-                      : booking.status === 'cancelled'
-                        ? colors.cancelled
-                        : colors.warningCalendar,
-                },
-              ]}
-            >
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Статус</Text>
+            <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
               <Text style={styles.statusBadgeText}>{booking.status}</Text>
             </View>
 
-            <Text style={styles.label}>Сумма</Text>
-            <Text style={styles.value}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Сумма</Text>
+            <Text style={[styles.value, { color: colors.text }]}>
               {booking.total_price} {booking.currency}
             </Text>
 
             {booking.notes ? (
               <>
-                <Text style={styles.label}>Комментарий</Text>
-                <Text style={styles.value}>{booking.notes}</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Комментарий</Text>
+                <Text style={[styles.value, { color: colors.text }]}>{booking.notes}</Text>
               </>
             ) : null}
 
             <View style={styles.actions}>
-              <TouchableOpacity style={styles.buttonPrimary} onPress={handleConfirm}>
+              <TouchableOpacity style={[styles.buttonPrimary, { backgroundColor: colors.primary }]} onPress={handleConfirm}>
                 <Text style={styles.buttonPrimaryText}>Подтвердить</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.buttonSecondary} onPress={handleCancel}>
-                <Text style={styles.buttonSecondaryText}>Отменить</Text>
+              <TouchableOpacity style={[styles.buttonSecondary, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={handleCancel}>
+                <Text style={[styles.buttonSecondaryText, { color: colors.text }]}>Отменить</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -133,7 +128,6 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   content: {
-    backgroundColor: colors.background,
     borderRadius: 16,
     padding: 20,
     maxWidth: 400,
@@ -149,21 +143,17 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: colors.text,
   },
   closeText: {
-    color: colors.primary,
     fontSize: 16,
   },
   label: {
     fontSize: 12,
-    color: colors.textSecondary,
     marginTop: 12,
     marginBottom: 2,
   },
   value: {
     fontSize: 16,
-    color: colors.text,
   },
   statusBadge: {
     alignSelf: 'flex-start',
@@ -185,7 +175,6 @@ const styles = StyleSheet.create({
   },
   buttonPrimary: {
     flex: 1,
-    backgroundColor: colors.primary,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -197,15 +186,12 @@ const styles = StyleSheet.create({
   },
   buttonSecondary: {
     flex: 1,
-    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
   },
   buttonSecondaryText: {
-    color: colors.text,
     fontSize: 16,
     fontWeight: '600',
   },

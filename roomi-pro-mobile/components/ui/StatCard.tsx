@@ -1,10 +1,11 @@
 /**
- * Карточка метрики: иконка, название, большое число, опционально тренд (+X% / -X%).
+ * Карточка метрики: иконка, название, большое число, опционально тренд.
+ * Цвета из useTheme() — без пропа dark.
  */
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { TrendBadge } from './TrendBadge';
 
 export interface StatCardProps {
@@ -14,7 +15,6 @@ export interface StatCardProps {
   trendLabel?: string;
   icon?: keyof typeof Ionicons.glyphMap;
   variant?: 'primary' | 'default';
-  dark?: boolean;
 }
 
 export function StatCard({
@@ -24,16 +24,22 @@ export function StatCard({
   trendLabel,
   icon,
   variant = 'default',
-  dark = true,
 }: StatCardProps) {
+  const { colors } = useTheme();
   const isPrimary = variant === 'primary';
-  const bg = isPrimary ? colors.primary : (dark ? colors.cardDark : '#fff');
-  const valueColor = isPrimary ? '#fff' : (dark ? colors.textDark : colors.text);
-  const labelColor = isPrimary ? 'rgba(255,255,255,0.85)' : (dark ? '#94a3b8' : colors.textSecondary);
+  const bg = isPrimary ? colors.primary : colors.card;
+  const valueColor = isPrimary ? '#fff' : colors.text;
+  const labelColor = isPrimary ? 'rgba(255,255,255,0.85)' : colors.textSecondary;
   const trendColor = isPrimary ? '#fff' : colors.primary;
 
   return (
-    <View style={[styles.card, { backgroundColor: bg }, !isPrimary && dark && styles.cardBorder]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: bg },
+        !isPrimary && { borderWidth: 1, borderColor: colors.border },
+      ]}
+    >
       {icon != null && (
         <View style={styles.iconWrap}>
           <Ionicons name={icon} size={14} color={trendColor} />
@@ -60,10 +66,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     minHeight: 100,
-  },
-  cardBorder: {
-    borderWidth: 1,
-    borderColor: colors.slate800,
   },
   label: {
     fontSize: 11,

@@ -19,8 +19,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CalendarList } from 'react-native-calendars';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts/ThemeContext';
 import { supabase, type Property, type BookingWithProperty } from '../lib/supabase';
-import { colors } from '../constants/colors';
 import { ScreenHeader } from '../components/ui/ScreenHeader';
 import { AddBookingModal } from './AddBookingModal';
 import { BulkEditModal } from '../components/BulkEditModal';
@@ -47,10 +47,10 @@ async function fetchBookings(): Promise<BookingWithProperty[]> {
 }
 
 /** Цвет бара по статусу: booked=red, pending=yellow, available=green */
-function statusToBarColor(status: string): string {
+function statusToBarColor(status: string, textSecondary: string): string {
   if (status === 'confirmed') return '#EF4444';
   if (status === 'pending') return '#F59E0B';
-  if (status === 'cancelled') return colors.textSecondary;
+  if (status === 'cancelled') return textSecondary;
   return '#10B981';
 }
 
@@ -155,22 +155,24 @@ function buildSectionsForDate(
   return items;
 }
 
-const CALENDAR_THEME = {
-  backgroundColor: colors.backgroundDark,
-  calendarBackground: colors.backgroundDark,
-  textSectionTitleColor: colors.textSecondary,
-  selectedDayBackgroundColor: colors.primary,
-  selectedDayTextColor: '#fff',
-  todayTextColor: colors.primary,
-  dayTextColor: colors.textDark,
-  textDisabledColor: colors.slate800,
-  dotColor: colors.primary,
-  selectedDotColor: '#fff',
-  arrowColor: colors.primary,
-  monthTextColor: colors.textDark,
-  textDayFontWeight: '500' as const,
-  textMonthFontWeight: '700' as const,
-};
+function buildCalendarTheme(colors: import('../constants/theme').ThemeColors) {
+  return {
+    backgroundColor: colors.background,
+    calendarBackground: colors.background,
+    textSectionTitleColor: colors.textSecondary,
+    selectedDayBackgroundColor: colors.primary,
+    selectedDayTextColor: '#fff',
+    todayTextColor: colors.primary,
+    dayTextColor: colors.text,
+    textDisabledColor: colors.input,
+    dotColor: colors.primary,
+    selectedDotColor: '#fff',
+    arrowColor: colors.primary,
+    monthTextColor: colors.text,
+    textDayFontWeight: '500' as const,
+    textMonthFontWeight: '700' as const,
+  };
+}
 
 function getTodayString(): string {
   const d = new Date();
@@ -178,11 +180,14 @@ function getTodayString(): string {
 }
 
 export function CalendarScreen() {
+  const { colors } = useTheme();
   const queryClient = useQueryClient();
   const { width } = useWindowDimensions();
   const [selectedDate, setSelectedDate] = useState(getTodayString);
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [bulkEditVisible, setBulkEditVisible] = useState(false);
+
+  const calendarTheme = useMemo(() => buildCalendarTheme(colors), [colors]);
 
   const {
     data: properties = [],
@@ -233,14 +238,14 @@ export function CalendarScreen() {
       if (item.type === 'property_header') {
         return (
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeaderText} numberOfLines={1}>
+            <Text style={[styles.sectionHeaderText, { color: colors.text }]} numberOfLines={1}>
               {item.property.name}
             </Text>
           </View>
         );
       }
       if (item.type === 'booking_bar') {
-        const color = statusToBarColor(item.booking.status);
+        const color = statusToBarColor(item.booking.status, colors.textSecondary);
         return (
           <View style={[styles.bar, { backgroundColor: color }]}>
             <Text style={styles.barGuest} numberOfLines={1}>
@@ -262,17 +267,17 @@ export function CalendarScreen() {
       if (item.type === 'rate_row') {
         return (
           <Pressable
-            style={styles.rateRow}
+            style={[styles.rateRow, { backgroundColor: colors.input }]}
             onPress={() => {}}
           >
-            <Text style={styles.rateLabel}>Standard rate</Text>
-            <Text style={styles.rateValue}>{item.property.base_price} {item.property.currency}</Text>
+            <Text style={[styles.rateLabel, { color: colors.textSecondary }]}>Standard rate</Text>
+            <Text style={[styles.rateValue, { color: colors.text }]}>{item.property.base_price} {item.property.currency}</Text>
           </Pressable>
         );
       }
       return null;
     },
-    []
+    [colors]
   );
 
   const isLoading = loadingProperties || loadingBookings;
@@ -280,10 +285,10 @@ export function CalendarScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Загрузка...</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Загрузка...</Text>
         </View>
       </SafeAreaView>
     );
@@ -291,11 +296,11 @@ export function CalendarScreen() {
 
   if (isError) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
         <View style={styles.centered}>
-          <Text style={styles.errorText}>Не удалось загрузить данные</Text>
+          <Text style={[styles.errorText, { color: colors.textSecondary }]}>Не удалось загрузить данные</Text>
           <TouchableOpacity
-            style={styles.retryButton}
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={() => {
               refetchProperties();
               refetchBookings();
@@ -311,13 +316,12 @@ export function CalendarScreen() {
   const firstPropertyName = properties[0]?.name ?? '';
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <ScreenHeader
         title="Календарь"
         subtitle={firstPropertyName}
         onSearch={() => setBulkEditVisible(true)}
         onNotifications={() => {}}
-        dark
       />
       <CalendarList
         current={selectedDate}
@@ -327,11 +331,11 @@ export function CalendarScreen() {
           [selectedDate]: {
             ...markedDates[selectedDate],
             selected: true,
-            selectedColor: colors.teal,
+            selectedColor: colors.primary,
             selectedTextColor: '#fff',
           },
         }}
-        theme={CALENDAR_THEME}
+        theme={calendarTheme}
         horizontal
         pagingEnabled
         calendarWidth={width}
@@ -339,8 +343,8 @@ export function CalendarScreen() {
         futureScrollRange={12}
         showScrollIndicator={false}
       />
-      <View style={styles.dayTitle}>
-        <Text style={styles.dayTitleText}>{formatDisplayDate(selectedDate)}</Text>
+      <View style={[styles.dayTitle, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+        <Text style={[styles.dayTitleText, { color: colors.text }]}>{formatDisplayDate(selectedDate)}</Text>
       </View>
       <FlatList
         data={sections}
@@ -358,12 +362,12 @@ export function CalendarScreen() {
         }
         ListEmptyComponent={
           properties.length === 0 ? (
-            <Text style={styles.emptyText}>Нет объектов. Добавьте объекты в настройках.</Text>
+            <Text style={[styles.emptyText, { color: colors.text }]}>Нет объектов. Добавьте объекты в настройках.</Text>
           ) : null
         }
       />
       <Pressable
-        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+        style={({ pressed }) => [styles.fab, { backgroundColor: colors.primary }, pressed && styles.fabPressed]}
         onPress={() => setAddModalVisible(true)}
       >
         <Ionicons name="add" size={28} color="#fff" />
@@ -390,7 +394,6 @@ export function CalendarScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.backgroundDark,
   },
   centered: {
     flex: 1,
@@ -400,16 +403,13 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: colors.textSecondary,
   },
   errorText: {
-    color: colors.textSecondary,
     fontSize: 16,
     marginBottom: 16,
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: colors.primary,
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 24,
@@ -422,14 +422,11 @@ const styles = StyleSheet.create({
   dayTitle: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: colors.cardDark,
     borderTopWidth: 1,
-    borderTopColor: colors.slate800,
   },
   dayTitleText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.textDark,
   },
   listContent: {
     paddingHorizontal: 16,
@@ -442,7 +439,6 @@ const styles = StyleSheet.create({
   sectionHeaderText: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.textDark,
   },
   bar: {
     borderRadius: 10,
@@ -474,22 +470,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 12,
-    backgroundColor: colors.rateCellBg,
     borderRadius: 10,
     marginBottom: 8,
   },
   rateLabel: {
     fontSize: 13,
-    color: colors.textSecondary,
   },
   rateValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.textDark,
   },
   emptyText: {
     fontSize: 16,
-    color: colors.textDark,
     textAlign: 'center',
     marginTop: 24,
   },
@@ -500,7 +492,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

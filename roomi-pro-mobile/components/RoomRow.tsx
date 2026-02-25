@@ -5,16 +5,16 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import type { Property, Booking } from '../lib/supabase';
-import { colors } from '../constants/colors';
+import { useTheme } from '../contexts/ThemeContext';
 import { DAY_CELL_WIDTH } from '../constants/layout';
 
 const GUEST_NAME_MAX = 14;
 
-function statusToColor(status: string): string {
+function statusToColor(status: string, border: string): string {
   if (status === 'confirmed') return '#10B981';
   if (status === 'pending') return '#F59E0B';
   if (status === 'cancelled') return '#EF4444';
-  return colors.border;
+  return border;
 }
 
 function truncateGuest(name: string): string {
@@ -70,6 +70,7 @@ export type RoomRowProps = {
 };
 
 export function RoomRow({ property, dates, bookings }: RoomRowProps) {
+  const { colors } = useTheme();
   const segments = useMemo(() => buildSegments(dates, bookings), [dates, bookings]);
 
   return (
@@ -86,7 +87,7 @@ export function RoomRow({ property, dates, bookings }: RoomRowProps) {
             );
           }
           const width = seg.days * DAY_CELL_WIDTH;
-          const bg = statusToColor(seg.booking.status);
+          const bg = statusToColor(seg.booking.status, colors.border);
           return (
             <View
               key={`b-${seg.booking.id}`}
@@ -102,8 +103,8 @@ export function RoomRow({ property, dates, bookings }: RoomRowProps) {
       {/* Ряд 2: Standard rate — цены по дням */}
       <View style={styles.cellsRow}>
         {dates.map((date) => (
-          <View key={date} style={[styles.cell, styles.rateCell]}>
-            <Text style={styles.rateText}>{property.base_price}</Text>
+          <View key={date} style={[styles.cell, styles.rateCell, { backgroundColor: colors.input }]}>
+            <Text style={[styles.rateText, { color: colors.text }]}>{property.base_price}</Text>
           </View>
         ))}
       </View>
@@ -143,13 +144,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   rateCell: {
-    backgroundColor: colors.rateCellBg,
     marginHorizontal: 1,
     borderRadius: 8,
   },
   rateText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.text,
   },
 });

@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { LoginScreen } from './screens/LoginScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
 import { CalendarScreen } from './screens/CalendarScreen';
@@ -23,7 +24,6 @@ import { BookingsScreen } from './screens/BookingsScreen';
 import { MessagesScreen } from './screens/MessagesScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { AnalyticsScreen } from './screens/AnalyticsScreen';
-import { colors } from './constants/colors';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -36,13 +36,14 @@ const hasSupabaseEnv =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY.length !== 0;
 
 function ConfigMissingScreen() {
+  const { colors } = useTheme();
   useEffect(() => {
     SplashScreen.hideAsync();
   }, []);
   return (
-    <View style={styles.loadingContainer}>
-      <Text style={styles.loadingText}>Нет ключей Supabase в .env</Text>
-      <Text style={[styles.loadingText, { fontSize: 14, marginTop: 8, opacity: 0.9 }]}>
+    <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+      <Text style={[styles.loadingText, { color: colors.text }]}>Нет ключей Supabase в .env</Text>
+      <Text style={[styles.loadingText, { color: colors.text, fontSize: 14, marginTop: 8, opacity: 0.9 }]}>
         Добавьте EXPO_PUBLIC_SUPABASE_URL и EXPO_PUBLIC_SUPABASE_ANON_KEY
       </Text>
     </View>
@@ -71,13 +72,14 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function MainTabs() {
+  const { colors } = useTheme();
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: { backgroundColor: colors.backgroundDark, borderTopColor: 'rgba(0,189,164,0.15)' },
+        tabBarStyle: { backgroundColor: colors.tabBar, borderTopColor: colors.border },
         tabBarLabelStyle: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
       }}
     >
@@ -127,6 +129,7 @@ function MainTabs() {
 
 function RootNavigator() {
   const { user, loading } = useAuth();
+  const { colors, theme } = useTheme();
   const expoGoAlertShown = useRef(false);
 
   useEffect(() => {
@@ -153,9 +156,9 @@ function RootNavigator() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Загрузка...</Text>
+        <Text style={[styles.loadingText, { color: colors.text }]}>Загрузка...</Text>
       </View>
     );
   }
@@ -184,26 +187,35 @@ function RootNavigator() {
   );
 }
 
-export default function App() {
+function AppContent() {
+  const { theme } = useTheme();
   if (!hasSupabaseEnv) {
     return (
       <>
         <ConfigMissingScreen />
-        <StatusBar style="light" />
+        <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       </>
     );
   }
   return (
+    <AuthProvider>
+      <SafeAreaProvider>
+        <NavigationContainer>
+          <RootNavigator />
+        </NavigationContainer>
+      </SafeAreaProvider>
+      <Toast />
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+    </AuthProvider>
+  );
+}
+
+export default function App() {
+  return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <SafeAreaProvider>
-          <NavigationContainer>
-            <RootNavigator />
-          </NavigationContainer>
-        </SafeAreaProvider>
-        <Toast />
-      </AuthProvider>
-      <StatusBar style="light" />
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
@@ -211,12 +223,10 @@ export default function App() {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    backgroundColor: colors.backgroundDark,
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
-    color: '#fff',
     marginTop: 12,
     fontSize: 16,
   },

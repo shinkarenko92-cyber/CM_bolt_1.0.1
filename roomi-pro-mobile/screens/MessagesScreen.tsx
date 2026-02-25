@@ -1,6 +1,6 @@
 /**
  * Сообщения: макет updated_messages — поиск, табы All/Action Required/Unread, список чатов.
- * Пока мок-данные; нажатие → заглушка чата.
+ * Цвета из useTheme().
  */
 import React, { useState, useMemo } from 'react';
 import {
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../constants/colors';
+import { useTheme } from '../contexts/ThemeContext';
 
 type MessageTab = 'all' | 'action' | 'unread';
 
@@ -27,38 +27,41 @@ const MOCK_CHATS = [
 function ChatRow({
   item,
   onPress,
+  colors: c,
 }: {
   item: (typeof MOCK_CHATS)[0];
   onPress: () => void;
+  colors: import('../constants/theme').ThemeColors;
 }) {
   return (
-    <Pressable style={styles.chatRow} onPress={onPress}>
+    <Pressable style={[styles.chatRow, { borderBottomColor: c.border }]} onPress={onPress}>
       <View style={styles.avatarWrap}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
+        <View style={[styles.avatar, { backgroundColor: c.input }]}>
+          <Text style={[styles.avatarText, { color: c.primary }]}>{item.name.charAt(0)}</Text>
         </View>
-        {item.unread && <View style={styles.unreadDot} />}
+        {item.unread && <View style={[styles.unreadDot, { backgroundColor: c.primary, borderColor: c.background }]} />}
       </View>
       <View style={styles.chatBody}>
         <View style={styles.chatHead}>
-          <Text style={styles.chatName} numberOfLines={1}>{item.name}</Text>
-          <Text style={[styles.chatTime, item.unread && styles.chatTimeActive]}>{item.time}</Text>
+          <Text style={[styles.chatName, { color: c.text }]} numberOfLines={1}>{item.name}</Text>
+          <Text style={[styles.chatTime, { color: c.textSecondary }, item.unread && { color: c.primary, fontWeight: '600' }]}>{item.time}</Text>
         </View>
         {item.actionRequired && (
           <View style={styles.actionTag}>
-            <Text style={styles.actionTagText}>Нужно действие</Text>
+            <Text style={[styles.actionTagText, { color: c.primary }]}>Нужно действие</Text>
           </View>
         )}
-        <Text style={styles.chatMeta} numberOfLines={1}>
+        <Text style={[styles.chatMeta, { color: c.textSecondary }]} numberOfLines={1}>
           {item.room} • {item.dates}
         </Text>
-        <Text style={styles.chatPreview} numberOfLines={1}>{item.preview}</Text>
+        <Text style={[styles.chatPreview, { color: c.text }]} numberOfLines={1}>{item.preview}</Text>
       </View>
     </Pressable>
   );
 }
 
 export function MessagesScreen() {
+  const { colors } = useTheme();
   const [tab, setTab] = useState<MessageTab>('all');
   const [search, setSearch] = useState('');
 
@@ -74,34 +77,34 @@ export function MessagesScreen() {
   }, [tab, search]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerIcon}>
-          <Ionicons name="menu" size={24} color={colors.textDark} />
+          <Ionicons name="menu" size={24} color={colors.text} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerIcon}>
-          <Ionicons name="create-outline" size={24} color={colors.textDark} />
+          <Ionicons name="create-outline" size={24} color={colors.text} />
         </TouchableOpacity>
       </View>
-      <Text style={styles.title}>Сообщения</Text>
-      <View style={styles.searchWrap}>
+      <Text style={[styles.title, { color: colors.text }]}>Сообщения</Text>
+      <View style={[styles.searchWrap, { backgroundColor: colors.input }]}>
         <Ionicons name="search-outline" size={20} color={colors.textSecondary} style={styles.searchIcon} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: colors.text }]}
           placeholder="Гости или номера"
           placeholderTextColor={colors.textSecondary}
           value={search}
           onChangeText={setSearch}
         />
       </View>
-      <View style={styles.tabs}>
+      <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
         {(['all', 'action', 'unread'] as const).map((t) => (
-          <Pressable key={t} onPress={() => setTab(t)} style={[styles.tab, tab === t && styles.tabActive]}>
-            <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
+          <Pressable key={t} onPress={() => setTab(t)} style={[styles.tab, tab === t && { borderBottomColor: colors.primary }]}>
+            <Text style={[styles.tabText, { color: colors.textSecondary }, tab === t && { color: colors.text, fontWeight: '600' }]}>
               {t === 'all' ? 'Все' : t === 'action' ? 'Нужно действие' : 'Непрочитанные'}
             </Text>
             {t === 'unread' && (
-              <View style={styles.unreadBadge}>
+              <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
                 <Text style={styles.unreadBadgeText}>{MOCK_CHATS.filter((c) => c.unread).length}</Text>
               </View>
             )}
@@ -111,9 +114,9 @@ export function MessagesScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ChatRow item={item} onPress={() => {}} />}
+        renderItem={({ item }) => <ChatRow item={item} onPress={() => {}} colors={colors} />}
         contentContainerStyle={styles.listContent}
-        ListEmptyComponent={<Text style={styles.empty}>Нет сообщений</Text>}
+        ListEmptyComponent={<Text style={[styles.empty, { color: colors.textSecondary }]}>Нет сообщений</Text>}
       />
     </SafeAreaView>
   );
@@ -122,7 +125,6 @@ export function MessagesScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.backgroundDark,
   },
   header: {
     flexDirection: 'row',
@@ -137,7 +139,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: colors.textDark,
     paddingHorizontal: 16,
     marginBottom: 16,
   },
@@ -147,7 +148,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
     height: 44,
-    backgroundColor: colors.slate800,
     borderRadius: 12,
     paddingLeft: 12,
   },
@@ -157,7 +157,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: colors.textDark,
     paddingVertical: 8,
   },
   tabs: {
@@ -165,7 +164,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 24,
     borderBottomWidth: 1,
-    borderBottomColor: colors.slate800,
     marginBottom: 0,
   },
   tab: {
@@ -176,23 +174,14 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
     gap: 6,
   },
-  tabActive: {
-    borderBottomColor: colors.primary,
-  },
   tabText: {
     fontSize: 14,
     fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  tabTextActive: {
-    color: colors.textDark,
-    fontWeight: '600',
   },
   unreadBadge: {
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
@@ -210,7 +199,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(30,41,59,0.5)',
   },
   avatarWrap: {
     position: 'relative',
@@ -220,14 +208,12 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.slate800,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.primary,
   },
   unreadDot: {
     position: 'absolute',
@@ -236,9 +222,7 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: colors.primary,
     borderWidth: 2,
-    borderColor: colors.backgroundDark,
   },
   chatBody: {
     flex: 1,
@@ -253,15 +237,9 @@ const styles = StyleSheet.create({
   chatName: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.textDark,
   },
   chatTime: {
     fontSize: 12,
-    color: colors.textSecondary,
-  },
-  chatTimeActive: {
-    color: colors.primary,
-    fontWeight: '600',
   },
   actionTag: {
     alignSelf: 'flex-start',
@@ -276,21 +254,17 @@ const styles = StyleSheet.create({
   actionTagText: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.primary,
   },
   chatMeta: {
     fontSize: 12,
-    color: colors.textSecondary,
     marginBottom: 2,
   },
   chatPreview: {
     fontSize: 14,
-    color: colors.textDark,
     fontWeight: '500',
   },
   empty: {
     fontSize: 16,
-    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 32,
   },

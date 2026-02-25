@@ -1,11 +1,11 @@
 /**
- * Общий header экрана: лого/название, поиск, уведомления (как в макетах).
- * Использует полупрозрачный фон; для blur — обернуть в BlurView при наличии expo-blur.
+ * Общий header экрана: лого/название, поиск, уведомления (по макетам).
+ * Цвета из useTheme() — без пропа dark.
  */
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export interface ScreenHeaderProps {
   title: string;
@@ -14,7 +14,6 @@ export interface ScreenHeaderProps {
   onSearch?: () => void;
   onNotifications?: () => void;
   showNotificationBadge?: boolean;
-  dark?: boolean;
 }
 
 export function ScreenHeader({
@@ -24,18 +23,15 @@ export function ScreenHeader({
   onSearch,
   onNotifications,
   showNotificationBadge = false,
-  dark = true,
 }: ScreenHeaderProps) {
-  const bg = dark ? { backgroundColor: 'rgba(15,35,33,0.95)' } : { backgroundColor: 'rgba(255,255,255,0.95)' };
-  const textColor = dark ? colors.textDark : colors.text;
-  const subColor = dark ? '#94a3b8' : colors.textSecondary;
-  const iconColor = dark ? colors.textDark : colors.text;
-  const iconBg = dark ? 'rgba(0,189,164,0.2)' : 'rgba(0,189,164,0.1)';
+  const { colors } = useTheme();
+  const bg = { backgroundColor: colors.tabBar };
+  const iconBg = colors.primaryMuted;
 
   return (
-    <View style={[styles.header, bg]}>
+    <View style={[styles.header, bg, { borderBottomColor: colors.border }]}>
       <View style={styles.left}>
-        <View style={[styles.logoWrap, { backgroundColor: iconBg }]}>
+        <View style={[styles.logoWrap, { backgroundColor: iconBg, borderColor: colors.primary + '40' }]}>
           {logoUri ? (
             <Image source={{ uri: logoUri }} style={styles.logoImage} resizeMode="cover" />
           ) : (
@@ -44,21 +40,21 @@ export function ScreenHeader({
         </View>
         <View>
           {subtitle ? (
-            <Text style={[styles.subtitle, { color: subColor }]} numberOfLines={1}>{subtitle}</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>{subtitle}</Text>
           ) : null}
-          <Text style={[styles.title, { color: textColor }]} numberOfLines={1}>{title}</Text>
+          <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{title}</Text>
         </View>
       </View>
       <View style={styles.actions}>
         {onSearch != null && (
           <TouchableOpacity onPress={onSearch} style={[styles.iconBtn, { backgroundColor: iconBg }]} activeOpacity={0.7}>
-            <Ionicons name="search-outline" size={24} color={iconColor} />
+            <Ionicons name="search-outline" size={24} color={colors.text} />
           </TouchableOpacity>
         )}
         {onNotifications != null && (
           <TouchableOpacity onPress={onNotifications} style={[styles.iconBtn, { backgroundColor: iconBg }]} activeOpacity={0.7}>
-            <Ionicons name="notifications-outline" size={24} color={iconColor} />
-            {showNotificationBadge && <View style={styles.badge} />}
+            <Ionicons name="notifications-outline" size={24} color={colors.text} />
+            {showNotificationBadge && <View style={[styles.badge, { borderColor: colors.tabBar }]} />}
           </TouchableOpacity>
         )}
       </View>
@@ -74,7 +70,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,189,164,0.15)',
   },
   left: {
     flexDirection: 'row',
@@ -90,7 +85,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(0,189,164,0.25)',
   },
   logoImage: {
     width: '100%',
@@ -126,6 +120,5 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#ef4444',
     borderWidth: 2,
-    borderColor: colors.backgroundDark,
   },
 });

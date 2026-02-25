@@ -17,8 +17,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts/ThemeContext';
 import { supabase, type BookingWithProperty, type Property } from '../lib/supabase';
-import { colors } from '../constants/colors';
 import { DetailsBookingModal } from './DetailsBookingModal';
 import { AddBookingModal } from './AddBookingModal';
 
@@ -50,11 +50,14 @@ function sourceLabel(source: string): string {
   return source;
 }
 
-function statusColor(status: string): string {
-  if (status === 'confirmed') return colors.success;
-  if (status === 'pending') return colors.warning;
-  if (status === 'cancelled') return colors.cancelled;
-  return colors.primary;
+function statusColor(
+  status: string,
+  c: { success: string; warning: string; error: string; primary: string }
+): string {
+  if (status === 'confirmed') return c.success;
+  if (status === 'pending') return c.warning;
+  if (status === 'cancelled') return c.error;
+  return c.primary;
 }
 
 function statusLabel(status: string): string {
@@ -78,31 +81,33 @@ function formatDateShort(s: string): string {
 function BookingCard({
   item,
   onPress,
+  colors: c,
 }: {
   item: BookingWithProperty;
   onPress: () => void;
+  colors: import('../constants/theme').ThemeColors;
 }) {
   const checkIn = item.check_in.split('T')[0];
   const checkOut = item.check_out.split('T')[0];
   const propertyName = (item as BookingWithProperty & { properties?: { name: string } }).properties?.name ?? '—';
   const nights = nightsBetween(checkIn, checkOut);
-  const sc = statusColor(item.status);
+  const sc = statusColor(item.status, c);
   return (
-    <Pressable style={styles.card} onPress={onPress}>
+    <Pressable style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]} onPress={onPress}>
       <View style={styles.cardLeft}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{(item.guest_name || '?').charAt(0).toUpperCase()}</Text>
+        <View style={[styles.avatar, { backgroundColor: c.input }]}>
+          <Text style={[styles.avatarText, { color: c.primary }]}>{(item.guest_name || '?').charAt(0).toUpperCase()}</Text>
         </View>
         <View style={styles.cardBody}>
-          <Text style={styles.guestName}>{item.guest_name || '—'}</Text>
-          <Text style={styles.dates}>
+          <Text style={[styles.guestName, { color: c.text }]}>{item.guest_name || '—'}</Text>
+          <Text style={[styles.dates, { color: c.textSecondary }]}>
             {formatDateShort(checkIn)} — {formatDateShort(checkOut)} • {nights} ноч.
           </Text>
           <View style={styles.cardBadges}>
-            <View style={styles.roomBadge}>
-              <Text style={styles.roomBadgeText}>{propertyName}</Text>
+            <View style={[styles.roomBadge, { backgroundColor: c.primaryMuted }]}>
+              <Text style={[styles.roomBadgeText, { color: c.primary }]}>{propertyName}</Text>
             </View>
-            <Text style={styles.typeText}>{sourceLabel(item.source)}</Text>
+            <Text style={[styles.typeText, { color: c.textSecondary }]}>{sourceLabel(item.source)}</Text>
           </View>
         </View>
       </View>
@@ -111,7 +116,7 @@ function BookingCard({
           <View style={[styles.statusDot, { backgroundColor: sc }]} />
           <Text style={[styles.statusBadgeText, { color: sc }]}>{statusLabel(item.status)}</Text>
         </View>
-        <Text style={styles.price}>{item.total_price ?? 0} {item.currency}</Text>
+        <Text style={[styles.price, { color: c.text }]}>{item.total_price ?? 0} {item.currency}</Text>
       </View>
     </Pressable>
   );
@@ -120,6 +125,7 @@ function BookingCard({
 type TabFilter = 'all' | 'confirmed' | 'pending';
 
 export function BookingsScreen() {
+  const { colors } = useTheme();
   const queryClient = useQueryClient();
   const [selectedBooking, setSelectedBooking] = useState<BookingWithProperty | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -206,7 +212,7 @@ export function BookingsScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.centered, styles.bgDark]}>
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -214,9 +220,9 @@ export function BookingsScreen() {
 
   if (isError) {
     return (
-      <View style={[styles.centered, styles.bgDark]}>
-        <Text style={styles.errorText}>Не удалось загрузить бронирования</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.text }]}>Не удалось загрузить бронирования</Text>
+        <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => refetch()}>
           <Text style={styles.retryButtonText}>Повторить</Text>
         </TouchableOpacity>
       </View>
@@ -224,27 +230,27 @@ export function BookingsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.headerRow}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <View style={[styles.headerRow, { borderBottomColor: colors.border }]}>
         <View style={styles.headerLeft}>
-          <View style={styles.headerIconWrap}>
+          <View style={[styles.headerIconWrap, { backgroundColor: colors.primaryMuted }]}>
             <Ionicons name="menu" size={22} color={colors.primary} />
           </View>
-          <Text style={styles.headerTitle}>Бронирования</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Бронирования</Text>
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerBtn} onPress={() => {}}>
+          <TouchableOpacity style={[styles.headerBtn, { backgroundColor: colors.primaryMuted }]} onPress={() => {}}>
             <Ionicons name="notifications-outline" size={22} color={colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.addBtn} onPress={() => setAddModalVisible(true)}>
+          <TouchableOpacity style={[styles.addBtn, { backgroundColor: colors.primary }]} onPress={() => setAddModalVisible(true)}>
             <Ionicons name="add" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
-      <View style={styles.searchWrap}>
+      <View style={[styles.searchWrap, { backgroundColor: colors.input }]}>
         <Ionicons name="search-outline" size={20} color={colors.textSecondary} style={styles.searchIcon} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: colors.text }]}
           placeholder="Гость, объект или ID брони"
           placeholderTextColor={colors.textSecondary}
           value={searchQuery}
@@ -252,10 +258,10 @@ export function BookingsScreen() {
         />
         <Ionicons name="options-outline" size={20} color={colors.textSecondary} style={styles.searchIcon} />
       </View>
-      <View style={styles.tabs}>
+      <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
         {(['all', 'confirmed', 'pending'] as const).map((t) => (
-          <Pressable key={t} onPress={() => setTab(t)} style={[styles.tab, tab === t && styles.tabActive]}>
-            <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
+          <Pressable key={t} onPress={() => setTab(t)} style={[styles.tab, tab === t && { borderBottomColor: colors.primary }]}>
+            <Text style={[styles.tabText, { color: colors.textSecondary }, tab === t && { color: colors.primary, fontWeight: '700' }]}>
               {t === 'all' ? 'Все' : t === 'confirmed' ? 'Подтверждённые' : 'Ожидание'}
             </Text>
           </Pressable>
@@ -264,10 +270,10 @@ export function BookingsScreen() {
       <FlatList
         data={filteredBookings}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <BookingCard item={item} onPress={() => openModal(item)} />}
+        renderItem={({ item }) => <BookingCard item={item} onPress={() => openModal(item)} colors={colors} />}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>Нет бронирований</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Нет бронирований</Text>
         }
       />
       <DetailsBookingModal
@@ -293,10 +299,6 @@ export function BookingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.backgroundDark,
-  },
-  bgDark: {
-    backgroundColor: colors.backgroundDark,
   },
   centered: {
     flex: 1,
@@ -304,12 +306,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorText: {
-    color: colors.textDark,
     fontSize: 16,
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: colors.primary,
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 24,
@@ -326,7 +326,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,189,164,0.15)',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -337,14 +336,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(0,189,164,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.textDark,
   },
   headerActions: {
     flexDirection: 'row',
@@ -354,7 +351,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,189,164,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -362,7 +358,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -372,7 +367,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
     height: 44,
-    backgroundColor: colors.slate800,
     borderRadius: 12,
     paddingHorizontal: 12,
   },
@@ -382,7 +376,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: colors.textDark,
     paddingHorizontal: 8,
     paddingVertical: 8,
   },
@@ -391,7 +384,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 24,
     borderBottomWidth: 1,
-    borderBottomColor: colors.slate800,
     marginBottom: 8,
   },
   tab: {
@@ -399,17 +391,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
-  tabActive: {
-    borderBottomColor: colors.primary,
-  },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  tabTextActive: {
-    color: colors.primary,
-    fontWeight: '700',
   },
   listContent: {
     paddingHorizontal: 8,
@@ -419,13 +403,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.cardDark,
     borderRadius: 12,
     padding: 16,
     marginHorizontal: 8,
     marginVertical: 6,
     borderWidth: 1,
-    borderColor: colors.slate800,
   },
   cardLeft: {
     flexDirection: 'row',
@@ -436,7 +418,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.slate800,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -444,7 +425,6 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.primary,
   },
   cardBody: {
     flex: 1,
@@ -452,11 +432,9 @@ const styles = StyleSheet.create({
   guestName: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.textDark,
   },
   dates: {
     fontSize: 12,
-    color: colors.textSecondary,
     marginTop: 2,
   },
   cardBadges: {
@@ -466,7 +444,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   roomBadge: {
-    backgroundColor: 'rgba(0,189,164,0.15)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 9999,
@@ -474,11 +451,9 @@ const styles = StyleSheet.create({
   roomBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.primary,
   },
   typeText: {
     fontSize: 12,
-    color: colors.textSecondary,
   },
   cardRight: {
     alignItems: 'flex-end',
@@ -504,11 +479,9 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.textDark,
   },
   emptyText: {
     fontSize: 16,
-    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 32,
   },

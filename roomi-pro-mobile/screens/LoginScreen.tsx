@@ -1,5 +1,6 @@
 /**
  * Экран входа: email, пароль, «Войти через Supabase», «Забыли пароль?»
+ * Цвета из useTheme().
  */
 import React, { useState } from 'react';
 import {
@@ -14,10 +15,11 @@ import {
   Platform,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { colors } from '../constants/colors';
+import { useTheme } from '../contexts/ThemeContext';
 import { supabase } from '../lib/supabase';
 
 export function LoginScreen() {
+  const { colors } = useTheme();
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -61,15 +63,15 @@ export function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={styles.card}>
-        <Text style={styles.title}>Roomi Pro</Text>
-        <Text style={styles.subtitle}>Вход в аккаунт</Text>
+      <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <Text style={[styles.title, { color: colors.text }]}>Roomi Pro</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Вход в аккаунт</Text>
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, { borderColor: colors.border, color: colors.text }]}
           placeholder="Email"
           placeholderTextColor={colors.textSecondary}
           value={email}
@@ -80,7 +82,7 @@ export function LoginScreen() {
           editable={!loading}
         />
         <TextInput
-          style={styles.input}
+          style={[styles.input, { borderColor: colors.border, color: colors.text }]}
           placeholder="Пароль"
           placeholderTextColor={colors.textSecondary}
           value={password}
@@ -90,10 +92,10 @@ export function LoginScreen() {
           editable={!loading}
         />
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text> : null}
 
         <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
+          style={[styles.button, { backgroundColor: colors.primary }, loading && styles.buttonDisabled]}
           onPress={handleSignIn}
           disabled={loading}
         >
@@ -109,7 +111,7 @@ export function LoginScreen() {
           onPress={handleForgotPassword}
           disabled={loading}
         >
-          <Text style={styles.forgotLinkText}>Забыли пароль?</Text>
+          <Text style={[styles.forgotLinkText, { color: colors.primary }]}>Забыли пароль?</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -119,12 +121,10 @@ export function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.backgroundDark,
     justifyContent: 'center',
     padding: 24,
   },
   card: {
-    backgroundColor: colors.background,
     borderRadius: 12,
     padding: 24,
     shadowColor: '#000',
@@ -136,31 +136,25 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: colors.text,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: colors.textSecondary,
     marginBottom: 24,
   },
   input: {
     borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    color: colors.text,
     marginBottom: 12,
   },
   errorText: {
-    color: colors.error,
     fontSize: 14,
     marginBottom: 12,
   },
   button: {
-    backgroundColor: colors.primary,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -179,7 +173,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   forgotLinkText: {
-    color: colors.primary,
     fontSize: 14,
   },
 });
