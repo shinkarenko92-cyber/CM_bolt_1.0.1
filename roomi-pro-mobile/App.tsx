@@ -130,7 +130,7 @@ function MainTabs() {
 
 function RootNavigator() {
   const { user, loading } = useAuth();
-  const { colors, theme } = useTheme();
+  const { colors } = useTheme();
   const expoGoAlertShown = useRef(false);
 
   useEffect(() => {
