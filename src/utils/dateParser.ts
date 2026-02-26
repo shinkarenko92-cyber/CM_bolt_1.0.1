@@ -47,7 +47,3 @@ export function parseDate(dateStr: string): string | null {
 
   return `${year}-${formattedMonth}-${formattedDay}`;
 }
-
-export function isValidDate(dateStr: string): boolean {
-  return parseDate(dateStr) !== null;
-}

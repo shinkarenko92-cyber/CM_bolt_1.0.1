@@ -1,6 +1,6 @@
 // Helper functions for booking audit logging
 
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 export interface BookingChanges {
   [field: string]: {
@@ -28,14 +28,14 @@ export async function logBookingChange(
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      console.warn('Cannot log booking change: user not authenticated');
+      if (import.meta.env.DEV) console.warn('Cannot log booking change: user not authenticated');
       return;
     }
 
     // Call Edge Function to log the change
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      console.warn('Cannot log booking change: no session');
+      if (import.meta.env.DEV) console.warn('Cannot log booking change: no session');
       return;
     }
 

@@ -54,7 +54,7 @@ function applyUserData() {
 
   if (!window.botpress) return;
   if (!userId) {
-    console.log('[BoltChat] Анонимный режим — userId не передан');
+    if (import.meta.env.DEV) console.log('[BoltChat] Анонимный режим — userId не передан');
     return;
   }
 
@@ -65,9 +65,9 @@ function applyUserData() {
       ...(plan && { plan }),
     },
   }).then(() => {
-    console.log('[BoltChat] updateUser выполнен', { userId, plan: plan || '—' });
+    if (import.meta.env.DEV) console.log('[BoltChat] updateUser выполнен', { userId, plan: plan || '—' });
   }).catch((err) => {
-    console.warn('[BoltChat] updateUser ошибка', err);
+    if (import.meta.env.DEV) console.warn('[BoltChat] updateUser ошибка', err);
   });
 }
 
@@ -78,14 +78,14 @@ export default function BoltChat({ userId, userToken, plan }: BoltChatProps) {
     if (initialized.current) return;
     initialized.current = true;
 
-    console.log('[BoltChat] Загрузка скриптов Botpress...');
+    if (import.meta.env.DEV) console.log('[BoltChat] Загрузка скриптов Botpress...');
 
     loadScript(BOTPRESS_INJECT_URL)
       .then(() => loadScript(BOTPRESS_CONFIG_URL, true))
       .then(() => {
         const checkBotpress = () => {
           if (typeof window.botpress !== 'undefined') {
-            console.log('[BoltChat] window.botpress доступен');
+            if (import.meta.env.DEV) console.log('[BoltChat] window.botpress доступен');
 
             window.botpress.on('webchat:initialized', () => {
               applyUserData();

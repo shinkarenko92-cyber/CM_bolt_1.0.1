@@ -29,7 +29,7 @@ export function getIcalUrl(propertyId: string): IcalUrlResult {
       ? `${origin}/functions/v1/ical/${propertyId}.ics`
       : `/functions/v1/ical/${propertyId}.ics`;
 
-  console.log("iCal URL generated: " + url);
+  if (import.meta.env.DEV) console.log("iCal URL generated: " + url);
 
   // Compute localhost based on the generated URL host (not the app host),
   // so local dev doesn't show warnings if the URL is actually reachable.

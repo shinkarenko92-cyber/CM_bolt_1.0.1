@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase, Profile } from '../lib/supabase';
+import { supabase, Profile } from '@/lib/supabase';
 
 export type SignUpParams = {
   email: string;
@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           // Логируем только первую попытку, чтобы не засорять консоль
           if (attempt === 1 && error.message?.includes('Failed to fetch')) {
-            console.log('Profile fetch failed, retrying... (attempt 1/3)');
+            if (import.meta.env.DEV) console.log('Profile fetch failed, retrying... (attempt 1/3)');
           }
           // Иначе ждем и повторяем
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Если была ошибка, но retry успешен, не логируем ошибку
         if (attempt > 1) {
-          console.log(`Profile fetched successfully after ${attempt} attempts`);
+          if (import.meta.env.DEV) console.log(`Profile fetched successfully after ${attempt} attempts`);
         }
 
         return data;
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         // Логируем только первую попытку
         if (attempt === 1) {
-          console.log('Profile fetch error, retrying... (attempt 1/3)');
+          if (import.meta.env.DEV) console.log('Profile fetch error, retrying... (attempt 1/3)');
         }
         // Иначе ждем и повторяем
         await new Promise(resolve => setTimeout(resolve, 1000 * attempt));

@@ -10,15 +10,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from './ui/dialog';
-import { useAuth } from '../contexts/AuthContext';
-import { LanguageSelector } from './LanguageSelector';
-import { ThemeToggle } from './ThemeToggle';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Input } from './ui/input';
-import { Button } from './ui/button';
-import { Checkbox } from './ui/checkbox';
-import { Label } from './ui/label';
+} from '@/components/ui/dialog';
+import { useAuth } from '@/contexts/AuthContext';
+import { LanguageSelector } from '@/components/LanguageSelector';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 const normalizePhone = (v: string) => v.replace(/[\s\-()]/g, '');
 
@@ -66,7 +66,7 @@ export function SignupForm() {
     const phoneNormalized = normalizePhone(values.phone);
 
     try {
-      console.log('Форма отправлена:', values);
+      if (import.meta.env.DEV) console.log('Форма отправлена:', values);
       const { data, error } = await signUp({
         email: values.email,
         password: values.password,
@@ -74,7 +74,7 @@ export function SignupForm() {
         lastName: values.lastName,
         phone: phoneNormalized || undefined,
       });
-      console.log('Supabase:', { data, error });
+      if (import.meta.env.DEV) console.log('Supabase:', { data, error });
 
       if (error) {
         toast.error(error.message);

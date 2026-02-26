@@ -3,14 +3,14 @@
  * Handles OAuth flow, progress saving, and Edge Function calls
  */
 
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/lib/supabase';
 import type {
   AvitoTokenResponse,
   AvitoAccount,
   ConnectionProgress,
   AvitoOAuthError,
   AvitoOAuthSuccess,
-} from '../types/avito';
+} from '@/types/avito';
 
 const PROGRESS_TTL = 3600000; // 1 hour in milliseconds
 
@@ -256,7 +256,7 @@ export async function exchangeCodeForToken(code: string, redirectUri: string): P
           }
         }
       } catch (parseError) {
-        console.warn('exchangeCodeForToken: Failed to parse error.data', parseError);
+        if (import.meta.env.DEV) console.warn('exchangeCodeForToken: Failed to parse error.data', parseError);
         // Если не удалось распарсить, используем исходное сообщение
       }
     }
@@ -285,8 +285,8 @@ export async function getUserAccounts(accessToken: string): Promise<AvitoAccount
     throw new Error('Access token is required');
   }
   
-  console.log('Calling getUserAccounts with token length:', accessToken.length);
-  
+  if (import.meta.env.DEV) console.log('Calling getUserAccounts with token length:', accessToken.length);
+
   const { data, error } = await supabase.functions.invoke('avito_sync', {
     body: {
       action: 'get-accounts',
@@ -294,8 +294,7 @@ export async function getUserAccounts(accessToken: string): Promise<AvitoAccount
     },
   });
 
-  // Логируем ответ Edge Function для диагностики
-  console.log('getUserAccounts: Edge Function response', {
+  if (import.meta.env.DEV) console.log('getUserAccounts: Edge Function response', {
     hasData: !!data,
     hasError: !!error,
     dataType: data ? typeof data : 'null',
@@ -339,7 +338,7 @@ export async function getUserAccounts(accessToken: string): Promise<AvitoAccount
 
   // Проверяем, что data существует и является массивом
   if (!data) {
-    console.warn('getUserAccounts: No data returned from Edge Function, returning empty array', {
+    if (import.meta.env.DEV) console.warn('getUserAccounts: No data returned from Edge Function, returning empty array', {
       error: error?.message,
       errorData: error?.data
     });
@@ -355,7 +354,7 @@ export async function getUserAccounts(accessToken: string): Promise<AvitoAccount
     throw new Error('Invalid response format from Edge Function: expected array, got ' + typeof data);
   }
 
-  console.log('getUserAccounts: Successfully received accounts', {
+  if (import.meta.env.DEV) console.log('getUserAccounts: Successfully received accounts', {
     count: data.length,
     accounts: data.map(acc => ({
       id: acc.id,
@@ -376,7 +375,7 @@ export async function validateItemId(
   integrationId: string,
   propertyId?: string
 ): Promise<{ available: boolean; error?: string }> {
-  console.log('validateItemId: Validating item', {
+  if (import.meta.env.DEV) console.log('validateItemId: Validating item', {
     itemId,
     integrationId,
     propertyId,
@@ -391,8 +390,7 @@ export async function validateItemId(
     },
   });
 
-  // Логируем ответ для диагностики
-  console.log('validateItemId: Edge Function response', {
+  if (import.meta.env.DEV) console.log('validateItemId: Edge Function response', {
     hasData: !!data,
     hasError: !!error,
     data,

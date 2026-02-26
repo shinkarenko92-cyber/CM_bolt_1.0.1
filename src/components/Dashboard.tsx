@@ -1,45 +1,45 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Search, Bell, User, Upload, X } from 'lucide-react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Avatar, AvatarFallback } from './ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from './ui/dropdown-menu';
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { Sidebar } from './Sidebar';
-import { Calendar } from './Calendar';
-import { AddReservationModal } from './AddReservationModal';
-import { EditReservationModal } from './EditReservationModal';
-import { OverlapWarningModal } from './OverlapWarningModal';
-import { PropertiesView } from './PropertiesView';
-import { BookingsView } from './BookingsView';
+import { Sidebar } from '@/components/Sidebar';
+import { Calendar } from '@/components/Calendar';
+import { AddReservationModal } from '@/components/AddReservationModal';
+import { EditReservationModal } from '@/components/EditReservationModal';
+import { OverlapWarningModal } from '@/components/OverlapWarningModal';
+import { PropertiesView } from '@/components/PropertiesView';
+import { BookingsView } from '@/components/BookingsView';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { AnalyticsView } from './AnalyticsView';
-import { AnalyticsInsights } from './AnalyticsInsights';
-import { GuestsView } from './GuestsView';
-import { GuestModal } from './GuestModal';
-import { AdminView } from './AdminView';
-import { SettingsView } from './SettingsView';
-import { UserProfileModal } from './UserProfileModal';
-import { MessagesView, type IntegrationForMessenger } from './MessagesView';
-import { ChatPanel } from './ChatPanel';
-import { ThemeToggle } from './ThemeToggle';
-import { SkeletonCalendar } from './Skeleton';
-import { supabase, Property, Booking, Profile, Guest, Chat, Message } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
-import { getOAuthSuccess, getOAuthError, generateMessengerOAuthUrl } from '../services/avito';
-import { syncWithExternalAPIs, syncAvitoIntegration } from '../services/apiSync';
-import { showAvitoErrors } from '../services/avitoErrors';
-import { DeletePropertyModal } from './DeletePropertyModal';
-import { ImportBookingsModal } from './ImportBookingsModal';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { AnalyticsView } from '@/components/AnalyticsView';
+import { AnalyticsInsights } from '@/components/AnalyticsInsights';
+import { GuestsView } from '@/components/GuestsView';
+import { GuestModal } from '@/components/GuestModal';
+import { AdminView } from '@/components/AdminView';
+import { SettingsView } from '@/components/SettingsView';
+import { UserProfileModal } from '@/components/UserProfileModal';
+import { MessagesView, type IntegrationForMessenger } from '@/components/MessagesView';
+import { ChatPanel } from '@/components/ChatPanel';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { SkeletonCalendar } from '@/components/Skeleton';
+import { supabase, Property, Booking, Profile, Guest, Chat, Message } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { getOAuthSuccess, getOAuthError, generateMessengerOAuthUrl } from '@/services/avito';
+import { syncWithExternalAPIs, syncAvitoIntegration } from '@/services/apiSync';
+import { showAvitoErrors } from '@/services/avitoErrors';
+import { DeletePropertyModal } from '@/components/DeletePropertyModal';
+import { ImportBookingsModal } from '@/components/ImportBookingsModal';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -47,9 +47,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from './ui/dialog';
-import { logBookingChange, getBookingChanges } from '../services/bookingLog';
-import { getPropertyLimit, getBookingLimit, isDemoExpired } from '../utils/subscriptionLimits';
+} from '@/components/ui/dialog';
+import { logBookingChange, getBookingChanges } from '@/services/bookingLog';
+import { getPropertyLimit, getBookingLimit, isDemoExpired } from '@/utils/subscriptionLimits';
 
 type NewReservation = {
   property_id: string;
@@ -526,12 +526,12 @@ export function Dashboard() {
       // Get chat to find integration
       const chat = chats.find(c => c.id === chatId);
       if (!chat || !chat.integration_id) {
-        console.warn('Chat or integration not found for sync');
+        if (import.meta.env.DEV) console.warn('Chat or integration not found for sync');
         return;
       }
 
       if (!chat.integration_id) {
-        console.warn('Chat has no integration_id');
+        if (import.meta.env.DEV) console.warn('Chat has no integration_id');
         return;
       }
 
@@ -550,7 +550,7 @@ export function Dashboard() {
       );
 
       if (fnError) {
-        console.warn('avito-messenger getMessages error:', fnError);
+        if (import.meta.env.DEV) console.warn('avito-messenger getMessages error:', fnError);
         return;
       }
       if (!avitoResponse?.messages || avitoResponse.messages.length === 0) {
@@ -928,7 +928,7 @@ export function Dashboard() {
           filter: `owner_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('Chat change:', payload);
+          if (import.meta.env.DEV) console.log('Chat change:', payload);
           if (payload.eventType === 'INSERT') {
             setChats(prev => [payload.new as Chat, ...prev]);
           } else if (payload.eventType === 'UPDATE') {
@@ -961,7 +961,7 @@ export function Dashboard() {
           filter: `chat_id=eq.${selectedChatId}`,
         },
         (payload) => {
-          console.log('Message change:', payload);
+          if (import.meta.env.DEV) console.log('Message change:', payload);
           if (payload.eventType === 'INSERT') {
             setMessages(prev => [...prev, payload.new as Message]);
             // Mark as read if it's from contact
@@ -1460,7 +1460,7 @@ export function Dashboard() {
                   duration: 6000,
                 });
               }
-              console.log('Dashboard: Avito sync completed successfully after booking deletion', {
+              if (import.meta.env.DEV) console.log('Dashboard: Avito sync completed successfully after booking deletion', {
                 bookingId: id,
                 source: bookingSource,
                 isAvitoBooking,
@@ -1751,7 +1751,7 @@ export function Dashboard() {
 
       if (isColumnMissing) {
         // Column doesn't exist, use hard delete
-        console.warn('deleted_at column not found, using hard delete', { error: softDeleteError });
+        if (import.meta.env.DEV) console.warn('deleted_at column not found, using hard delete', { error: softDeleteError });
         const { error: hardDeleteError } = await supabase
           .from('properties')
           .delete()

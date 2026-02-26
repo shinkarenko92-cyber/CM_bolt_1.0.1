@@ -21,9 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Property, supabase } from '../lib/supabase';
+import { Property, supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { showAvitoErrors } from '../services/avitoErrors';
+import { showAvitoErrors } from '@/services/avitoErrors';
 import {
   generateOAuthUrl,
   parseOAuthState,
@@ -35,7 +35,7 @@ import {
   clearOAuthError,
   clearOAuthSuccess,
   performInitialSync,
-} from '../services/avito';
+} from '@/services/avito';
 
 interface AvitoConnectModalProps {
   isOpen: boolean;
@@ -132,7 +132,7 @@ export function AvitoConnectModal({
         // Could not load integration after OAuth callback
         // Continue anyway - tokens are saved, user can proceed to item_id step
       } else {
-        console.log('AvitoConnectModal: Integration loaded', {
+        if (import.meta.env.DEV) console.log('AvitoConnectModal: Integration loaded', {
           integrationId: integration.id,
           hasAccessToken: !!integration.access_token_encrypted,
           hasRefreshToken: !!integration.refresh_token_encrypted,

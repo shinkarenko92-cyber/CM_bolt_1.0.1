@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { Search, Shield, UserX, UserCheck, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { supabase, Profile, Property, Booking, DeletionRequest } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
-import { ConfirmModal } from './ConfirmModal';
+import { supabase, Profile, Property, Booking, DeletionRequest } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 type AdminStats = {
   totalUsers: number;
@@ -84,7 +84,7 @@ export function AdminView() {
       if (deletionRequestsData.error) {
         // If table doesn't exist (404), just set empty array
         if (deletionRequestsData.error.code === 'PGRST116' || deletionRequestsData.error.message?.includes('404')) {
-          console.warn('deletion_requests table not found - migration may not be applied');
+          if (import.meta.env.DEV) console.warn('deletion_requests table not found - migration may not be applied');
           setDeletionRequests([]);
         } else {
           console.error('Error loading deletion requests:', deletionRequestsData.error);
