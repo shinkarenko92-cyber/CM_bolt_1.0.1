@@ -168,61 +168,6 @@ export function getDisplayMessage(error: AvitoErrorInfo, t: TFunction): string {
   return error.message;
 }
 
-/**
- * Get recommendations based on error type
- */
-function getRecommendations(errorInfo: AvitoErrorInfo, t: TFunction): string[] {
-  const recommendations: string[] = [];
-  const { statusCode, errorCode, message } = errorInfo;
-
-  // Helper to safely get translation string
-  const safeT = (key: string, defaultValue: string): string => {
-    try {
-      const result = t(key, { defaultValue });
-      return typeof result === 'string' ? result : defaultValue;
-    } catch {
-      return defaultValue;
-    }
-  };
-
-  // Validation errors (400, 422)
-  if (statusCode === 400 || statusCode === 422 || errorCode === 'VALIDATION_ERROR') {
-    const msg = message.toLowerCase();
-    if (msg.includes('price') || msg.includes('цена') || msg.includes('night_price')) {
-      if (msg.includes('greater than 0') || msg.includes('must be greater') || msg.includes('low') || msg.includes('низк')) {
-        recommendations.push(safeT('avito.errors.recommendations.priceTooLow', 'Убедитесь, что цена соответствует минимальным требованиям Avito (цена за ночь должна быть больше 0)'));
-      } else if (msg.includes('high') || msg.includes('высок')) {
-        recommendations.push(safeT('avito.errors.recommendations.priceTooHigh', 'Убедитесь, что цена не превышает максимально допустимую'));
-      }
-    }
-    if (msg.includes('date') || msg.includes('дата')) {
-      recommendations.push(safeT('avito.errors.recommendations.invalidDateRange', 'Проверьте корректность диапазона дат'));
-    }
-  }
-
-  // Authorization errors
-  if (statusCode === 401 || statusCode === 403 || errorCode === 'UNAUTHORIZED') {
-    recommendations.push(safeT('avito.errors.recommendations.reconnect', 'Попробуйте переподключить интеграцию с Avito'));
-  }
-
-  // Token expiration
-  if (message.toLowerCase().includes('expired') || message.toLowerCase().includes('истёк')) {
-    recommendations.push(safeT('avito.errors.recommendations.tokenExpired', 'Токен доступа истёк. Переподключите интеграцию'));
-  }
-
-  // Network errors
-  if (statusCode === 0 || message.toLowerCase().includes('network') || message.toLowerCase().includes('fetch')) {
-    recommendations.push(safeT('avito.errors.recommendations.networkError', 'Проверьте подключение к интернету и попробуйте снова'));
-  }
-
-  // Default recommendation
-  if (recommendations.length === 0) {
-    recommendations.push(safeT('avito.errors.recommendations.contactSupport', 'Если проблема повторяется, обратитесь в поддержку'));
-  }
-
-  return recommendations;
-}
-
 // Queue for showing Avito errors via AvitoErrorModal (replaces antd Modal)
 export type AvitoErrorState = { error: AvitoErrorInfo; t: TFunction; onClose: () => void } | null;
 

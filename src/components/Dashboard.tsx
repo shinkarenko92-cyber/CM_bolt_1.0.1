@@ -329,7 +329,7 @@ export function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [user, retrySupabaseQuery, t]);
+  }, [user, retrySupabaseQuery, t, refreshProfile]);
 
   // Keep loadData ref up to date
   const loadDataRef = useRef(loadData);

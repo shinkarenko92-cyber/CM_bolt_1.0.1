@@ -6,7 +6,6 @@ import { Chat, Message, Property } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { avitoApi } from '../services/avitoApi';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -62,6 +61,7 @@ export function ChatPanel({
   const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
 
   const handleSend = async () => {
@@ -149,8 +149,6 @@ export function ChatPanel({
       </div>
     );
   }
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="flex flex-col h-full bg-slate-800 border-l border-slate-700">
