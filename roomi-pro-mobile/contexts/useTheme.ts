@@ -2,7 +2,7 @@
  * Хук темы. Вынесен в отдельный файл для корректной работы Fast Refresh.
  */
 import { useContext } from 'react';
-import { ThemeContext } from './ThemeContext';
+import { ThemeContext } from './ThemeContextRef';
 
 export function useTheme() {
   const ctx = useContext(ThemeContext);

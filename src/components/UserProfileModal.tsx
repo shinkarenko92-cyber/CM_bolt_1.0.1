@@ -28,7 +28,7 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
       setFullName(profile.full_name ?? '');
       setEmail(profile.email ?? '');
     }
-  }, [profile?.id, profile?.full_name, profile?.email]);
+  }, [profile]);
 
   if (!isOpen || !profile) return null;
 
@@ -46,8 +46,8 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
     setSaving(true);
     try {
       const updates: { full_name?: string; email?: string } = {};
-      if (fullName.trim() !== (profile.full_name ?? '')) updates.full_name = fullName.trim() || null;
-      if (email.trim() !== (profile.email ?? '')) updates.email = email.trim() || null;
+      if (fullName.trim() !== (profile.full_name ?? '')) updates.full_name = fullName.trim() || undefined;
+      if (email.trim() !== (profile.email ?? '')) updates.email = email.trim() || undefined;
 
       if (Object.keys(updates).length === 0) {
         setSaving(false);
