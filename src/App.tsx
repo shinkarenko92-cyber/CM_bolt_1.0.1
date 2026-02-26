@@ -12,6 +12,7 @@ import BoltChat, { type PlanType } from './components/BoltChat';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { OnboardingImport } from './pages/OnboardingImport';
+import { CookieConsentBanner } from './components/CookieConsentBanner';
 
 function AvitoCallbackHandler() {
   const [messengerSuccessModalOpen, setMessengerSuccessModalOpen] = useState(false);
@@ -199,6 +200,7 @@ function AppContent() {
       </Routes>
       <AvitoCallbackHandler />
       <BoltChatWidget />
+      <CookieConsentBanner />
     </>
   );
 }

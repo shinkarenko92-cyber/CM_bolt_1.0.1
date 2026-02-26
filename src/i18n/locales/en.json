@@ -465,6 +465,12 @@
     "propertyLimitReached": "Property limit reached for your plan. Go to profile and request an invoice to upgrade.",
     "trialExpired": "Trial ended. Choose a plan in profile to continue.",
     "openProfile": "Profile & plan"
+  },
+  "cookieConsent": {
+    "text": "We use cookies for sessions and analytics. By continuing, you agree to our use of cookies.",
+    "policy": "Privacy policy",
+    "accept": "Accept",
+    "decline": "Decline"
   }
 }
 
