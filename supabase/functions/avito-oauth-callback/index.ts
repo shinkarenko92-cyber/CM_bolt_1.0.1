@@ -5,15 +5,57 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { z } from "npm:zod@3";
 
 const AVITO_API_BASE = "https://api.avito.ru";
+const LOG_PREFIX = "[avito-oauth]";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Type definitions for Avito API responses
+/** Причина ошибки 422 для клиента */
+export type Avito422Reason = "no_avito_integration" | "scope_missing";
+
+/**
+ * Типизированная ошибка Avito OAuth callback.
+ * @property code - HTTP-код ответа (400, 401, 422, 500)
+ * @property message - Сообщение для логов/клиента
+ * @property reason - Для 422: 'no_avito_integration' | 'scope_missing'
+ */
+export class AvitoError extends Error {
+  constructor(
+    message: string,
+    public readonly code: number,
+    public readonly reason?: Avito422Reason
+  ) {
+    super(message);
+    this.name = "AvitoError";
+    Object.setPrototypeOf(this, AvitoError.prototype);
+  }
+}
+
+// --- Zod schemas ---
+
+const OAuthCallbackBodySchema = z.object({
+  code: z.string().min(1, "Missing authorization code"),
+  state: z.string().min(1, "Missing state parameter"),
+  redirect_uri: z.string().url().optional(),
+});
+
+const StateDataSchema = z.object({
+  type: z.string().optional(),
+  property_id: z.string().optional(),
+  integration_id: z.union([z.string(), z.null()]).optional(),
+  timestamp: z.number().optional(),
+  ts: z.number().optional(),
+});
+
+type OAuthCallbackBody = z.infer<typeof OAuthCallbackBodySchema>;
+type StateData = z.infer<typeof StateDataSchema>;
+
 interface AvitoTokenResponse {
   access_token: string;
   token_type: string;
@@ -28,449 +70,425 @@ interface AvitoErrorResponse {
   error_uri?: string;
 }
 
-// AvitoUserResponse removed - not needed for STR API
-
-interface OAuthCallbackRequest {
-  code?: string;
-  state?: string;
-  redirect_uri?: string;
+interface Env {
+  SUPABASE_URL: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
+  SUPABASE_ANON_KEY: string;
+  AVITO_CLIENT_ID: string;
+  AVITO_CLIENT_SECRET: string;
+  AVITO_MESSENGER_CLIENT_ID?: string;
+  AVITO_MESSENGER_CLIENT_SECRET?: string;
 }
 
-Deno.serve(async (req: Request) => {
-  // Handle CORS preflight - must return 204 No Content
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders,
-    });
+/**
+ * Парсит и валидирует state (base64 или plain JSON).
+ * @param state - Строка state из OAuth callback
+ * @returns Распарсенные данные state
+ * @throws AvitoError при невалидном state
+ */
+function parseState(state: string): StateData {
+  try {
+    try {
+      return StateDataSchema.parse(JSON.parse(atob(state)));
+    } catch {
+      return StateDataSchema.parse(JSON.parse(state));
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log(`${LOG_PREFIX} Failed to parse state:`, msg);
+    throw new AvitoError("Invalid state parameter", 400);
+  }
+}
+
+/**
+ * Проверяет, что scope содержит права messenger (для messenger_auth).
+ * @param scope - Строка scope из ответа Avito token
+ * @returns true если scope достаточен
+ * @throws AvitoError с reason 'scope_missing' при отсутствии messenger в scope
+ */
+function checkMessengerScope(scope: string | undefined): void {
+  const required = "messenger";
+  const scopes = (scope ?? "").split(/\s+/).filter(Boolean);
+  const hasMessenger = scopes.some((s) => s.toLowerCase().includes(required));
+  if (!hasMessenger) {
+    console.log(`${LOG_PREFIX} scope_missing: scope does not include messenger`, { scope });
+    throw new AvitoError("Scope does not include messenger", 422, "scope_missing");
+  }
+}
+
+/**
+ * Обменивает authorization code на access_token и refresh_token в Avito API.
+ * @param code - Код авторизации от Avito
+ * @param redirectUri - redirect_uri, использованный при запросе кода
+ * @param clientId - AVITO_CLIENT_ID или AVITO_MESSENGER_CLIENT_ID
+ * @param clientSecret - Соответствующий client secret
+ * @returns Данные токена (access_token, expires_in, refresh_token, scope)
+ * @throws AvitoError при ошибке API Avito
+ */
+async function refreshTokens(
+  code: string,
+  redirectUri: string,
+  clientId: string,
+  clientSecret: string
+): Promise<AvitoTokenResponse> {
+  console.log(`${LOG_PREFIX} Exchanging code for token`);
+  const tokenResponse = await fetch(`${AVITO_API_BASE}/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      client_id: clientId,
+      client_secret: clientSecret,
+      code,
+      redirect_uri: redirectUri,
+    }),
+  });
+
+  if (!tokenResponse.ok) {
+    let errorMessage = `Token exchange failed (${tokenResponse.status})`;
+    try {
+      const errorData = (await tokenResponse.json()) as AvitoErrorResponse;
+      if (errorData.error) {
+        errorMessage = `Avito API error: ${errorData.error}`;
+        if (errorData.error_description) errorMessage += ` - ${errorData.error_description}`;
+      }
+    } catch {
+      const text = await tokenResponse.text().catch(() => "Unable to read error");
+      errorMessage = text || errorMessage;
+    }
+    console.log(`${LOG_PREFIX} Token exchange error:`, { status: tokenResponse.status, errorMessage });
+    throw new AvitoError(errorMessage, tokenResponse.status);
   }
 
-  try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    const avitoClientId = Deno.env.get("AVITO_CLIENT_ID") || "";
-    const avitoClientSecret = Deno.env.get("AVITO_CLIENT_SECRET") || "";
+  const tokenData = (await tokenResponse.json()) as AvitoTokenResponse;
+  console.log(`${LOG_PREFIX} Token exchange successful`, {
+    hasAccessToken: !!tokenData.access_token,
+    hasRefreshToken: !!tokenData.refresh_token,
+    expiresIn: tokenData.expires_in,
+  });
+  return tokenData;
+}
 
-    if (!avitoClientId || !avitoClientSecret) {
-      throw new Error("AVITO_CLIENT_ID and AVITO_CLIENT_SECRET must be set in Supabase Secrets");
+/**
+ * Находит integration_id для messenger_auth: по state (с проверкой владельца) или fallback — первая Avito-интеграция пользователя.
+ * @param supabase - Supabase client (service role)
+ * @param userId - ID пользователя (owner)
+ * @param integrationIdFromState - integration_id из state или null
+ * @returns ID интеграции или null, если не найдена
+ */
+async function handleFallbackIntegration(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  integrationIdFromState: string | null
+): Promise<string | null> {
+  let targetIntegrationId: string | null = null;
+
+  if (integrationIdFromState) {
+    const { data: integrationRow } = await supabase
+      .from("integrations")
+      .select("id, property_id")
+      .eq("id", integrationIdFromState)
+      .eq("platform", "avito")
+      .maybeSingle();
+
+    if (integrationRow?.property_id) {
+      const { data: propertyRow } = await supabase
+        .from("properties")
+        .select("id")
+        .eq("id", integrationRow.property_id)
+        .eq("owner_id", userId)
+        .maybeSingle();
+      if (propertyRow) {
+        targetIntegrationId = integrationRow.id;
+        console.log(`${LOG_PREFIX} messenger_auth_target source=state_ownership_ok target_id=${targetIntegrationId}`);
+      }
     }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-
-    // Parse request body
-    let requestBody: OAuthCallbackRequest;
-    try {
-      requestBody = await req.json() as OAuthCallbackRequest;
-    } catch (jsonError: unknown) {
-      const errorMessage = jsonError instanceof Error ? jsonError.message : String(jsonError);
-      console.error("Failed to parse JSON:", errorMessage);
-      return new Response(
-        JSON.stringify({ error: "Invalid JSON in request body" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (!targetIntegrationId) {
+      console.log(`${LOG_PREFIX} messenger_auth_state_invalid integration_id=${integrationIdFromState} reason=not_found_or_not_owner`);
     }
+  }
 
-    const { code, state, redirect_uri } = requestBody;
-
-    // Validate required parameters
-    if (!code) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization code" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (!state) {
-      return new Response(
-        JSON.stringify({ error: "Missing state parameter" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Parse state (base64-encoded JSON or plain JSON)
-    let stateData: { type?: string; property_id?: string; integration_id?: string | null; timestamp?: number; ts?: number } | null = null;
-    try {
-      try {
-        stateData = JSON.parse(atob(state));
-      } catch {
-        stateData = JSON.parse(state);
-      }
-    } catch (stateError: unknown) {
-      const errorMessage = stateError instanceof Error ? stateError.message : String(stateError);
-      console.error("Failed to parse state:", errorMessage);
-      return new Response(
-        JSON.stringify({ error: "Invalid state parameter" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const isMessengerAuth = stateData?.type === "messenger_auth";
-    if (!isMessengerAuth && !stateData?.property_id && !stateData?.integration_id) {
-      return new Response(
-        JSON.stringify({ error: "Invalid state: property_id or integration_id not found" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const propertyId = stateData.property_id;
-    const integrationIdFromState = stateData.integration_id;
-    const redirectUri = redirect_uri || (isMessengerAuth ? "https://app.roomi.pro/auth/avito-callback" : `${new URL(req.url).origin}/auth/avito-callback`);
-
-    const clientId = isMessengerAuth ? (Deno.env.get("AVITO_MESSENGER_CLIENT_ID") || avitoClientId) : avitoClientId;
-    const clientSecret = isMessengerAuth ? (Deno.env.get("AVITO_MESSENGER_CLIENT_SECRET") || avitoClientSecret) : avitoClientSecret;
-
-    console.log("Processing OAuth callback", {
-      propertyId,
-      hasCode: !!code,
-      codeLength: code.length,
-      redirectUri,
-    });
-
-    // Step 1: Exchange code for token
-    console.log("Exchanging code for token");
-    const tokenResponse = await fetch(`${AVITO_API_BASE}/token`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        client_id: clientId,
-        client_secret: clientSecret,
-        code,
-        redirect_uri: redirectUri,
-      }),
-    });
-
-    if (!tokenResponse.ok) {
-      let errorMessage = `Token exchange failed (${tokenResponse.status})`;
-      try {
-        const errorData = await tokenResponse.json() as AvitoErrorResponse;
-        if (errorData.error) {
-          errorMessage = `Avito API error: ${errorData.error}`;
-          if (errorData.error_description) {
-            errorMessage += ` - ${errorData.error_description}`;
-          }
-        }
-      } catch {
-        const errorText = await tokenResponse.text().catch(() => 'Unable to read error');
-        errorMessage = errorText || errorMessage;
-      }
-
-      console.error("Token exchange error:", {
-        status: tokenResponse.status,
-        errorMessage,
-      });
-
-      return new Response(
-        JSON.stringify({ error: errorMessage }),
-        { status: tokenResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const tokenData = await tokenResponse.json() as AvitoTokenResponse;
-    console.log("Token exchange successful", {
-      hasAccessToken: !!tokenData.access_token,
-      hasRefreshToken: !!tokenData.refresh_token,
-      expiresIn: tokenData.expires_in,
-    });
-
-    const expiresInSeconds = tokenData.expires_in && typeof tokenData.expires_in === "number" && tokenData.expires_in > 0
-      ? tokenData.expires_in
-      : 3600;
-    const tokenExpiresAt = new Date(Date.now() + expiresInSeconds * 1000);
-
-    // Messenger auth flow: extend scope of existing integration; resolve target by ownership or fallback
-    if (isMessengerAuth) {
-      const authHeader = req.headers.get("Authorization");
-      if (!authHeader?.startsWith("Bearer ")) {
-        console.log(JSON.stringify({ event: "messenger_auth_rejected", reason: "no_bearer_token" }));
-        return new Response(
-          JSON.stringify({ error: "Unauthorized" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-      const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
-      const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
-      const { data: { user }, error: userError } = await supabaseAuth.auth.getUser(token);
-      if (userError || !user) {
-        console.log(JSON.stringify({ event: "messenger_auth_rejected", reason: "user_resolve_failed", error: userError?.message }));
-        return new Response(
-          JSON.stringify({ error: "Unauthorized" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      let targetIntegrationId: string | null = null;
-      const integrationIdFromState = stateData.integration_id && String(stateData.integration_id).trim() ? stateData.integration_id : null;
-
-      console.log(JSON.stringify({ event: "messenger_auth_state", integration_id_from_state: integrationIdFromState, user_id: user.id }));
-
-      // If state contains integration_id, verify it belongs to this user
-      if (integrationIdFromState) {
-        const { data: integrationRow } = await supabase
-          .from("integrations")
-          .select("id, property_id")
-          .eq("id", integrationIdFromState)
-          .eq("platform", "avito")
-          .maybeSingle();
-        if (integrationRow?.property_id) {
-          const { data: propertyRow } = await supabase
-            .from("properties")
-            .select("id")
-            .eq("id", integrationRow.property_id)
-            .eq("owner_id", user.id)
-            .maybeSingle();
-          if (propertyRow) {
-            targetIntegrationId = integrationRow.id;
-            console.log(JSON.stringify({ event: "messenger_auth_target", source: "state_ownership_ok", target_id: targetIntegrationId }));
-          }
-        }
-        if (!targetIntegrationId) {
-          console.log(JSON.stringify({ event: "messenger_auth_state_invalid", integration_id: integrationIdFromState, reason: "not_found_or_not_owner" }));
-        }
-      }
-
-      // Fallback: first active Avito integration for this user (by created_at).
-      // Temporary: when most users have multiple integrations, consider asking which account or a "default" integration flag.
-      if (!targetIntegrationId) {
-        const { data: userProperties } = await supabase
-          .from("properties")
-          .select("id")
-          .eq("owner_id", user.id);
-        const propertyIds = (userProperties || []).map((p: { id: string }) => p.id);
-        if (propertyIds.length > 0) {
-          const { data: firstIntegration } = await supabase
-            .from("integrations")
-            .select("id")
-            .eq("platform", "avito")
-            .in("property_id", propertyIds)
-            .order("created_at", { ascending: true })
-            .limit(1)
-            .maybeSingle();
-          if (firstIntegration?.id) {
-            targetIntegrationId = firstIntegration.id;
-            console.log(JSON.stringify({ event: "messenger_auth_target", source: "fallback_first_by_created_at", target_id: targetIntegrationId }));
-          }
-        }
-      }
-
-      if (!targetIntegrationId) {
-        console.log(JSON.stringify({ event: "messenger_auth_failed", reason: "no_avito_integration", user_id: user.id }));
-        return new Response(
-          JSON.stringify({ error: "Нет подходящей интеграции Avito для подключения чатов.", reason: "no_avito_integration" }),
-          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const updateData: {
-        access_token_encrypted: string;
-        refresh_token_encrypted?: string;
-        token_expires_at: string;
-        scope: string;
-        is_active: boolean;
-        is_enabled: boolean;
-      } = {
-        access_token_encrypted: tokenData.access_token,
-        token_expires_at: tokenExpiresAt.toISOString(),
-        scope: tokenData.scope ?? "user:read short_term_rent:read short_term_rent:write messenger:read messenger:write",
-        is_active: true,
-        is_enabled: true,
-      };
-      if (tokenData.refresh_token) {
-        updateData.refresh_token_encrypted = tokenData.refresh_token;
-      }
-
-      const { error: updateError } = await supabase
-        .from("integrations")
-        .update(updateData)
-        .eq("id", targetIntegrationId);
-
-      if (updateError) {
-        console.log(JSON.stringify({ event: "messenger_auth_update_error", target_id: targetIntegrationId, error: updateError.message }));
-        return new Response(
-          JSON.stringify({ error: `Ошибка обновления интеграции: ${updateError.message}` }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      console.log(JSON.stringify({ event: "messenger_auth_success", target_id: targetIntegrationId }));
-      return new Response(
-        JSON.stringify({ success: true, isMessengerAuth: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Step 2: Save to integrations (main OAuth: short_term_rent, etc.)
-    console.log("Saving token to integration", {
-      propertyId,
-      hasAccessToken: !!tokenData.access_token,
-      hasRefreshToken: !!tokenData.refresh_token,
-      expiresIn: expiresInSeconds,
-      tokenExpiresAt: tokenExpiresAt.toISOString(),
-    });
-
-    let integrationId: string | undefined = integrationIdFromState;
-
-    if (!integrationId && propertyId) {
-      // Find existing integration by property_id and platform
-      const { data: existingIntegration, error: findError } = await supabase
+  if (!targetIntegrationId) {
+    const { data: userProperties } = await supabase
+      .from("properties")
+      .select("id")
+      .eq("owner_id", userId);
+    const propertyIds = (userProperties ?? []).map((p: { id: string }) => p.id);
+    if (propertyIds.length > 0) {
+      const { data: firstIntegration } = await supabase
         .from("integrations")
         .select("id")
-        .eq("property_id", propertyId)
         .eq("platform", "avito")
+        .in("property_id", propertyIds)
+        .order("created_at", { ascending: true })
+        .limit(1)
         .maybeSingle();
-
-      if (findError && findError.code !== 'PGRST116') { // PGRST116 = not found, which is OK
-        console.error("Error finding integration:", {
-          errorCode: findError.code,
-          errorMessage: findError.message,
-        });
-        return new Response(
-          JSON.stringify({ 
-            error: `Ошибка при поиске интеграции: ${findError.message}` 
-          }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      if (firstIntegration?.id) {
+        targetIntegrationId = firstIntegration.id;
+        console.log(`${LOG_PREFIX} messenger_auth_target source=fallback_first_by_created_at target_id=${targetIntegrationId}`);
       }
+    }
+  }
 
-      integrationId = existingIntegration?.id;
+  return targetIntegrationId;
+}
+
+/**
+ * Главный обработчик OAuth callback: валидация, обмен кода на токен, сохранение в integrations (или расширение scope для messenger).
+ * @param req - Входящий Request (JSON body: code, state, redirect_uri?)
+ * @param env - Переменные окружения (Supabase, Avito client credentials)
+ * @returns Response с CORS и JSON телом
+ */
+async function handleOAuthCallback(req: Request, env: Env): Promise<Response> {
+  const { code, state, redirect_uri } = await parseRequestBody(req);
+
+  const stateData = parseState(state);
+  const isMessengerAuth = stateData.type === "messenger_auth";
+
+  if (!isMessengerAuth && !stateData.property_id && !stateData.integration_id) {
+    throw new AvitoError("Invalid state: property_id or integration_id not found", 400);
+  }
+
+  const propertyId = stateData.property_id;
+  const integrationIdFromState = stateData.integration_id && String(stateData.integration_id).trim() ? stateData.integration_id : null;
+  const origin = new URL(req.url).origin;
+  const redirectUri = redirect_uri ?? (isMessengerAuth ? "https://app.roomi.pro/auth/avito-callback" : `${origin}/auth/avito-callback`);
+
+  const clientId = isMessengerAuth ? (env.AVITO_MESSENGER_CLIENT_ID || env.AVITO_CLIENT_ID) : env.AVITO_CLIENT_ID;
+  const clientSecret = isMessengerAuth ? (env.AVITO_MESSENGER_CLIENT_SECRET || env.AVITO_CLIENT_SECRET) : env.AVITO_CLIENT_SECRET;
+
+  console.log(`${LOG_PREFIX} Processing OAuth callback`, { propertyId, hasCode: !!code, codeLength: code.length, redirectUri });
+
+  const tokenData = await refreshTokens(code, redirectUri, clientId, clientSecret);
+
+  const expiresInSeconds =
+    tokenData.expires_in && typeof tokenData.expires_in === "number" && tokenData.expires_in > 0 ? tokenData.expires_in : 3600;
+  const tokenExpiresAt = new Date(Date.now() + expiresInSeconds * 1000);
+
+  if (isMessengerAuth) {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      console.log(`${LOG_PREFIX} messenger_auth_rejected reason=no_bearer_token`);
+      throw new AvitoError("Unauthorized", 401);
+    }
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    const supabaseAuth = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser(token);
+    if (userError || !user) {
+      console.log(`${LOG_PREFIX} messenger_auth_rejected reason=user_resolve_failed error=${userError?.message ?? ""}`);
+      throw new AvitoError("Unauthorized", 401);
     }
 
-    // Prepare update data with plain tokens (for testing, vault encryption later)
-    // token_expires_at = NOW() + INTERVAL '1 second' * token.expires_in
-    const updateData: {
-      access_token_encrypted: string;
-      refresh_token_encrypted?: string;
-      token_expires_at: string;
-      scope: string | null;
-      is_active: boolean;
-      is_enabled: boolean;
-    } = {
-      access_token_encrypted: tokenData.access_token, // Plain text for testing
+    console.log(`${LOG_PREFIX} messenger_auth_state integration_id_from_state=${integrationIdFromState} user_id=${user.id}`);
+
+    checkMessengerScope(tokenData.scope);
+
+    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+    const targetIntegrationId = await handleFallbackIntegration(supabase, user.id, integrationIdFromState);
+
+    if (!targetIntegrationId) {
+      console.log(`${LOG_PREFIX} messenger_auth_failed reason=no_avito_integration user_id=${user.id}`);
+      throw new AvitoError("Нет подходящей интеграции Avito для подключения чатов.", 422, "no_avito_integration");
+    }
+
+    const updateData: Record<string, unknown> = {
+      access_token_encrypted: tokenData.access_token,
       token_expires_at: tokenExpiresAt.toISOString(),
-      scope: tokenData.scope ?? null,
+      scope: tokenData.scope ?? "user:read short_term_rent:read short_term_rent:write messenger:read messenger:write",
       is_active: true,
       is_enabled: true,
     };
-
-    // Add refresh_token if provided
     if (tokenData.refresh_token) {
-      updateData.refresh_token_encrypted = tokenData.refresh_token; // Plain text for testing
+      updateData.refresh_token_encrypted = tokenData.refresh_token;
     }
 
-    let integration;
-    let saveError;
+    const { error: updateError } = await supabase.from("integrations").update(updateData).eq("id", targetIntegrationId);
 
-    if (integrationId) {
-      // Update existing integration by id (from state)
-      console.log("Updating existing integration", { integrationId });
-      const { data, error } = await supabase
-        .from("integrations")
-        .update(updateData)
-        .eq("id", integrationId)
-        .select('id, property_id, platform, is_active')
-        .single();
-      
-      integration = data;
-      saveError = error;
-    } else if (propertyId) {
-      // Create new integration if no integration_id found
-      console.log("Creating new integration");
-      const upsertData = {
-        property_id: propertyId,
-        platform: "avito",
-        ...updateData,
-      };
-
-      const { data, error } = await supabase
-        .from("integrations")
-        .insert(upsertData)
-        .select('id, property_id, platform, is_active')
-        .single();
-      
-      integration = data;
-      saveError = error;
-    } else {
-      return new Response(
-        JSON.stringify({ 
-          error: "Cannot save integration: neither integration_id nor property_id provided" 
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (updateError) {
+      console.log(`${LOG_PREFIX} messenger_auth_update_error target_id=${targetIntegrationId} error=${updateError.message}`);
+      throw new AvitoError(`Ошибка обновления интеграции: ${updateError.message}`, 500);
     }
+    console.log(`${LOG_PREFIX} messenger_auth_success target_id=${targetIntegrationId}`);
+    return jsonResponse({ success: true, isMessengerAuth: true });
+  }
 
-    if (saveError) {
-      console.error("Error saving integration:", {
-        errorCode: saveError.code,
-        errorMessage: saveError.message,
-        errorDetails: saveError.details,
-        integrationId,
-        propertyId,
-      });
-      return new Response(
-        JSON.stringify({ 
-          error: `Ошибка при сохранении интеграции: ${saveError.message}` 
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+  // Main OAuth flow: save to integrations
+  console.log(`${LOG_PREFIX} Saving token to integration`, {
+    propertyId,
+    hasAccessToken: !!tokenData.access_token,
+    hasRefreshToken: !!tokenData.refresh_token,
+    expiresIn: expiresInSeconds,
+    tokenExpiresAt: tokenExpiresAt.toISOString(),
+  });
 
-    if (!integration) {
-      console.error("Integration not returned after save", { integrationId, propertyId });
-      return new Response(
-        JSON.stringify({ 
-          error: "Интеграция не была сохранена" 
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
-    // Verify token was saved by reloading integration
-    const { data: verifyIntegration, error: verifyError } = await supabase
+  let integrationId: string | undefined = integrationIdFromState ?? undefined;
+
+  if (!integrationId && propertyId) {
+    const { data: existingIntegration, error: findError } = await supabase
       .from("integrations")
-      .select("id, access_token_encrypted, refresh_token_encrypted, token_expires_at")
-      .eq("id", integration.id)
-      .single();
+      .select("id")
+      .eq("property_id", propertyId)
+      .eq("platform", "avito")
+      .maybeSingle();
 
-    if (verifyError) {
-      console.error("Failed to verify token save", {
-        error: verifyError,
-        integration_id: integration.id,
-      });
-    } else {
-      console.log("Token save verified", {
-        integration_id: integration.id,
-        hasAccessToken: !!verifyIntegration?.access_token_encrypted,
-        accessTokenLength: verifyIntegration?.access_token_encrypted?.length || 0,
-        hasRefreshToken: !!verifyIntegration?.refresh_token_encrypted,
-        tokenExpiresAt: verifyIntegration?.token_expires_at,
-      });
+    if (findError && findError.code !== "PGRST116") {
+      console.log(`${LOG_PREFIX} Error finding integration:`, findError.code, findError.message);
+      throw new AvitoError(`Ошибка при поиске интеграции: ${findError.message}`, 500);
+    }
+    integrationId = existingIntegration?.id;
+  }
+
+  const updateData: Record<string, unknown> = {
+    access_token_encrypted: tokenData.access_token,
+    token_expires_at: tokenExpiresAt.toISOString(),
+    scope: tokenData.scope ?? null,
+    is_active: true,
+    is_enabled: true,
+  };
+  if (tokenData.refresh_token) {
+    updateData.refresh_token_encrypted = tokenData.refresh_token;
+  }
+
+  let integration: { id: string; property_id: string; platform: string; is_active: boolean } | null = null;
+  let saveError: { message: string } | null = null;
+
+  if (integrationId) {
+    console.log(`${LOG_PREFIX} Updating existing integration`, { integrationId });
+    const { data, error } = await supabase
+      .from("integrations")
+      .update(updateData)
+      .eq("id", integrationId)
+      .select("id, property_id, platform, is_active")
+      .single();
+    integration = data;
+    saveError = error;
+  } else if (propertyId) {
+    console.log(`${LOG_PREFIX} Creating new integration`);
+    const { data, error } = await supabase
+      .from("integrations")
+      .insert({ property_id: propertyId, platform: "avito", ...updateData })
+      .select("id, property_id, platform, is_active")
+      .single();
+    integration = data;
+    saveError = error;
+  } else {
+    throw new AvitoError("Cannot save integration: neither integration_id nor property_id provided", 400);
+  }
+
+  if (saveError) {
+    console.log(`${LOG_PREFIX} Error saving integration:`, saveError.message);
+    throw new AvitoError(`Ошибка при сохранении интеграции: ${saveError.message}`, 500);
+  }
+  if (!integration) {
+    console.log(`${LOG_PREFIX} Integration not returned after save`, { integrationId, propertyId });
+    throw new AvitoError("Интеграция не была сохранена", 500);
+  }
+
+  const { data: verifyIntegration, error: verifyError } = await supabase
+    .from("integrations")
+    .select("id, access_token_encrypted, refresh_token_encrypted, token_expires_at")
+    .eq("id", integration.id)
+    .single();
+
+  if (verifyError) {
+    console.log(`${LOG_PREFIX} Failed to verify token save`, verifyError.message);
+  } else {
+    console.log(`${LOG_PREFIX} Token save verified`, {
+      integration_id: integration.id,
+      hasAccessToken: !!verifyIntegration?.access_token_encrypted,
+      hasRefreshToken: !!verifyIntegration?.refresh_token_encrypted,
+    });
+  }
+
+  console.log(`${LOG_PREFIX} Tokens saved for integration`, integration.id);
+  return jsonResponse({ success: true });
+}
+
+/**
+ * Парсит и валидирует тело запроса (JSON) через Zod.
+ * @param req - Входящий Request с JSON body
+ * @returns Валидированные code, state, redirect_uri?
+ * @throws AvitoError 400 при невалидном JSON или полях
+ */
+async function parseRequestBody(req: Request): Promise<OAuthCallbackBody> {
+  let raw: unknown;
+  try {
+    raw = await req.json();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log(`${LOG_PREFIX} Failed to parse JSON:`, msg);
+    throw new AvitoError("Invalid JSON in request body", 400);
+  }
+  const result = OAuthCallbackBodySchema.safeParse(raw);
+  if (!result.success) {
+    const first = result.error.flatten().fieldErrors;
+    const msg = first.code?.[0] ?? first.state?.[0] ?? result.error.message;
+    console.log(`${LOG_PREFIX} Validation failed:`, msg);
+    throw new AvitoError(String(msg), 400);
+  }
+  return result.data;
+}
+
+/**
+ * Создаёт JSON Response с CORS-заголовками.
+ * @param body - Объект для JSON.stringify
+ * @param status - HTTP-статус (по умолчанию 200)
+ * @returns Response с application/json и corsHeaders
+ */
+function jsonResponse(body: object, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+/**
+ * Преобразует пойманную ошибку в HTTP Response. Для AvitoError с code 422 добавляет поле reason.
+ * @param e - Пойманное значение (AvitoError или иное)
+ * @returns Response с JSON { error, reason? } и соответствующим status
+ */
+function errorToResponse(e: unknown): Response {
+  if (e instanceof AvitoError) {
+    const body: Record<string, string | Avito422Reason> = { error: e.message };
+    if (e.code === 422 && e.reason) {
+      body.reason = e.reason;
+    }
+    return jsonResponse(body, e.code);
+  }
+  const message = e instanceof Error ? e.message : String(e);
+  console.log(`${LOG_PREFIX} Unexpected error:`, message, e instanceof Error ? e.stack : "");
+  return jsonResponse({ error: message || "Внутренняя ошибка сервера" }, 500);
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const avitoClientId = Deno.env.get("AVITO_CLIENT_ID") ?? "";
+    const avitoClientSecret = Deno.env.get("AVITO_CLIENT_SECRET") ?? "";
+
+    if (!avitoClientId || !avitoClientSecret) {
+      throw new AvitoError("AVITO_CLIENT_ID and AVITO_CLIENT_SECRET must be set in Supabase Secrets", 500);
     }
 
-    console.log("Tokens saved for integration", integration.id);
+    const env: Env = {
+      SUPABASE_URL: supabaseUrl,
+      SUPABASE_SERVICE_ROLE_KEY: supabaseServiceRoleKey,
+      SUPABASE_ANON_KEY: Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      AVITO_CLIENT_ID: avitoClientId,
+      AVITO_CLIENT_SECRET: avitoClientSecret,
+      AVITO_MESSENGER_CLIENT_ID: Deno.env.get("AVITO_MESSENGER_CLIENT_ID") ?? undefined,
+      AVITO_MESSENGER_CLIENT_SECRET: Deno.env.get("AVITO_MESSENGER_CLIENT_SECRET") ?? undefined,
+    };
 
-    // Return success
-    return new Response(
-      JSON.stringify({
-        success: true,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Unexpected error in avito-oauth-callback:", {
-      error: errorMessage,
-      errorType: error instanceof Error ? error.constructor.name : typeof error,
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-
-    return new Response(
-      JSON.stringify({ 
-        error: errorMessage || "Внутренняя ошибка сервера" 
-      }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return await handleOAuthCallback(req, env);
+  } catch (e) {
+    return errorToResponse(e);
   }
 });
-
