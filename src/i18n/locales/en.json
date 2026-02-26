@@ -460,6 +460,11 @@
       "uploaded": "File uploaded",
       "updated": "Chat updated"
     }
+  },
+  "subscription": {
+    "propertyLimitReached": "Property limit reached for your plan. Go to profile and request an invoice to upgrade.",
+    "trialExpired": "Trial ended. Choose a plan in profile to continue.",
+    "openProfile": "Profile & plan"
   }
 }
 

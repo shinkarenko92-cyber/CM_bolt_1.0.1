@@ -218,7 +218,7 @@ function BoltChatWidget() {
     })();
   }, [user]);
 
-  const plan: PlanType = (profile?.subscription_tier === 'pro' || profile?.subscription_tier === 'enterprise')
+  const plan: PlanType = (profile?.subscription_tier === 'pro' || profile?.subscription_tier === 'enterprise' || profile?.subscription_tier === 'business')
     ? profile.subscription_tier
     : 'free';
 

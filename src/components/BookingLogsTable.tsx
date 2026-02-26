@@ -34,10 +34,10 @@ const actionLabels: Record<string, string> = {
 
 export function BookingLogsTable({ logs, loading }: BookingLogsTableProps) {
   const { profile } = useAuth();
-  const isPro = profile?.subscription_tier === 'pro';
+  const canAccessLogs = ['pro', 'business', 'enterprise'].includes(profile?.subscription_tier ?? '');
 
   const exportToCSV = () => {
-    if (!isPro) {
+    if (!canAccessLogs) {
       return;
     }
 
@@ -196,7 +196,7 @@ export function BookingLogsTable({ logs, loading }: BookingLogsTableProps) {
 
   return (
     <div>
-      {isPro && logs.length > 0 && (
+      {canAccessLogs && logs.length > 0 && (
         <div className="mb-4 flex justify-end">
           <Button
             type="primary"

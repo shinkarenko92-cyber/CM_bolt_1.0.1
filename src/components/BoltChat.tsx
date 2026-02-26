@@ -3,7 +3,7 @@ import { useEffect, useRef, useCallback } from 'react';
 const BOTPRESS_INJECT_URL = 'https://cdn.botpress.cloud/webchat/v3.6/inject.js';
 const BOTPRESS_CONFIG_URL = 'https://files.bpcontent.cloud/2026/02/20/19/20260220194752-EAJ8MKI6.js';
 
-export type PlanType = 'free' | 'pro' | 'enterprise';
+export type PlanType = 'free' | 'pro' | 'business' | 'enterprise';
 
 export interface BoltChatProps {
   userId?: string;

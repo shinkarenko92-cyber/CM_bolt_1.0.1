@@ -4,13 +4,12 @@ import { Check } from "lucide-react";
 
 const plans = [
   {
-    name: "Starter",
+    name: "Start",
     price: "2 990",
     period: "месяц",
-    description: "Для владельцев 1-3 апартаментов",
+    description: "Для 1–3 квартир",
     features: [
       "До 3 апартаментов",
-      "Все основные каналы",
       "Единый календарь",
       "Базовая аналитика",
       "Email поддержка"
@@ -18,32 +17,41 @@ const plans = [
     popular: false
   },
   {
-    name: "Professional",
-    price: "5 990",
+    name: "Pro",
+    price: "4 990",
     period: "месяц",
-    description: "Для управляющих компаний",
+    description: "Для 4–8 квартир",
+    features: [
+      "До 8 апартаментов",
+      "Все каналы",
+      "Расширенная аналитика",
+      "Поддержка"
+    ],
+    popular: true
+  },
+  {
+    name: "Business",
+    price: "9 990",
+    period: "месяц",
+    description: "Для 8–15 квартир",
     features: [
       "До 15 апартаментов",
-      "Все каналы + API",
-      "Расширенная аналитика",
-      "Автоматизация цен",
+      "API и интеграции",
       "Приоритетная поддержка",
       "Мобильное приложение"
     ],
-    popular: true
+    popular: false
   },
   {
     name: "Enterprise",
     price: "По запросу",
     period: "",
-    description: "Для крупных портфелей",
+    description: "15+ объектов",
     features: [
       "Неограниченно объектов",
       "Кастомизация интеграций",
       "Выделенный менеджер",
-      "SLA 99.9%",
-      "Обучение команды",
-      "White-label решение"
+      "SLA и обучение команды"
     ],
     popular: false
   }
@@ -62,7 +70,7 @@ export const Pricing = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
           {plans.map((plan, index) => (
             <Card 
               key={index}
@@ -121,7 +129,7 @@ export const Pricing = () => {
 
         <div className="text-center mt-12">
           <p className="text-muted-foreground">
-            Все тарифы включают 14 дней бесплатного тестирования
+            Все тарифы включают 7 дней бесплатного тестирования
           </p>
         </div>
       </div>

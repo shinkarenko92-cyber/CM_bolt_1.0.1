@@ -41,6 +41,7 @@ import { DeletePropertyModal } from './DeletePropertyModal';
 import { ImportBookingsModal } from './ImportBookingsModal';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { logBookingChange, getBookingChanges } from '../services/bookingLog';
+import { getPropertyLimit, isTrialExpired } from '../utils/subscriptionLimits';
 
 type NewReservation = {
   property_id: string;
@@ -1508,6 +1509,15 @@ export function Dashboard() {
   };
 
   const handleAddProperty = async (property: Omit<Property, 'id' | 'owner_id' | 'created_at' | 'updated_at'>) => {
+    const limit = getPropertyLimit(userProfile);
+    if (properties.length >= limit) {
+      toast.error(
+        t('subscription.propertyLimitReached', {
+          defaultValue: 'Достигнут лимит объектов по вашему тарифу. Перейдите в профиль и запросите счёт для повышения тарифа.',
+        })
+      );
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from('properties')
@@ -1914,6 +1924,17 @@ export function Dashboard() {
             </div>
           </div>
         </header>
+
+        {userProfile && isTrialExpired(userProfile) && (
+          <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 flex items-center justify-center gap-2 flex-wrap">
+            <span className="text-amber-800 dark:text-amber-200 text-sm font-medium">
+              {t('subscription.trialExpired', { defaultValue: 'Триал закончился. Выберите тариф в профиле для продолжения работы.' })}
+            </span>
+            <Button variant="outline" size="sm" onClick={() => setIsProfileModalOpen(true)} className="border-amber-500/50 text-amber-800 dark:text-amber-200">
+              {t('subscription.openProfile', { defaultValue: 'Профиль и тариф' })}
+            </Button>
+          </div>
+        )}
 
         {loading ? (
           <SkeletonCalendar />

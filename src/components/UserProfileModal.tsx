@@ -13,7 +13,7 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
 
   if (!isOpen || !profile) return null;
 
-  const isPaid = profile.subscription_tier !== 'free' && profile.subscription_tier !== 'basic';
+  const isPaid = !['free', 'basic', 'trial'].includes(profile.subscription_tier);
   const isExpired = profile.subscription_expires_at
     ? new Date(profile.subscription_expires_at) < new Date()
     : false;
@@ -21,9 +21,18 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
   const tierLabels: Record<string, string> = {
     free: 'Free',
     basic: 'Basic',
+    trial: 'Триал',
+    start: 'Start',
+    starter: 'Start',
     pro: 'Pro',
+    business: 'Business',
     premium: 'Premium',
+    enterprise: 'Enterprise',
   };
+
+  const PAYMENT_CONTACT_EMAIL = 'support@roomi.pro';
+  const paymentSubject = encodeURIComponent('Запрос на оплату по счёту — Roomi Pro');
+  const paymentMailto = `mailto:${PAYMENT_CONTACT_EMAIL}?subject=${paymentSubject}`;
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
@@ -130,15 +139,18 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
             )}
 
             {(!isPaid || isExpired) && (
-              <button
-                onClick={() => {
-                  alert('Payment integration coming soon!');
-                }}
-                className="w-full px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-              >
-                <CreditCard className="w-5 h-5" />
-                Upgrade Subscription
-              </button>
+              <div className="space-y-2">
+                <p className="text-sm text-slate-400">
+                  Оплата по счёту: свяжитесь с нами для выставления счёта и подключения тарифа.
+                </p>
+                <a
+                  href={paymentMailto}
+                  className="w-full px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  <CreditCard className="w-5 h-5" />
+                  Запросить счёт / Подключить тариф
+                </a>
+              </div>
             )}
           </div>
 

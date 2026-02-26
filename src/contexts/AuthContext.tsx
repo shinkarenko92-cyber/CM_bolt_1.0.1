@@ -189,6 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .from('profiles')
           .select('*', { count: 'exact', head: true });
         const isFirstUser = count === 0;
+        const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
         const { data: newProfile, error: profileError } = await supabase
           .from('profiles')
           .insert({
@@ -196,6 +197,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             email: result.data.user.email,
             role: isFirstUser ? 'admin' : 'user',
             is_active: true,
+            subscription_tier: 'trial',
+            subscription_expires_at: trialEndsAt,
           })
           .select()
           .single();
