@@ -3,7 +3,14 @@
  * Displays detailed information about Avito API errors
  */
 
-import { Modal } from 'antd';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { getDisplayMessage, type AvitoErrorInfo } from '../services/avitoErrors';
 
@@ -27,88 +34,72 @@ export function AvitoErrorModal({
   const operationName = t(operationKey, { defaultValue: error.operation });
 
   return (
-    <Modal
-      open={isOpen}
-      onCancel={onClose}
-      title={t('avito.errors.syncFailed', { defaultValue: 'Ошибка синхронизации с Avito' })}
-      width={600}
-      footer={[
-        onRetry && (
-          <button
-            key="retry"
-            onClick={() => {
-              onRetry();
-              onClose();
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            {t('common.retry', { defaultValue: 'Повторить' })}
-          </button>
-        ),
-        <button
-          key="close"
-          onClick={onClose}
-          className="px-4 py-2 bg-slate-600 text-white rounded hover:bg-slate-700"
-        >
-          {t('common.close', { defaultValue: 'Закрыть' })}
-        </button>,
-      ].filter(Boolean)}
-    >
-      <div style={{ marginTop: 16 }}>
-        <div style={{ marginBottom: 12 }}>
-          <strong>{t('avito.errors.operation', { defaultValue: 'Операция' })}:</strong> {operationName}
-        </div>
-        <div style={{ marginBottom: 12 }}>
-          <strong>{t('avito.errors.message', { defaultValue: 'Сообщение' })}:</strong> {getDisplayMessage(error, t)}
-        </div>
-        {error.statusCode && (
-          <div style={{ marginBottom: 12 }}>
-            <strong>{t('avito.errors.statusCode', { defaultValue: 'Код статуса' })}:</strong> {error.statusCode}
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>
+            {t('avito.errors.syncFailed', { defaultValue: 'Ошибка синхронизации с Avito' })}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="mt-4 space-y-3">
+          <div>
+            <strong>{t('avito.errors.operation', { defaultValue: 'Операция' })}:</strong> {operationName}
           </div>
-        )}
-        {error.errorCode && (
-          <div style={{ marginBottom: 12 }}>
-            <strong>{t('avito.errors.errorCode', { defaultValue: 'Код ошибки' })}:</strong> {error.errorCode}
+          <div>
+            <strong>{t('avito.errors.message', { defaultValue: 'Сообщение' })}:</strong> {getDisplayMessage(error, t)}
           </div>
-        )}
-        {error.details ? (() => {
-          const detailsString: string = typeof error.details === 'string' 
-            ? error.details 
-            : JSON.stringify(error.details, null, 2);
-          return (
-            <div style={{ marginBottom: 12 }}>
-              <strong>{t('avito.errors.details', { defaultValue: 'Детали ошибки' })}:</strong>
-              <pre
-                style={{
-                  background: '#1e293b',
-                  color: '#f1f5f9',
-                  padding: '8px',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  maxHeight: '200px',
-                  overflow: 'auto',
-                  marginTop: '4px',
-                }}
-              >
-                {detailsString}
-              </pre>
+          {error.statusCode && (
+            <div>
+              <strong>{t('avito.errors.statusCode', { defaultValue: 'Код статуса' })}:</strong> {error.statusCode}
             </div>
-          );
-        })() : null}
-        {recommendations.length > 0 && (
-          <div style={{ marginTop: 16 }}>
-            <strong>{t('avito.errors.recommendationsTitle', { defaultValue: 'Рекомендации' })}:</strong>
-            <ul style={{ marginTop: '8px', marginBottom: 0, paddingLeft: '20px' }}>
-              {recommendations.map((rec, index) => (
-                <li key={index} style={{ marginBottom: '4px' }}>
-                  {rec}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-    </Modal>
+          )}
+          {error.errorCode && (
+            <div>
+              <strong>{t('avito.errors.errorCode', { defaultValue: 'Код ошибки' })}:</strong> {error.errorCode}
+            </div>
+          )}
+          {error.details ? (() => {
+            const detailsString: string = typeof error.details === 'string'
+              ? error.details
+              : JSON.stringify(error.details, null, 2);
+            return (
+              <div>
+                <strong>{t('avito.errors.details', { defaultValue: 'Детали ошибки' })}:</strong>
+                <pre className="mt-1 rounded bg-slate-800 p-2 text-xs text-slate-100 max-h-[200px] overflow-auto">
+                  {detailsString}
+                </pre>
+              </div>
+            );
+          })() : null}
+          {recommendations.length > 0 && (
+            <div className="pt-4">
+              <strong>{t('avito.errors.recommendationsTitle', { defaultValue: 'Рекомендации' })}:</strong>
+              <ul className="mt-2 list-inside list-disc space-y-1 pl-0">
+                {recommendations.map((rec, index) => (
+                  <li key={index}>{rec}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          {onRetry && (
+            <Button
+              onClick={() => {
+                onRetry();
+                onClose();
+              }}
+            >
+              {t('common.retry', { defaultValue: 'Повторить' })}
+            </Button>
+          )}
+          <Button variant="secondary" onClick={onClose}>
+            {t('common.close', { defaultValue: 'Закрыть' })}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

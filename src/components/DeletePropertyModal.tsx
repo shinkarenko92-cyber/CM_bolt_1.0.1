@@ -1,7 +1,21 @@
 import { useState } from 'react';
-import { Modal, Table, Button } from 'antd';
-import { ExclamationCircleOutlined } from '@ant-design/icons';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Property, Booking } from '../lib/supabase';
 
 interface DeletePropertyModalProps {
@@ -45,7 +59,14 @@ export function DeletePropertyModal({
     }
   };
 
-  const columns = [
+  type ColDef = {
+    title: string;
+    dataIndex: keyof Booking | string;
+    key: string;
+    render?: (value: unknown, record: Booking) => React.ReactNode;
+  };
+
+  const columns: ColDef[] = [
     {
       title: t('bookings.guestName', { defaultValue: 'Гость' }),
       dataIndex: 'guest_name',
@@ -55,25 +76,25 @@ export function DeletePropertyModal({
       title: t('bookings.checkIn', { defaultValue: 'Заезд' }),
       dataIndex: 'check_in',
       key: 'check_in',
-      render: (date: string) => new Date(date).toLocaleDateString('ru-RU'),
+      render: (date: unknown) => new Date(String(date)).toLocaleDateString('ru-RU'),
     },
     {
       title: t('bookings.checkOut', { defaultValue: 'Выезд' }),
       dataIndex: 'check_out',
       key: 'check_out',
-      render: (date: string) => new Date(date).toLocaleDateString('ru-RU'),
+      render: (date: unknown) => new Date(String(date)).toLocaleDateString('ru-RU'),
     },
     {
       title: t('bookings.status', { defaultValue: 'Статус' }),
       dataIndex: 'status',
       key: 'status',
-      render: (status: string) => (
+      render: (status: unknown) => (
         <span className={`px-2 py-1 text-xs font-medium rounded ${
           status === 'confirmed' ? 'bg-blue-500/20 text-blue-400' :
           status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
           'bg-red-500/20 text-red-400'
         }`}>
-          {status}
+          {String(status)}
         </span>
       ),
     },
@@ -81,89 +102,108 @@ export function DeletePropertyModal({
       title: t('bookings.totalPrice', { defaultValue: 'Цена' }),
       dataIndex: 'total_price',
       key: 'total_price',
-      render: (price: number, record: Booking) => `${price} ${record.currency}`,
+      render: (price: unknown, record: Booking) => `${Number(price)} ${record.currency}`,
     },
   ];
 
+  const getCellContent = (col: ColDef, record: Booking) => {
+    const value = record[col.dataIndex as keyof Booking];
+    return col.render ? col.render(value, record) : (value != null ? String(value) : '—');
+  };
+
   return (
-    <Modal
-      open={isOpen}
-      onCancel={onClose}
-      title={
-        <div className="flex items-center gap-2">
-          <ExclamationCircleOutlined className="text-red-500" />
-          <span>{t('properties.deleteProperty', { defaultValue: 'Удаление объекта' })}: {property.name}</span>
-        </div>
-      }
-      footer={null}
-      width={800}
-      maskClosable={false}
-    >
-      <div className="py-4">
-        <p className="text-slate-300 mb-4">
-          {t('properties.deletePropertyWarning', {
-            defaultValue: 'У объекта "{propertyName}" есть {count} бронирований. Выберите действие:',
-            propertyName: property.name,
-            count: bookings.length,
-          })}
-        </p>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-[800px]" onPointerDownOutside={(e) => e.preventDefault()}>
+        <DialogHeader>
+          <DialogTitle asChild>
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              <span>{t('properties.deleteProperty', { defaultValue: 'Удаление объекта' })}: {property.name}</span>
+            </div>
+          </DialogTitle>
+        </DialogHeader>
 
-        {paidBookings.length > 0 && (
-          <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded">
-            <p className="text-yellow-400 text-sm">
-              {t('properties.paidBookingsWarning', {
-                defaultValue: 'Внимание: {count} бронирований оплачены. При удалении потребуется вернуть деньги вручную.',
-                count: paidBookings.length,
-              })}
-            </p>
-          </div>
-        )}
-
-        <Table
-          dataSource={bookings}
-          columns={columns}
-          rowKey="id"
-          pagination={false}
-          size="small"
-          className="mb-4"
-          scroll={{ y: 300 }}
-        />
-
-        <div className="flex gap-3 justify-end mt-6">
-          <Button onClick={onClose} disabled={loading}>
-            {t('common.cancel')}
-          </Button>
-          
-          {unpaidBookings.length > 0 && (
-            <Button
-              type="default"
-              danger
-              onClick={() => handleConfirm('cancel_unpaid')}
-              loading={loading && selectedAction === 'cancel_unpaid'}
-              disabled={loading && selectedAction !== 'cancel_unpaid'}
-            >
-              {t('properties.cancelUnpaid', {
-                defaultValue: 'Отменить неоплаченные ({count})',
-                count: unpaidBookings.length,
-              })}
-            </Button>
-          )}
-
-          <Button
-            type="primary"
-            danger
-            onClick={() => handleConfirm('force_delete')}
-            loading={loading && selectedAction === 'force_delete'}
-            disabled={loading && selectedAction !== 'force_delete'}
-          >
-            {t('properties.forceDeleteAll', {
-              defaultValue: 'Форсированно удалить всё ({count})',
+        <div className="py-4">
+          <p className="text-muted-foreground mb-4">
+            {t('properties.deletePropertyWarning', {
+              defaultValue: 'У объекта "{propertyName}" есть {count} бронирований. Выберите действие:',
+              propertyName: property.name,
               count: bookings.length,
             })}
-          </Button>
+          </p>
+
+          {paidBookings.length > 0 && (
+            <div className="mb-4 p-3 bg-warning/10 border border-warning/20 rounded-md">
+              <p className="text-warning text-sm">
+                {t('properties.paidBookingsWarning', {
+                  defaultValue: 'Внимание: {count} бронирований оплачены. При удалении потребуется вернуть деньги вручную.',
+                  count: paidBookings.length,
+                })}
+              </p>
+            </div>
+          )}
+
+          <div className="mb-4 max-h-[300px] overflow-auto rounded-md border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {columns.map((col) => (
+                    <TableHead key={col.key}>{col.title}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {bookings.map((row) => (
+                  <TableRow key={row.id}>
+                    {columns.map((col) => (
+                      <TableCell key={col.key} className="text-sm">
+                        {getCellContent(col, row)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="flex gap-3 justify-end mt-6">
+            <Button variant="outline" onClick={onClose} disabled={loading}>
+              {t('common.cancel')}
+            </Button>
+
+            {unpaidBookings.length > 0 && (
+              <Button
+                variant="destructive"
+                onClick={() => handleConfirm('cancel_unpaid')}
+                disabled={loading && selectedAction !== 'cancel_unpaid'}
+              >
+                {loading && selectedAction === 'cancel_unpaid' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : null}
+                {t('properties.cancelUnpaid', {
+                  defaultValue: 'Отменить неоплаченные ({count})',
+                  count: unpaidBookings.length,
+                })}
+              </Button>
+            )}
+
+            <Button
+              variant="destructive"
+              onClick={() => handleConfirm('force_delete')}
+              disabled={loading && selectedAction !== 'force_delete'}
+            >
+              {loading && selectedAction === 'force_delete' ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : null}
+              {t('properties.forceDeleteAll', {
+                defaultValue: 'Форсированно удалить всё ({count})',
+                count: bookings.length,
+              })}
+            </Button>
+          </div>
         </div>
-      </div>
-    </Modal>
+      </DialogContent>
+    </Dialog>
   );
 }
 
