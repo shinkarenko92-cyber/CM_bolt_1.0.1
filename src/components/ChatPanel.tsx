@@ -1,12 +1,20 @@
 import { useState, useRef, useCallback } from 'react';
-import { Input, Button, Dropdown, Upload, message as antdMessage, Badge as AntBadge, Spin } from 'antd';
+import toast from 'react-hot-toast';
 import { Send, Paperclip, MoreVertical, Calendar, User, Phone, MapPin, FileText, MessageCircle, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Chat, Message, Property } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { avitoApi } from '../services/avitoApi';
-
-const { TextArea } = Input;
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface ChatPanelProps {
   chat: Chat | null;
@@ -70,7 +78,7 @@ export function ChatPanel({
       }, 100);
     } catch (error) {
       console.error('Failed to send message:', error);
-      antdMessage.error(t('messages.error.failedToSend'));
+      toast.error(t('messages.error.failedToSend'));
     }
   };
 
@@ -113,10 +121,10 @@ export function ChatPanel({
 
       // Send message with attachment
       await onSendMessage('', [attachment]);
-      antdMessage.success(t('messages.success.uploaded'));
+      toast.success(t('messages.success.uploaded'));
     } catch (error) {
       console.error('Failed to upload file:', error);
-      antdMessage.error(t('messages.error.failedToUpload'));
+      toast.error(t('messages.error.failedToUpload'));
     } finally {
       setUploading(false);
     }
@@ -142,25 +150,7 @@ export function ChatPanel({
     );
   }
 
-  const statusMenu = {
-    items: [
-      {
-        key: 'new',
-        label: t('messages.status.new'),
-        onClick: () => onStatusChange?.(chat, 'new'),
-      },
-      {
-        key: 'in_progress',
-        label: t('messages.status.in_progress'),
-        onClick: () => onStatusChange?.(chat, 'in_progress'),
-      },
-      {
-        key: 'closed',
-        label: t('messages.status.closed'),
-        onClick: () => onStatusChange?.(chat, 'closed'),
-      },
-    ],
-  };
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="flex flex-col h-full bg-slate-800 border-l border-slate-700">
@@ -191,28 +181,37 @@ export function ChatPanel({
               )}
             </div>
             {chat.unread_count > 0 && (
-              <AntBadge count={chat.unread_count} showZero={false} />
+              <Badge variant="destructive">{chat.unread_count}</Badge>
             )}
           </div>
           <div className="flex items-center gap-2">
             {isSyncing && (
-              <Spin
-                size="small"
-                indicator={<RefreshCw className="w-4 h-4 animate-spin text-teal-500" />}
-              />
+              <RefreshCw className="h-4 w-4 animate-spin text-primary" aria-hidden />
             )}
             {onCreateBooking && (
-              <Button
-                type="primary"
-                icon={<Calendar size={16} />}
-                onClick={() => onCreateBooking(chat)}
-              >
+              <Button onClick={() => onCreateBooking(chat)}>
+                <Calendar size={16} />
                 {t('messages.createBooking')}
               </Button>
             )}
-            <Dropdown menu={statusMenu} trigger={['click']}>
-              <Button icon={<MoreVertical size={16} />} />
-            </Dropdown>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <MoreVertical size={16} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onStatusChange?.(chat, 'new')}>
+                  {t('messages.status.new')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onStatusChange?.(chat, 'in_progress')}>
+                  {t('messages.status.in_progress')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onStatusChange?.(chat, 'closed')}>
+                  {t('messages.status.closed')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
         {property && (
@@ -237,8 +236,8 @@ export function ChatPanel({
           <>
             {hasMore && (
               <div className="text-center mb-4">
-                <Button type="link" onClick={onLoadMore} loading={isLoading}>
-                  {t('messages.loadMore')}
+                <Button variant="link" onClick={onLoadMore} disabled={isLoading}>
+                  {isLoading ? t('messages.loading') : t('messages.loadMore')}
                 </Button>
               </div>
             )}
@@ -320,8 +319,8 @@ export function ChatPanel({
           {TEMPLATES.map((template) => (
             <Button
               key={template.key}
-              size="small"
-              type={selectedTemplate === template.key ? 'primary' : 'default'}
+              size="sm"
+              variant={selectedTemplate === template.key ? 'default' : 'outline'}
               onClick={() => handleTemplateSelect(template.key)}
             >
               {template.label}
@@ -330,38 +329,47 @@ export function ChatPanel({
         </div>
 
         <div className="flex gap-2">
-          <Upload
-            beforeUpload={(file) => {
-              handleFileUpload(file);
-              return false; // Prevent default upload
-            }}
-            showUploadList={false}
+          <input
+            ref={fileInputRef}
+            type="file"
             accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFileUpload(file);
+              e.target.value = '';
+            }}
+          />
+          <Button
+            variant="outline"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
           >
-            <Button icon={<Paperclip size={16} />} loading={uploading} disabled={uploading}>
-              {t('messages.attachPhoto')}
-            </Button>
-          </Upload>
-          <TextArea
+            {uploading ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
+            ) : (
+              <Paperclip size={16} />
+            )}
+            {t('messages.attachPhoto')}
+          </Button>
+          <Textarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder={t('messages.sendPlaceholder')}
-            autoSize={{ minRows: 1, maxRows: 4 }}
-            onPressEnter={(e) => {
-              if (!e.shiftKey) {
+            rows={1}
+            className="flex-1 min-h-[40px] max-h-24 resize-none"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 handleSend();
               }
             }}
-            className="flex-1"
           />
           <Button
-            type="primary"
-            icon={<Send size={16} />}
             onClick={handleSend}
-            loading={uploading}
-            disabled={!inputValue.trim() && !uploading}
+            disabled={(!inputValue.trim() && !uploading) || uploading}
           >
+            <Send size={16} />
             {t('messages.send')}
           </Button>
         </div>

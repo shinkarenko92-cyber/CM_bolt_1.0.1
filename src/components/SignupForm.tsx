@@ -2,8 +2,15 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
-import { message, Modal } from 'antd';
+import toast from 'react-hot-toast';
 import { Eye, EyeOff, Lock, Mail, Phone, User } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
 import { useAuth } from '../contexts/AuthContext';
 import { LanguageSelector } from './LanguageSelector';
 import { ThemeToggle } from './ThemeToggle';
@@ -31,6 +38,7 @@ export function SignupForm() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [verifyModalOpen, setVerifyModalOpen] = useState(false);
 
   const {
     register,
@@ -69,49 +77,53 @@ export function SignupForm() {
       console.log('Supabase:', { data, error });
 
       if (error) {
-        message.error(error.message);
+        toast.error(error.message);
         setSubmitError(error.message);
         return;
       }
 
       if (data?.user && !data?.session) {
-        setTimeout(() => {
-          Modal.success({
-            content: t('auth.verifyEmailNotice'),
-            okText: t('common.confirm'),
-            getContainer: () => document.body,
-            onOk: () => navigate('/login', { replace: true, state: { fromSignup: true } }),
-          });
-        }, 0);
+        setVerifyModalOpen(true);
         return;
       }
 
       if (data?.session) {
-        message.success(t('auth.signupSuccess'));
+        toast.success(t('auth.signupSuccess'));
         navigate('/', { replace: true });
         return;
       }
 
       if (data?.user) {
-        setTimeout(() => {
-          Modal.success({
-            content: t('auth.verifyEmailNotice'),
-            okText: t('common.confirm'),
-            getContainer: () => document.body,
-            onOk: () => navigate('/login', { replace: true, state: { fromSignup: true } }),
-          });
-        }, 0);
+        setVerifyModalOpen(true);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : t('errors.somethingWentWrong');
-      message.error(msg);
+      toast.error(msg);
       setSubmitError(msg);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleVerifyModalOk = () => {
+    setVerifyModalOpen(false);
+    navigate('/login', { replace: true, state: { fromSignup: true } });
+  };
+
   return (
+    <>
+      <Dialog open={verifyModalOpen} onOpenChange={setVerifyModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('auth.verifyEmail', { defaultValue: 'Подтвердите email' })}</DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground">{t('auth.verifyEmailNotice')}</p>
+          <DialogFooter>
+            <Button onClick={handleVerifyModalOk}>{t('common.confirm')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     <div className="min-h-screen w-full relative overflow-hidden bg-slate-50 dark:bg-slate-950">
       <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-slate-100 to-sky-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900" />
       <div
@@ -310,5 +322,6 @@ export function SignupForm() {
         </Card>
       </div>
     </div>
+    </>
   );
 }

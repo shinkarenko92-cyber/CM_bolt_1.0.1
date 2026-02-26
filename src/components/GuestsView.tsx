@@ -1,7 +1,17 @@
 import { useState, useMemo } from 'react';
 import { Search, Phone, Mail, User } from 'lucide-react';
 import { Guest, Booking } from '../lib/supabase';
-import { Table, Tag as AntTag, Button, Input } from 'antd';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface GuestsViewProps {
     guests: Guest[];
@@ -11,6 +21,8 @@ interface GuestsViewProps {
 
 export function GuestsView({ guests, bookings, onEditGuest }: GuestsViewProps) {
     const [searchTerm, setSearchTerm] = useState('');
+    const [sortKey, setSortKey] = useState<'visits' | 'total_spent' | null>(null);
+    const [sortAsc, setSortAsc] = useState(true);
 
     const guestStats = useMemo(() => {
         const stats = new Map<string, { count: number; total: number; lastStay: string | null }>();
@@ -40,116 +52,110 @@ export function GuestsView({ guests, bookings, onEditGuest }: GuestsViewProps) {
         );
     }, [guests, searchTerm]);
 
-    const columns = [
-        {
-            title: 'Гость',
-            key: 'name',
-            render: (_: unknown, record: Guest) => (
-                <div className="flex flex-col">
-                    <span className="text-white font-medium">{record.name}</span>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                        {record.tags?.map(tag => (
-                            <AntTag key={tag} color={tag === 'Blacklist' ? 'error' : 'processing'}>
-                                {tag}
-                            </AntTag>
-                        ))}
-                    </div>
-                </div>
-            ),
-        },
-        {
-            title: 'Контакты',
-            key: 'contacts',
-            render: (_: unknown, record: Guest) => (
-                <div className="flex flex-col text-sm text-slate-400 gap-1">
-                    {record.phone && (
-                        <div className="flex items-center gap-1">
-                            <Phone size={14} />
-                            <span>{record.phone}</span>
-                        </div>
-                    )}
-                    {record.email && (
-                        <div className="flex items-center gap-1">
-                            <Mail size={14} />
-                            <span>{record.email}</span>
-                        </div>
-                    )}
-                </div>
-            ),
-        },
-        {
-            title: 'Визиты',
-            key: 'visits',
-            sorter: (a: Guest, b: Guest) => (guestStats.get(a.id)?.count || 0) - (guestStats.get(b.id)?.count || 0),
-            render: (_: unknown, record: Guest) => (
-                <div className="text-slate-300">
-                    {guestStats.get(record.id)?.count || 0}
-                </div>
-            ),
-        },
-        {
-            title: 'Всего потрачено',
-            key: 'total_spent',
-            sorter: (a: Guest, b: Guest) => (guestStats.get(a.id)?.total || 0) - (guestStats.get(b.id)?.total || 0),
-            render: (_: unknown, record: Guest) => (
-                <div className="text-teal-400 font-medium">
-                    {Math.round(guestStats.get(record.id)?.total || 0).toLocaleString()} ₽
-                </div>
-            ),
-        },
-        {
-            title: 'Последний заезд',
-            key: 'last_stay',
-            render: (_: unknown, record: Guest) => (
-                <div className="text-sm text-slate-400">
-                    {guestStats.get(record.id)?.lastStay
-                        ? new Date(guestStats.get(record.id)!.lastStay!).toLocaleDateString('ru-RU')
-                        : '—'}
-                </div>
-            ),
-        },
-        {
-            title: '',
-            key: 'actions',
-            render: (_: unknown, record: Guest) => (
-                <Button
-                    type="text"
-                    icon={<User size={16} className="text-slate-400" />}
-                    onClick={() => onEditGuest(record)}
-                    className="hover:bg-slate-700"
-                />
-            ),
-        },
-    ];
+    const sortedGuests = useMemo(() => {
+        if (!sortKey) return filteredGuests;
+        const copy = [...filteredGuests];
+        copy.sort((a, b) => {
+            const aVal = sortKey === 'visits' ? (guestStats.get(a.id)?.count ?? 0) : (guestStats.get(a.id)?.total ?? 0);
+            const bVal = sortKey === 'visits' ? (guestStats.get(b.id)?.count ?? 0) : (guestStats.get(b.id)?.total ?? 0);
+            return sortAsc ? aVal - bVal : bVal - aVal;
+        });
+        return copy;
+    }, [filteredGuests, sortKey, sortAsc, guestStats]);
+
+    const toggleSort = (key: 'visits' | 'total_spent') => {
+        setSortKey(prev => (prev === key ? prev : key));
+        setSortAsc(prev => (sortKey === key ? !prev : true));
+    };
 
     return (
         <div className="flex-1 overflow-auto p-6">
             <div className="max-w-7xl mx-auto">
                 <div className="flex items-center justify-between mb-6">
                     <div>
-                        <h1 className="text-2xl font-bold text-white">База гостей (CRM)</h1>
-                        <p className="text-slate-400 mt-1">История бронирований и лояльность ваших клиентов</p>
+                        <h1 className="text-2xl font-bold text-foreground">База гостей (CRM)</h1>
+                        <p className="text-muted-foreground mt-1">История бронирований и лояльность ваших клиентов</p>
                     </div>
                 </div>
 
-                <div className="bg-slate-800 rounded-lg p-4 mb-6">
-                    <Input
-                        prefix={<Search size={18} className="text-slate-500 mr-2" />}
-                        placeholder="Поиск по имени, телефону или email..."
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        className="max-w-md bg-slate-700 border-slate-600 text-white"
-                    />
+                <div className="rounded-lg p-4 mb-6 border border-border bg-card">
+                    <div className="relative max-w-md">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder="Поиск по имени, телефону или email..."
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            className="pl-9"
+                        />
+                    </div>
                 </div>
 
-                <div className="bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
-                    <Table
-                        dataSource={filteredGuests}
-                        columns={columns}
-                        rowKey="id"
-                        pagination={{ pageSize: 15 }}
-                        className="custom-table"
-                    />
+                <div className="rounded-lg overflow-hidden border border-border bg-card">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Гость</TableHead>
+                                <TableHead>Контакты</TableHead>
+                                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('visits')}>Визиты</TableHead>
+                                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('total_spent')}>Всего потрачено</TableHead>
+                                <TableHead>Последний заезд</TableHead>
+                                <TableHead className="w-[60px]" />
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {sortedGuests.slice(0, 15).map(record => (
+                                <TableRow key={record.id}>
+                                    <TableCell>
+                                        <div className="flex flex-col">
+                                            <span className="font-medium">{record.name}</span>
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                {record.tags?.map(tag => (
+                                                    <Badge key={tag} variant={tag === 'Blacklist' ? 'destructive' : 'secondary'}>
+                                                        {tag}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex flex-col text-sm text-muted-foreground gap-1">
+                                            {record.phone && (
+                                                <div className="flex items-center gap-1">
+                                                    <Phone size={14} />
+                                                    <span>{record.phone}</span>
+                                                </div>
+                                            )}
+                                            {record.email && (
+                                                <div className="flex items-center gap-1">
+                                                    <Mail size={14} />
+                                                    <span>{record.email}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>{guestStats.get(record.id)?.count ?? 0}</TableCell>
+                                    <TableCell className="text-primary font-medium">
+                                        {Math.round(guestStats.get(record.id)?.total ?? 0).toLocaleString()} ₽
+                                    </TableCell>
+                                    <TableCell className="text-sm text-muted-foreground">
+                                        {guestStats.get(record.id)?.lastStay
+                                            ? new Date(guestStats.get(record.id)!.lastStay!).toLocaleDateString('ru-RU')
+                                            : '—'}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Button variant="ghost" size="icon" onClick={() => onEditGuest(record)} aria-label="Редактировать">
+                                            <User size={16} className="text-muted-foreground" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                    {sortedGuests.length > 15 && (
+                        <p className="text-sm text-muted-foreground p-3 border-t border-border">
+                            Показано 15 из {sortedGuests.length}. Уточните поиск для фильтрации.
+                        </p>
+                    )}
                 </div>
             </div>
         </div>

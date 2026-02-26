@@ -1,7 +1,23 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { X, Trash2, Upload, Image as ImageIcon, Loader2, Check } from 'lucide-react';
-import { Button, Input, InputNumber, Modal, Select, Tabs } from 'antd';
 import { useTranslation } from 'react-i18next';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import {
+  Select as SelectRoot,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 import toast from 'react-hot-toast';
 import { Property, PropertyIntegration, BookingLog } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
@@ -52,6 +68,8 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
   const [activeTab, setActiveTab] = useState('main');
   const [bookingLogs, setBookingLogs] = useState<BookingLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [confirmAvito, setConfirmAvito] = useState<'disconnect' | 'delete' | null>(null);
+  const [confirmAvitoLoading, setConfirmAvitoLoading] = useState(false);
 
   const loadAvitoIntegration = useCallback(async () => {
     if (!property) return;
@@ -244,60 +262,48 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     }
   }, [property, isOpen, isAvitoModalOpen]); // Include isAvitoModalOpen with early exit to prevent unnecessary processing
 
-  const handleDisconnectAvito = () => {
-    Modal.confirm({
-      title: t('avito.integration.disconnectConfirmTitle'),
-      content: t('avito.integration.disconnectConfirmContent'),
-      okText: t('avito.integration.disable'),
-      cancelText: t('avito.integration.cancel'),
-      okButtonProps: { danger: true },
-      onOk: async () => {
-        if (!avitoIntegration) return;
-
-        // Set is_active = false
-        await supabase
-          .from('integrations')
-          .update({ is_active: false })
-          .eq('id', avitoIntegration.id);
-
-        // Remove from sync queue
-        await supabase
-          .from('avito_sync_queue')
-          .delete()
-          .eq('integration_id', avitoIntegration.id);
-
-        toast.success('Avito отключён');
-        loadAvitoIntegration();
-      },
-    });
+  const runDisconnectAvito = async () => {
+    if (!avitoIntegration) return;
+    setConfirmAvitoLoading(true);
+    try {
+      await supabase
+        .from('integrations')
+        .update({ is_active: false })
+        .eq('id', avitoIntegration.id);
+      await supabase
+        .from('avito_sync_queue')
+        .delete()
+        .eq('integration_id', avitoIntegration.id);
+      toast.success('Avito отключён');
+      loadAvitoIntegration();
+      setConfirmAvito(null);
+    } finally {
+      setConfirmAvitoLoading(false);
+    }
   };
 
-  const handleDeleteAvito = () => {
-    Modal.confirm({
-      title: t('avito.integration.deleteConfirmTitle'),
-      content: t('avito.integration.deleteConfirmContent'),
-      okText: t('avito.integration.delete'),
-      cancelText: t('avito.integration.cancel'),
-      okButtonProps: { danger: true },
-      onOk: async () => {
-        if (!avitoIntegration) return;
-
-        // Delete from integrations (CASCADE will handle avito_items and avito_sync_queue)
-        const { error } = await supabase
-          .from('integrations')
-          .delete()
-          .eq('id', avitoIntegration.id);
-
-        if (error) {
-          toast.error('Ошибка при удалении: ' + error.message);
-          return;
-        }
-
-        toast.success('Интеграция Avito удалена');
-        loadAvitoIntegration();
-      },
-    });
+  const runDeleteAvito = async () => {
+    if (!avitoIntegration) return;
+    setConfirmAvitoLoading(true);
+    try {
+      const { error } = await supabase
+        .from('integrations')
+        .delete()
+        .eq('id', avitoIntegration.id);
+      if (error) {
+        toast.error('Ошибка при удалении: ' + error.message);
+        return;
+      }
+      toast.success('Интеграция Avito удалена');
+      loadAvitoIntegration();
+      setConfirmAvito(null);
+    } finally {
+      setConfirmAvitoLoading(false);
+    }
   };
+
+  const handleDisconnectAvito = () => setConfirmAvito('disconnect');
+  const handleDeleteAvito = () => setConfirmAvito('delete');
 
   const handleEditMarkup = () => {
     setIsEditMarkupModalOpen(true);
@@ -569,14 +575,12 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
           </div>
         ) : (
           <div className="p-6">
-            <Tabs
-              activeKey={activeTab}
-              onChange={setActiveTab}
-              items={[
-                {
-                  key: 'main',
-                  label: 'Основная информация',
-                  children: (
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="mb-4">
+                <TabsTrigger value="main">Основная информация</TabsTrigger>
+                {property && <TabsTrigger value="history">История</TabsTrigger>}
+              </TabsList>
+              <TabsContent value="main">
                     <form onSubmit={handleSubmit} className="space-y-6">
                       {error && (
                         <div className="p-3 bg-red-500/20 border border-red-500/50 rounded text-red-200 text-sm">
@@ -809,7 +813,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
                           <div className="bg-slate-700/50 rounded-lg p-4 min-w-0 overflow-hidden">
                             {!avitoIntegration ? (
-                              <Button type="primary" onClick={() => setIsAvitoModalOpen(true)}>
+                              <Button onClick={() => setIsAvitoModalOpen(true)}>
                                 {t('avito.integration.connectAvito')}
                               </Button>
                             ) : (
@@ -828,9 +832,9 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                                   </div>
                                   <CollapsibleTrigger asChild>
                                     <Button
-                                      size="small"
+                                      size="sm"
                                       className="shrink-0"
-                                      onClick={() => setApiIntegrationsOpen((o) => !o)}
+                                      type="button"
                                     >
                                       {apiIntegrationsOpen ? t('avito.integration.collapse') : t('avito.integration.expand')}
                                     </Button>
@@ -839,7 +843,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                                 <CollapsibleContent>
                                   <div className="mt-4 space-y-4">
                                     {!avitoIntegration.is_active && (
-                                      <Button type="primary" onClick={() => setIsAvitoModalOpen(true)}>
+                                      <Button onClick={() => setIsAvitoModalOpen(true)}>
                                         {t('avito.integration.reconnect')}
                                       </Button>
                                     )}
@@ -876,10 +880,11 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                                             <p className="text-xs text-red-400">{t('avito.integration.itemIdInvalid')}</p>
                                           )}
                                           <div className="flex flex-wrap gap-2">
-                                            <Button type="primary" size="small" onClick={handleSaveItemId} disabled={!editingItemId || !/^[0-9]{10,11}$/.test(editingItemId)} loading={loading}>
+                                            <Button size="sm" onClick={handleSaveItemId} disabled={!editingItemId || !/^[0-9]{10,11}$/.test(editingItemId) || loading}>
+                                              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                                               {t('avito.integration.save')}
                                             </Button>
-                                            <Button size="small" onClick={() => { setIsEditingItemId(false); setEditingItemId(''); }} disabled={loading}>
+                                            <Button size="sm" variant="outline" onClick={() => { setIsEditingItemId(false); setEditingItemId(''); }} disabled={loading}>
                                               {t('avito.integration.cancel')}
                                             </Button>
                                           </div>
@@ -889,7 +894,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                                           <span className="text-white truncate min-w-0" title={avitoIntegration.avito_item_id || ''}>
                                             {avitoIntegration.avito_item_id || '—'}
                                           </span>
-                                          <Button size="small" onClick={handleEditItemId} disabled={loading}>
+                                          <Button size="sm" variant="outline" onClick={handleEditItemId} disabled={loading}>
                                             {t('avito.integration.editItemId')}
                                           </Button>
                                         </div>
@@ -905,7 +910,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                                             ? `${Math.abs(avitoIntegration.avito_markup)} руб`
                                             : `${avitoIntegration.avito_markup ?? 0}%`}
                                         </span>
-                                        <Button size="small" onClick={handleEditMarkup}>{t('avito.integration.editMarkup')}</Button>
+                                        <Button size="sm" variant="outline" onClick={handleEditMarkup}>{t('avito.integration.editMarkup')}</Button>
                                       </div>
                                     </div>
 
@@ -923,10 +928,10 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                                     {/* Удалить интеграцию */}
                                     <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-slate-600">
                                       <Button
+                                        variant="destructive"
                                         onClick={handleDeleteAvito}
-                                        className="bg-red-600 hover:bg-red-700 text-white border-red-600"
-                                        icon={<Trash2 className="w-4 h-4" />}
                                       >
+                                        <Trash2 className="h-4 w-4" />
                                         {t('avito.integration.delete')}
                                       </Button>
                                     </div>
@@ -979,29 +984,25 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                         </div>
                       </div>
                     </form>
-                  ),
-                },
-                ...(property ? [{
-                  key: 'history',
-                  label: 'История',
-                  children: (
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-medium text-white">История бронирований</h3>
-                        <Button
-                          type="primary"
-                          onClick={() => property && loadBookingLogs(property.id)}
-                          loading={loadingLogs}
-                        >
-                          Обновить
-                        </Button>
-                      </div>
-                      <BookingLogsTable logs={bookingLogs} loading={loadingLogs} />
+              </TabsContent>
+              {property && (
+                <TabsContent value="history">
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-lg font-medium text-white">История бронирований</h3>
+                      <Button
+                        onClick={() => property && loadBookingLogs(property.id)}
+                        disabled={loadingLogs}
+                      >
+                        {loadingLogs ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        Обновить
+                      </Button>
                     </div>
-                  ),
-                }] : []),
-              ]}
-            />
+                    <BookingLogsTable logs={bookingLogs} loading={loadingLogs} />
+                  </div>
+                </TabsContent>
+              )}
+            </Tabs>
           </div>
         )}
 
@@ -1017,59 +1018,92 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
           />
         )}
 
+        {/* Confirm Avito disconnect / delete */}
+        <Dialog open={!!confirmAvito} onOpenChange={(open) => !open && setConfirmAvito(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {confirmAvito === 'disconnect' ? t('avito.integration.disconnectConfirmTitle') : t('avito.integration.deleteConfirmTitle')}
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-muted-foreground">
+              {confirmAvito === 'disconnect' ? t('avito.integration.disconnectConfirmContent') : t('avito.integration.deleteConfirmContent')}
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setConfirmAvito(null)} disabled={confirmAvitoLoading}>
+                {t('avito.integration.cancel')}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmAvito === 'disconnect' ? runDisconnectAvito : runDeleteAvito}
+                disabled={confirmAvitoLoading}
+              >
+                {confirmAvitoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {confirmAvito === 'disconnect' ? t('avito.integration.disable') : t('avito.integration.delete')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Edit Markup Modal */}
-        <Modal
-          title={t('avito.integration.editMarkup')}
-          open={isEditMarkupModalOpen}
-          onOk={handleSaveMarkup}
-          onCancel={() => setIsEditMarkupModalOpen(false)}
-          okText={t('avito.integration.save')}
-          cancelText={t('avito.integration.cancel')}
-        >
-          <div className="py-4">
-            <label className="block text-sm text-slate-300 mb-2">{t('avito.integration.markup')}</label>
-            <div className="flex gap-2 mb-2">
-              <Select
-                value={newMarkupType}
-                onChange={setNewMarkupType}
-                style={{ width: 100 }}
-                options={[
-                  { label: '%', value: 'percent' },
-                  { label: 'Руб', value: 'rub' },
-                ]}
-              />
-              <InputNumber
-                style={{ flex: 1 }}
-                min={0}
-                max={newMarkupType === 'percent' ? 100 : undefined}
-                value={newMarkup}
-                onChange={(value) => setNewMarkup(value !== null && value !== undefined ? value : (newMarkupType === 'percent' ? 0 : 0))}
-                formatter={(value) => newMarkupType === 'percent' ? `${value}%` : `${value} руб`}
-                parser={(value) => parseFloat(value?.replace(/[%\sруб]/g, '') || '0')}
-              />
+        <Dialog open={isEditMarkupModalOpen} onOpenChange={setIsEditMarkupModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('avito.integration.editMarkup')}</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <label className="block text-sm text-muted-foreground mb-2">{t('avito.integration.markup')}</label>
+              <div className="flex gap-2 mb-2">
+                <SelectRoot value={newMarkupType} onValueChange={(v) => v && setNewMarkupType(v as 'percent' | 'rub')}>
+                  <SelectTrigger className="w-[100px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percent">%</SelectItem>
+                    <SelectItem value="rub">Руб</SelectItem>
+                  </SelectContent>
+                </SelectRoot>
+                <Input
+                  type="number"
+                  min={0}
+                  max={newMarkupType === 'percent' ? 100 : undefined}
+                  value={newMarkup}
+                  onChange={(e) => setNewMarkup(parseFloat(e.target.value) || 0)}
+                  className="flex-1"
+                />
+              </div>
+              <div className="mt-3 p-3 rounded-md border border-border bg-muted/30">
+                <p className="text-sm text-muted-foreground">
+                  {(() => {
+                    const basePrice = property?.base_price ?? parseFloat(formData.base_price) ?? 0;
+                    const withMarkup = newMarkupType === 'percent'
+                      ? Math.round(basePrice * (1 + newMarkup / 100))
+                      : Math.round(basePrice + newMarkup);
+                    return (
+                      <>
+                        <span className="text-muted-foreground">База {basePrice}</span>
+                        {newMarkupType === 'percent' ? (
+                          <span> + {newMarkup}% = <span className="font-semibold text-foreground">{withMarkup}</span></span>
+                        ) : (
+                          <span> + {newMarkup} руб = <span className="font-semibold text-foreground">{withMarkup}</span></span>
+                        )}
+                      </>
+                    );
+                  })()}
+                </p>
+              </div>
             </div>
-            <div className="mt-3 p-3 bg-slate-800 rounded border border-slate-700">
-              <p className="text-sm text-slate-300">
-                {(() => {
-                  const basePrice = property?.base_price ?? parseFloat(formData.base_price) ?? 0;
-                  const withMarkup = newMarkupType === 'percent'
-                    ? Math.round(basePrice * (1 + newMarkup / 100))
-                    : Math.round(basePrice + newMarkup);
-                  return (
-                    <>
-                      <span className="text-slate-400">База {basePrice}</span>
-                      {newMarkupType === 'percent' ? (
-                        <span> + {newMarkup}% = <span className="text-white font-semibold">{withMarkup}</span></span>
-                      ) : (
-                        <span> + {newMarkup} руб = <span className="text-white font-semibold">{withMarkup}</span></span>
-                      )}
-                    </>
-                  );
-                })()}
-              </p>
-            </div>
-          </div>
-        </Modal>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditMarkupModalOpen(false)}>
+                {t('avito.integration.cancel')}
+              </Button>
+              <Button onClick={handleSaveMarkup} disabled={loading}>
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {t('avito.integration.save')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

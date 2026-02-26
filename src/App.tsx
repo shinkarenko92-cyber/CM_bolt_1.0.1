@@ -15,6 +15,7 @@ import { PrivacyPage } from './pages/PrivacyPage';
 import { OnboardingImport } from './pages/OnboardingImport';
 import { LoginPhonePage } from './pages/LoginPhonePage';
 import { CookieConsentBanner } from './components/CookieConsentBanner';
+import { AvitoErrorQueue } from './components/AvitoErrorQueue';
 
 function AvitoCallbackHandler() {
   const [messengerSuccessModalOpen, setMessengerSuccessModalOpen] = useState(false);
@@ -202,6 +203,7 @@ function AppContent() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <AvitoCallbackHandler />
+      <AvitoErrorQueue />
       <BoltChatWidget />
       <CookieConsentBanner />
     </>

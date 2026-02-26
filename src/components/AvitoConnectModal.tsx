@@ -1,12 +1,26 @@
 /**
- * Avito Connect Modal - OAuth flow with 3-step stepper
- * Uses Ant Design v5 components
+ * Avito Connect Modal - OAuth flow with 2-step stepper
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Steps, Button, Input, InputNumber, Spin, Select } from 'antd';
-import { CheckCircleOutlined, LoadingOutlined } from '@ant-design/icons';
+import { Check, Loader2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select as SelectRoot,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Property, supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import { showAvitoErrors } from '../services/avitoErrors';
@@ -46,6 +60,8 @@ export function AvitoConnectModal({
   const [markupType, setMarkupType] = useState<'percent' | 'rub'>('percent');
   const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  const [errorDialog, setErrorDialog] = useState<{ title: string; content: string; onOk?: () => void } | null>(null);
   const oauthPopupRef = useRef<Window | null>(null);
 
   const handleOAuthCallback = useCallback(async (code: string, state: string) => {
@@ -168,16 +184,14 @@ export function AvitoConnectModal({
       
       // Специальная обработка ошибки invalid_grant
       if (hasInvalidGrant) {
-        Modal.error({
+        setErrorDialog({
           title: 'Код авторизации недействителен',
           content: 'Код авторизации уже использован или истек. Пожалуйста, начните процесс подключения Avito заново. Нажмите "Подключить Avito" еще раз.',
-          okText: 'Понятно',
-          width: 500,
           onOk: () => {
-            // Сбрасываем состояние и возвращаемся к начальному шагу
             clearConnectionProgress(property.id);
             setCurrentStep(0);
             setIsProcessingOAuth(false);
+            setErrorDialog(null);
           },
         });
         return;
@@ -185,11 +199,9 @@ export function AvitoConnectModal({
       
       // Проверяем, не является ли это ошибкой 404 (Edge Function не развернута)
       if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
-        Modal.error({
+        setErrorDialog({
           title: 'Edge Function не найдена',
           content: 'Функция avito_sync не развернута. Пожалуйста, разверните её в Supabase Dashboard → Edge Functions или обратитесь к администратору.',
-          okText: 'Понятно',
-          width: 500,
         });
       } else {
         // Показываем детальное сообщение об ошибке, если есть детали от Avito API
@@ -224,16 +236,14 @@ export function AvitoConnectModal({
         // Check for OAuth callback results
         const oauthError = getOAuthError();
         if (oauthError) {
-          // OAuth error detected
-          // Удаляем OAuth error из localStorage после обработки
           clearOAuthError();
-          Modal.error({
+          setErrorDialog({
             title: 'Ошибка авторизации',
             content: oauthError.error_description || oauthError.error || 'Неизвестная ошибка',
-            okText: 'Попробовать снова',
             onOk: () => {
               clearConnectionProgress(property.id);
               setCurrentStep(0);
+              setErrorDialog(null);
             },
           });
           return;
@@ -513,11 +523,9 @@ export function AvitoConnectModal({
       
       // Проверяем ошибку 404
       if (errorMessage.includes('404') || errorMessage.includes('NOT_FOUND') || errorMessage.includes('DEPLOYMENT_NOT_FOUND')) {
-        Modal.error({
+        setErrorDialog({
           title: 'Edge Function не найдена',
           content: 'Функция avito_sync не развернута. Пожалуйста, разверните её в Supabase Dashboard → Edge Functions или обратитесь к администратору.',
-          okText: 'Понятно',
-          width: 500,
         });
       } else {
         toast.error(errorMessage);
@@ -540,16 +548,15 @@ export function AvitoConnectModal({
 
   const handleCancel = () => {
     if (currentStep > 0) {
-      Modal.confirm({
-        title: 'Прервать подключение?',
-        content: 'Ваш прогресс будет сохранён. Вы сможете продолжить позже.',
-        onOk: () => {
-          onClose();
-        },
-      });
+      setConfirmCloseOpen(true);
     } else {
       onClose();
     }
+  };
+
+  const confirmClose = () => {
+    setConfirmCloseOpen(false);
+    onClose();
   };
 
   const handleBack = () => {
@@ -562,210 +569,198 @@ export function AvitoConnectModal({
   const checkProgress = loadConnectionProgress(property.id);
   const showResumePrompt = checkProgress && checkProgress.step > 0 && currentStep === 0;
 
-  // Render custom footer with navigation buttons
-  const renderFooter = () => {
-    // Don't show footer if success block is shown
-    if (showSuccess) {
-      return null;
-    }
-    
-    return (
-      <div className="flex justify-between items-center">
-        <div>
-          {currentStep > 0 && (
-            <Button onClick={handleBack} disabled={loading || oauthRedirecting}>
-              Назад
-            </Button>
-          )}
-        </div>
-        <div>
-          <Button onClick={handleCancel} disabled={loading && !oauthRedirecting}>
-            Отмена
-          </Button>
-        </div>
-      </div>
-    );
-  };
-
   return (
-    <Modal
-      title="Подключение Avito"
-      open={isOpen}
-      onCancel={handleCancel}
-      footer={renderFooter()}
-      width={600}
-      destroyOnClose
-      closable={!oauthRedirecting}
-      maskClosable={false}
-    >
-      {showResumePrompt && (
-        <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded">
-          <p className="text-sm text-blue-200 mb-2 font-medium">
-            Обнаружен сохранённый прогресс подключения
-          </p>
-          <Button type="primary" onClick={handleResume}>
-            Продолжить подключение Avito
-          </Button>
-        </div>
-      )}
+    <>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && handleCancel()} modal>
+        <DialogContent className="max-w-[600px]" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => oauthRedirecting && e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Подключение Avito</DialogTitle>
+          </DialogHeader>
 
-      {!showSuccess && (
-        <Steps 
-          current={currentStep} 
-          className="mb-6"
-          items={[
-            { title: 'Подключить аккаунт Avito' },
-            { title: 'Введи номер аккаунта и ID объявления' },
-          ]}
-        />
-      )}
+          {showResumePrompt && (
+            <div className="mb-4 p-3 bg-primary/10 border border-primary/30 rounded-md">
+              <p className="text-sm text-foreground mb-2 font-medium">
+                Обнаружен сохранённый прогресс подключения
+              </p>
+              <Button onClick={handleResume}>
+                Продолжить подключение Avito
+              </Button>
+            </div>
+          )}
 
-      <div className="min-h-[200px]">
-        {/* Step 0: OAuth Redirect */}
-        {currentStep === 0 && (
-          <div className="text-center py-8">
-            {oauthRedirecting ? (
-              <div>
-                <Spin indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />} />
-                <p className="mt-4 text-slate-200">
-                  Ждём, пока вы подтвердите доступ в Avito… Это займёт 10 секунд
-                </p>
+          {!showSuccess && (
+            <div className="mb-6 flex gap-2">
+              <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${currentStep >= 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>1</div>
+              <div className="flex-1 flex items-center">
+                <span className="text-sm font-medium">Подключить аккаунт Avito</span>
               </div>
-            ) : (
+              <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${currentStep >= 1 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>2</div>
+              <div className="flex-1 flex items-center">
+                <span className="text-sm font-medium">Номер аккаунта и ID объявления</span>
+              </div>
+            </div>
+          )}
+
+          <div className="min-h-[200px]">
+            {currentStep === 0 && (
+              <div className="text-center py-8">
+                {oauthRedirecting ? (
+                  <div>
+                    <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
+                    <p className="mt-4 text-muted-foreground">
+                      Ждём, пока вы подтвердите доступ в Avito… Это займёт 10 секунд
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-foreground mb-6 text-base">
+                      Нажмите кнопку ниже, чтобы авторизоваться в Avito и предоставить доступ к вашему аккаунту
+                    </p>
+                    <Button size="lg" onClick={handleConnectClick} disabled={loading}>
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Подключить Avito
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {currentStep === 1 && !showSuccess && (
               <div>
-                <p className="text-white mb-6 text-base">
-                  Нажмите кнопку ниже, чтобы авторизоваться в Avito и предоставить доступ к вашему
-                  аккаунту
-                </p>
-                <Button type="primary" size="large" onClick={handleConnectClick} loading={loading}>
-                  Подключить Avito
-                </Button>
+                <div className="mb-6">
+                  <p className="font-medium mb-2">Номер аккаунта Avito:</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Короткий номер аккаунта. Можно найти в настройках аккаунта Avito.
+                  </p>
+                  <Input
+                    placeholder="Номер аккаунта"
+                    value={userId}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 8);
+                      setUserId(value);
+                    }}
+                    disabled={loading}
+                    maxLength={8}
+                  />
+                  {!userId && <p className="text-xs text-destructive mt-1">Номер аккаунта обязателен</p>}
+                  {userId && !/^[0-9]{6,8}$/.test(userId) && <p className="text-xs text-destructive mt-1">Номер аккаунта должен содержать 6-8 цифр</p>}
+                </div>
+
+                <div className="mb-6">
+                  <p className="font-medium mb-2">ID объявления на Avito:</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    ID объявления — 10–12 цифр из URL объявления на Avito.
+                  </p>
+                  <Input
+                    placeholder="ID объявления (10–12 цифр)"
+                    value={itemId}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 12);
+                      setItemId(value);
+                    }}
+                    disabled={loading}
+                    maxLength={12}
+                  />
+                  {!itemId && <p className="text-xs text-destructive mt-1">ID объявления обязателен</p>}
+                  {itemId && !/^[0-9]{10,12}$/.test(itemId) && <p className="text-xs text-destructive mt-1">ID объявления должен содержать 10-12 цифр</p>}
+                </div>
+
+                <div className="mb-6">
+                  <p className="font-medium mb-2">Наценка для компенсации комиссии:</p>
+                  <div className="flex gap-2 mb-2">
+                    <SelectRoot value={markupType} onValueChange={(v) => v && setMarkupType(v as 'percent' | 'rub')}>
+                      <SelectTrigger className="w-[100px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percent">%</SelectItem>
+                        <SelectItem value="rub">Руб</SelectItem>
+                      </SelectContent>
+                    </SelectRoot>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={markupType === 'percent' ? 100 : undefined}
+                      value={markup}
+                      onChange={(e) => setMarkup(parseFloat(e.target.value) || 0)}
+                      className="flex-1"
+                    />
+                  </div>
+                  <div className="mt-3 p-3 rounded-md border border-border bg-muted/30">
+                    <p className="text-sm text-muted-foreground">
+                      <span>Base 5000</span>
+                      {markupType === 'percent' ? (
+                        <span> + {markup}% = <span className="font-semibold text-foreground">{Math.round(5000 * (1 + markup / 100))}</span></span>
+                      ) : (
+                        <span> + {markup} руб = <span className="font-semibold text-foreground">{5000 + markup}</span></span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mt-4">
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={loading || !userId || !itemId || !/^[0-9]{6,8}$/.test(userId) || !/^[0-9]{10,12}$/.test(itemId)}
+                  >
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    Завершить подключение
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {showSuccess && (
+              <div className="py-4">
+                <div className="mb-6 p-4 bg-success/10 border border-success/30 rounded-lg">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Check className="h-8 w-8 text-success" />
+                    <h3 className="text-lg font-semibold">Интеграция Avito успешно подключена!</h3>
+                  </div>
+                  <div className="flex justify-end mt-6">
+                    <Button onClick={onClose}>Закрыть</Button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
-        )}
 
-        {/* Step 1: User ID and Item ID Input (combined) */}
-        {currentStep === 1 && !showSuccess && (
-          <div>
-            <div className="mb-6">
-              <p className="text-white mb-2 font-medium">Номер аккаунта Avito:</p>
-              <p className="text-sm text-slate-300 mb-4">
-                Короткий номер аккаунта. Можно найти в настройках аккаунта Avito.
-              </p>
-              <Input
-                placeholder="Номер аккаунта"
-                value={userId}
-                onChange={(e) => {
-                  // Only allow numbers, max 8 digits
-                  const value = e.target.value.replace(/\D/g, '').slice(0, 8);
-                  setUserId(value);
-                }}
-                disabled={loading}
-                required
-                maxLength={8}
-              />
-              {!userId && (
-                <p className="text-xs text-red-400 mt-1">Номер аккаунта обязателен</p>
-              )}
-              {userId && (!/^[0-9]{6,8}$/.test(userId)) && (
-                <p className="text-xs text-red-400 mt-1">Номер аккаунта должен содержать 6-8 цифр</p>
-              )}
-            </div>
+          {!showSuccess && (
+            <DialogFooter className="flex justify-between sm:justify-between">
+              <div>{currentStep > 0 && <Button variant="outline" onClick={handleBack} disabled={loading || oauthRedirecting}>Назад</Button>}</div>
+              <Button variant="outline" onClick={handleCancel} disabled={loading && !oauthRedirecting}>Отмена</Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
 
-            <div className="mb-6">
-              <p className="text-white mb-2 font-medium">ID объявления на Avito:</p>
-              <p className="text-sm text-slate-300 mb-4">
-                ID объявления — 10–12 цифр из URL объявления на Avito.
-              </p>
-              <Input
-                placeholder="ID объявления (10–12 цифр)"
-                value={itemId}
-                onChange={(e) => {
-                  // Only allow numbers, max 12 digits
-                  const value = e.target.value.replace(/\D/g, '').slice(0, 12);
-                  setItemId(value);
-                }}
-                disabled={loading}
-                required
-                maxLength={12}
-                pattern="[0-9]{10,12}"
-              />
-              {!itemId && (
-                <p className="text-xs text-red-400 mt-1">ID объявления обязателен</p>
-              )}
-              {itemId && !/^[0-9]{10,12}$/.test(itemId) && (
-                <p className="text-xs text-red-400 mt-1">ID объявления должен содержать 10-12 цифр</p>
-              )}
-            </div>
+      {/* Confirm close */}
+      <Dialog open={confirmCloseOpen} onOpenChange={setConfirmCloseOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Прервать подключение?</DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground">Ваш прогресс будет сохранён. Вы сможете продолжить позже.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmCloseOpen(false)}>Нет</Button>
+            <Button onClick={confirmClose}>Да, закрыть</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-            <div className="mb-6">
-              <p className="text-white mb-2 font-medium">Наценка для компенсации комиссии:</p>
-              <div className="flex gap-2 mb-2">
-                <Select
-                  value={markupType}
-                  onChange={setMarkupType}
-                  style={{ width: 100 }}
-                  options={[
-                    { label: '%', value: 'percent' },
-                    { label: 'Руб', value: 'rub' },
-                  ]}
-                />
-                <InputNumber
-                  style={{ flex: 1 }}
-                  min={0}
-                  max={markupType === 'percent' ? 100 : undefined}
-                  value={markup}
-                  onChange={(value) => setMarkup(value !== null && value !== undefined ? value : (markupType === 'percent' ? 0 : 0))}
-                  formatter={(value) => markupType === 'percent' ? `${value}%` : `${value} руб`}
-                  parser={(value) => parseFloat(value?.replace(/[%\sруб]/g, '') || '0')}
-                />
-              </div>
-              <div className="mt-3 p-3 bg-slate-800 rounded border border-slate-700">
-                <p className="text-sm text-slate-300">
-                  <span className="text-slate-400">Base 5000</span>
-                  {markupType === 'percent' ? (
-                    <span> + {markup}% = <span className="text-white font-semibold">{Math.round(5000 * (1 + markup / 100))}</span></span>
-                  ) : (
-                    <span> + {markup} руб = <span className="text-white font-semibold">{5000 + markup}</span></span>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-2 mt-4">
-              <Button
-                type="primary"
-                onClick={handleSubmit}
-                loading={loading}
-                disabled={!userId || !itemId || !/^[0-9]{6,8}$/.test(userId) || !/^[0-9]{10,12}$/.test(itemId)}
-                icon={<CheckCircleOutlined />}
-              >
-                Завершить подключение
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Success Block */}
-        {showSuccess && (
-          <div className="py-4">
-            <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-              <div className="flex items-center gap-2 mb-4">
-                <CheckCircleOutlined className="text-green-400 text-2xl" />
-                <h3 className="text-white text-lg font-semibold">Интеграция Avito успешно подключена!</h3>
-              </div>
-
-              <div className="flex justify-end mt-6">
-                <Button type="primary" onClick={onClose}>
-                  Закрыть
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </Modal>
+      {/* Error dialog */}
+      <Dialog open={!!errorDialog} onOpenChange={(open) => !open && setErrorDialog(null)}>
+        <DialogContent className="max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>{errorDialog?.title}</DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground">{errorDialog?.content}</p>
+          <DialogFooter>
+            <Button onClick={() => { errorDialog?.onOk?.(); setErrorDialog(null); }}>Понятно</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

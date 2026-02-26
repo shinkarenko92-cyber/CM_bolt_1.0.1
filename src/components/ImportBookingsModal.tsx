@@ -1,8 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { X, Upload, FileSpreadsheet } from 'lucide-react';
-import { Upload as AntUpload, Table, Button, Progress, Alert } from 'antd';
-import type { UploadFile, UploadProps } from 'antd';
 import { parseExcelFile, type ParsedBooking } from '../utils/excelParser';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
@@ -22,57 +30,63 @@ interface ImportResult {
 
 export function ImportBookingsModal({ isOpen, onClose, onSuccess }: ImportBookingsModalProps) {
   const { user } = useAuth();
-  const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
   const [parsedBookings, setParsedBookings] = useState<ParsedBooking[]>([]);
   const [parseErrors, setParseErrors] = useState<Array<{ row: number; message: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
-  const handleFileChange: UploadProps['onChange'] = async ({ fileList: newFileList }) => {
-    setFileList(newFileList);
+  const handleFile = async (file: File) => {
     setParsedBookings([]);
     setParseErrors([]);
     setImportResult(null);
-
-    if (newFileList.length === 0) {
-      return;
-    }
-
-    const file = newFileList[0].originFileObj;
-    if (!file) {
-      return;
-    }
-
-    // Проверяем расширение файла
-    const fileName = file.name.toLowerCase();
-    if (!fileName.endsWith('.xls') && !fileName.endsWith('.xlsx')) {
+    const fileNameLower = file.name.toLowerCase();
+    if (!fileNameLower.endsWith('.xls') && !fileNameLower.endsWith('.xlsx')) {
       toast.error('Файл должен быть в формате .xls или .xlsx');
-      setFileList([]);
       return;
     }
-
+    setFileName(file.name);
     setLoading(true);
     try {
       const result = await parseExcelFile(file);
       setParsedBookings(result.bookings);
       setParseErrors(result.errors);
-
       if (result.errors.length > 0) {
         toast(`Найдено ${result.errors.length} ошибок при парсинге`, { icon: '⚠️' });
       } else {
         toast.success(`Успешно распознано ${result.bookings.length} броней`);
       }
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Ошибка при чтении файла'
-      );
-      setFileList([]);
+      toast.error(error instanceof Error ? error.message : 'Ошибка при чтении файла');
+      setFileName(null);
     } finally {
       setLoading(false);
     }
   };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+    e.target.value = '';
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = () => setDragOver(false);
 
   const handleImport = useCallback(async () => {
     if (parsedBookings.length === 0 || !user) {
@@ -154,71 +168,21 @@ export function ImportBookingsModal({ isOpen, onClose, onSuccess }: ImportBookin
   }, [parsedBookings, user, onSuccess, onClose]);
 
   const handleClose = () => {
-    if (importing) {
-      return; // Не закрываем во время импорта
-    }
-    setFileList([]);
+    if (importing) return;
+    setFileName(null);
     setParsedBookings([]);
     setParseErrors([]);
     setImportResult(null);
     onClose();
   };
 
-  // Подсчет статистики
   const stats = {
     total: parsedBookings.length,
     revenue: parsedBookings.reduce((sum, b) => sum + b.amount, 0),
     uniqueProperties: new Set(parsedBookings.map(b => b.property_name)).size,
   };
 
-  // Preview таблица (первые 20 строк)
-  const previewData = parsedBookings.slice(0, 20).map((booking, index) => ({
-    key: index,
-    ...booking,
-  }));
-
-  const columns = [
-    {
-      title: 'Объект',
-      dataIndex: 'property_name',
-      key: 'property_name',
-    },
-    {
-      title: 'Заезд',
-      dataIndex: 'start_date',
-      key: 'start_date',
-      render: (date: string) => new Date(date).toLocaleDateString('ru-RU'),
-    },
-    {
-      title: 'Выезд',
-      dataIndex: 'end_date',
-      key: 'end_date',
-      render: (date: string) => new Date(date).toLocaleDateString('ru-RU'),
-    },
-    {
-      title: 'Гость',
-      dataIndex: 'guest_name',
-      key: 'guest_name',
-    },
-    {
-      title: 'Телефон',
-      dataIndex: 'guest_phone',
-      key: 'guest_phone',
-      render: (phone: string | null) => phone || '-',
-    },
-    {
-      title: 'Сумма',
-      dataIndex: 'amount',
-      key: 'amount',
-      render: (amount: number) => `${amount.toLocaleString('ru-RU')} ₽`,
-    },
-    {
-      title: 'Источник',
-      dataIndex: 'channel',
-      key: 'channel',
-      render: (channel: string) => channel.charAt(0).toUpperCase() + channel.slice(1),
-    },
-  ];
+  const previewData = parsedBookings.slice(0, 20);
 
   if (!isOpen) {
     return null;
@@ -248,24 +212,32 @@ export function ImportBookingsModal({ isOpen, onClose, onSuccess }: ImportBookin
         <div className="flex-1 overflow-y-auto p-6">
           {/* Upload Zone */}
           <div className="mb-6">
-            <AntUpload.Dragger
+            <input
+              ref={fileInputRef}
+              type="file"
               accept=".xls,.xlsx"
-              fileList={fileList}
+              className="hidden"
               onChange={handleFileChange}
-              beforeUpload={() => false} // Отключаем автоматическую загрузку
-              maxCount={1}
               disabled={loading || importing}
+            />
+            <div
+              role="button"
+              tabIndex={0}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                dragOver ? 'border-primary bg-primary/10' : 'border-border bg-muted/30 hover:bg-muted/50'
+              } ${loading || importing ? 'opacity-50 pointer-events-none' : ''}`}
             >
-              <p className="ant-upload-drag-icon flex justify-center">
-                <FileSpreadsheet size={48} className="text-teal-500" />
+              <FileSpreadsheet size={48} className="mx-auto text-primary mb-2" />
+              <p className="font-medium text-foreground">
+                {fileName || 'Нажмите или перетащите файл сюда для загрузки'}
               </p>
-              <p className="ant-upload-text text-white">
-                Нажмите или перетащите файл сюда для загрузки
-              </p>
-              <p className="ant-upload-hint text-slate-400">
-                Поддерживаются файлы .xls и .xlsx
-              </p>
-            </AntUpload.Dragger>
+              <p className="text-sm text-muted-foreground mt-1">Поддерживаются файлы .xls и .xlsx</p>
+            </div>
           </div>
 
           {/* Loading */}
@@ -277,26 +249,19 @@ export function ImportBookingsModal({ isOpen, onClose, onSuccess }: ImportBookin
 
           {/* Parse Errors */}
           {parseErrors.length > 0 && (
-            <Alert
-              message={`Найдено ${parseErrors.length} ошибок при парсинге`}
-              description={
-                <div className="max-h-40 overflow-y-auto mt-2">
-                  {parseErrors.slice(0, 10).map((error, idx) => (
-                    <div key={idx} className="text-sm text-slate-300">
-                      Строка {error.row}: {error.message}
-                    </div>
-                  ))}
-                  {parseErrors.length > 10 && (
-                    <div className="text-sm text-slate-400 mt-2">
-                      ... и еще {parseErrors.length - 10} ошибок
-                    </div>
-                  )}
-                </div>
-              }
-              type="warning"
-              showIcon
-              className="mb-4"
-            />
+            <div className="mb-4 rounded-md border border-warning/50 bg-warning/10 p-4">
+              <p className="font-medium text-warning">Найдено {parseErrors.length} ошибок при парсинге</p>
+              <div className="max-h-40 overflow-y-auto mt-2 space-y-1">
+                {parseErrors.slice(0, 10).map((error, idx) => (
+                  <div key={idx} className="text-sm text-muted-foreground">
+                    Строка {error.row}: {error.message}
+                  </div>
+                ))}
+                {parseErrors.length > 10 && (
+                  <div className="text-sm text-muted-foreground mt-2">... и еще {parseErrors.length - 10} ошибок</div>
+                )}
+              </div>
+            </div>
           )}
 
           {/* Preview Table */}
@@ -326,61 +291,73 @@ export function ImportBookingsModal({ isOpen, onClose, onSuccess }: ImportBookin
                   </div>
                 )}
               </div>
-              <div className="bg-slate-900 rounded-lg overflow-hidden">
-                <Table
-                  columns={columns}
-                  dataSource={previewData}
-                  pagination={false}
-                  scroll={{ y: 400 }}
-                  size="small"
-                />
+              <div className="rounded-lg border border-border overflow-hidden max-h-[400px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Объект</TableHead>
+                      <TableHead>Заезд</TableHead>
+                      <TableHead>Выезд</TableHead>
+                      <TableHead>Гость</TableHead>
+                      <TableHead>Телефон</TableHead>
+                      <TableHead>Сумма</TableHead>
+                      <TableHead>Источник</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {previewData.map((booking, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{booking.property_name}</TableCell>
+                        <TableCell>{new Date(booking.start_date).toLocaleDateString('ru-RU')}</TableCell>
+                        <TableCell>{new Date(booking.end_date).toLocaleDateString('ru-RU')}</TableCell>
+                        <TableCell>{booking.guest_name}</TableCell>
+                        <TableCell>{booking.guest_phone || '—'}</TableCell>
+                        <TableCell>{booking.amount.toLocaleString('ru-RU')} ₽</TableCell>
+                        <TableCell>{booking.channel.charAt(0).toUpperCase() + booking.channel.slice(1)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             </div>
           )}
 
           {/* Import Errors (Overlaps) */}
           {importResult && importResult.errors.length > 0 && (
-            <Alert
-              message="Импорт заблокирован: найдены пересечения дат"
-              description={
-                <div className="max-h-60 overflow-y-auto mt-2">
-                  {importResult.errors.map((error, idx) => (
-                    <div key={idx} className="text-sm text-slate-300 mb-2">
-                      <div className="font-medium">
-                        Строка {error.row} ({error.property_name || 'Неизвестный объект'}):
-                      </div>
-                      <div className="ml-4">{error.message}</div>
+            <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 p-4">
+              <p className="font-medium text-destructive">Импорт заблокирован: найдены пересечения дат</p>
+              <div className="max-h-60 overflow-y-auto mt-2 space-y-2">
+                {importResult.errors.map((error, idx) => (
+                  <div key={idx} className="text-sm text-muted-foreground">
+                    <div className="font-medium text-foreground">
+                      Строка {error.row} ({error.property_name || 'Неизвестный объект'}):
                     </div>
-                  ))}
-                </div>
-              }
-              type="error"
-              showIcon
-              className="mb-4"
-            />
+                    <div className="ml-4">{error.message}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* Import Progress */}
           {importing && (
             <div className="mb-4">
-              <Progress percent={importProgress} status="active" />
-              <div className="text-center text-slate-400 mt-2">Импорт броней...</div>
+              <Progress value={importProgress} className="h-2" />
+              <div className="text-center text-muted-foreground mt-2">Импорт броней...</div>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-700">
-          <Button onClick={handleClose} disabled={importing}>
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
+          <Button variant="outline" onClick={handleClose} disabled={importing}>
             Отмена
           </Button>
           <Button
-            type="primary"
             onClick={handleImport}
             disabled={parsedBookings.length === 0 || loading || importing}
-            icon={<Upload size={16} />}
-            loading={importing}
           >
+            <Upload size={16} />
             Импортировать всё ({parsedBookings.length})
           </Button>
         </div>

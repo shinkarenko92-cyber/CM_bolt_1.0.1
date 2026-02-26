@@ -3,7 +3,7 @@
  * Handles parsing errors from Avito API and Edge Function responses
  */
 
-import { Modal } from 'antd';
+import { useState, useEffect } from 'react';
 import type { TFunction } from 'i18next';
 
 /**
@@ -223,110 +223,61 @@ function getRecommendations(errorInfo: AvitoErrorInfo, t: TFunction): string[] {
   return recommendations;
 }
 
+// Queue for showing Avito errors via AvitoErrorModal (replaces antd Modal)
+export type AvitoErrorState = { error: AvitoErrorInfo; t: TFunction; onClose: () => void } | null;
+
+let avitoErrorState: AvitoErrorState = null;
+const avitoErrorListeners = new Set<() => void>();
+
+export function getAvitoErrorState(): AvitoErrorState {
+  return avitoErrorState;
+}
+
+function setAvitoErrorState(state: AvitoErrorState): void {
+  avitoErrorState = state;
+  avitoErrorListeners.forEach((fn) => fn());
+}
+
+export function useAvitoErrorState(): AvitoErrorState {
+  const [state, setState] = useState<AvitoErrorState>(() => getAvitoErrorState());
+  useEffect(() => {
+    const fn = () => setState(getAvitoErrorState());
+    avitoErrorListeners.add(fn);
+    return () => {
+      avitoErrorListeners.delete(fn);
+    };
+  }, []);
+  return state;
+}
+
 /**
- * Show Avito errors sequentially in modal dialogs
+ * Show Avito errors sequentially (via AvitoErrorQueue component mounted in the app)
  */
 export async function showAvitoErrors(
   errors: AvitoErrorInfo[],
   t: TFunction
 ): Promise<void> {
-  if (!errors || errors.length === 0) {
-    return;
-  }
+  if (!errors || errors.length === 0) return;
 
-  // Show errors one by one, waiting for each modal to close
-  for (const error of errors) {
-    await new Promise<void>((resolve) => {
-      let recommendations: string[] = [];
-      try {
-        recommendations = getRecommendations(error, t);
-        // Handle case where t() returns an object instead of string
-        recommendations = recommendations.map(rec => 
-          typeof rec === 'string' ? rec : 'Ошибка при получении рекомендаций'
-        );
-      } catch (err) {
-        // If getRecommendations throws (e.g., i18n key returned object), use empty array
-        console.warn('Error getting recommendations:', err);
-        recommendations = [];
+  return new Promise<void>((resolve) => {
+    let index = 0;
+    function showNext() {
+      if (index >= errors.length) {
+        resolve();
+        return;
       }
-      
-      const operationKey = `avito.errors.${error.operation}`;
-      let operationName: string;
-      try {
-        const opName = t(operationKey, { defaultValue: error.operation });
-        operationName = typeof opName === 'string' ? opName : error.operation;
-      } catch {
-        operationName = error.operation;
-      }
-
-      Modal.error({
-        title: t('avito.errors.syncFailed', { defaultValue: 'Ошибка синхронизации с Avito' }),
-        width: 600,
-        content: (
-          <div style={{ marginTop: 16 }}>
-            <div style={{ marginBottom: 12 }}>
-              <strong>{t('avito.errors.operation', { defaultValue: 'Операция' })}:</strong> {operationName}
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <strong>{t('avito.errors.message', { defaultValue: 'Сообщение' })}:</strong> {getDisplayMessage(error, t)}
-            </div>
-            {error.statusCode && (
-              <div style={{ marginBottom: 12 }}>
-                <strong>{t('avito.errors.statusCode', { defaultValue: 'Код статуса' })}:</strong> {error.statusCode}
-              </div>
-            )}
-            {error.errorCode && (
-              <div style={{ marginBottom: 12 }}>
-                <strong>{t('avito.errors.errorCode', { defaultValue: 'Код ошибки' })}:</strong> {error.errorCode}
-              </div>
-            )}
-            {error.details ? (() => {
-              const detailsString: string = typeof error.details === 'string' 
-                ? error.details 
-                : JSON.stringify(error.details, null, 2);
-              return (
-                <div style={{ marginBottom: 12 }}>
-                  <strong>{t('avito.errors.details', { defaultValue: 'Детали ошибки' })}:</strong>
-                  <pre style={{ 
-                    background: '#1e293b', 
-                    color: '#f1f5f9', 
-                    padding: '8px', 
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    maxHeight: '200px',
-                    overflow: 'auto',
-                    marginTop: '4px'
-                  }}>
-                    {detailsString}
-                  </pre>
-                </div>
-              );
-            })() : null}
-            {recommendations.length > 0 && (
-              <div style={{ marginTop: 16 }}>
-                <strong>{(() => {
-                  try {
-                    const label = t('avito.errors.recommendationsTitle', { defaultValue: 'Рекомендации' });
-                    return typeof label === 'string' ? label : 'Рекомендации';
-                  } catch {
-                    return 'Рекомендации';
-                  }
-                })()}:</strong>
-                <ul style={{ marginTop: '8px', marginBottom: 0, paddingLeft: '20px' }}>
-                  {recommendations.map((rec, index) => (
-                    <li key={index} style={{ marginBottom: '4px' }}>{rec}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        ),
-        okText: t('common.close', { defaultValue: 'Закрыть' }),
-        onOk: () => resolve(),
-        afterClose: () => resolve(),
+      const error = errors[index++];
+      setAvitoErrorState({
+        error,
+        t,
+        onClose: () => {
+          setAvitoErrorState(null);
+          showNext();
+        },
       });
-    });
-  }
+    }
+    showNext();
+  });
 }
 
 /**

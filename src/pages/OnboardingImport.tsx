@@ -1,7 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Upload as AntUpload, Table, Button, Progress, Alert } from 'antd';
-import type { UploadFile, UploadProps } from 'antd';
 import { FileSpreadsheet, ArrowRight } from 'lucide-react';
 import { parseExcelFile, type ParsedBooking } from '../utils/excelParser';
 import { supabase } from '../lib/supabase';
@@ -9,7 +7,16 @@ import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import confetti from 'canvas-confetti';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Button as ShadcnButton } from '../components/ui/button';
+import { Button } from '../components/ui/button';
+import { Progress } from '../components/ui/progress';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/ui/table';
 
 interface ImportResult {
   imported: number;
@@ -33,7 +40,8 @@ const INSTRUCTION = `Мы не даём готовый шаблон — испо
 
 export function OnboardingImport() {
   const { user } = useAuth();
-  const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
   const [parsedBookings, setParsedBookings] = useState<ParsedBooking[]>([]);
   const [parseErrors, setParseErrors] = useState<Array<{ row: number; message: string }>>([]);
   const [loading, setLoading] = useState(false);
@@ -41,26 +49,19 @@ export function OnboardingImport() {
   const [importProgress, setImportProgress] = useState(0);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [importSuccess, setImportSuccess] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
-  const handleFileChange: UploadProps['onChange'] = async ({ fileList: newFileList }) => {
-    setFileList(newFileList);
+  const handleFile = async (file: File) => {
     setParsedBookings([]);
     setParseErrors([]);
     setImportResult(null);
     setImportSuccess(false);
-
-    if (newFileList.length === 0) return;
-
-    const file = newFileList[0].originFileObj;
-    if (!file) return;
-
-    const fileName = file.name.toLowerCase();
-    if (!fileName.endsWith('.xls') && !fileName.endsWith('.xlsx')) {
+    const fileNameLower = file.name.toLowerCase();
+    if (!fileNameLower.endsWith('.xls') && !fileNameLower.endsWith('.xlsx')) {
       toast.error('Файл должен быть в формате .xls или .xlsx');
-      setFileList([]);
       return;
     }
-
+    setFileName(file.name);
     setLoading(true);
     try {
       const result = await parseExcelFile(file);
@@ -73,10 +74,23 @@ export function OnboardingImport() {
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Ошибка при чтении файла');
-      setFileList([]);
+      setFileName(null);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+    e.target.value = '';
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFile(file);
   };
 
   const handleImport = useCallback(async () => {
@@ -130,18 +144,7 @@ export function OnboardingImport() {
     }
   }, [parsedBookings, user]);
 
-  const previewData = parsedBookings.slice(0, 10).map((b, i) => ({
-    key: i,
-    ...b,
-  }));
-
-  const columns = [
-    { title: 'Объект', dataIndex: 'property_name', key: 'property_name' },
-    { title: 'Заезд', dataIndex: 'start_date', key: 'start_date', render: (d: string) => new Date(d).toLocaleDateString('ru-RU') },
-    { title: 'Выезд', dataIndex: 'end_date', key: 'end_date', render: (d: string) => new Date(d).toLocaleDateString('ru-RU') },
-    { title: 'Гость', dataIndex: 'guest_name', key: 'guest_name' },
-    { title: 'Сумма', dataIndex: 'amount', key: 'amount', render: (a: number) => `${a.toLocaleString('ru-RU')} ₽` },
-  ];
+  const previewData = parsedBookings.slice(0, 10);
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
@@ -154,39 +157,45 @@ export function OnboardingImport() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <AntUpload.Dragger
+            <input
+              ref={fileInputRef}
+              type="file"
               accept=".xls,.xlsx"
-              fileList={fileList}
+              className="hidden"
               onChange={handleFileChange}
-              beforeUpload={() => false}
-              maxCount={1}
               disabled={loading || importing}
+            />
+            <div
+              role="button"
+              tabIndex={0}
+              onDrop={handleDrop}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                dragOver ? 'border-primary bg-primary/10' : 'border-border bg-muted/30 hover:bg-muted/50'
+              } ${loading || importing ? 'opacity-50 pointer-events-none' : ''}`}
             >
-              <p className="ant-upload-drag-icon flex justify-center">
-                <FileSpreadsheet className="h-12 w-12 text-primary" />
-              </p>
-              <p className="ant-upload-text">Нажмите или перетащите файл сюда</p>
-              <p className="ant-upload-hint text-muted-foreground">Поддерживаются .xls и .xlsx</p>
-            </AntUpload.Dragger>
+              <FileSpreadsheet className="h-12 w-12 text-primary mx-auto mb-2" />
+              <p className="font-medium">{fileName || 'Нажмите или перетащите файл сюда'}</p>
+              <p className="text-sm text-muted-foreground mt-1">Поддерживаются .xls и .xlsx</p>
+            </div>
 
             {loading && (
               <div className="text-center py-4 text-muted-foreground">Парсинг файла...</div>
             )}
 
             {parseErrors.length > 0 && (
-              <Alert
-                message={`Найдено ${parseErrors.length} ошибок при парсинге`}
-                description={
-                  <div className="max-h-32 overflow-y-auto mt-2 text-sm">
-                    {parseErrors.slice(0, 5).map((e, i) => (
-                      <div key={i}>Строка {e.row}: {e.message}</div>
-                    ))}
-                    {parseErrors.length > 5 && `... и ещё ${parseErrors.length - 5}`}
-                  </div>
-                }
-                type="warning"
-                showIcon
-              />
+              <div className="rounded-md border border-warning/50 bg-warning/10 p-4">
+                <p className="font-medium text-warning">Найдено {parseErrors.length} ошибок при парсинге</p>
+                <div className="max-h-32 overflow-y-auto mt-2 text-sm space-y-1">
+                  {parseErrors.slice(0, 5).map((e, i) => (
+                    <div key={i}>Строка {e.row}: {e.message}</div>
+                  ))}
+                  {parseErrors.length > 5 && <div className="text-muted-foreground">... и ещё {parseErrors.length - 5}</div>}
+                </div>
+              </div>
             )}
 
             {parsedBookings.length > 0 && !importSuccess && (
@@ -195,46 +204,50 @@ export function OnboardingImport() {
                   <p className="text-sm text-muted-foreground">
                     Распознано броней: {parsedBookings.length}
                   </p>
-                  <Button
-                    type="primary"
-                    onClick={handleImport}
-                    disabled={importing}
-                    loading={importing}
-                  >
-                    Импортировать всё ({parsedBookings.length})
+                  <Button onClick={handleImport} disabled={importing}>
+                    {importing ? 'Импорт...' : `Импортировать всё (${parsedBookings.length})`}
                   </Button>
                 </div>
-                {importing && (
-                  <Progress percent={importProgress} status="active" />
-                )}
+                {importing && <Progress value={importProgress} className="h-2" />}
                 {importResult && importResult.errors.length > 0 && (
-                  <Alert
-                    message="Импорт заблокирован: пересечения дат"
-                    description={
-                      <div className="max-h-24 overflow-y-auto mt-2 text-sm">
-                        {importResult.errors.slice(0, 3).map((e, i) => (
-                          <div key={i}>Строка {e.row}: {e.message}</div>
-                        ))}
-                      </div>
-                    }
-                    type="error"
-                    showIcon
-                  />
-                )}
-                <div className="border rounded-md overflow-hidden">
-                  <Table
-                    dataSource={previewData}
-                    columns={columns}
-                    pagination={false}
-                    size="small"
-                    scroll={{ y: 200 }}
-                  />
-                  {parsedBookings.length > 10 && (
-                    <div className="text-center py-2 text-sm text-muted-foreground border-t">
-                      Показаны первые 10 из {parsedBookings.length}
+                  <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4">
+                    <p className="font-medium text-destructive">Импорт заблокирован: пересечения дат</p>
+                    <div className="max-h-24 overflow-y-auto mt-2 text-sm space-y-1">
+                      {importResult.errors.slice(0, 3).map((e, i) => (
+                        <div key={i}>Строка {e.row}: {e.message}</div>
+                      ))}
                     </div>
-                  )}
+                  </div>
+                )}
+                <div className="border border-border rounded-md overflow-hidden max-h-[200px] overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Объект</TableHead>
+                        <TableHead>Заезд</TableHead>
+                        <TableHead>Выезд</TableHead>
+                        <TableHead>Гость</TableHead>
+                        <TableHead>Сумма</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {previewData.map((b, i) => (
+                        <TableRow key={i}>
+                          <TableCell>{b.property_name}</TableCell>
+                          <TableCell>{new Date(b.start_date).toLocaleDateString('ru-RU')}</TableCell>
+                          <TableCell>{new Date(b.end_date).toLocaleDateString('ru-RU')}</TableCell>
+                          <TableCell>{b.guest_name}</TableCell>
+                          <TableCell>{b.amount.toLocaleString('ru-RU')} ₽</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
+                {parsedBookings.length > 10 && (
+                  <div className="text-center py-2 text-sm text-muted-foreground border border-border rounded-md">
+                    Показаны первые 10 из {parsedBookings.length}
+                  </div>
+                )}
               </>
             )}
 
@@ -244,15 +257,15 @@ export function OnboardingImport() {
                   Импортировано {importResult.imported} броней. Можешь перейти в календарь или подключить Avito.
                 </p>
                 <div className="flex flex-wrap gap-3">
-                  <ShadcnButton asChild>
+                  <Button asChild>
                     <Link to="/">В календарь</Link>
-                  </ShadcnButton>
-                  <ShadcnButton variant="outline" asChild>
+                  </Button>
+                  <Button variant="outline" asChild>
                     <Link to="/">
                       Дальше — подключаем Avito
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
-                  </ShadcnButton>
+                  </Button>
                 </div>
               </div>
             )}
