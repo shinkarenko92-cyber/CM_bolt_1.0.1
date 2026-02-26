@@ -1,6 +1,13 @@
-import { X, CreditCard, CheckCircle, XCircle, Sun, Moon } from 'lucide-react';
-import { Profile } from '../lib/supabase';
+import { useState, useEffect } from 'react';
+import { X, CreditCard, CheckCircle, XCircle, Sun, Moon, Globe } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
+import { Profile, supabase } from '../lib/supabase';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
+import { Label } from './ui/label';
 
 type UserProfileModalProps = {
   isOpen: boolean;
@@ -10,8 +17,71 @@ type UserProfileModalProps = {
 
 export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalProps) {
   const { theme, toggleTheme } = useTheme();
+  const { t, i18n } = useTranslation();
+  const { refreshProfile } = useAuth();
+  const [fullName, setFullName] = useState(profile?.full_name ?? '');
+  const [email, setEmail] = useState(profile?.email ?? '');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.full_name ?? '');
+      setEmail(profile.email ?? '');
+    }
+  }, [profile?.id, profile?.full_name, profile?.email]);
 
   if (!isOpen || !profile) return null;
+
+  const handleLanguageChange = (langCode: string) => {
+    i18n.changeLanguage(langCode);
+    try {
+      localStorage.setItem('language', langCode);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!profile?.id) return;
+    setSaving(true);
+    try {
+      const updates: { full_name?: string; email?: string } = {};
+      if (fullName.trim() !== (profile.full_name ?? '')) updates.full_name = fullName.trim() || null;
+      if (email.trim() !== (profile.email ?? '')) updates.email = email.trim() || null;
+
+      if (Object.keys(updates).length === 0) {
+        setSaving(false);
+        return;
+      }
+
+      if (updates.email !== undefined) {
+        const { error: authError } = await supabase.auth.updateUser({ email: updates.email });
+        if (authError) {
+          toast.error(authError.message || t('settings.profileUpdateError', { defaultValue: 'Ошибка обновления email' }));
+          setSaving(false);
+          return;
+        }
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', profile.id);
+
+      if (error) {
+        toast.error(error.message || t('errors.somethingWentWrong'));
+        setSaving(false);
+        return;
+      }
+
+      await refreshProfile();
+      toast.success(t('settings.profileUpdated', { defaultValue: 'Профиль обновлён' }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('errors.somethingWentWrong'));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const isPaid = !['free', 'basic', 'trial'].includes(profile.subscription_tier);
   const isExpired = profile.subscription_expires_at
@@ -57,23 +127,68 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
         </div>
 
         <div className="p-6 space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">
-              Full Name
-            </label>
-            <div className="text-white font-medium">
-              {profile.full_name || 'Not set'}
+          <div className="space-y-2">
+            <Label className="text-slate-300">
+              {t('settings.language', { defaultValue: 'Язык' })}
+            </Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => handleLanguageChange('ru')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  i18n.language === 'ru' ? 'bg-teal-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                }`}
+              >
+                <Globe className="w-4 h-4" />
+                Русский
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLanguageChange('en')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  i18n.language === 'en' ? 'bg-teal-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                }`}
+              >
+                <Globe className="w-4 h-4" />
+                English
+              </button>
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">
-              Email
-            </label>
-            <div className="text-white font-medium">
-              {profile.email || 'Not set'}
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="profile-full-name" className="text-slate-300">
+              {t('settings.fullName', { defaultValue: 'ФИО' })}
+            </Label>
+            <Input
+              id="profile-full-name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder={t('settings.fullNamePlaceholder', { defaultValue: 'Введите имя' })}
+              className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+            />
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="profile-email" className="text-slate-300">
+              Email
+            </Label>
+            <Input
+              id="profile-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+            />
+          </div>
+
+          <Button
+            onClick={handleSaveProfile}
+            disabled={saving}
+            className="w-full bg-teal-600 hover:bg-teal-700"
+          >
+            {saving ? t('common.loading', { defaultValue: 'Сохранение...' }) : t('common.save', { defaultValue: 'Сохранить' })}
+          </Button>
 
           {profile.business_name && (
             <div>

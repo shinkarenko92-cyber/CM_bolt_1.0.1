@@ -264,7 +264,11 @@
     "deleteAccountNow": "Delete account now",
     "deleteAccountNowTitle": "Delete account permanently",
     "deleteAccountNowMessage": "All your data (properties, bookings, guests, chats) will be permanently deleted and cannot be restored. Are you sure?",
-    "deleteAccountNowConfirm": "Delete permanently"
+    "deleteAccountNowConfirm": "Delete permanently",
+    "profileUpdated": "Profile updated",
+    "profileUpdateError": "Error updating email",
+    "fullName": "Full name",
+    "fullNamePlaceholder": "Enter name"
   },
   "sources": {
     "manual": "Manual",

@@ -272,7 +272,11 @@
     "deleteAccountNow": "Удалить аккаунт сейчас",
     "deleteAccountNowTitle": "Удалить аккаунт безвозвратно",
     "deleteAccountNowMessage": "Все ваши данные (объекты, брони, гости, чаты) будут безвозвратно удалены. Восстановление невозможно. Продолжить?",
-    "deleteAccountNowConfirm": "Удалить безвозвратно"
+    "deleteAccountNowConfirm": "Удалить безвозвратно",
+    "profileUpdated": "Профиль обновлён",
+    "profileUpdateError": "Ошибка обновления email",
+    "fullName": "ФИО",
+    "fullNamePlaceholder": "Введите имя"
   },
   "sources": {
     "manual": "Вручную",
