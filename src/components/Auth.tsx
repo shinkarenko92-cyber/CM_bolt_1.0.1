@@ -27,14 +27,18 @@ export function Auth({ showSignUpToggle = true }: AuthProps) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { user, signIn, signUp } = useAuth();
 
   useEffect(() => {
+    if (user) {
+      navigate('/', { replace: true });
+      return;
+    }
     if (location.state?.fromSignup) {
       setSuccess(t('auth.verifyEmailNotice'));
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [location.state?.fromSignup, location.pathname, navigate, t]);
+  }, [user, location.state?.fromSignup, location.pathname, navigate, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,6 +80,7 @@ export function Auth({ showSignUpToggle = true }: AuthProps) {
         }
       } else {
         await signIn(email, password);
+        navigate('/', { replace: true });
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('errors.somethingWentWrong'));
