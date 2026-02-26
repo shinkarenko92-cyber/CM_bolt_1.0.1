@@ -3,6 +3,7 @@ import { X, CreditCard, CheckCircle, XCircle, Sun, Moon, Globe } from 'lucide-re
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { Profile, supabase } from '../lib/supabase';
+import { TIER_PRICE_RUB, TIER_OBJECT_RANGE } from '../utils/subscriptionLimits';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Input } from './ui/input';
@@ -83,7 +84,7 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
     }
   };
 
-  const isPaid = !['free', 'basic', 'trial'].includes(profile.subscription_tier);
+  const isPaid = !['free', 'basic', 'trial', 'demo'].includes(profile.subscription_tier);
   const isExpired = profile.subscription_expires_at
     ? new Date(profile.subscription_expires_at) < new Date()
     : false;
@@ -91,7 +92,8 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
   const tierLabels: Record<string, string> = {
     free: 'Free',
     basic: 'Basic',
-    trial: 'Триал',
+    demo: 'Demo',
+    trial: 'Demo',
     start: 'Start',
     starter: 'Start',
     pro: 'Pro',
@@ -99,6 +101,9 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
     premium: 'Premium',
     enterprise: 'Enterprise',
   };
+
+  const tierPrice = TIER_PRICE_RUB[profile.subscription_tier] ?? null;
+  const tierRange = TIER_OBJECT_RANGE[profile.subscription_tier] ?? '';
 
   const PAYMENT_CONTACT_EMAIL = 'support@roomi.pro';
   const paymentSubject = encodeURIComponent('Запрос на оплату по счёту — Roomi Pro');
@@ -212,7 +217,7 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
             <div className="flex items-center justify-between mb-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">
-                  Subscription Tier
+                  Тариф
                 </label>
                 <div className="flex items-center gap-2">
                   <span className="text-lg font-bold text-white">
@@ -224,15 +229,21 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
                     <XCircle className="w-5 h-5 text-slate-500" />
                   )}
                 </div>
+                {tierRange && (
+                  <p className="text-sm text-slate-400 mt-0.5">{tierRange}</p>
+                )}
+                {tierPrice != null && tierPrice > 0 && (
+                  <p className="text-sm text-slate-400">{tierPrice.toLocaleString('ru-RU')} ₽/мес</p>
+                )}
               </div>
               <div className="text-right">
-                <div className="text-sm text-slate-400">Status</div>
+                <div className="text-sm text-slate-400">Статус</div>
                 <div
                   className={`text-sm font-semibold ${
                     isPaid && !isExpired ? 'text-green-500' : 'text-slate-500'
                   }`}
                 >
-                  {isPaid && !isExpired ? 'Paid' : 'Unpaid'}
+                  {isPaid && !isExpired ? 'Оплачен' : 'Не оплачен'}
                 </div>
               </div>
             </div>
@@ -240,7 +251,7 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
             {profile.subscription_expires_at && (
               <div className="mb-4">
                 <label className="block text-sm font-medium text-slate-300 mb-1">
-                  Subscription Expires
+                  Действует до
                 </label>
                 <div
                   className={`text-sm ${
@@ -248,7 +259,7 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
                   }`}
                 >
                   {formatDate(profile.subscription_expires_at)}
-                  {isExpired && ' (Expired)'}
+                  {isExpired && ' (Истекла)'}
                 </div>
               </div>
             )}

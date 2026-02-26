@@ -40,8 +40,16 @@ import { showAvitoErrors } from '../services/avitoErrors';
 import { DeletePropertyModal } from './DeletePropertyModal';
 import { ImportBookingsModal } from './ImportBookingsModal';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
 import { logBookingChange, getBookingChanges } from '../services/bookingLog';
-import { getPropertyLimit, getBookingLimit, isTrialExpired } from '../utils/subscriptionLimits';
+import { getPropertyLimit, getBookingLimit, isDemoExpired } from '../utils/subscriptionLimits';
 
 type NewReservation = {
   property_id: string;
@@ -122,6 +130,7 @@ export function Dashboard() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [isGuestModalOpen, setIsGuestModalOpen] = useState(false);
+  const [isBookingLimitModalOpen, setIsBookingLimitModalOpen] = useState(false);
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1065,11 +1074,7 @@ export function Dashboard() {
           b => userPropertyIds.includes(b.property_id) && new Date(b.check_in) >= monthStart
         ).length;
         if (countThisMonth >= limit) {
-          toast.error(
-            t('subscription.bookingLimitReached', {
-              defaultValue: 'Лимит бронирований по тарифу за месяц достигнут. Перейдите в профиль для смены плана.',
-            })
-          );
+          setIsBookingLimitModalOpen(true);
           return;
         }
       }
@@ -1944,10 +1949,10 @@ export function Dashboard() {
           </div>
         </header>
 
-        {userProfile && isTrialExpired(userProfile) && (
+        {userProfile && isDemoExpired(userProfile) && (
           <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 flex items-center justify-center gap-2 flex-wrap">
             <span className="text-amber-800 dark:text-amber-200 text-sm font-medium">
-              {t('subscription.trialExpired', { defaultValue: 'Триал закончился. Выберите тариф в профиле для продолжения работы.' })}
+              {t('subscription.demoExpired', { defaultValue: 'Демо закончилось. Выберите тариф в профиле для продолжения работы.' })}
             </span>
             <Button variant="outline" size="sm" onClick={() => setIsProfileModalOpen(true)} className="border-amber-500/50 text-amber-800 dark:text-amber-200">
               {t('subscription.openProfile', { defaultValue: 'Профиль и тариф' })}
@@ -2133,6 +2138,34 @@ export function Dashboard() {
               onClose={() => setIsProfileModalOpen(false)}
               profile={userProfile}
             />
+            <Dialog open={isBookingLimitModalOpen} onOpenChange={setIsBookingLimitModalOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>{t('subscription.bookingLimitTitle', { defaultValue: 'Лимит бронирований' })}</DialogTitle>
+                  <DialogDescription>
+                    {t('subscription.bookingLimitReached', {
+                      defaultValue: 'Лимит бронирований по тарифу за месяц достигнут. Перейдите в профиль для смены плана.',
+                    })}
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="flex flex-col gap-2 sm:flex-row">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsBookingLimitModalOpen(false)}
+                  >
+                    {t('common.cancel')}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setIsBookingLimitModalOpen(false);
+                      setIsProfileModalOpen(true);
+                    }}
+                  >
+                    {t('subscription.requestInvoiceOrPlan', { defaultValue: 'Запросить счёт / Подключить тариф' })}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center bg-background">

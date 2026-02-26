@@ -488,7 +488,10 @@
   "subscription": {
     "propertyLimitReached": "Property limit reached for your plan. Go to profile and request an invoice to upgrade.",
     "bookingLimitReached": "Monthly booking limit for your plan reached. Go to profile to change plan.",
+    "bookingLimitTitle": "Booking limit",
+    "requestInvoiceOrPlan": "Request invoice / Upgrade plan",
     "trialExpired": "Trial ended. Choose a plan in profile to continue.",
+    "demoExpired": "Demo ended. Choose a plan in profile to continue.",
     "openProfile": "Profile & plan"
   },
   "cookieConsent": {

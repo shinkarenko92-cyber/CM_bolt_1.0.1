@@ -285,7 +285,7 @@ export function AdminView() {
       const expiresAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
       const { error } = await supabase
         .from('profiles')
-        .update({ subscription_tier: 'trial', subscription_expires_at: expiresAt })
+        .update({ subscription_tier: 'demo', subscription_expires_at: expiresAt })
         .eq('id', userId);
 
       if (error) throw error;

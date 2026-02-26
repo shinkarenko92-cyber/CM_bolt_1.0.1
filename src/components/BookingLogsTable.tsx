@@ -6,6 +6,7 @@ import { BookingLog } from '../lib/supabase';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAuth } from '../contexts/AuthContext';
+import { isDemoExpired } from '../utils/subscriptionLimits';
 
 interface BookingLogsTableProps {
   logs: BookingLog[];
@@ -34,7 +35,9 @@ const actionLabels: Record<string, string> = {
 
 export function BookingLogsTable({ logs, loading }: BookingLogsTableProps) {
   const { profile } = useAuth();
-  const canAccessLogs = ['pro', 'business', 'enterprise'].includes(profile?.subscription_tier ?? '');
+  const tier = profile?.subscription_tier ?? '';
+  const isDemoActive = (tier === 'demo' || tier === 'trial') && profile && !isDemoExpired(profile);
+  const canAccessLogs = ['pro', 'business', 'enterprise'].includes(tier) || isDemoActive;
 
   const exportToCSV = () => {
     if (!canAccessLogs) {

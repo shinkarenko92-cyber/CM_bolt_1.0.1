@@ -107,15 +107,15 @@ Deno.serve(async (req: Request) => {
         console.error("createUser error:", createError);
         return jsonResponse({ error: "Failed to create user" }, 500);
       }
-      const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const demoEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       const { error: profileError } = await adminClient.from("profiles").insert({
         id: newUser.user.id,
         email,
         phone,
         role: "user",
         is_active: true,
-        subscription_tier: "trial",
-        subscription_expires_at: trialEndsAt,
+        subscription_tier: "demo",
+        subscription_expires_at: demoEndsAt,
       });
       if (profileError) {
         console.error("profile insert error:", profileError);
