@@ -120,9 +120,12 @@ export function Calendar({
   const calendarRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const seenPropertyIds = useRef<Set<string>>(new Set());
+  const justDroppedRef = useRef(false);
 
   const CELL_WIDTH = 64;
   const ROW_HEIGHT = 56;
+  /** Высота строки с датами (sticky header) внутри scroll-контейнера — для корректного расчёта Y при перетаскивании */
+  const DATES_HEADER_HEIGHT = 56;
 
   const currentDateTimestamp = currentDate.getTime();
 
@@ -243,10 +246,11 @@ export function Calendar({
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (dragState.booking && calendarRef.current) {
-        const rect = calendarRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+      if (dragState.booking && scrollContainerRef.current && calendarRef.current) {
+        const scrollEl = scrollContainerRef.current;
+        const scrollRect = scrollEl.getBoundingClientRect();
+        const x = e.clientX - scrollRect.left + scrollEl.scrollLeft;
+        const y = e.clientY - scrollRect.top + scrollEl.scrollTop - DATES_HEADER_HEIGHT;
         updateDragOver(x, y);
       }
     };
@@ -262,11 +266,12 @@ export function Calendar({
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (dragState.booking && calendarRef.current && e.touches[0]) {
+      if (dragState.booking && scrollContainerRef.current && e.touches[0]) {
         const touch = e.touches[0];
-        const rect = calendarRef.current.getBoundingClientRect();
-        const x = touch.clientX - rect.left;
-        const y = touch.clientY - rect.top;
+        const scrollEl = scrollContainerRef.current;
+        const scrollRect = scrollEl.getBoundingClientRect();
+        const x = touch.clientX - scrollRect.left + scrollEl.scrollLeft;
+        const y = touch.clientY - scrollRect.top + scrollEl.scrollTop - DATES_HEADER_HEIGHT;
         updateDragOver(x, y);
         e.preventDefault();
       }
@@ -403,7 +408,7 @@ export function Calendar({
     }
 
     try {
-      // Find the booking in local state to ensure we have current data
+      justDroppedRef.current = true;
       const bookingToUpdate = bookings.find(b => b.id === dragState.booking!.id);
       if (!bookingToUpdate) return;
 
@@ -431,6 +436,8 @@ export function Calendar({
     } catch (error) {
       console.error('Error moving booking:', error);
       toast.error('Ошибка при переносе брони');
+    } finally {
+      setTimeout(() => { justDroppedRef.current = false; }, 100);
     }
   };
 
@@ -1114,7 +1121,13 @@ export function Calendar({
                                         layerIndex={layerIndex}
                                         cellWidth={CELL_WIDTH}
                                         rowHeight={ROW_HEIGHT}
-                                        onClick={() => onEditReservation(booking)}
+                                        onClick={() => {
+                                          if (justDroppedRef.current) {
+                                            justDroppedRef.current = false;
+                                            return;
+                                          }
+                                          onEditReservation(booking);
+                                        }}
                                         onDragStart={(b) => setDragState({ booking: b, originalPropertyId: property.id })}
                                         onDragEnd={() => setDragState({ booking: null, originalPropertyId: null })}
                                         isDragging={dragState.booking?.id === booking.id}
