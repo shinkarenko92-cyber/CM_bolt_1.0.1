@@ -58,7 +58,16 @@
     "requiredConsent": "Consent is required",
     "agreeWith": "I agree with",
     "termsOfUse": "Terms of Use",
-    "privacyPolicy": "Privacy Policy"
+    "privacyPolicy": "Privacy Policy",
+    "loginByPhone": "Sign in with phone",
+    "loginByEmail": "Sign in with email",
+    "enterCode": "Enter the code from the message",
+    "codeVia": "Code via",
+    "getCode": "Get code",
+    "code": "Code",
+    "changePhone": "Change number",
+    "telegramIdOptional": "Telegram ID (optional, for code delivery)",
+    "phoneInvalid": "Enter a valid phone number"
   },
   "nav": {
     "calendar": "Calendar",
@@ -74,6 +83,8 @@
     "changeConditions": "Change Conditions",
     "rangeChoiceTitle": "Choose action",
     "rangeChoiceDescription": "Add a booking for the selected dates or change conditions (price and minimum nights)?",
+    "rangeHint": "{{start}} → {{end}} ({{nightsCount}} {{nightsWord}})",
+    "dragToOtherObject": "Move to another property",
     "objects": "Properties",
     "noObjects": "No properties. Add your first property to get started.",
     "prevMonth": "Previous month",
@@ -202,7 +213,15 @@
     "approveDeletion": "Approve Deletion",
     "rejectDeletion": "Reject Deletion",
     "deletionApproved": "Deletion request approved, account deleted",
-    "deletionRejected": "Deletion request rejected"
+    "deletionRejected": "Deletion request rejected",
+    "tier": "Tier",
+    "demoUntil": "Demo until",
+    "enableDemo": "Enable demo",
+    "disableDemo": "Disable demo",
+    "confirmEnableDemo": "Enable 7-day demo access for this user?",
+    "confirmDisableDemo": "Disable demo and set to Free tier?",
+    "demoEnabled": "Demo enabled for 7 days",
+    "demoDisabled": "Demo disabled"
   },
   "modals": {
     "addReservation": "Add Reservation",
@@ -251,6 +270,7 @@
   },
   "settings": {
     "title": "Settings",
+    "close": "Close",
     "language": "Language",
     "theme": "Theme",
     "lightTheme": "Light",
@@ -467,6 +487,7 @@
   },
   "subscription": {
     "propertyLimitReached": "Property limit reached for your plan. Go to profile and request an invoice to upgrade.",
+    "bookingLimitReached": "Monthly booking limit for your plan reached. Go to profile to change plan.",
     "trialExpired": "Trial ended. Choose a plan in profile to continue.",
     "openProfile": "Profile & plan"
   },

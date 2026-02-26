@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Plus, Settings, Moon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import { parseISO, format, isBefore, isSameDay } from 'date-fns';
+import { parseISO, format, isBefore, isSameDay, differenceInDays } from 'date-fns';
 import { Property, Booking, PropertyRate, supabase } from '../lib/supabase';
 import { CalendarHeader } from './CalendarHeader';
 import { BookingBlock } from './BookingBlock';
@@ -719,7 +719,8 @@ export function Calendar({
             endDate: null,
           });
         } else {
-          // Обе даты выбраны — открываем модалку выбора: бронирование или изменить условия
+          // Обе даты выбраны: startDate = check_in (заезд), endDate = check_out (день выезда), без +1 дня.
+          // Например, выбор 26 → 27 даёт одну ночь: check_in 26, check_out 27.
           setRangeChoiceData({
             propertyId,
             startDate: dateSelection.startDate,
@@ -1056,9 +1057,12 @@ export function Calendar({
                                       : Math.round(basePrice * (1 + markup / 100));
                                     const displayMinStay = rate?.min_stay ?? property.minimum_booking_days;
                                     const isDragOverThisCell = dragOverDates.has(dateString) && dragOverCell?.propertyId === property.id;
-                                    const dragOverColor = isDragValid
-                                      ? 'bg-emerald-500/40 ring-2 ring-emerald-400 ring-inset'
-                                      : 'bg-rose-500/40 ring-2 ring-rose-400 ring-inset';
+                                    const isDragOverOtherProperty = isDragOverThisCell && dragState.booking && dragOverCell?.propertyId !== dragState.originalPropertyId;
+                                    const dragOverColor = !isDragValid
+                                      ? 'bg-rose-500/40 ring-2 ring-rose-400 ring-inset'
+                                      : isDragOverOtherProperty
+                                        ? 'bg-primary/30 ring-2 ring-primary ring-inset'
+                                        : 'bg-emerald-500/40 ring-2 ring-emerald-400 ring-inset';
                                     const currencySymbol = property.currency === 'RUB' ? '₽' : property.currency;
 
                                     return (
@@ -1067,6 +1071,7 @@ export function Calendar({
                                         className={`w-16 flex-shrink-0 border-r border-border cursor-pointer transition-all relative flex flex-col overflow-hidden ${isToday ? 'bg-primary/20' : isWeekend ? 'bg-slate-700/50' : ''
                                           } ${isSelected ? 'bg-booking/30' : ''
                                           } ${isInRange || isHoverRange ? 'bg-booking/20 shadow-[inset_0_0_15px_rgba(135,221,245,0.3)] ring-1 ring-booking/40 ring-inset' : ''} ${isDragOverThisCell ? dragOverColor : ''} ${!isOccupied ? 'hover:bg-slate-800/30 hover:ring-2 hover:ring-booking/30' : ''}`}
+                                        title={isDragOverOtherProperty ? t('calendar.dragToOtherObject', { defaultValue: 'Перенести на другой объект' }) : undefined}
                                         onClick={() => !isOccupied && handleCellClick(property.id, date)}
                                         onMouseEnter={() => {
                                           if (dateSelection.startDate && !dateSelection.endDate && dateSelection.propertyId === property.id) {
@@ -1165,6 +1170,22 @@ export function Calendar({
             <DialogHeader>
               <DialogTitle>{t('calendar.rangeChoiceTitle')}</DialogTitle>
               <DialogDescription>{t('calendar.rangeChoiceDescription')}</DialogDescription>
+              {(() => {
+                const start = parseISO(rangeChoiceData.startDate);
+                const end = parseISO(rangeChoiceData.endDate);
+                const nights = differenceInDays(end, start);
+                const nightsWord = nights === 1 ? t('common.night') : nights >= 2 && nights <= 4 ? t('common.nights_few') : t('common.nights');
+                return (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {t('calendar.rangeHint', {
+                      start: format(start, 'dd.MM'),
+                      end: format(end, 'dd.MM'),
+                      nightsCount: nights,
+                      nightsWord,
+                    })}
+                  </p>
+                );
+              })()}
             </DialogHeader>
             <DialogFooter className="gap-2 sm:gap-0">
               <Button variant="outline" onClick={() => (setShowRangeChoiceModal(false), setRangeChoiceData(null), resetDateSelection())}>

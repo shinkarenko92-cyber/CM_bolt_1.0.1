@@ -14,10 +14,12 @@ type AdminStats = {
 };
 
 type ConfirmAction = {
-  type: 'makeAdmin' | 'activate' | 'deactivate' | 'forceDelete';
+  type: 'makeAdmin' | 'activate' | 'deactivate' | 'forceDelete' | 'enableDemo' | 'disableDemo';
   userId: string;
   userName?: string;
 } | null;
+
+const TRIAL_DAYS = 7;
 
 export function AdminView() {
   const { t } = useTranslation();
@@ -277,6 +279,47 @@ export function AdminView() {
     }
   };
 
+  const handleEnableDemo = async (userId: string) => {
+    setActionLoading(true);
+    try {
+      const expiresAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+      const { error } = await supabase
+        .from('profiles')
+        .update({ subscription_tier: 'trial', subscription_expires_at: expiresAt })
+        .eq('id', userId);
+
+      if (error) throw error;
+      await loadAdminData();
+      toast.success(t('admin.demoEnabled', { defaultValue: 'Демо включено на 7 дней' }));
+    } catch (error) {
+      console.error('Error enabling demo:', error);
+      toast.error(t('admin.actionFailed'));
+    } finally {
+      setActionLoading(false);
+      setConfirmAction(null);
+    }
+  };
+
+  const handleDisableDemo = async (userId: string) => {
+    setActionLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ subscription_tier: 'free', subscription_expires_at: null })
+        .eq('id', userId);
+
+      if (error) throw error;
+      await loadAdminData();
+      toast.success(t('admin.demoDisabled', { defaultValue: 'Демо отключено' }));
+    } catch (error) {
+      console.error('Error disabling demo:', error);
+      toast.error(t('admin.actionFailed'));
+    } finally {
+      setActionLoading(false);
+      setConfirmAction(null);
+    }
+  };
+
   const getFilteredUsers = () => {
     let filtered = users;
     if (searchTerm) {
@@ -351,6 +394,8 @@ export function AdminView() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Role</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">{t('admin.tier', { defaultValue: 'Тариф' })}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">{t('admin.demoUntil', { defaultValue: 'Демо до' })}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Properties</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Bookings</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Registered</th>
@@ -375,6 +420,12 @@ export function AdminView() {
                     }`}>
                       {profile.is_active ? 'Active' : 'Inactive'}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{profile.subscription_tier ?? 'free'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
+                    {profile.subscription_expires_at
+                      ? new Date(profile.subscription_expires_at).toLocaleDateString()
+                      : '—'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{getUserPropertyCount(profile.id)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{getUserBookingCount(profile.id)}</td>
@@ -416,6 +467,20 @@ export function AdminView() {
                           {t('admin.activate')}
                         </>
                       )}
+                    </button>
+                    <button
+                      onClick={() => setConfirmAction({ type: 'enableDemo', userId: profile.id, userName: profile.email || profile.full_name || '' })}
+                      disabled={actionLoading}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs transition-colors disabled:opacity-50"
+                    >
+                      {t('admin.enableDemo', { defaultValue: 'Включить демо' })}
+                    </button>
+                    <button
+                      onClick={() => setConfirmAction({ type: 'disableDemo', userId: profile.id, userName: profile.email || profile.full_name || '' })}
+                      disabled={actionLoading}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs transition-colors disabled:opacity-50"
+                    >
+                      {t('admin.disableDemo', { defaultValue: 'Отключить демо' })}
                     </button>
                     {profile.id !== user?.id && (
                       <button
@@ -830,6 +895,10 @@ export function AdminView() {
             handleToggleUserStatus(confirmAction.userId, true);
           } else if (confirmAction?.type === 'forceDelete') {
             handleForceDeleteUser(confirmAction.userId);
+          } else if (confirmAction?.type === 'enableDemo') {
+            handleEnableDemo(confirmAction.userId);
+          } else if (confirmAction?.type === 'disableDemo') {
+            handleDisableDemo(confirmAction.userId);
           }
         }}
         title={
@@ -841,7 +910,11 @@ export function AdminView() {
                 ? t('admin.deactivate')
                 : confirmAction?.type === 'forceDelete'
                   ? t('admin.forceDelete', { defaultValue: 'Force delete user' })
-                  : ''
+                  : confirmAction?.type === 'enableDemo'
+                    ? t('admin.enableDemo', { defaultValue: 'Включить демо' })
+                    : confirmAction?.type === 'disableDemo'
+                      ? t('admin.disableDemo', { defaultValue: 'Отключить демо' })
+                      : ''
         }
         message={
           confirmAction?.type === 'makeAdmin'
@@ -854,7 +927,11 @@ export function AdminView() {
                   ? t('admin.confirmForceDelete', {
                       defaultValue: 'Permanently delete this user and all their data (properties, bookings, guests, chats)? This cannot be undone.',
                     })
-                  : ''
+                  : confirmAction?.type === 'enableDemo'
+                    ? t('admin.confirmEnableDemo', { defaultValue: 'Включить демо-доступ на 7 дней для этого пользователя?' })
+                    : confirmAction?.type === 'disableDemo'
+                      ? t('admin.confirmDisableDemo', { defaultValue: 'Отключить демо и перевести на тариф Free?' })
+                      : ''
         }
         variant={confirmAction?.type === 'deactivate' || confirmAction?.type === 'forceDelete' ? 'danger' : 'info'}
         loading={actionLoading}

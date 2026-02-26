@@ -12,6 +12,7 @@ import BoltChat, { type PlanType } from './components/BoltChat';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { OnboardingImport } from './pages/OnboardingImport';
+import { LoginPhonePage } from './pages/LoginPhonePage';
 import { CookieConsentBanner } from './components/CookieConsentBanner';
 
 function AvitoCallbackHandler() {
@@ -193,6 +194,7 @@ function AppContent() {
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/login" element={<AuthLayout><Auth showSignUpToggle={false} /></AuthLayout>} />
+        <Route path="/login-phone" element={<AuthLayout><LoginPhonePage /></AuthLayout>} />
         <Route path="/signup" element={<AuthLayout><SignupForm /></AuthLayout>} />
         <Route path="/onboarding/import" element={<RequireAuth><OnboardingImport /></RequireAuth>} />
         <Route path="/" element={<MainOrRedirect />} />

@@ -58,7 +58,16 @@
     "requiredConsent": "Необходимо согласие",
     "agreeWith": "Я согласен с",
     "termsOfUse": "Условиями использования",
-    "privacyPolicy": "Политикой конфиденциальности"
+    "privacyPolicy": "Политикой конфиденциальности",
+    "loginByPhone": "Войти по телефону",
+    "loginByEmail": "Войти по email",
+    "enterCode": "Введите код из сообщения",
+    "codeVia": "Код в",
+    "getCode": "Получить код",
+    "code": "Код",
+    "changePhone": "Изменить номер",
+    "telegramIdOptional": "Telegram ID (если известен, для доставки кода)",
+    "phoneInvalid": "Введите корректный номер телефона"
   },
   "nav": {
     "calendar": "Календарь",
@@ -74,6 +83,8 @@
     "changeConditions": "Изменить условия",
     "rangeChoiceTitle": "Выберите действие",
     "rangeChoiceDescription": "Добавить бронирование на выбранные даты или изменить условия (цену и минимум ночей)?",
+    "rangeHint": "{{start}} → {{end}} ({{nightsCount}} {{nightsWord}})",
+    "dragToOtherObject": "Перенести на другой объект",
     "objects": "Объекты",
     "noObjects": "Нет объектов. Добавьте первый объект для начала работы.",
     "prevMonth": "Предыдущий месяц",
@@ -203,7 +214,15 @@
     "approveDeletion": "Одобрить удаление",
     "rejectDeletion": "Отклонить удаление",
     "deletionApproved": "Запрос на удаление одобрен, аккаунт удалён",
-    "deletionRejected": "Запрос на удаление отклонён"
+    "deletionRejected": "Запрос на удаление отклонён",
+    "tier": "Тариф",
+    "demoUntil": "Демо до",
+    "enableDemo": "Включить демо",
+    "disableDemo": "Отключить демо",
+    "confirmEnableDemo": "Включить демо-доступ на 7 дней для этого пользователя?",
+    "confirmDisableDemo": "Отключить демо и перевести на тариф Free?",
+    "demoEnabled": "Демо включено на 7 дней",
+    "demoDisabled": "Демо отключено"
   },
   "modals": {
     "addReservation": "Добавить бронирование",
@@ -259,6 +278,7 @@
   },
   "settings": {
     "title": "Настройки",
+    "close": "Закрыть",
     "language": "Язык",
     "theme": "Тема",
     "lightTheme": "Светлая",
@@ -478,6 +498,7 @@
   },
   "subscription": {
     "propertyLimitReached": "Достигнут лимит объектов по вашему тарифу. Перейдите в профиль и запросите счёт для повышения тарифа.",
+    "bookingLimitReached": "Лимит бронирований по тарифу за месяц достигнут. Перейдите в профиль для смены плана.",
     "trialExpired": "Триал закончился. Выберите тариф в профиле для продолжения работы.",
     "openProfile": "Профиль и тариф"
   },

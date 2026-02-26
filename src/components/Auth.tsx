@@ -80,7 +80,6 @@ export function Auth({ showSignUpToggle = true }: AuthProps) {
         }
       } else {
         await signIn(email, password);
-        navigate('/', { replace: true });
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('errors.somethingWentWrong'));
@@ -191,6 +190,14 @@ export function Auth({ showSignUpToggle = true }: AuthProps) {
             </form>
 
             <div className="mt-6 text-center space-y-2">
+              {!isForgotPassword && !(showSignUpToggle && isSignUp) && (
+                <Link
+                  to="/login-phone"
+                  className="block w-full text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline underline-offset-2 mb-2"
+                >
+                  {t('auth.loginByPhone', { defaultValue: 'Войти по телефону' })}
+                </Link>
+              )}
               {!isForgotPassword && !(showSignUpToggle && isSignUp) && (
                 <button
                   type="button"

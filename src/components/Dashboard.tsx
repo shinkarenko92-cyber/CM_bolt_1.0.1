@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, Bell, User, Upload } from 'lucide-react';
+import { Search, Bell, User, Upload, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Avatar, AvatarFallback } from './ui/avatar';
@@ -41,7 +41,7 @@ import { DeletePropertyModal } from './DeletePropertyModal';
 import { ImportBookingsModal } from './ImportBookingsModal';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { logBookingChange, getBookingChanges } from '../services/bookingLog';
-import { getPropertyLimit, isTrialExpired } from '../utils/subscriptionLimits';
+import { getPropertyLimit, getBookingLimit, isTrialExpired } from '../utils/subscriptionLimits';
 
 type NewReservation = {
   property_id: string;
@@ -1056,6 +1056,24 @@ export function Dashboard() {
 
   const saveReservationToDatabase = async (reservation: NewReservation) => {
     try {
+      const limit = getBookingLimit(userProfile);
+      if (limit >= 0) {
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const userPropertyIds = properties.filter(p => p.owner_id === user?.id).map(p => p.id);
+        const countThisMonth = bookings.filter(
+          b => userPropertyIds.includes(b.property_id) && new Date(b.check_in) >= monthStart
+        ).length;
+        if (countThisMonth >= limit) {
+          toast.error(
+            t('subscription.bookingLimitReached', {
+              defaultValue: 'Лимит бронирований по тарифу за месяц достигнут. Перейдите в профиль для смены плана.',
+            })
+          );
+          return;
+        }
+      }
+
       // Add created_by and updated_by fields only if user exists
       // Note: These fields may not exist if migration hasn't been applied yet
       const reservationWithAudit: NewReservation & { created_by?: string; updated_by?: string } = {
@@ -2024,7 +2042,24 @@ export function Dashboard() {
         ) : currentView === 'admin' && isAdmin ? (
           <AdminView />
         ) : currentView === 'settings' ? (
-          <SettingsView bookings={bookings} properties={properties} />
+          <div className="flex flex-1 flex-col overflow-auto">
+            <div className="flex flex-1 overflow-auto p-4 md:p-6 lg:p-8">
+              <div className="w-full max-w-4xl space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold">{t('settings.title', 'Настройки')}</h2>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t('settings.close', 'Закрыть')}
+                    onClick={() => setCurrentView('calendar')}
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                </div>
+                <SettingsView bookings={bookings} properties={properties} />
+              </div>
+            </div>
+          </div>
         ) : currentView === 'calendar' ? (
           <>
             <Calendar

@@ -161,7 +161,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           'Доступ к аккаунту отключён. Обратитесь к администратору для восстановления (support@roomi.pro).'
         );
       }
-      
+
+      // Bootstrap первого админа по email из env (однократно при входе)
+      const bootstrapEmail = typeof import.meta.env.VITE_BOOTSTRAP_ADMIN_EMAIL === 'string'
+        ? (import.meta.env.VITE_BOOTSTRAP_ADMIN_EMAIL as string).trim().toLowerCase()
+        : '';
+      if (
+        profileData &&
+        bootstrapEmail &&
+        (profileData.email ?? '').toLowerCase() === bootstrapEmail &&
+        (profileData.role !== 'admin' || profileData.is_active !== true)
+      ) {
+        const { data: updated } = await supabase
+          .from('profiles')
+          .update({ role: 'admin', is_active: true })
+          .eq('id', profileData.id)
+          .select()
+          .single();
+        if (updated) profileData = updated;
+      }
+
       setProfile(profileData);
     }
   };
