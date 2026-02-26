@@ -13,6 +13,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+/** Кэш токенов в памяти инстанса: integration_id -> { access_token, expires_at }. Буфер 60s до истечения. */
+const tokenCache = new Map<string, { access_token: string; expires_at: number }>();
+const TOKEN_EXPIRY_BUFFER_MS = 60_000;
+
+function getCachedToken(integrationId: string): string | null {
+  const entry = tokenCache.get(integrationId);
+  if (!entry) return null;
+  if (Date.now() >= entry.expires_at - TOKEN_EXPIRY_BUFFER_MS) {
+    tokenCache.delete(integrationId);
+    return null;
+  }
+  return entry.access_token;
+}
+
+function setCachedToken(integrationId: string, access_token: string, expiresInSeconds: number): void {
+  tokenCache.set(integrationId, {
+    access_token,
+    expires_at: Date.now() + expiresInSeconds * 1000,
+  });
+}
+
 // Helper function to refresh access token
 async function refreshAccessToken(
   integration: { id: string; refresh_token_encrypted?: string | null },
@@ -891,7 +912,12 @@ Deno.serve(async (req: Request) => {
       case "initial-sync":
       case "sync": {
         try {
-        const { integration_id, exclude_booking_id } = params;
+        const { integration_id, exclude_booking_id, booking_limit, booking_offset } = params as {
+          integration_id: string;
+          exclude_booking_id?: string;
+          booking_limit?: number;
+          booking_offset?: number;
+        };
 
           console.log("Sync started", {
             integration_id,
@@ -1024,6 +1050,9 @@ Deno.serve(async (req: Request) => {
 
         // Helper function to get and refresh token if needed
         const getAccessToken = async (): Promise<string | null> => {
+          const cached = getCachedToken(integration_id);
+          if (cached) return cached;
+
           // Check if token exists
           if (!integration.access_token_encrypted) {
             console.log("No token - reconnect Avito", {
@@ -1117,6 +1146,7 @@ Deno.serve(async (req: Request) => {
                 );
                 
                 accessToken = refreshData.access_token;
+                setCachedToken(integration_id, refreshData.access_token, refreshData.expires_in || 3600);
 
                 // Update token in database (plain text for testing, vault encryption later)
                 const expiresIn = refreshData.expires_in || 3600;
@@ -1215,6 +1245,11 @@ Deno.serve(async (req: Request) => {
             });
           }
 
+          if (integration.token_expires_at) {
+            const expiresAt = new Date(integration.token_expires_at).getTime();
+            const ttlSec = Math.max(60, Math.floor((expiresAt - Date.now()) / 1000));
+            setCachedToken(integration_id, accessToken, ttlSec);
+          }
           return accessToken;
         };
 
@@ -1925,12 +1960,25 @@ Deno.serve(async (req: Request) => {
           item_id_length: itemId?.length,
         });
 
+        // Пагинация: limit/offset для запроса бронирований (передаются из avito-poller)
+        const limit = typeof booking_limit === "number" && booking_limit > 0 ? Math.min(booking_limit, 500) : undefined;
+        const offset = typeof booking_offset === "number" && booking_offset >= 0 ? booking_offset : undefined;
+        const bookingsQuery = new URLSearchParams({
+          date_start: dateStart,
+          date_end: dateEnd,
+          with_unpaid: "true",
+          skip_error: "true",
+          ...(limit != null && { limit: String(limit) }),
+          ...(offset != null && { offset: String(offset) }),
+        });
+
         // Helper function to fetch bookings with 401 retry and error handling
         // Use STR API endpoint with user_id: /realty/v1/accounts/{user_id}/items/{item_id}/bookings
+        const bookingsUrl = `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/bookings?${bookingsQuery}`;
         const fetchBookings = async (token: string): Promise<Response> => {
           try {
           const response = await fetchWithRetry(
-              `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}&with_unpaid=true&skip_error=true`,
+              bookingsUrl,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -1988,7 +2036,7 @@ Deno.serve(async (req: Request) => {
             
             // Retry with new token
             return await fetchWithRetry(
-                  `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/bookings?date_start=${dateStart}&date_end=${dateEnd}&with_unpaid=true&skip_error=true`,
+                  bookingsUrl,
               {
                 headers: {
                   Authorization: `Bearer ${refreshData.access_token}`,

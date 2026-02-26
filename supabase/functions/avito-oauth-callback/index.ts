@@ -53,8 +53,19 @@ const StateDataSchema = z.object({
   ts: z.number().optional(),
 });
 
+const EnvSchema = z.object({
+  SUPABASE_URL: z.string().min(1, "SUPABASE_URL is required"),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
+  SUPABASE_ANON_KEY: z.string(),
+  AVITO_CLIENT_ID: z.string().min(1, "AVITO_CLIENT_ID is required"),
+  AVITO_CLIENT_SECRET: z.string().min(1, "AVITO_CLIENT_SECRET is required"),
+  AVITO_MESSENGER_CLIENT_ID: z.string().optional(),
+  AVITO_MESSENGER_CLIENT_SECRET: z.string().optional(),
+});
+
 type OAuthCallbackBody = z.infer<typeof OAuthCallbackBodySchema>;
 type StateData = z.infer<typeof StateDataSchema>;
+type Env = z.infer<typeof EnvSchema>;
 
 interface AvitoTokenResponse {
   access_token: string;
@@ -70,21 +81,11 @@ interface AvitoErrorResponse {
   error_uri?: string;
 }
 
-interface Env {
-  SUPABASE_URL: string;
-  SUPABASE_SERVICE_ROLE_KEY: string;
-  SUPABASE_ANON_KEY: string;
-  AVITO_CLIENT_ID: string;
-  AVITO_CLIENT_SECRET: string;
-  AVITO_MESSENGER_CLIENT_ID?: string;
-  AVITO_MESSENGER_CLIENT_SECRET?: string;
-}
-
 /**
  * Парсит и валидирует state (base64 или plain JSON).
- * @param state - Строка state из OAuth callback
- * @returns Распарсенные данные state
- * @throws AvitoError при невалидном state
+ * @param state - Строка state из OAuth callback (base64-encoded JSON или plain JSON)
+ * @returns StateData — распарсенные поля type, property_id, integration_id, timestamp
+ * @throws AvitoError 400 при невалидном state
  */
 function parseState(state: string): StateData {
   try {
@@ -103,7 +104,7 @@ function parseState(state: string): StateData {
 /**
  * Проверяет, что scope содержит права messenger (для messenger_auth).
  * @param scope - Строка scope из ответа Avito token
- * @returns true если scope достаточен
+ * @returns void
  * @throws AvitoError с reason 'scope_missing' при отсутствии messenger в scope
  */
 function checkMessengerScope(scope: string | undefined): void {
@@ -122,8 +123,8 @@ function checkMessengerScope(scope: string | undefined): void {
  * @param redirectUri - redirect_uri, использованный при запросе кода
  * @param clientId - AVITO_CLIENT_ID или AVITO_MESSENGER_CLIENT_ID
  * @param clientSecret - Соответствующий client secret
- * @returns Данные токена (access_token, expires_in, refresh_token, scope)
- * @throws AvitoError при ошибке API Avito
+ * @returns Promise с данными токена (access_token, expires_in, refresh_token, scope)
+ * @throws AvitoError при ошибке API Avito или сети/парсинга
  */
 async function refreshTokens(
   code: string,
@@ -132,17 +133,24 @@ async function refreshTokens(
   clientSecret: string
 ): Promise<AvitoTokenResponse> {
   console.log(`${LOG_PREFIX} Exchanging code for token`);
-  const tokenResponse = await fetch(`${AVITO_API_BASE}/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: clientId,
-      client_secret: clientSecret,
-      code,
-      redirect_uri: redirectUri,
-    }),
-  });
+  let tokenResponse: Response;
+  try {
+    tokenResponse = await fetch(`${AVITO_API_BASE}/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        redirect_uri: redirectUri,
+      }),
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log(`${LOG_PREFIX} Token exchange network error:`, msg);
+    throw new AvitoError(`Сетевая ошибка при обмене кода: ${msg}`, 500);
+  }
 
   if (!tokenResponse.ok) {
     let errorMessage = `Token exchange failed (${tokenResponse.status})`;
@@ -160,7 +168,14 @@ async function refreshTokens(
     throw new AvitoError(errorMessage, tokenResponse.status);
   }
 
-  const tokenData = (await tokenResponse.json()) as AvitoTokenResponse;
+  let tokenData: AvitoTokenResponse;
+  try {
+    tokenData = (await tokenResponse.json()) as AvitoTokenResponse;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log(`${LOG_PREFIX} Token response parse error:`, msg);
+    throw new AvitoError(`Ошибка разбора ответа Avito: ${msg}`, 500);
+  }
   console.log(`${LOG_PREFIX} Token exchange successful`, {
     hasAccessToken: !!tokenData.access_token,
     hasRefreshToken: !!tokenData.refresh_token,
@@ -174,7 +189,8 @@ async function refreshTokens(
  * @param supabase - Supabase client (service role)
  * @param userId - ID пользователя (owner)
  * @param integrationIdFromState - integration_id из state или null
- * @returns ID интеграции или null, если не найдена
+ * @returns Promise с ID интеграции или null, если не найдена
+ * @throws AvitoError при ошибке запросов к БД
  */
 async function handleFallbackIntegration(
   supabase: ReturnType<typeof createClient>,
@@ -183,51 +199,75 @@ async function handleFallbackIntegration(
 ): Promise<string | null> {
   let targetIntegrationId: string | null = null;
 
-  if (integrationIdFromState) {
-    const { data: integrationRow } = await supabase
-      .from("integrations")
-      .select("id, property_id")
-      .eq("id", integrationIdFromState)
-      .eq("platform", "avito")
-      .maybeSingle();
+  try {
+    if (integrationIdFromState) {
+      const { data: integrationRow, error: intErr } = await supabase
+        .from("integrations")
+        .select("id, property_id")
+        .eq("id", integrationIdFromState)
+        .eq("platform", "avito")
+        .maybeSingle();
 
-    if (integrationRow?.property_id) {
-      const { data: propertyRow } = await supabase
+      if (intErr) {
+        console.log(`${LOG_PREFIX} handleFallbackIntegration integration fetch error:`, intErr.message);
+        throw new AvitoError(`Ошибка поиска интеграции: ${intErr.message}`, 500);
+      }
+
+      if (integrationRow?.property_id) {
+        const { data: propertyRow, error: propErr } = await supabase
+          .from("properties")
+          .select("id")
+          .eq("id", integrationRow.property_id)
+          .eq("owner_id", userId)
+          .maybeSingle();
+        if (propErr) {
+          console.log(`${LOG_PREFIX} handleFallbackIntegration property fetch error:`, propErr.message);
+          throw new AvitoError(`Ошибка проверки объекта: ${propErr.message}`, 500);
+        }
+        if (propertyRow) {
+          targetIntegrationId = integrationRow.id;
+          console.log(`${LOG_PREFIX} messenger_auth_target source=state_ownership_ok target_id=${targetIntegrationId}`);
+        }
+      }
+      if (!targetIntegrationId) {
+        console.log(`${LOG_PREFIX} messenger_auth_state_invalid integration_id=${integrationIdFromState} reason=not_found_or_not_owner`);
+      }
+    }
+
+    if (!targetIntegrationId) {
+      const { data: userProperties, error: propsErr } = await supabase
         .from("properties")
         .select("id")
-        .eq("id", integrationRow.property_id)
-        .eq("owner_id", userId)
-        .maybeSingle();
-      if (propertyRow) {
-        targetIntegrationId = integrationRow.id;
-        console.log(`${LOG_PREFIX} messenger_auth_target source=state_ownership_ok target_id=${targetIntegrationId}`);
+        .eq("owner_id", userId);
+      if (propsErr) {
+        console.log(`${LOG_PREFIX} handleFallbackIntegration user properties error:`, propsErr.message);
+        throw new AvitoError(`Ошибка загрузки объектов: ${propsErr.message}`, 500);
+      }
+      const propertyIds = (userProperties ?? []).map((p: { id: string }) => p.id);
+      if (propertyIds.length > 0) {
+        const { data: firstIntegration, error: firstErr } = await supabase
+          .from("integrations")
+          .select("id")
+          .eq("platform", "avito")
+          .in("property_id", propertyIds)
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (firstErr) {
+          console.log(`${LOG_PREFIX} handleFallbackIntegration first integration error:`, firstErr.message);
+          throw new AvitoError(`Ошибка поиска интеграции: ${firstErr.message}`, 500);
+        }
+        if (firstIntegration?.id) {
+          targetIntegrationId = firstIntegration.id;
+          console.log(`${LOG_PREFIX} messenger_auth_target source=fallback_first_by_created_at target_id=${targetIntegrationId}`);
+        }
       }
     }
-    if (!targetIntegrationId) {
-      console.log(`${LOG_PREFIX} messenger_auth_state_invalid integration_id=${integrationIdFromState} reason=not_found_or_not_owner`);
-    }
-  }
-
-  if (!targetIntegrationId) {
-    const { data: userProperties } = await supabase
-      .from("properties")
-      .select("id")
-      .eq("owner_id", userId);
-    const propertyIds = (userProperties ?? []).map((p: { id: string }) => p.id);
-    if (propertyIds.length > 0) {
-      const { data: firstIntegration } = await supabase
-        .from("integrations")
-        .select("id")
-        .eq("platform", "avito")
-        .in("property_id", propertyIds)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      if (firstIntegration?.id) {
-        targetIntegrationId = firstIntegration.id;
-        console.log(`${LOG_PREFIX} messenger_auth_target source=fallback_first_by_created_at target_id=${targetIntegrationId}`);
-      }
-    }
+  } catch (e) {
+    if (e instanceof AvitoError) throw e;
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log(`${LOG_PREFIX} handleFallbackIntegration unexpected error:`, msg);
+    throw new AvitoError(`Ошибка при поиске интеграции: ${msg}`, 500);
   }
 
   return targetIntegrationId;
@@ -236,10 +276,28 @@ async function handleFallbackIntegration(
 /**
  * Главный обработчик OAuth callback: валидация, обмен кода на токен, сохранение в integrations (или расширение scope для messenger).
  * @param req - Входящий Request (JSON body: code, state, redirect_uri?)
- * @param env - Переменные окружения (Supabase, Avito client credentials)
- * @returns Response с CORS и JSON телом
+ * @param env - Валидированные переменные окружения (Supabase URL/keys, Avito client credentials)
+ * @returns Promise<Response> с CORS и JSON телом { success: true } или { success: true, isMessengerAuth: true }
+ * @throws AvitoError при ошибках валидации (400), авторизации (401), бизнес-логики (422), сервера (500)
  */
 async function handleOAuthCallback(req: Request, env: Env): Promise<Response> {
+  try {
+    return await handleOAuthCallbackImpl(req, env);
+  } catch (e) {
+    if (e instanceof AvitoError) throw e;
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log(`${LOG_PREFIX} handleOAuthCallback unexpected error:`, msg, e instanceof Error ? e.stack : "");
+    throw new AvitoError(`Внутренняя ошибка: ${msg}`, 500);
+  }
+}
+
+/**
+ * Внутренняя реализация OAuth callback (вызывается из handleOAuthCallback с обёрткой try/catch).
+ * @param req - Входящий Request
+ * @param env - Env
+ * @returns Promise<Response>
+ */
+async function handleOAuthCallbackImpl(req: Request, env: Env): Promise<Response> {
   const { code, state, redirect_uri } = await parseRequestBody(req);
 
   const stateData = parseState(state);
@@ -409,7 +467,7 @@ async function handleOAuthCallback(req: Request, env: Env): Promise<Response> {
 /**
  * Парсит и валидирует тело запроса (JSON) через Zod.
  * @param req - Входящий Request с JSON body
- * @returns Валидированные code, state, redirect_uri?
+ * @returns Promise с валидированными полями { code, state, redirect_uri? }
  * @throws AvitoError 400 при невалидном JSON или полях
  */
 async function parseRequestBody(req: Request): Promise<OAuthCallbackBody> {
@@ -435,7 +493,7 @@ async function parseRequestBody(req: Request): Promise<OAuthCallbackBody> {
  * Создаёт JSON Response с CORS-заголовками.
  * @param body - Объект для JSON.stringify
  * @param status - HTTP-статус (по умолчанию 200)
- * @returns Response с application/json и corsHeaders
+ * @returns Response с Content-Type application/json и corsHeaders
  */
 function jsonResponse(body: object, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -445,13 +503,14 @@ function jsonResponse(body: object, status = 200): Response {
 }
 
 /**
- * Преобразует пойманную ошибку в HTTP Response. Для AvitoError с code 422 добавляет поле reason.
+ * Преобразует пойманную ошибку в HTTP Response.
+ * Для AvitoError с code 422 возвращает JSON с полем reason: 'no_avito_integration' | 'scope_missing'.
  * @param e - Пойманное значение (AvitoError или иное)
- * @returns Response с JSON { error, reason? } и соответствующим status
+ * @returns Response с JSON { error: string, reason?: Avito422Reason } и соответствующим status
  */
 function errorToResponse(e: unknown): Response {
   if (e instanceof AvitoError) {
-    const body: Record<string, string | Avito422Reason> = { error: e.message };
+    const body: { error: string; reason?: Avito422Reason } = { error: e.message };
     if (e.code === 422 && e.reason) {
       body.reason = e.reason;
     }
@@ -468,24 +527,25 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const avitoClientId = Deno.env.get("AVITO_CLIENT_ID") ?? "";
-    const avitoClientSecret = Deno.env.get("AVITO_CLIENT_SECRET") ?? "";
-
-    if (!avitoClientId || !avitoClientSecret) {
-      throw new AvitoError("AVITO_CLIENT_ID and AVITO_CLIENT_SECRET must be set in Supabase Secrets", 500);
-    }
-
-    const env: Env = {
-      SUPABASE_URL: supabaseUrl,
-      SUPABASE_SERVICE_ROLE_KEY: supabaseServiceRoleKey,
+    const rawEnv = {
+      SUPABASE_URL: Deno.env.get("SUPABASE_URL") ?? "",
+      SUPABASE_SERVICE_ROLE_KEY: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       SUPABASE_ANON_KEY: Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      AVITO_CLIENT_ID: avitoClientId,
-      AVITO_CLIENT_SECRET: avitoClientSecret,
+      AVITO_CLIENT_ID: Deno.env.get("AVITO_CLIENT_ID") ?? "",
+      AVITO_CLIENT_SECRET: Deno.env.get("AVITO_CLIENT_SECRET") ?? "",
       AVITO_MESSENGER_CLIENT_ID: Deno.env.get("AVITO_MESSENGER_CLIENT_ID") ?? undefined,
       AVITO_MESSENGER_CLIENT_SECRET: Deno.env.get("AVITO_MESSENGER_CLIENT_SECRET") ?? undefined,
     };
+    const envResult = EnvSchema.safeParse(rawEnv);
+    if (!envResult.success) {
+      const msg = envResult.error.flatten().formErrors[0] ?? envResult.error.message;
+      console.log(`${LOG_PREFIX} Env validation failed:`, msg);
+      throw new AvitoError(
+        msg.includes("AVITO_CLIENT") ? "AVITO_CLIENT_ID and AVITO_CLIENT_SECRET must be set in Supabase Secrets" : msg,
+        500
+      );
+    }
+    const env = envResult.data;
 
     return await handleOAuthCallback(req, env);
   } catch (e) {
