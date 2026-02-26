@@ -129,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .select('*', { count: 'exact', head: true });
         const isFirstUser = count === 0;
 
+        const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
         const { data: newProfile, error: profileError } = await supabase
           .from('profiles')
           .insert({
@@ -140,6 +141,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             last_name: lastName,
             full_name: fullName,
             phone,
+            subscription_tier: 'trial',
+            subscription_expires_at: trialEndsAt,
           })
           .select()
           .single();
@@ -151,10 +154,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
       
-      // Проверяем, что профиль активен
+      // Проверяем, что профиль активен (is_active мог быть сброшен админом)
       if (profileData && profileData.is_active === false) {
         await supabase.auth.signOut();
-        throw new Error('Аккаунт был удалён. Вход невозможен.');
+        throw new Error(
+          'Доступ к аккаунту отключён. Обратитесь к администратору для восстановления (support@roomi.pro).'
+        );
       }
       
       setProfile(profileData);

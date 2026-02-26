@@ -93,7 +93,7 @@ type AvitoMessageRow = {
 
 export function Dashboard() {
   const { t } = useTranslation();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, refreshProfile } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [currentView, setCurrentView] = useState('calendar');
@@ -288,6 +288,7 @@ export function Dashboard() {
 
       if (profileData) {
         setUserProfile(profileData);
+        await refreshProfile();
       }
 
       // Load Guests
