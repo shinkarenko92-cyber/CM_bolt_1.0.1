@@ -12,7 +12,7 @@ function buildXlsxBuffer(rows: unknown[][]): Uint8Array {
 }
 
 function toFile(buffer: Uint8Array, name: string): File {
-  return new File([buffer], name, {
+  return new File([buffer as BlobPart], name, {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
 }
