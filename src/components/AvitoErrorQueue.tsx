@@ -2,8 +2,8 @@
  * Renders AvitoErrorModal for errors pushed by showAvitoErrors() from avitoErrors service.
  * Must be mounted once in the app (e.g. in App.tsx).
  */
-import { useAvitoErrorState } from '../services/avitoErrors';
-import { AvitoErrorModal } from './AvitoErrorModal';
+import { useAvitoErrorState } from '@/services/avitoErrors';
+import { AvitoErrorModal } from '@/components/AvitoErrorModal';
 
 export function AvitoErrorQueue() {
   const state = useAvitoErrorState();

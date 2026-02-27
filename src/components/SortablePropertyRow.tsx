@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Property } from '../lib/supabase';
+import { Property } from '@/lib/supabase';
 import { GripVertical } from 'lucide-react';
 
 type SortablePropertyRowProps = {

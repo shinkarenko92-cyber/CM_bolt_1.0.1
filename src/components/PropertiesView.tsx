@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Edit2, MapPin } from 'lucide-react';
-import { Property } from '../lib/supabase';
-import { PropertyModal } from './PropertyModal';
-import { getOAuthSuccess, getOAuthError, parseOAuthState } from '../services/avito';
+import { Property } from '@/lib/supabase';
+import { PropertyModal } from '@/components/PropertyModal';
+import { getOAuthSuccess, getOAuthError, parseOAuthState } from '@/services/avito';
 
 interface PropertiesViewProps {
   properties: Property[];

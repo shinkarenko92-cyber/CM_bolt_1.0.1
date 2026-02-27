@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Calendar, Home, Settings, BarChart3, Users, LogOut, Shield, Menu, X, MessageCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../contexts/AuthContext';
-import { Button } from './ui/button';
-import { Separator } from './ui/separator';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 type SidebarProps = {

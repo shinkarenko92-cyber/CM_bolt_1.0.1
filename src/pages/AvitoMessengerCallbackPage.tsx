@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/lib/supabase';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '../components/ui/dialog';
-import { Button } from '../components/ui/button';
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 const MESSENGER_REDIRECT_URI = 'https://app.roomi.pro/auth/avito-callback-messenger';
 

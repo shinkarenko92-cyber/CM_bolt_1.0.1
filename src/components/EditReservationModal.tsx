@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Booking, Property, supabase, BookingLog } from '../lib/supabase';
-import { PriceRecalculationModal } from './PriceRecalculationModal';
+import { Booking, Property, supabase, BookingLog } from '@/lib/supabase';
+import { PriceRecalculationModal } from '@/components/PriceRecalculationModal';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import {
@@ -11,19 +11,19 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from './ui/dialog';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from './ui/select';
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
 interface EditReservationModalProps {

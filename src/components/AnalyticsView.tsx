@@ -1,17 +1,17 @@
 import { useMemo, useState, useCallback } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Percent, Home, BedDouble, Calendar } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Booking, Property } from '../lib/supabase';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Input } from './ui/input';
+import { Booking, Property } from '@/lib/supabase';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from './ui/select';
-import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
+} from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   BarChart,
   Bar,
@@ -27,7 +27,7 @@ import {
   Line,
   Legend,
 } from 'recharts';
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './ui/tooltip';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 
 const CHART_HEIGHT = 256;
 

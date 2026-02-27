@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Search, MessageCircle, Clock, User, MapPin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Chat, Property } from '../lib/supabase';
+import { Chat, Property } from '@/lib/supabase';
 import {
   Dialog,
   DialogContent,
@@ -9,8 +9,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from './ui/dialog';
-import { Button } from './ui/button';
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 export type IntegrationForMessenger = { id: string; property_id: string };
 

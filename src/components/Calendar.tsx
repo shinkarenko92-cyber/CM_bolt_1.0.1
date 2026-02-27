@@ -3,11 +3,11 @@ import { Plus, Settings, Moon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { parseISO, format, isBefore, isSameDay, differenceInDays } from 'date-fns';
-import { Property, Booking, PropertyRate, supabase } from '../lib/supabase';
-import { CalendarHeader } from './CalendarHeader';
-import { BookingBlock } from './BookingBlock';
-import { ChangeConditionsModal } from './ChangeConditionsModal';
-import { SortablePropertyRow } from './SortablePropertyRow';
+import { Property, Booking, PropertyRate, supabase } from '@/lib/supabase';
+import { CalendarHeader } from '@/components/CalendarHeader';
+import { BookingBlock } from '@/components/BookingBlock';
+import { ChangeConditionsModal } from '@/components/ChangeConditionsModal';
+import { SortablePropertyRow } from '@/components/SortablePropertyRow';
 import {
   DndContext,
   closestCenter,
@@ -32,8 +32,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from './ui/dialog';
-import { Button } from './ui/button';
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 type CalendarProps = {
   properties: Property[];

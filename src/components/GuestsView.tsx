@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Search, Phone, Mail, User } from 'lucide-react';
-import { Guest, Booking } from '../lib/supabase';
+import { Guest, Booking } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

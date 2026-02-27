@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Property, Booking } from '../lib/supabase';
+import { Property, Booking } from '@/lib/supabase';
 
 interface DeletePropertyModalProps {
   isOpen: boolean;

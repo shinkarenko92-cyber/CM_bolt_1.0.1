@@ -8,9 +8,9 @@ import {
   FileText,
   Trash2,
 } from 'lucide-react';
-import { Booking, Property, supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
-import { ConfirmModal } from './ConfirmModal';
+import { Booking, Property, supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 interface SettingsViewProps {
   bookings: Booking[];

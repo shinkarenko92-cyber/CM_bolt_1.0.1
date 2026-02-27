@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { X, Upload, FileSpreadsheet } from 'lucide-react';
-import { parseExcelFile, type ParsedBooking } from '../utils/excelParser';
+import { parseExcelFile, type ParsedBooking } from '@/utils/excelParser';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -11,8 +11,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 import confetti from 'canvas-confetti';
 

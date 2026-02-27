@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { X, CreditCard, CheckCircle, XCircle, Sun, Moon, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { Profile, supabase } from '../lib/supabase';
-import { TIER_PRICE_RUB, TIER_OBJECT_RANGE } from '../utils/subscriptionLimits';
-import { useTheme } from '../contexts/ThemeContext';
-import { useAuth } from '../contexts/AuthContext';
-import { Input } from './ui/input';
-import { Button } from './ui/button';
-import { Label } from './ui/label';
+import { Profile, supabase } from '@/lib/supabase';
+import { TIER_PRICE_RUB, TIER_OBJECT_RANGE } from '@/utils/subscriptionLimits';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 
 type UserProfileModalProps = {
   isOpen: boolean;

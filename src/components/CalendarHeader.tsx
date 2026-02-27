@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
-import { MiniCalendarPicker } from './MiniCalendarPicker';
+import { MiniCalendarPicker } from '@/components/MiniCalendarPicker';
 
 type CalendarHeaderProps = {
   currentDate: Date;

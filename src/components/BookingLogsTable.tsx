@@ -1,7 +1,7 @@
 // Component for displaying booking logs in a table
 import { useState, useMemo } from 'react';
 import { Download } from 'lucide-react';
-import { BookingLog } from '../lib/supabase';
+import { BookingLog } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -20,8 +20,8 @@ import {
 } from '@/components/ui/table';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { useAuth } from '../contexts/AuthContext';
-import { isDemoExpired } from '../utils/subscriptionLimits';
+import { useAuth } from '@/contexts/AuthContext';
+import { isDemoExpired } from '@/utils/subscriptionLimits';
 
 interface BookingLogsTableProps {
   logs: BookingLog[];

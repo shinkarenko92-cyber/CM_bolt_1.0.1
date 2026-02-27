@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { Property } from '../lib/supabase';
+import { Property } from '@/lib/supabase';
 
 type PropertySidebarRowProps = {
   property: Property;

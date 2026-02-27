@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Guest, Booking, Property } from '../lib/supabase';
+import { Guest, Booking, Property } from '@/lib/supabase';
 
 interface GuestModalProps {
     isOpen: boolean;

@@ -1,17 +1,17 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Search, Calendar, MapPin, User, Phone, Mail, Upload } from 'lucide-react';
-import { Booking, Property } from '../lib/supabase';
-import { Card, CardContent, CardDescription, CardHeader } from './ui/card';
-import { Input } from './ui/input';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
+import { Booking, Property } from '@/lib/supabase';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from './ui/select';
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
 interface BookingsViewProps {

@@ -1,21 +1,21 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { ThemeProvider, useTheme } from './contexts/ThemeContext';
-import { Auth } from './components/Auth';
-import { AuthLayout } from './components/AuthLayout';
-import { Dashboard } from './components/Dashboard';
-import { SignupForm } from './components/SignupForm';
-import { YandexMetrika } from './components/YandexMetrika';
-import BoltChat, { type PlanType } from './components/BoltChat';
-import { isDemoExpired } from './utils/subscriptionLimits';
-import { TermsPage } from './pages/TermsPage';
-import { PrivacyPage } from './pages/PrivacyPage';
-import { OnboardingImport } from './pages/OnboardingImport';
-import { LoginPhonePage } from './pages/LoginPhonePage';
-import { CookieConsentBanner } from './components/CookieConsentBanner';
-import { AvitoErrorQueue } from './components/AvitoErrorQueue';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
+import { Auth } from '@/components/Auth';
+import { AuthLayout } from '@/components/AuthLayout';
+import { Dashboard } from '@/components/Dashboard';
+import { SignupForm } from '@/components/SignupForm';
+import { YandexMetrika } from '@/components/YandexMetrika';
+import BoltChat, { type PlanType } from '@/components/BoltChat';
+import { isDemoExpired } from '@/utils/subscriptionLimits';
+import { TermsPage } from '@/pages/TermsPage';
+import { PrivacyPage } from '@/pages/PrivacyPage';
+import { OnboardingImport } from '@/pages/OnboardingImport';
+import { LoginPhonePage } from '@/pages/LoginPhonePage';
+import { CookieConsentBanner } from '@/components/CookieConsentBanner';
+import { AvitoErrorQueue } from '@/components/AvitoErrorQueue';
 
 function AvitoCallbackHandler() {
   const [messengerSuccessModalOpen, setMessengerSuccessModalOpen] = useState(false);

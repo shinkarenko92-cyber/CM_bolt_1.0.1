@@ -3,8 +3,8 @@
  */
 
 import * as XLSX from 'xlsx';
-import { parseDate } from './dateParser';
-import { parseGuestContacts } from './guestParser';
+import { parseDate } from '@/utils/dateParser';
+import { parseGuestContacts } from '@/utils/guestParser';
 
 export interface ParsedBooking {
   property_name: string;

@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import { Property, Booking } from '../lib/supabase';
+import { Property, Booking } from '@/lib/supabase';
 
 interface PriceRecalculationModalProps {
   isOpen: boolean;

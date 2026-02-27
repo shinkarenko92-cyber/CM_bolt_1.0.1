@@ -1,4 +1,4 @@
-import type { Profile } from '../lib/supabase';
+import type { Profile } from '@/lib/supabase';
 
 /**
  * Лимиты по тарифам — единый источник правды.

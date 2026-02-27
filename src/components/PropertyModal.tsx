@@ -7,27 +7,27 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from './ui/dialog';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select as SelectRoot,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from './ui/select';
+} from '@/components/ui/select';
 import toast from 'react-hot-toast';
-import { Property, PropertyIntegration, BookingLog } from '../lib/supabase';
-import { supabase } from '../lib/supabase';
-import { AvitoConnectModal } from './AvitoConnectModal';
-import { getOAuthSuccess, getOAuthError, parseOAuthState } from '../services/avito';
-import { syncAvitoIntegration, AvitoSyncError } from '../services/apiSync';
-import { showAvitoErrors } from '../services/avitoErrors';
-import { BookingLogsTable } from './BookingLogsTable';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
-import { Switch } from './ui/switch';
+import { Property, PropertyIntegration, BookingLog } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
+import { AvitoConnectModal } from '@/components/AvitoConnectModal';
+import { getOAuthSuccess, getOAuthError, parseOAuthState } from '@/services/avito';
+import { syncAvitoIntegration, AvitoSyncError } from '@/services/apiSync';
+import { showAvitoErrors } from '@/services/avitoErrors';
+import { BookingLogsTable } from '@/components/BookingLogsTable';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Switch } from '@/components/ui/switch';
 
 interface PropertyModalProps {
   isOpen: boolean;

@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { Globe, Home, User, Smartphone, Layout, Check } from 'lucide-react';
-import { Booking } from '../lib/supabase';
+import { Booking } from '@/lib/supabase';
 
 type BookingBlockProps = {
   booking: Booking;

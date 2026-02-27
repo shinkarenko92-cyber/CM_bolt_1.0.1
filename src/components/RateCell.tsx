@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, Check } from 'lucide-react';
-import { PropertyRate } from '../lib/supabase';
+import { PropertyRate } from '@/lib/supabase';
 
 type RateCellProps = {
   date: Date;

@@ -8,7 +8,10 @@ export default defineConfig({
   base: '/', // App serves from root on app.roomi.pro
   plugins: [react()],
   resolve: {
-    alias: { '@': path.resolve(__dirname, 'src') },
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+      '@components': path.resolve(__dirname, 'src/components'),
+    },
   },
   optimizeDeps: {
     exclude: ['lucide-react'],

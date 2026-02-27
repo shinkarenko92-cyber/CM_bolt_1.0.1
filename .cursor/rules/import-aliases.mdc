@@ -1,0 +1,13 @@
+---
+description: Use path aliases for imports from src
+globs: src/**/*.{ts,tsx}
+---
+
+# Import aliases
+
+Always use `@/` aliases for imports from `src/`.
+
+- Prefer: `import { X } from '@/lib/supabase'`, `import { Button } from '@/components/ui/button'`
+- Avoid: `import { X } from '../lib/supabase'`, `import { Button } from '../../components/ui/button'`
+
+Aliases configured: `@/*` → `src/*`, `@components/*` → `src/components/*`.

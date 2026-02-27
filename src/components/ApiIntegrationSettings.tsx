@@ -11,9 +11,9 @@ import {
   RefreshCw,
   Loader2,
 } from 'lucide-react';
-import { Property, PropertyIntegration, AGGREGATOR_PLATFORMS } from '../lib/supabase';
-import { isAvitoConfigured } from '../services/avitoApi';
-import { useTheme } from '../contexts/ThemeContext';
+import { Property, PropertyIntegration, AGGREGATOR_PLATFORMS } from '@/lib/supabase';
+import { isAvitoConfigured } from '@/services/avitoApi';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface ApiIntegrationSettingsProps {
   property: Property;

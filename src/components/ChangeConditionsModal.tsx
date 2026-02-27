@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { supabase, Property } from '../lib/supabase';
-import { syncAvitoIntegration, AvitoSyncError } from '../services/apiSync';
-import { showAvitoErrors } from '../services/avitoErrors';
+import { supabase, Property } from '@/lib/supabase';
+import { syncAvitoIntegration, AvitoSyncError } from '@/services/apiSync';
+import { showAvitoErrors } from '@/services/avitoErrors';
 
 interface ChangeConditionsModalProps {
   isOpen: boolean;
