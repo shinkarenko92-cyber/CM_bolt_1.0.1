@@ -7,6 +7,24 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const AVITO_API_BASE = "https://api.avito.ru";
+const MIN_CLIENT_ID_LENGTH = 20;
+
+function getAvitoBaseUrl(): string {
+  const base = Deno.env.get("AVITO_BASE_URL")?.trim();
+  if (base) {
+    if (!base.includes("api.avito.ru")) {
+      console.warn("[avito] AVITO_BASE_URL не содержит api.avito.ru. Ожидается https://api.avito.ru", { value: base });
+    }
+    return base.replace(/\/$/, "");
+  }
+  return AVITO_API_BASE;
+}
+
+function logAvitoRequest(method: string, url: string, secret?: string): void {
+  const safeUrl = secret ? url.replace(secret, "***") : url;
+  console.log("[avito] request", { method, url: safeUrl });
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -36,6 +54,7 @@ function setCachedToken(integrationId: string, access_token: string, expiresInSe
 
 // Helper function to refresh access token
 async function refreshAccessToken(
+  baseUrl: string,
   integration: { id: string; refresh_token_encrypted?: string | null },
   avitoClientId: string,
   avitoClientSecret: string,
@@ -55,7 +74,9 @@ async function refreshAccessToken(
         // If RPC fails, assume token is not encrypted yet
       }
 
-      const refreshResponse = await fetch(`${AVITO_API_BASE}/token`, {
+      const url = `${baseUrl}/token`;
+      logAvitoRequest("POST", url, avitoClientSecret);
+      const refreshResponse = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -82,7 +103,9 @@ async function refreshAccessToken(
   }
 
   // Fallback to client_credentials flow
-  const refreshResponse = await fetch(`${AVITO_API_BASE}/token`, {
+  const url = `${baseUrl}/token`;
+  logAvitoRequest("POST", url, avitoClientSecret);
+  const refreshResponse = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -111,23 +134,24 @@ async function refreshAccessToken(
 async function fetchWithRetry(
   url: string,
   options: RequestInit,
-  maxRetries = 3
+  maxRetries = 3,
+  secret?: string
 ): Promise<Response> {
+  const method = options.method ?? "GET";
   for (let attempt = 0; attempt < maxRetries; attempt++) {
+    logAvitoRequest(method, url, secret);
     const response = await fetch(url, options);
     
-    // If 429 (rate limit), retry with exponential backoff
-    if (response.status === 429) {
-      if (attempt < maxRetries - 1) {
-        const retryAfter = response.headers.get('Retry-After');
-        const waitTime = retryAfter 
-          ? parseInt(retryAfter, 10) * 1000 
-          : Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
-        
-        console.log(`Rate limited (429), retrying in ${waitTime}ms (attempt ${attempt + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        continue;
-      }
+    // If 429 or 5xx, retry with exponential backoff
+    const shouldRetry = response.status === 429 || (response.status >= 500 && response.status < 600);
+    if (shouldRetry && attempt < maxRetries - 1) {
+      const retryAfter = response.headers.get('Retry-After');
+      const waitTime = retryAfter
+        ? parseInt(retryAfter, 10) * 1000
+        : Math.pow(2, attempt) * 1000;
+      console.log(`[avito] retry ${response.status} in ${waitTime}ms (attempt ${attempt + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+      continue;
     }
     
     return response;
@@ -197,6 +221,11 @@ Deno.serve(async (req: Request) => {
     if (!avitoClientId || !avitoClientSecret) {
       throw new Error("AVITO_CLIENT_ID and AVITO_CLIENT_SECRET must be set in Supabase Secrets");
     }
+    if (avitoClientId.length < MIN_CLIENT_ID_LENGTH) {
+      throw new Error(`AVITO_CLIENT_ID должен быть не короче ${MIN_CLIENT_ID_LENGTH} символов`);
+    }
+
+    const avitoBaseUrl = getAvitoBaseUrl();
 
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
     
@@ -241,7 +270,9 @@ Deno.serve(async (req: Request) => {
         const redirectUri = redirect_uri || `${new URL(req.url).origin}/auth/avito-callback`;
 
         // Exchange code for token
-        const response = await fetch(`${AVITO_API_BASE}/token`, {
+        const tokenUrl = `${avitoBaseUrl}/token`;
+        logAvitoRequest("POST", tokenUrl, avitoClientSecret);
+        const response = await fetch(tokenUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
@@ -311,12 +342,13 @@ Deno.serve(async (req: Request) => {
         // According to Avito docs: GET /core/v1/user → user.id = account_id
         let accountId: string | null = null;
         try {
+          const userUrl = `${avitoBaseUrl}/core/v1/user`;
           console.log("Fetching user info from Avito to get account_id", {
             tokenLength: tokenData.access_token.length,
-            endpoint: `${AVITO_API_BASE}/core/v1/user`,
+            endpoint: userUrl,
           });
-
-          const userResponse = await fetch(`${AVITO_API_BASE}/core/v1/user`, {
+          logAvitoRequest("GET", userUrl);
+          const userResponse = await fetch(userUrl, {
             headers: {
               Authorization: `Bearer ${tokenData.access_token}`,
               "Content-Type": "application/json",
@@ -420,9 +452,9 @@ Deno.serve(async (req: Request) => {
 
         // Try different endpoints - Avito API might use different paths
         const endpoints = [
-          `${AVITO_API_BASE}/core/v1/accounts/self`,
-          `${AVITO_API_BASE}/v1/user`,
-          `${AVITO_API_BASE}/user`,
+          `${avitoBaseUrl}/core/v1/accounts/self`,
+          `${avitoBaseUrl}/v1/user`,
+          `${avitoBaseUrl}/user`,
         ];
 
         let lastResponse: Response | null = null;
@@ -431,6 +463,7 @@ Deno.serve(async (req: Request) => {
         for (const endpoint of endpoints) {
           try {
             console.log(`Trying endpoint: ${endpoint}`);
+            logAvitoRequest("GET", endpoint);
             const response = await fetch(endpoint, {
               headers: {
                 Authorization: `Bearer ${access_token}`,
@@ -670,9 +703,9 @@ Deno.serve(async (req: Request) => {
         });
 
         // Use STR API endpoint with user_id
-        const response = await fetch(
-          `${AVITO_API_BASE}/realty/v1/accounts/${userIdForValidation}/items/${item_id}/bookings?date_start=${dateStart}&date_end=${dateEnd}&skip_error=true`,
-          {
+        const bookingsCheckUrl = `${avitoBaseUrl}/realty/v1/accounts/${userIdForValidation}/items/${item_id}/bookings?date_start=${dateStart}&date_end=${dateEnd}&skip_error=true`;
+        logAvitoRequest("GET", bookingsCheckUrl);
+        const response = await fetch(bookingsCheckUrl, {
             method: "GET",
             headers: {
               Authorization: `Bearer ${accessToken}`,
@@ -772,6 +805,90 @@ Deno.serve(async (req: Request) => {
             status: response.status,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           }
+        );
+      }
+
+      case "get-oauth-info": {
+        const { integration_id: oauthInfoIntegrationId } = params as { integration_id?: string };
+        if (!oauthInfoIntegrationId) {
+          return new Response(
+            JSON.stringify({ error: "Missing integration_id" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        const { data: oauthIntegration, error: oauthIntErr } = await supabase
+          .from("integrations")
+          .select("id, property_id, access_token_encrypted")
+          .eq("id", oauthInfoIntegrationId)
+          .eq("platform", "avito")
+          .eq("is_active", true)
+          .maybeSingle();
+        if (oauthIntErr || !oauthIntegration) {
+          return new Response(
+            JSON.stringify({ skipped: true, reason: "integration_not_found" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        let accessToken = oauthIntegration.access_token_encrypted;
+        if (!accessToken || typeof accessToken !== "string") {
+          return new Response(
+            JSON.stringify({ skipped: true, reason: "no_token" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        try {
+          const { data: decrypted } = await supabase.rpc("decrypt_avito_token", {
+            encrypted_token: accessToken,
+          });
+          if (decrypted) accessToken = decrypted;
+        } catch {
+          // use as-is if decrypt not available
+        }
+        const oauthInfoUrl = `${avitoBaseUrl}/web/1/oauth/info`;
+        const maxRetries = 3;
+        let lastRes: Response | null = null;
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+          logAvitoRequest("GET", oauthInfoUrl);
+          const res = await fetch(oauthInfoUrl, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+          });
+          lastRes = res;
+          if (res.status === 401) {
+            console.warn("[avito] /web/1/oauth/info 401 — не удалось проверить права");
+            return new Response(
+              JSON.stringify({ warning: "Не удалось проверить права", status: 401 }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          const shouldRetry = res.status === 429 || (res.status >= 500 && res.status < 600);
+          if (shouldRetry && attempt < maxRetries - 1) {
+            const waitTime = Math.pow(2, attempt) * 1000;
+            console.log(`[avito] get-oauth-info retry ${res.status} in ${waitTime}ms`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+          if (res.ok) {
+            const data = await res.json().catch(() => ({}));
+            return new Response(
+              JSON.stringify({ data }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          const text = await res.text().catch(() => "");
+          console.warn("[avito] /web/1/oauth/info error", { status: res.status, body: text });
+          return new Response(
+            JSON.stringify({ warning: "Не удалось проверить права", status: res.status, body: text }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        const lastStatus = lastRes?.status ?? 0;
+        return new Response(
+          JSON.stringify({ warning: "Не удалось проверить права", status: lastStatus }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -1139,6 +1256,7 @@ Deno.serve(async (req: Request) => {
 
               try {
                 const refreshData = await refreshAccessToken(
+                  avitoBaseUrl,
                   integration,
                   avitoClientId,
                   avitoClientSecret,
@@ -1465,7 +1583,7 @@ Deno.serve(async (req: Request) => {
         // Отправляем обновление цен
         if (pricesToUpdate.length > 0) {
           console.log("Sending price update to Avito", {
-            endpoint: `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/prices`,
+            endpoint: `${avitoBaseUrl}/realty/v1/accounts/${userId}/items/${itemId}/prices`,
             periodsCount: pricesToUpdate.length,
           });
 
@@ -1480,7 +1598,7 @@ Deno.serve(async (req: Request) => {
               item_id_length: itemId?.length,
             });
             let pricesResponse = await fetchWithRetry(
-              `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/prices?skip_error=true`,
+              `${avitoBaseUrl}/realty/v1/accounts/${userId}/items/${itemId}/prices?skip_error=true`,
             {
               method: "POST",
               headers: {
@@ -1498,7 +1616,7 @@ Deno.serve(async (req: Request) => {
               console.log("401 Unauthorized, refreshing token and retrying prices update");
               const refreshedToken = await getAccessToken();
               pricesResponse = await fetchWithRetry(
-                `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/prices?skip_error=true`,
+                `${avitoBaseUrl}/realty/v1/accounts/${userId}/items/${itemId}/prices?skip_error=true`,
                 {
                   method: "POST",
                   headers: {
@@ -1588,7 +1706,7 @@ Deno.serve(async (req: Request) => {
         }
 
         // 2. Базовые параметры: POST /realty/v1/items/{item_id}/base (Avito STR spec, без user_id в пути)
-        const baseParamsUrl = `${AVITO_API_BASE}/realty/v1/items/${itemId}/base`;
+        const baseParamsUrl = `${avitoBaseUrl}/realty/v1/items/${itemId}/base`;
         const baseParamsBody = {
           night_price: Math.max(1, priceWithMarkup),  // Avito: night_price must be > 0
           minimal_duration: property?.minimum_booking_days || 1,
@@ -1699,7 +1817,7 @@ Deno.serve(async (req: Request) => {
             type: "booking",
           });
         }
-        const calendarUrl = `${AVITO_API_BASE}/core/v1/accounts/${userId}/items/${itemId}/bookings`;
+        const calendarUrl = `${avitoBaseUrl}/core/v1/accounts/${userId}/items/${itemId}/bookings`;
         const calendarBody = { bookings: bookingsPayload, source: "roomi" };
 
         if (bookingsPayload.length > 0) {
@@ -1864,7 +1982,7 @@ Deno.serve(async (req: Request) => {
             });
 
             try {
-              const openAllUrl = `${AVITO_API_BASE}/core/v1/accounts/${userId}/items/${itemId}/bookings`;
+              const openAllUrl = `${avitoBaseUrl}/core/v1/accounts/${userId}/items/${itemId}/bookings`;
               const openAllResponse = await fetchWithRetry(openAllUrl, {
                 method: "POST",
                 headers: {
@@ -1974,7 +2092,7 @@ Deno.serve(async (req: Request) => {
 
         // Helper function to fetch bookings with 401 retry and error handling
         // Use STR API endpoint with user_id: /realty/v1/accounts/{user_id}/items/{item_id}/bookings
-        const bookingsUrl = `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/bookings?${bookingsQuery}`;
+        const bookingsUrl = `${avitoBaseUrl}/realty/v1/accounts/${userId}/items/${itemId}/bookings?${bookingsQuery}`;
         const fetchBookings = async (token: string): Promise<Response> => {
           try {
           const response = await fetchWithRetry(
@@ -1996,6 +2114,7 @@ Deno.serve(async (req: Request) => {
               
               try {
             const refreshData = await refreshAccessToken(
+              avitoBaseUrl,
               integration,
               avitoClientId,
               avitoClientSecret,
@@ -2232,7 +2351,7 @@ Deno.serve(async (req: Request) => {
           const fetchBookingDetails = async (bookingId: string | number, token: string): Promise<AvitoBookingResponse | null> => {
             try {
               const bookingIdStr = String(bookingId);
-              const detailsUrl = `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/bookings/${bookingIdStr}`;
+              const detailsUrl = `${avitoBaseUrl}/realty/v1/accounts/${userId}/items/${itemId}/bookings/${bookingIdStr}`;
               
               console.log("Attempting to fetch booking details", {
                 bookingId: bookingIdStr,
@@ -2610,7 +2729,7 @@ Deno.serve(async (req: Request) => {
                 try {
                   // Use STR API endpoint with user_id
                   const cancelResponse = await fetchWithRetry(
-                    `${AVITO_API_BASE}/realty/v1/accounts/${userId}/items/${itemId}/bookings/${bookingId}/cancel`,
+                    `${avitoBaseUrl}/realty/v1/accounts/${userId}/items/${itemId}/bookings/${bookingId}/cancel`,
                     {
                       method: "POST",
                       headers: {

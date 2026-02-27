@@ -8,6 +8,24 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const AVITO_API_BASE = "https://api.avito.ru";
+const MIN_CLIENT_ID_LENGTH = 20;
+
+function getAvitoBaseUrl(): string {
+  const base = Deno.env.get("AVITO_BASE_URL")?.trim();
+  if (base) {
+    if (!base.includes("api.avito.ru")) {
+      console.warn("[avito] AVITO_BASE_URL не содержит api.avito.ru. Ожидается https://api.avito.ru", { value: base });
+    }
+    return base.replace(/\/$/, "");
+  }
+  return AVITO_API_BASE;
+}
+
+function logAvitoRequest(method: string, url: string, secret?: string): void {
+  const safeUrl = secret ? url.replace(secret, "***") : url;
+  console.log("[avito] request", { method, url: safeUrl });
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -43,7 +61,11 @@ Deno.serve(async (req: Request) => {
     if (!avitoClientId || !avitoClientSecret) {
       throw new Error("AVITO_CLIENT_ID and AVITO_CLIENT_SECRET must be set in Supabase Secrets");
     }
+    if (avitoClientId.length < MIN_CLIENT_ID_LENGTH) {
+      throw new Error(`AVITO_CLIENT_ID должен быть не короче ${MIN_CLIENT_ID_LENGTH} символов`);
+    }
 
+    const avitoBaseUrl = getAvitoBaseUrl();
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     // Parse request body
@@ -121,7 +143,9 @@ Deno.serve(async (req: Request) => {
         });
 
         // Refresh token using client_credentials flow
-        const refreshResponse = await fetch(`${AVITO_API_BASE}/token`, {
+        const tokenUrl = `${avitoBaseUrl}/token`;
+        logAvitoRequest("POST", tokenUrl, avitoClientSecret);
+        const refreshResponse = await fetch(tokenUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
@@ -172,7 +196,7 @@ Deno.serve(async (req: Request) => {
     // Call Avito API to close all dates
     // POST /realty/v1/items/{item_id}/intervals with empty intervals array closes full calendar
     const itemId = itemIdText;
-    const closeUrl = `${AVITO_API_BASE}/realty/v1/items/${itemId}/intervals`;
+    const closeUrl = `${avitoBaseUrl}/realty/v1/items/${itemId}/intervals`;
 
     console.log("Calling Avito API to close availability", {
       url: closeUrl,
@@ -191,6 +215,7 @@ Deno.serve(async (req: Request) => {
         await new Promise(resolve => setTimeout(resolve, delay));
       }
 
+      logAvitoRequest("POST", closeUrl);
       const response = await fetch(closeUrl, {
         method: "POST",
         headers: {

@@ -74,3 +74,12 @@ export interface AvitoOAuthSuccess {
   state: string;
 }
 
+/** Ответ запроса GET /web/1/oauth/info (через Edge Function get-oauth-info) */
+export interface AvitoOAuthInfoResult {
+  skipped?: boolean;
+  reason?: string;
+  warning?: string;
+  status?: number;
+  data?: unknown;
+}
+

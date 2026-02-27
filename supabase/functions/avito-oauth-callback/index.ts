@@ -9,6 +9,23 @@ import { z } from "npm:zod@3";
 
 const AVITO_API_BASE = "https://api.avito.ru";
 const LOG_PREFIX = "[avito-oauth]";
+const MIN_CLIENT_ID_LENGTH = 20;
+
+function getAvitoBaseUrl(env: { AVITO_BASE_URL?: string }): string {
+  const base = env.AVITO_BASE_URL?.trim();
+  if (base) {
+    if (!base.includes("api.avito.ru")) {
+      console.warn(`${LOG_PREFIX} AVITO_BASE_URL не содержит api.avito.ru. Ожидается https://api.avito.ru`, { value: base });
+    }
+    return base.replace(/\/$/, "");
+  }
+  return AVITO_API_BASE;
+}
+
+function logAvitoRequest(method: string, url: string, secret?: string): void {
+  const safeUrl = secret ? url.replace(secret, "***") : url;
+  console.log("[avito] request", { method, url: safeUrl });
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,17 +36,20 @@ const corsHeaders = {
 /** Причина ошибки 422 для клиента */
 export type Avito422Reason = "no_avito_integration" | "scope_missing";
 
+/** Причина ошибки 400/401 при обмене кода на токен */
+export type AvitoCredentialReason = "invalid_credentials" | "invalid_redirect_uri";
+
 /**
  * Типизированная ошибка Avito OAuth callback.
  * @property code - HTTP-код ответа (400, 401, 422, 500)
  * @property message - Сообщение для логов/клиента
- * @property reason - Для 422: 'no_avito_integration' | 'scope_missing'
+ * @property reason - Для 422: Avito422Reason; для 400/401: AvitoCredentialReason
  */
 export class AvitoError extends Error {
   constructor(
     message: string,
     public readonly code: number,
-    public readonly reason?: Avito422Reason
+    public readonly reason?: Avito422Reason | AvitoCredentialReason
   ) {
     super(message);
     this.name = "AvitoError";
@@ -57,8 +77,9 @@ const EnvSchema = z.object({
   SUPABASE_URL: z.string().min(1, "SUPABASE_URL is required"),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
   SUPABASE_ANON_KEY: z.string(),
-  AVITO_CLIENT_ID: z.string().min(1, "AVITO_CLIENT_ID is required"),
+  AVITO_CLIENT_ID: z.string().min(MIN_CLIENT_ID_LENGTH, `AVITO_CLIENT_ID должен быть не короче ${MIN_CLIENT_ID_LENGTH} символов`),
   AVITO_CLIENT_SECRET: z.string().min(1, "AVITO_CLIENT_SECRET is required"),
+  AVITO_BASE_URL: z.string().optional(),
 });
 
 type OAuthCallbackBody = z.infer<typeof OAuthCallbackBodySchema>;
@@ -131,15 +152,18 @@ function checkMessengerScope(scope: string | undefined): void {
  * @throws AvitoError при ошибке API Avito или сети/парсинга
  */
 async function refreshTokens(
+  baseUrl: string,
   code: string,
   redirectUri: string,
   clientId: string,
   clientSecret: string
 ): Promise<AvitoTokenResponse> {
   console.log(`${LOG_PREFIX} Exchanging code for token`);
+  const url = `${baseUrl}/token`;
+  logAvitoRequest("POST", url, clientSecret);
   let tokenResponse: Response;
   try {
-    tokenResponse = await fetch(`${AVITO_API_BASE}/token`, {
+    tokenResponse = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -158,18 +182,33 @@ async function refreshTokens(
 
   if (!tokenResponse.ok) {
     let errorMessage = `Token exchange failed (${tokenResponse.status})`;
+    let reason: AvitoCredentialReason | undefined;
     try {
       const errorData = (await tokenResponse.json()) as AvitoErrorResponse;
       if (errorData.error) {
-        errorMessage = `Avito API error: ${errorData.error}`;
-        if (errorData.error_description) errorMessage += ` - ${errorData.error_description}`;
+        errorMessage = errorData.error_description ?? `Avito API error: ${errorData.error}`;
+        const desc = (errorData.error_description ?? "").toLowerCase();
+        const err = (errorData.error ?? "").toLowerCase();
+        if (
+          desc.includes("redirect_uri") ||
+          err.includes("redirect_uri") ||
+          desc.includes("redirect") ||
+          err.includes("redirect")
+        ) {
+          reason = "invalid_redirect_uri";
+        } else {
+          reason = "invalid_credentials";
+        }
       }
     } catch {
       const text = await tokenResponse.text().catch(() => "Unable to read error");
       errorMessage = text || errorMessage;
+      if (tokenResponse.status === 400 || tokenResponse.status === 401) {
+        reason = "invalid_credentials";
+      }
     }
-    console.log(`${LOG_PREFIX} Token exchange error:`, { status: tokenResponse.status, errorMessage });
-    throw new AvitoError(errorMessage, tokenResponse.status);
+    console.log(`${LOG_PREFIX} Token exchange error:`, { status: tokenResponse.status, errorMessage, reason });
+    throw new AvitoError(errorMessage, tokenResponse.status, reason);
   }
 
   let tokenData: AvitoTokenResponse;
@@ -192,26 +231,48 @@ async function refreshTokens(
  * Пытается получить числовой avito_user_id по access_token через Avito API.
  * Используется только для логов/предупреждений и валидации данных Messenger, не блокирует основной OAuth flow.
  */
-async function fetchAvitoUserId(accessToken: string): Promise<number | null> {
+async function fetchAvitoUserId(baseUrl: string, accessToken: string): Promise<number | null> {
   const headers: HeadersInit = {
     Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
   };
 
-  const tryFetch = async (path: string): Promise<number | null> => {
-    const url = `${AVITO_API_BASE}${path}`;
-    console.log(`${LOG_PREFIX} Fetching Avito user info`, { url });
-    const res = await fetch(url, { method: "GET", headers });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      console.log(`${LOG_PREFIX} Avito user info error`, { status: res.status, body: text });
-      return null;
+  const tryFetch = async (path: string, retries = 3): Promise<number | null> => {
+    const url = path.startsWith("http") ? path : `${baseUrl}${path}`;
+    for (let attempt = 0; attempt < retries; attempt++) {
+      logAvitoRequest("GET", url);
+      const res = await fetch(url, { method: "GET", headers });
+      if (res.status === 401) {
+        console.warn(`${LOG_PREFIX} Не удалось проверить права (401)`, { path: url });
+        return null;
+      }
+      if ((res.status === 429 || (res.status >= 500 && res.status < 600)) && attempt < retries - 1) {
+        const waitMs = Math.pow(2, attempt) * 1000;
+        console.log(`${LOG_PREFIX} retry ${res.status} in ${waitMs}ms`);
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        console.log(`${LOG_PREFIX} Avito user info error`, { status: res.status, body: text });
+        return null;
+      }
+      const data = (await res.json().catch(() => ({}))) as AvitoUserInfoResponse;
+      const candidate = typeof data.user_id === "number" ? data.user_id : typeof data.id === "number" ? data.id : null;
+      return candidate && candidate > 0 ? candidate : null;
     }
-    const data = (await res.json().catch(() => ({}))) as AvitoUserInfoResponse;
-    const candidate = typeof data.user_id === "number" ? data.user_id : typeof data.id === "number" ? data.id : null;
-    return candidate && candidate > 0 ? candidate : null;
+    return null;
   };
 
-  // Сначала пробуем /user/info (если доступно), затем fallback на /user
+  // /web/1/oauth/info требует Authorization: Bearer <access_token>
+  try {
+    const fromOauthInfo = await tryFetch(`${baseUrl}/web/1/oauth/info`);
+    if (fromOauthInfo && fromOauthInfo > 0) return fromOauthInfo;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log(`${LOG_PREFIX} /web/1/oauth/info fetch failed`, msg);
+  }
+
   try {
     const fromInfo = await tryFetch("/user/info");
     if (fromInfo && fromInfo > 0) return fromInfo;
@@ -362,11 +423,12 @@ async function handleOAuthCallbackImpl(req: Request, env: Env): Promise<Response
   const clientId = env.AVITO_CLIENT_ID;
   const clientSecret = env.AVITO_CLIENT_SECRET;
 
+  const baseUrl = getAvitoBaseUrl(env);
   console.log(`${LOG_PREFIX} Processing OAuth callback`, { propertyId, hasCode: !!code, codeLength: code.length, redirectUri });
 
-  const tokenData = await refreshTokens(code, redirectUri, clientId, clientSecret);
+  const tokenData = await refreshTokens(baseUrl, code, redirectUri, clientId, clientSecret);
 
-  const avitoUserId = await fetchAvitoUserId(tokenData.access_token).catch(() => null);
+  const avitoUserId = await fetchAvitoUserId(baseUrl, tokenData.access_token).catch(() => null);
   if (avitoUserId && avitoUserId > 0) {
     console.log(`${LOG_PREFIX} Resolved avito_user_id from Avito API`, { avitoUserId });
   } else {
@@ -564,14 +626,14 @@ function jsonResponse(body: object, status = 200): Response {
 
 /**
  * Преобразует пойманную ошибку в HTTP Response.
- * Для AvitoError с code 422 возвращает JSON с полем reason: 'no_avito_integration' | 'scope_missing'.
+ * Для AvitoError с code 422 возвращает reason: Avito422Reason; для 400/401 — reason: AvitoCredentialReason.
  * @param e - Пойманное значение (AvitoError или иное)
- * @returns Response с JSON { error: string, reason?: Avito422Reason } и соответствующим status
+ * @returns Response с JSON { error: string, reason?: string } и соответствующим status
  */
 function errorToResponse(e: unknown): Response {
   if (e instanceof AvitoError) {
-    const body: { error: string; reason?: Avito422Reason } = { error: e.message };
-    if (e.code === 422 && e.reason) {
+    const body: { error: string; reason?: string } = { error: e.message };
+    if (e.reason && (e.code === 422 || e.code === 400 || e.code === 401)) {
       body.reason = e.reason;
     }
     return jsonResponse(body, e.code);
@@ -593,6 +655,7 @@ Deno.serve(async (req: Request) => {
       SUPABASE_ANON_KEY: Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       AVITO_CLIENT_ID: Deno.env.get("AVITO_CLIENT_ID") ?? "",
       AVITO_CLIENT_SECRET: Deno.env.get("AVITO_CLIENT_SECRET") ?? "",
+      AVITO_BASE_URL: Deno.env.get("AVITO_BASE_URL") ?? undefined,
     };
     const envResult = EnvSchema.safeParse(rawEnv);
     if (!envResult.success) {

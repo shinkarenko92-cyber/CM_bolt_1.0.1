@@ -26,6 +26,7 @@ import toast from 'react-hot-toast';
 import { showAvitoErrors } from '@/services/avitoErrors';
 import {
   generateOAuthUrl,
+  getAvitoConfigValidation,
   parseOAuthState,
   saveConnectionProgress,
   loadConnectionProgress,
@@ -62,7 +63,15 @@ export function AvitoConnectModal({
   const [showSuccess, setShowSuccess] = useState(false);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [errorDialog, setErrorDialog] = useState<{ title: string; content: string; onOk?: () => void } | null>(null);
+  const [configError, setConfigError] = useState<string | null>(null);
   const oauthPopupRef = useRef<Window | null>(null);
+
+  // Предполётная валидация Avito credentials при открытии модалки
+  useEffect(() => {
+    if (!isOpen) return;
+    const validation = getAvitoConfigValidation();
+    setConfigError(validation.valid ? null : validation.error);
+  }, [isOpen]);
 
   const handleOAuthCallback = useCallback(async (code: string, state: string) => {
     // Предотвращаем двойной вызов
@@ -103,18 +112,34 @@ export function AvitoConnectModal({
       });
 
       if (callbackError) {
+        const body = callbackResponse as { reason?: string; error?: string } | undefined;
+        const reason = body?.reason;
+        const msg =
+          reason === 'invalid_redirect_uri'
+            ? 'Неверный Redirect URI. Проверьте настройки в Avito Developer Portal.'
+            : reason === 'invalid_credentials'
+              ? 'Неверный Client ID или Secret. Проверьте настройки в админке.'
+              : callbackError.message || 'Ошибка при обработке OAuth callback';
         console.error('AvitoConnectModal: Edge Function error', {
           error: callbackError,
           message: callbackError.message,
           status: callbackError.status,
-          data: callbackError.data,
+          reason,
         });
-        throw new Error(callbackError.message || 'Ошибка при обработке OAuth callback');
+        throw new Error(msg);
       }
 
       if (!callbackResponse || !callbackResponse.success) {
+        const body = callbackResponse as { reason?: string; error?: string } | undefined;
+        const reason = body?.reason;
+        const msg =
+          reason === 'invalid_redirect_uri'
+            ? 'Неверный Redirect URI. Проверьте настройки в Avito Developer Portal.'
+            : reason === 'invalid_credentials'
+              ? 'Неверный Client ID или Secret. Проверьте настройки в админке.'
+              : (callbackResponse as { error?: string })?.error || 'Не удалось обработать OAuth callback';
         console.error('AvitoConnectModal: Invalid callback response', callbackResponse);
-        throw new Error(callbackResponse?.error || 'Не удалось обработать OAuth callback');
+        throw new Error(msg);
       }
 
       // OAuth callback processed successfully
@@ -613,10 +638,19 @@ export function AvitoConnectModal({
                   </div>
                 ) : (
                   <div>
+                    {configError && (
+                      <p className="text-destructive mb-4 text-sm" role="alert">
+                        Неверный Client ID. Проверьте настройки интеграции в админке
+                      </p>
+                    )}
                     <p className="text-foreground mb-6 text-base">
                       Нажмите кнопку ниже, чтобы авторизоваться в Avito и предоставить доступ к вашему аккаунту
                     </p>
-                    <Button size="lg" onClick={handleConnectClick} disabled={loading}>
+                    <Button
+                      size="lg"
+                      onClick={handleConnectClick}
+                      disabled={loading || !!configError}
+                    >
                       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                       Подключить Avito
                     </Button>

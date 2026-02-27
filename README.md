@@ -239,6 +239,12 @@ VITE_AVITO_REDIRECT_URI=https://app.roomi.pro/auth/avito-callback
 - `AVITO_CLIENT_SECRET` - Your Avito OAuth Client Secret (секретный!)
 - Для Messenger API используйте те же `AVITO_CLIENT_ID` / `AVITO_CLIENT_SECRET`, но при авторизации запрашивайте scope `messenger:read,messenger:write` (см. `generateMessengerOAuthUrl`).
 
+**Чеклист Avito credentials:**
+
+- [ ] `AVITO_CLIENT_ID` скопирован полностью (без пробелов в начале/конце)
+- [ ] `AVITO_CLIENT_SECRET` без лишних кавычек в .env
+- [ ] Redirect URI в приложении точно совпадает с настройками в [Avito Developer Portal](https://www.avito.ru/professionals/api)
+
 5. **Примените миграции базы данных**
 
 Выполните SQL миграции из папки `supabase/migrations/` в вашем Supabase проекте через SQL Editor или `supabase db push`. Для полной работы бронирований и истории изменений нужны в том числе:

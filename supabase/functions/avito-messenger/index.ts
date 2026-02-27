@@ -11,6 +11,23 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const AVITO_API_BASE = "https://api.avito.ru";
+const MIN_CLIENT_ID_LENGTH = 20;
+
+function getAvitoBaseUrl(): string {
+  const base = Deno.env.get("AVITO_BASE_URL")?.trim();
+  if (base) {
+    if (!base.includes("api.avito.ru")) {
+      console.warn("[avito] AVITO_BASE_URL не содержит api.avito.ru. Ожидается https://api.avito.ru", { value: base });
+    }
+    return base.replace(/\/$/, "");
+  }
+  return AVITO_API_BASE;
+}
+
+function logAvitoRequest(method: string, url: string, secret?: string): void {
+  const safeUrl = secret ? url.replace(secret, "***") : url;
+  console.log("[avito] request", { method, url: safeUrl });
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -192,6 +209,8 @@ Deno.serve(async (req: Request) => {
   }
   log("owner_verified", { owner_id: property.owner_id });
 
+  const avitoBaseUrl = getAvitoBaseUrl();
+
   // Check scope for messenger access
   const scope = integration.scope || "";
   const scopes = (scope ?? "").split(/\s+/);
@@ -252,22 +271,25 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    const avitoClientId = Deno.env.get("AVITO_CLIENT_ID") ?? "";
+    if (avitoClientId.length < MIN_CLIENT_ID_LENGTH) {
+      console.error("[avito-messenger] AVITO_CLIENT_ID короче 20 символов");
+      return new Response(JSON.stringify({ error: "Invalid Avito configuration" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const url = `${avitoBaseUrl}/token`;
+    logAvitoRequest("POST", url, Deno.env.get("AVITO_CLIENT_SECRET") ?? undefined);
     let refreshRes: Response;
     try {
-      const url = "https://api.avito.ru/token";
-      const method = "POST";
-      console.log("[avito-messenger] fetch", {
-        url,
-        method,
-        headers: { Authorization: "Bearer ***" },
-      });
       refreshRes = await fetch(url, {
-        method,
+        method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           grant_type: "refresh_token",
           refresh_token: refreshToken,
-          client_id: "QPxBGwnCSAu0rx32BRIs",
+          client_id: avitoClientId,
           client_secret: Deno.env.get("AVITO_CLIENT_SECRET") ?? "",
         }),
       });
@@ -392,11 +414,7 @@ Deno.serve(async (req: Request) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), AVITO_FETCH_MS);
     try {
-      console.log("[avito-messenger] fetch", {
-        url,
-        method: init.method ?? "GET",
-        headers: { Authorization: "Bearer ***" },
-      });
+      logAvitoRequest(init.method ?? "GET", url);
       const res = await fetch(url, { ...init, signal: controller.signal });
       clearTimeout(timeoutId);
       return res;
@@ -427,7 +445,7 @@ Deno.serve(async (req: Request) => {
       let testRequestResult: { ok: boolean; status: number; body?: unknown } | null = null;
 
       if (hasValidAvitoUserId) {
-        const testUrl = `${AVITO_API_BASE}/messenger/v2/accounts/${avitoUserId}/chats?limit=1`;
+        const testUrl = `${avitoBaseUrl}/messenger/v2/accounts/${avitoUserId}/chats?limit=1`;
         console.log("[avito-messenger-debug] test_request_start", { url: testUrl });
         try {
           const res = await fetchWithTimeout(testUrl, { headers }, "debug_test_chats");
@@ -483,7 +501,7 @@ Deno.serve(async (req: Request) => {
     if (body.action === "getChats") {
       const b = body as BodyGetChats;
       const action = "getChats";
-      let url = `${AVITO_API_BASE}/messenger/v2/accounts/${avitoUserId}/chats`;
+      let url = `${avitoBaseUrl}/messenger/v2/accounts/${avitoUserId}/chats`;
       const params = new URLSearchParams();
       if (b.item_id) params.append("item_id", b.item_id);
       if (b.limit != null) params.append("limit", String(b.limit));
@@ -525,7 +543,7 @@ Deno.serve(async (req: Request) => {
         );
       }
       const action = "getMessages";
-      let url = `${AVITO_API_BASE}/messenger/v2/accounts/${avitoUserId}/chats/${b.chat_id}/messages`;
+      let url = `${avitoBaseUrl}/messenger/v2/accounts/${avitoUserId}/chats/${b.chat_id}/messages`;
       const params = new URLSearchParams();
       if (b.limit != null) params.append("limit", String(b.limit));
       if (b.offset != null) params.append("offset", String(b.offset));
@@ -569,7 +587,7 @@ Deno.serve(async (req: Request) => {
       const postBody: { text?: string; attachments?: typeof b.attachments } = {};
       if (b.text) postBody.text = b.text;
       if (b.attachments?.length) postBody.attachments = b.attachments;
-      const url = `${AVITO_API_BASE}/messenger/v2/accounts/${avitoUserId}/chats/${b.chat_id}/messages`;
+      const url = `${avitoBaseUrl}/messenger/v2/accounts/${avitoUserId}/chats/${b.chat_id}/messages`;
       log("avito_request", { action, url, method: "POST", textLength: b.text?.length ?? 0 });
       try {
         const res = await fetchWithTimeout(url, { method: "POST", headers, body: JSON.stringify(postBody) }, action);

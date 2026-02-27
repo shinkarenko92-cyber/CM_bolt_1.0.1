@@ -3,6 +3,7 @@
  * Handles OAuth flow, progress saving, and Edge Function calls
  */
 
+import { AVITO_OAUTH_AUTHORIZE_URL, validateAvitoClientId, validateAvitoRedirectUri } from '@/config/avito';
 import { supabase } from '@/lib/supabase';
 import type {
   AvitoTokenResponse,
@@ -10,6 +11,7 @@ import type {
   ConnectionProgress,
   AvitoOAuthError,
   AvitoOAuthSuccess,
+  AvitoOAuthInfoResult,
 } from '@/types/avito';
 
 const PROGRESS_TTL = 3600000; // 1 hour in milliseconds
@@ -29,11 +31,8 @@ interface ErrorWithDetails extends Error {
  * Uses VITE_AVITO_CLIENT_ID from environment (public, safe to expose)
  */
 export function generateOAuthUrl(propertyId: string): string {
-  const clientId = import.meta.env.VITE_AVITO_CLIENT_ID;
-  
-  if (!clientId) {
-    throw new Error('VITE_AVITO_CLIENT_ID is not configured. Please set it in .env file.');
-  }
+  const clientId = import.meta.env.VITE_AVITO_CLIENT_ID as string | undefined;
+  validateAvitoClientId(clientId);
 
   const state = btoa(
     JSON.stringify({
@@ -46,11 +45,12 @@ export function generateOAuthUrl(propertyId: string): string {
   // Используем фиксированный redirect_uri для консистентности
   // Должен совпадать с настройками в Avito: https://app.roomi.pro/auth/avito-callback
   const redirectUri = import.meta.env.VITE_AVITO_REDIRECT_URI || 'https://app.roomi.pro/auth/avito-callback';
+  validateAvitoRedirectUri(redirectUri);
 
   const baseScope = 'user:read short_term_rent:read short_term_rent:write';
 
   // Спецификация Avito: https://avito.ru/oauth
-  return `https://avito.ru/oauth?client_id=${clientId}` +
+  return `${AVITO_OAUTH_AUTHORIZE_URL}?client_id=${clientId}` +
     `&response_type=code` +
     `&scope=${encodeURIComponent(baseScope)}` +
     `&state=${encodeURIComponent(state)}` +
@@ -67,11 +67,8 @@ export async function generateMessengerOAuthUrl(
   integrationId: string | null | undefined
 ): Promise<string> {
   const clientId =
-    import.meta.env.VITE_AVITO_MESSENGER_CLIENT_ID || import.meta.env.VITE_AVITO_CLIENT_ID;
-
-  if (!clientId) {
-    throw new Error('VITE_AVITO_CLIENT_ID or VITE_AVITO_MESSENGER_CLIENT_ID must be set in .env');
-  }
+    (import.meta.env.VITE_AVITO_MESSENGER_CLIENT_ID || import.meta.env.VITE_AVITO_CLIENT_ID) as string | undefined;
+  validateAvitoClientId(clientId);
 
   const finalIntegrationId = integrationId ?? null;
   // Всегда запрашиваем полный набор scope для messenger (по спецификации Avito)
@@ -87,10 +84,13 @@ export async function generateMessengerOAuthUrl(
   const state = btoa(JSON.stringify(stateObj));
 
   const redirectUri = import.meta.env.VITE_AVITO_REDIRECT_URI || 'https://app.roomi.pro/auth/avito-callback';
+  validateAvitoRedirectUri(redirectUri);
 
   // Спецификация Avito: https://avito.ru/oauth
-  return `https://avito.ru/oauth?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scopeString)}&state=${encodeURIComponent(state)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+  return `${AVITO_OAUTH_AUTHORIZE_URL}?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scopeString)}&state=${encodeURIComponent(state)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
 }
+
+export { getAvitoConfigValidation } from '@/config/avito';
 
 /**
  * Parse and validate OAuth state
@@ -366,6 +366,31 @@ export async function getUserAccounts(accessToken: string): Promise<AvitoAccount
   });
 
   return data as AvitoAccount[];
+}
+
+/**
+ * Запрос к Avito GET /web/1/oauth/info с Bearer токеном сохранённой интеграции.
+ * Выполняется через Edge Function (токен берётся из Supabase). Если токена ещё нет (первая авторизация) — возвращает { skipped: true }.
+ * При 401 от Avito возвращает warning "Не удалось проверить права", не блокируя поток. При 429/5xx — retry с exponential backoff на бэкенде.
+ */
+export async function getAvitoOAuthInfo(integrationId: string): Promise<AvitoOAuthInfoResult> {
+  const { data, error } = await supabase.functions.invoke('avito_sync', {
+    body: {
+      action: 'get-oauth-info',
+      integration_id: integrationId,
+    },
+  });
+
+  if (error) {
+    if (import.meta.env.DEV) console.warn('[avito] getAvitoOAuthInfo Edge Function error', error);
+    return { warning: 'Не удалось проверить права', status: error.status ?? 0 };
+  }
+
+  const result = data as AvitoOAuthInfoResult | undefined;
+  if (result?.warning) {
+    console.warn('[avito] Ошибка проверки прав:', result.warning);
+  }
+  return result ?? { skipped: true, reason: 'no_response' };
 }
 
 /**

@@ -1,11 +1,10 @@
 /**
  * Avito API Service
  * Documentation: https://developers.avito.ru/
- * 
  * For real estate short-term rental integration
  */
 
-const AVITO_API_BASE = 'https://api.avito.ru';
+import { getAvitoApiBase, validateAvitoClientId } from '@/config/avito';
 
 export interface AvitoCredentials {
   clientId: string;
@@ -61,7 +60,9 @@ class AvitoApiService {
    * Get OAuth2 access token
    */
   async authenticate(clientId: string, clientSecret: string): Promise<AvitoCredentials> {
-    const response = await fetch(`${AVITO_API_BASE}/token`, {
+    validateAvitoClientId(clientId);
+    const base = getAvitoApiBase();
+    const response = await fetch(`${base}/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -115,8 +116,8 @@ class AvitoApiService {
    */
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const token = await this.ensureValidToken();
-    
-    const response = await fetch(`${AVITO_API_BASE}${endpoint}`, {
+    const base = getAvitoApiBase();
+    const response = await fetch(`${base}${endpoint}`, {
       ...options,
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -349,7 +350,8 @@ class AvitoApiService {
       endpoint += `?${params.toString()}`;
     }
     
-    const response = await fetch(`${AVITO_API_BASE}${endpoint}`, {
+    const base = getAvitoApiBase();
+    const response = await fetch(`${base}${endpoint}`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
@@ -461,7 +463,8 @@ class AvitoApiService {
       endpoint += `?${params.toString()}`;
     }
     
-    const response = await fetch(`${AVITO_API_BASE}${endpoint}`, {
+    const base = getAvitoApiBase();
+    const response = await fetch(`${base}${endpoint}`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
@@ -553,7 +556,7 @@ class AvitoApiService {
     if (attachments && attachments.length > 0) body.attachments = attachments;
 
     const response = await fetch(
-      `${AVITO_API_BASE}/messenger/v2/accounts/${userId}/chats/${chatId}/messages`,
+      `${getAvitoApiBase()}/messenger/v2/accounts/${userId}/chats/${chatId}/messages`,
       {
         method: 'POST',
         headers: {
