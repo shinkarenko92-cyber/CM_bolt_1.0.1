@@ -652,16 +652,7 @@ export function Dashboard() {
 
   const handleAvitoMessengerAuth = useCallback(async (integrationId?: string | null) => {
     const effectiveId = integrationId ?? avitoIntegrationsForMessages?.[0]?.id ?? null;
-    let scope: string | null = null;
-    if (effectiveId) {
-      const { data: integration } = await supabase
-        .from('integrations')
-        .select('scope')
-        .eq('id', effectiveId)
-        .single();
-      scope = integration?.scope ?? null;
-    }
-    const authUrl = await generateMessengerOAuthUrl(effectiveId, scope);
+    const authUrl = await generateMessengerOAuthUrl(effectiveId);
     const popup = window.open(authUrl, 'avito_oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
     messengerOauthPopupRef.current = popup;
     setMessengerOauthInProgress(true);

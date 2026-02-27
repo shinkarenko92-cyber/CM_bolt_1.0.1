@@ -14,7 +14,7 @@ function buildXlsxBuffer(rows: unknown[][]): ArrayBufferLike {
 }
 
 function toFile(buffer: ArrayBufferLike, name: string): File {
-  return new File([buffer], name, {
+  return new File([buffer as BlobPart], name, {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
 }
