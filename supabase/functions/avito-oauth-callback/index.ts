@@ -264,10 +264,23 @@ async function fetchAvitoUserId(baseUrl: string, accessToken: string): Promise<n
     return null;
   };
 
-  // /web/1/oauth/info требует Authorization: Bearer <access_token>
+  // /web/1/oauth/info — не критичен для Messenger; avito_user_id можно получить из /user/info или /user.
+  // При 400/401 не блокируем flow, только логируем.
+  const oauthInfoUrl = `${baseUrl}/web/1/oauth/info`;
   try {
-    const fromOauthInfo = await tryFetch(`${baseUrl}/web/1/oauth/info`);
-    if (fromOauthInfo && fromOauthInfo > 0) return fromOauthInfo;
+    console.log("[avito] oauth/info", { url: oauthInfoUrl, hasToken: !!accessToken });
+    logAvitoRequest("GET", oauthInfoUrl);
+    const res = await fetch(oauthInfoUrl, { method: "GET", headers });
+    console.log("[avito] oauth/info", { url: oauthInfoUrl, status: res.status, hasToken: !!accessToken });
+    if (res.status === 400 || res.status === 401) {
+      const text = await res.text().catch(() => "");
+      console.warn(`${LOG_PREFIX} /web/1/oauth/info ${res.status} — не блокируем OAuth`, { body: text });
+      // continue to try /user/info and /user below
+    } else if (res.ok) {
+      const data = (await res.json().catch(() => ({}))) as AvitoUserInfoResponse;
+      const candidate = typeof data.user_id === "number" ? data.user_id : typeof data.id === "number" ? data.id : null;
+      if (candidate && candidate > 0) return candidate;
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.log(`${LOG_PREFIX} /web/1/oauth/info fetch failed`, msg);

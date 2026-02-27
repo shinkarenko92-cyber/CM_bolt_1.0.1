@@ -857,10 +857,11 @@ Deno.serve(async (req: Request) => {
             },
           });
           lastRes = res;
-          if (res.status === 401) {
-            console.warn("[avito] /web/1/oauth/info 401 — не удалось проверить права");
+          console.log("[avito] oauth/info", { url: oauthInfoUrl, status: res.status, hasToken: !!accessToken });
+          if (res.status === 400 || res.status === 401) {
+            console.warn("[avito] /web/1/oauth/info", res.status, "— не блокируем; scope проверяется по integrations.scope из OAuth callback");
             return new Response(
-              JSON.stringify({ warning: "Не удалось проверить права", status: 401 }),
+              JSON.stringify({ warning: "Не удалось проверить права", status: res.status }),
               { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
