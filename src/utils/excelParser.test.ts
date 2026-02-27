@@ -4,15 +4,16 @@ import { parseExcelFile } from './excelParser';
 
 const HEADERS = ['Объект', 'Заезд', 'Выезд', 'Контакты', 'Примечания', 'Гостей', 'Сумма', 'Источник'];
 
-function buildXlsxBuffer(rows: unknown[][]): ArrayBuffer {
+function buildXlsxBuffer(rows: unknown[][]): ArrayBufferLike {
   const sheet = XLSX.utils.aoa_to_sheet([HEADERS, ...rows]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, sheet, 'Sheet1');
-  const uint = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as Uint8Array;
-  return uint.buffer;
+  const raw = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  const uint = raw instanceof Uint8Array ? raw : new Uint8Array(raw as number[]);
+  return uint.buffer.slice(uint.byteOffset, uint.byteOffset + uint.byteLength);
 }
 
-function toFile(buffer: ArrayBuffer, name: string): File {
+function toFile(buffer: ArrayBufferLike, name: string): File {
   return new File([buffer], name, {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
@@ -51,7 +52,9 @@ describe('excelParser', () => {
 
   describe('битые файлы', () => {
     it('reject при не-XLSX содержимом', async () => {
-      const file = toFile(new Uint8Array([1, 2, 3, 4, 5]).buffer, 'bad.xlsx');
+      const u = new Uint8Array([1, 2, 3, 4, 5]);
+      const ab = u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength) as ArrayBuffer;
+      const file = toFile(ab, 'bad.xlsx');
       await expect(parseExcelFile(file)).rejects.toThrow();
     });
 
@@ -59,8 +62,10 @@ describe('excelParser', () => {
       const sheet = XLSX.utils.aoa_to_sheet([HEADERS]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, sheet, 'Sheet1');
-      const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as Uint8Array;
-      const file = toFile(buf.buffer, 'headers-only.xlsx');
+      const raw = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+      const buf = raw instanceof Uint8Array ? raw : new Uint8Array(raw as number[]);
+      const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
+      const file = toFile(ab, 'headers-only.xlsx');
       await expect(parseExcelFile(file)).rejects.toThrow('хотя бы одну строку данных');
     });
   });

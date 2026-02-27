@@ -136,14 +136,14 @@
 ### Frontend
 
 - **React 18.3** — современный UI фреймворк
-- **TypeScript 5.8** — типобезопасность
-- **Vite 5.4** — быстрая сборка и dev-сервер
+- **TypeScript 5.8** — строгая типизация
+- **Vite 7.x** — сборка и dev-сервер
 - **React Router DOM 6.30** — маршрутизация
 - **Tailwind CSS 3.4** — utility-first стилизация
-- **Ant Design 6.1** — UI компоненты (таблицы, формы, модалки)
-- **Radix UI** — доступные headless компоненты
+- **shadcn/ui + Radix UI** — UI компоненты (таблицы, формы, диалоги, селекты и т.д.)
 - **Lucide React** — иконки
 - **Recharts 3.5** — графики и визуализация данных
+- **Абсолютные импорты** — алиасы `@/` и `@components/` (см. `tsconfig.app.json`, `vite.config.ts`)
 
 ### State Management & Forms
 
@@ -187,9 +187,10 @@
 ### Инструменты разработки
 
 - **TypeScript 5.8** — типизация
-- **ESLint 9.32** — линтинг кода
-- **PostCSS 8.5** — обработка CSS
-- **Autoprefixer** — автопрефиксы для CSS
+- **ESLint 9** — линтинг
+- **Vitest** — юнит-тесты (например, `excelParser`, `dateParser`, `guestParser`)
+- **PostCSS** — обработка CSS
+- **GitHub Actions** — CI (`test-and-build`: lint, typecheck, test, build)
 
 ---
 
@@ -516,9 +517,14 @@ npm run typecheck
 ### Тестирование
 
 ```bash
-# Запуск тестов (если есть)
+# Запуск тестов (watch)
 npm test
+
+# Однократный прогон (для CI)
+npm run test:run
 ```
+
+Тесты покрывают утилиты: `excelParser`, `dateParser`, `guestParser` и др.
 
 ### Структура коммитов
 
@@ -540,6 +546,8 @@ npm test
 - [HOW_TO_VIEW_EDGE_FUNCTION_LOGS.md](./HOW_TO_VIEW_EDGE_FUNCTION_LOGS.md) — просмотр логов
 - [TESTING.md](./TESTING.md) — руководство по тестированию
 - [CHANGELOG.md](./CHANGELOG.md) — история изменений
+- [docs/MIGRATION_ANTD_TO_SHADCN.md](./docs/MIGRATION_ANTD_TO_SHADCN.md) — миграция UI с Ant Design на shadcn/ui
+- [docs/SECURITY_AUDIT_REPORT.md](./docs/SECURITY_AUDIT_REPORT.md) — отчёт по безопасности (RLS, Edge Functions, Vault, Zod)
 
 ---
 
@@ -551,6 +559,9 @@ npm test
 - [x] Чаты Avito Messenger (список чатов, сообщения, отправка)
 - [x] Повторная OAuth для доступа к чатам (scope messenger:read/write), fallback по первой интеграции
 - [x] Диалог «Нет подключённых аккаунтов Avito» и переход к объектам при 422
+- [x] Миграция UI с Ant Design на **shadcn/ui + Radix UI** (кнопки, таблицы, модалки, формы, тосты)
+- [x] Абсолютные импорты `@/` и `@components/` для удобной разработки
+- [x] Юнит-тесты (Vitest) для парсеров и утилит; CI `test-and-build`
 
 ### В разработке / планируется
 
