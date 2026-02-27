@@ -59,8 +59,6 @@ const EnvSchema = z.object({
   SUPABASE_ANON_KEY: z.string(),
   AVITO_CLIENT_ID: z.string().min(1, "AVITO_CLIENT_ID is required"),
   AVITO_CLIENT_SECRET: z.string().min(1, "AVITO_CLIENT_SECRET is required"),
-  AVITO_MESSENGER_CLIENT_ID: z.string().optional(),
-  AVITO_MESSENGER_CLIENT_SECRET: z.string().optional(),
 });
 
 type OAuthCallbackBody = z.infer<typeof OAuthCallbackBodySchema>;
@@ -79,6 +77,12 @@ interface AvitoErrorResponse {
   error?: string;
   error_description?: string;
   error_uri?: string;
+}
+
+interface AvitoUserInfoResponse {
+  id?: number;
+  user_id?: number;
+  account_id?: number | string;
 }
 
 /**
@@ -121,8 +125,8 @@ function checkMessengerScope(scope: string | undefined): void {
  * Обменивает authorization code на access_token и refresh_token в Avito API.
  * @param code - Код авторизации от Avito
  * @param redirectUri - redirect_uri, использованный при запросе кода
- * @param clientId - AVITO_CLIENT_ID или AVITO_MESSENGER_CLIENT_ID
- * @param clientSecret - Соответствующий client secret
+ * @param clientId - AVITO_CLIENT_ID
+ * @param clientSecret - AVITO_CLIENT_SECRET
  * @returns Promise с данными токена (access_token, expires_in, refresh_token, scope)
  * @throws AvitoError при ошибке API Avito или сети/парсинга
  */
@@ -182,6 +186,49 @@ async function refreshTokens(
     expiresIn: tokenData.expires_in,
   });
   return tokenData;
+}
+
+/**
+ * Пытается получить числовой avito_user_id по access_token через Avito API.
+ * Используется только для логов/предупреждений и валидации данных Messenger, не блокирует основной OAuth flow.
+ */
+async function fetchAvitoUserId(accessToken: string): Promise<number | null> {
+  const headers: HeadersInit = {
+    Authorization: `Bearer ${accessToken}`,
+  };
+
+  const tryFetch = async (path: string): Promise<number | null> => {
+    const url = `${AVITO_API_BASE}${path}`;
+    console.log(`${LOG_PREFIX} Fetching Avito user info`, { url });
+    const res = await fetch(url, { method: "GET", headers });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.log(`${LOG_PREFIX} Avito user info error`, { status: res.status, body: text });
+      return null;
+    }
+    const data = (await res.json().catch(() => ({}))) as AvitoUserInfoResponse;
+    const candidate = typeof data.user_id === "number" ? data.user_id : typeof data.id === "number" ? data.id : null;
+    return candidate && candidate > 0 ? candidate : null;
+  };
+
+  // Сначала пробуем /user/info (если доступно), затем fallback на /user
+  try {
+    const fromInfo = await tryFetch("/user/info");
+    if (fromInfo && fromInfo > 0) return fromInfo;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log(`${LOG_PREFIX} /user/info fetch failed`, msg);
+  }
+
+  try {
+    const fromUser = await tryFetch("/user");
+    if (fromUser && fromUser > 0) return fromUser;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log(`${LOG_PREFIX} /user fetch failed`, msg);
+  }
+
+  return null;
 }
 
 /**
@@ -312,12 +359,19 @@ async function handleOAuthCallbackImpl(req: Request, env: Env): Promise<Response
   const origin = new URL(req.url).origin;
   const redirectUri = redirect_uri ?? (isMessengerAuth ? "https://app.roomi.pro/auth/avito-callback" : `${origin}/auth/avito-callback`);
 
-  const clientId = isMessengerAuth ? (env.AVITO_MESSENGER_CLIENT_ID || env.AVITO_CLIENT_ID) : env.AVITO_CLIENT_ID;
-  const clientSecret = isMessengerAuth ? (env.AVITO_MESSENGER_CLIENT_SECRET || env.AVITO_CLIENT_SECRET) : env.AVITO_CLIENT_SECRET;
+  const clientId = env.AVITO_CLIENT_ID;
+  const clientSecret = env.AVITO_CLIENT_SECRET;
 
   console.log(`${LOG_PREFIX} Processing OAuth callback`, { propertyId, hasCode: !!code, codeLength: code.length, redirectUri });
 
   const tokenData = await refreshTokens(code, redirectUri, clientId, clientSecret);
+
+  const avitoUserId = await fetchAvitoUserId(tokenData.access_token).catch(() => null);
+  if (avitoUserId && avitoUserId > 0) {
+    console.log(`${LOG_PREFIX} Resolved avito_user_id from Avito API`, { avitoUserId });
+  } else {
+    console.log(`${LOG_PREFIX} avito_user_id_not_resolved`, { scope: tokenData.scope ?? null });
+  }
 
   const expiresInSeconds =
     tokenData.expires_in && typeof tokenData.expires_in === "number" && tokenData.expires_in > 0 ? tokenData.expires_in : 3600;
@@ -366,8 +420,11 @@ async function handleOAuthCallbackImpl(req: Request, env: Env): Promise<Response
       console.log(`${LOG_PREFIX} messenger_auth_update_error target_id=${targetIntegrationId} error=${updateError.message}`);
       throw new AvitoError(`Ошибка обновления интеграции: ${updateError.message}`, 500);
     }
-    console.log(`${LOG_PREFIX} messenger_auth_success target_id=${targetIntegrationId}`);
-    return jsonResponse({ success: true, isMessengerAuth: true });
+    console.log(`${LOG_PREFIX} messenger_auth_success target_id=${targetIntegrationId}`, {
+      avitoUserId,
+      avitoUserIdMissing: !avitoUserId,
+    });
+    return jsonResponse({ success: true, isMessengerAuth: true, avitoUserId, avitoUserIdMissing: !avitoUserId });
   }
 
   // Main OAuth flow: save to integrations
@@ -460,8 +517,11 @@ async function handleOAuthCallbackImpl(req: Request, env: Env): Promise<Response
     });
   }
 
-  console.log(`${LOG_PREFIX} Tokens saved for integration`, integration.id);
-  return jsonResponse({ success: true });
+  console.log(`${LOG_PREFIX} Tokens saved for integration`, integration.id, {
+    avitoUserId,
+    avitoUserIdMissing: !avitoUserId,
+  });
+  return jsonResponse({ success: true, avitoUserId, avitoUserIdMissing: !avitoUserId });
 }
 
 /**
@@ -533,8 +593,6 @@ Deno.serve(async (req: Request) => {
       SUPABASE_ANON_KEY: Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       AVITO_CLIENT_ID: Deno.env.get("AVITO_CLIENT_ID") ?? "",
       AVITO_CLIENT_SECRET: Deno.env.get("AVITO_CLIENT_SECRET") ?? "",
-      AVITO_MESSENGER_CLIENT_ID: Deno.env.get("AVITO_MESSENGER_CLIENT_ID") ?? undefined,
-      AVITO_MESSENGER_CLIENT_SECRET: Deno.env.get("AVITO_MESSENGER_CLIENT_SECRET") ?? undefined,
     };
     const envResult = EnvSchema.safeParse(rawEnv);
     if (!envResult.success) {

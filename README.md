@@ -20,6 +20,7 @@
 - [Установка и настройка](#установка-и-настройка)
 - [Структура проекта](#структура-проекта)
 - [Интеграция с Avito](#интеграция-с-avito)
+- [Messenger Setup](#messenger-setup)
 - [API и Edge Functions](#api-и-edge-functions)
 - [База данных](#база-данных)
 - [Разработка](#разработка)
@@ -236,6 +237,7 @@ VITE_AVITO_REDIRECT_URI=https://app.roomi.pro/auth/avito-callback
 
 - `AVITO_CLIENT_ID` - Your Avito OAuth Client ID
 - `AVITO_CLIENT_SECRET` - Your Avito OAuth Client Secret (секретный!)
+- Для Messenger API используйте те же `AVITO_CLIENT_ID` / `AVITO_CLIENT_SECRET`, но при авторизации запрашивайте scope `messenger:read,messenger:write` (см. `generateMessengerOAuthUrl`).
 
 5. **Примените миграции базы данных**
 
@@ -390,6 +392,12 @@ CM_bolt_1.0.1/
 - `avito-close-availability` — закрытие доступности
 - `avito-messenger` — прокси к Avito Messenger API (чаты, сообщения)
 - `avito-messenger-webhook` — webhook для уведомлений мессенджера (при необходимости)
+
+---
+
+## Messenger Setup
+
+- Для доступа к чатам при подключении Avito убедитесь, что в OAuth URL указан scope `messenger:read,messenger:write`.
 
 ---
 

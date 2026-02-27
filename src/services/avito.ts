@@ -46,9 +46,15 @@ export function generateOAuthUrl(propertyId: string): string {
   // Используем фиксированный redirect_uri для консистентности
   // Должен совпадать с настройками в Avito: https://app.roomi.pro/auth/avito-callback
   const redirectUri = import.meta.env.VITE_AVITO_REDIRECT_URI || 'https://app.roomi.pro/auth/avito-callback';
-  
+
+  const baseScope = 'user:read short_term_rent:read short_term_rent:write';
+
   // Спецификация Avito: https://avito.ru/oauth
-  return `https://avito.ru/oauth?client_id=${clientId}&response_type=code&scope=user:read,short_term_rent:read,short_term_rent:write&state=${state}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+  return `https://avito.ru/oauth?client_id=${clientId}` +
+    `&response_type=code` +
+    `&scope=${encodeURIComponent(baseScope)}` +
+    `&state=${encodeURIComponent(state)}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}`;
 }
 
 /**
@@ -70,11 +76,8 @@ export async function generateMessengerOAuthUrl(
 
   const finalIntegrationId = integrationId ?? null;
   // Всегда запрашиваем полный набор scope для messenger (по спецификации Avito)
-  const baseScopes = ['user:read', 'short_term_rent:read', 'short_term_rent:write'];
-  const messengerScopes = ['messenger:read', 'messenger:write'];
-  const existingScopes = currentScope ? currentScope.split(/\s+/).filter(Boolean) : [];
-  const allScopes = [...new Set([...baseScopes, ...messengerScopes, ...existingScopes])];
-  const scopeString = allScopes.join(' ');
+  // Важно: Avito ожидает пробелы как разделитель, а не запятые.
+  const scopeString = 'user:read short_term_rent:read short_term_rent:write messenger:read messenger:write';
 
   const stateObj = {
     type: 'messenger_auth',
