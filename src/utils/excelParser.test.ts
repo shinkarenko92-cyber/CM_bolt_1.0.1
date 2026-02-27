@@ -4,16 +4,16 @@ import { parseExcelFile } from './excelParser';
 
 const HEADERS = ['Объект', 'Заезд', 'Выезд', 'Контакты', 'Примечания', 'Гостей', 'Сумма', 'Источник'];
 
-function buildXlsxBuffer(rows: unknown[][]): Uint8Array {
+function buildXlsxBuffer(rows: unknown[][]): ArrayBuffer {
   const sheet = XLSX.utils.aoa_to_sheet([HEADERS, ...rows]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, sheet, 'Sheet1');
-  return XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as Uint8Array;
+  const uint = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as Uint8Array;
+  return uint.buffer;
 }
 
-function toFile(buffer: Uint8Array, name: string): File {
-  // В тестах приводим к any, чтобы не упираться в различия типов BlobPart в окружении
-  return new File([buffer as unknown as any], name, {
+function toFile(buffer: ArrayBuffer, name: string): File {
+  return new File([buffer], name, {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
 }
@@ -51,7 +51,7 @@ describe('excelParser', () => {
 
   describe('битые файлы', () => {
     it('reject при не-XLSX содержимом', async () => {
-      const file = toFile(new Uint8Array([1, 2, 3, 4, 5]), 'bad.xlsx');
+      const file = toFile(new Uint8Array([1, 2, 3, 4, 5]).buffer, 'bad.xlsx');
       await expect(parseExcelFile(file)).rejects.toThrow();
     });
 
@@ -60,7 +60,7 @@ describe('excelParser', () => {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, sheet, 'Sheet1');
       const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as Uint8Array;
-      const file = toFile(buf, 'headers-only.xlsx');
+      const file = toFile(buf.buffer, 'headers-only.xlsx');
       await expect(parseExcelFile(file)).rejects.toThrow('хотя бы одну строку данных');
     });
   });
