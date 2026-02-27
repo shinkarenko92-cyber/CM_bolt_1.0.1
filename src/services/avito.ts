@@ -64,8 +64,7 @@ export function generateOAuthUrl(propertyId: string): string {
  * integrationId can be null — тогда callback выберет первую интеграцию пользователя (fallback).
  */
 export async function generateMessengerOAuthUrl(
-  integrationId: string | null | undefined,
-  currentScope?: string | null
+  integrationId: string | null | undefined
 ): Promise<string> {
   const clientId =
     import.meta.env.VITE_AVITO_MESSENGER_CLIENT_ID || import.meta.env.VITE_AVITO_CLIENT_ID;

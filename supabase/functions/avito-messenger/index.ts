@@ -115,7 +115,6 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   const isDebugAction = body.action === "debug";
-  let isDebugAllowed = false;
   if (isDebugAction) {
     const debugHeader = req.headers.get("X-Debug");
     const debugHeaderValid = debugHeader === "true";
@@ -140,7 +139,6 @@ Deno.serve(async (req: Request) => {
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    isDebugAllowed = true;
   }
 
   const { data: integration, error: integrationError } = await supabase
@@ -425,7 +423,6 @@ Deno.serve(async (req: Request) => {
         ? new Date(integration.token_expires_at).toISOString()
         : null;
 
-      let avitoApiResponse: unknown = null;
       let status: "ok" | "error" = "ok";
       let testRequestResult: { ok: boolean; status: number; body?: unknown } | null = null;
 
@@ -435,7 +432,6 @@ Deno.serve(async (req: Request) => {
         try {
           const res = await fetchWithTimeout(testUrl, { headers }, "debug_test_chats");
           const bodyJson = await res.json().catch(() => ({}));
-          avitoApiResponse = bodyJson;
           testRequestResult = { ok: res.ok, status: res.status, body: bodyJson };
           if (!res.ok) {
             status = "error";
