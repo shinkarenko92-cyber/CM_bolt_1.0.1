@@ -12,7 +12,8 @@ function buildXlsxBuffer(rows: unknown[][]): Uint8Array {
 }
 
 function toFile(buffer: Uint8Array, name: string): File {
-  return new File([buffer as BlobPart], name, {
+  // В тестах приводим к any, чтобы не упираться в различия типов BlobPart в окружении
+  return new File([buffer as unknown as any], name, {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
 }
