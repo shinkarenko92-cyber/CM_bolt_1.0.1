@@ -488,6 +488,9 @@ async function handleOAuthCallbackImpl(req: Request, env: Env): Promise<Response
     if (tokenData.refresh_token) {
       updateData.refresh_token_encrypted = tokenData.refresh_token;
     }
+    if (avitoUserId != null && avitoUserId > 0) {
+      updateData.avito_user_id = avitoUserId;
+    }
 
     const { error: updateError } = await supabase.from("integrations").update(updateData).eq("id", targetIntegrationId);
 
@@ -539,6 +542,9 @@ async function handleOAuthCallbackImpl(req: Request, env: Env): Promise<Response
   };
   if (tokenData.refresh_token) {
     updateData.refresh_token_encrypted = tokenData.refresh_token;
+  }
+  if (avitoUserId != null && avitoUserId > 0) {
+    updateData.avito_user_id = avitoUserId;
   }
 
   let integration: { id: string; property_id: string; platform: string; is_active: boolean } | null = null;
