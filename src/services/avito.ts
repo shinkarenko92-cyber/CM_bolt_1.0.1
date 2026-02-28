@@ -3,7 +3,12 @@
  * Handles OAuth flow, progress saving, and Edge Function calls
  */
 
-import { AVITO_OAUTH_AUTHORIZE_URL, validateAvitoClientId, validateAvitoRedirectUri } from '@/config/avito';
+import {
+  AVITO_OAUTH_AUTHORIZE_URL,
+  AVITO_OAUTH_INFO_URL,
+  validateAvitoClientId,
+  validateAvitoRedirectUri,
+} from '@/config/avito';
 import { supabase } from '@/lib/supabase';
 import type {
   AvitoTokenResponse,
@@ -370,27 +375,36 @@ export async function getUserAccounts(accessToken: string): Promise<AvitoAccount
 
 /**
  * Запрос к Avito GET /web/1/oauth/info с Bearer токеном сохранённой интеграции.
- * Выполняется через Edge Function (токен берётся из Supabase). Если токена ещё нет (первая авторизация) — возвращает { skipped: true }.
- * При 401 от Avito возвращает warning "Не удалось проверить права", не блокируя поток. При 429/5xx — retry с exponential backoff на бэкенде.
+ * Выполняется через Edge Function (URL на бэкенде: https://api.avito.ru/web/1/oauth/info).
+ * Если токена ещё нет (первая авторизация) — возвращает { skipped: true }. При 400/401 не блокируем OAuth.
  */
 export async function getAvitoOAuthInfo(integrationId: string): Promise<AvitoOAuthInfoResult> {
-  const { data, error } = await supabase.functions.invoke('avito_sync', {
-    body: {
-      action: 'get-oauth-info',
-      integration_id: integrationId,
-    },
-  });
+  const url = AVITO_OAUTH_INFO_URL; // Бэкенд использует этот URL (api.avito.ru)
+  try {
+    const { data, error } = await supabase.functions.invoke('avito_sync', {
+      body: {
+        action: 'get-oauth-info',
+        integration_id: integrationId,
+      },
+    });
 
-  if (error) {
-    if (import.meta.env.DEV) console.warn('[avito] getAvitoOAuthInfo Edge Function error', error);
-    return { warning: 'Не удалось проверить права', status: error.status ?? 0 };
-  }
+    const result = data as AvitoOAuthInfoResult | undefined;
+    console.log('[avito] oauth/info', { url, status: result?.status, hasToken: !!integrationId });
 
-  const result = data as AvitoOAuthInfoResult | undefined;
-  if (result?.warning) {
-    console.warn('[avito] Ошибка проверки прав:', result.warning);
+    if (error) {
+      console.warn('[avito] getAvitoOAuthInfo Edge Function error', error);
+      return { warning: 'Не удалось проверить права', status: error.status ?? 0 };
+    }
+
+    if (result?.warning) {
+      console.warn('[avito] Ошибка проверки прав:', result.warning);
+    }
+    return result ?? { skipped: true, reason: 'no_response' };
+  } catch (e) {
+    console.warn('[avito] oauth/info skipped:', e);
+    // Не прерываем интеграцию; scope проверяется через integrations.scope из OAuth callback
+    return { skipped: true, reason: 'error' };
   }
-  return result ?? { skipped: true, reason: 'no_response' };
 }
 
 /**
