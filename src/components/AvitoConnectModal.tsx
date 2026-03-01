@@ -351,8 +351,10 @@ export function AvitoConnectModal({
       console.log('[avito-modal] redirect_uri in URL (decoded):', redirectUriFromUrl ? decodeURIComponent(redirectUriFromUrl) : redirectUriFromUrl);
       setOauthRedirecting(true);
       saveConnectionProgress(property.id, 0, {});
+      const loginUrl = `https://www.avito.ru/login?next=${encodeURIComponent(oauthUrl)}`;
+      console.log('[avito-modal] opening popup with login URL (next=oauth):', loginUrl);
       const popup = window.open(
-        oauthUrl,
+        loginUrl,
         'avito_oauth',
         'width=600,height=700,scrollbars=yes,resizable=yes'
       );
