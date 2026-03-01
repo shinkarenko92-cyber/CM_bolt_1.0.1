@@ -12,7 +12,7 @@ import {
   Loader2,
   FileText,
 } from 'lucide-react';
-import { openSyncLogGlobal } from '@/contexts/SyncLogContext';
+import { openSyncLogGlobal } from '@/utils/syncLogGlobal';
 import { Property, PropertyIntegration, AGGREGATOR_PLATFORMS } from '@/lib/supabase';
 import { isAvitoConfigured } from '@/services/avitoApi';
 import { useTheme } from '@/contexts/ThemeContext';

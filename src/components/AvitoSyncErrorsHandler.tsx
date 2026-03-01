@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSyncLog } from '@/contexts/SyncLogContext';
+import { useSyncLog } from '@/hooks/useSyncLog';
 import {
   Dialog,
   DialogContent,
@@ -70,7 +70,7 @@ function SyncLogDialog() {
           toast.error('Не удалось загрузить журнал: ' + error.message);
           return;
         }
-        setLogs((data as AvitoLogRow[]) ?? []);
+        setLogs((data ?? []) as unknown as AvitoLogRow[]);
       });
 
     return () => {
@@ -151,11 +151,8 @@ export function AvitoSyncErrorsHandler() {
           toast.error(msg, {
             duration: 12_000,
             id: `avito-sync-error-${payload.new?.id ?? Date.now()}`,
-            action: {
-              label: 'Подробнее',
-              onClick: () => syncLog.openSyncLog(),
-            },
           });
+          syncLog.openSyncLog();
         }
       )
       .subscribe();
