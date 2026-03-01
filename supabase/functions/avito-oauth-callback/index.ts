@@ -434,8 +434,7 @@ async function handleOAuthCallbackImpl(req: Request, env: Env): Promise<Response
 
   const propertyId = stateData.property_id;
   const integrationIdFromState = stateData.integration_id && String(stateData.integration_id).trim() ? stateData.integration_id : null;
-  const origin = new URL(req.url).origin;
-  const redirectUri = redirect_uri ?? (isMessengerAuth ? "https://app.roomi.pro/auth/avito-callback" : `${origin}/auth/avito-callback`);
+  const redirectUri = redirect_uri ?? "https://app.roomi.pro/auth/avito-callback";
 
   const clientId = env.AVITO_CLIENT_ID;
   const clientSecret = env.AVITO_CLIENT_SECRET;

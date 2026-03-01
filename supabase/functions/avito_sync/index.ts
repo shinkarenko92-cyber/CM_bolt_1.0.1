@@ -59,7 +59,7 @@ async function refreshAccessToken(
   avitoClientId: string,
   avitoClientSecret: string,
   supabase: ReturnType<typeof createClient>
-): Promise<{ access_token: string; refresh_token?: string; expires_in: number }> {
+): Promise<{ access_token: string; refresh_token?: string; expires_in: number; scope?: string }> {
   // Try refresh_token grant_type first if refresh_token exists
   if (integration.refresh_token_encrypted) {
     try {
@@ -95,6 +95,7 @@ async function refreshAccessToken(
           access_token: refreshData.access_token,
           refresh_token: refreshData.refresh_token,
           expires_in: refreshData.expires_in || 3600,
+          scope: refreshData.scope ?? undefined,
         };
       }
       const errorText = await refreshResponse.text();
@@ -142,6 +143,7 @@ async function refreshAccessToken(
     access_token: refreshData.access_token,
     refresh_token: refreshData.refresh_token,
     expires_in: refreshData.expires_in || 3600,
+    scope: refreshData.scope ?? undefined,
   };
 }
 
@@ -283,6 +285,82 @@ Deno.serve(async (req: Request) => {
     console.log(`Processing action: ${action}`);
 
     switch (action) {
+      case "refresh-expired-tokens": {
+        // Ручной запуск обновления токенов для всех активных интеграций с протухшим токеном
+        const now = Date.now();
+        const { data: allActive, error: listError } = await supabase
+          .from("integrations")
+          .select("id, property_id, refresh_token_encrypted, token_expires_at")
+          .eq("platform", "avito")
+          .eq("is_active", true);
+
+        if (listError) {
+          console.error("[avito] refresh-expired-tokens list error", listError);
+          return new Response(
+            JSON.stringify({ error: listError.message, refreshed: 0, failed: 0 }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const list = (allActive ?? []).filter((row) => {
+          if (!row.token_expires_at) return true;
+          const exp = new Date(row.token_expires_at).getTime();
+          return exp <= now + 5 * 60 * 1000;
+        });
+        let refreshed = 0;
+        const errors: Array<{ integration_id: string; error: string }> = [];
+
+        for (const row of list) {
+          if (!row.refresh_token_encrypted) {
+            errors.push({ integration_id: row.id, error: "no_refresh_token" });
+            continue;
+          }
+          try {
+            const refreshData = await refreshAccessToken(
+              avitoBaseUrl,
+              { id: row.id, refresh_token_encrypted: row.refresh_token_encrypted },
+              avitoClientId,
+              avitoClientSecret,
+              supabase
+            );
+            const expiresIn = refreshData.expires_in || 3600;
+            const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
+            const updateData: Record<string, unknown> = {
+              access_token_encrypted: refreshData.access_token,
+              token_expires_at: tokenExpiresAt.toISOString(),
+            };
+            if (refreshData.refresh_token) updateData.refresh_token_encrypted = refreshData.refresh_token;
+            if (refreshData.scope != null) updateData.scope = refreshData.scope;
+
+            const { error: updateError } = await supabase
+              .from("integrations")
+              .update(updateData)
+              .eq("id", row.id);
+
+            if (updateError) {
+              errors.push({ integration_id: row.id, error: updateError.message });
+              continue;
+            }
+            refreshed++;
+            console.log("[avito] refresh-expired-tokens ok", { integration_id: row.id, new_expires_at: tokenExpiresAt.toISOString() });
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            errors.push({ integration_id: row.id, error: msg });
+            console.warn("[avito] refresh-expired-tokens fail", { integration_id: row.id, error: msg });
+          }
+        }
+
+        return new Response(
+          JSON.stringify({
+            refreshed,
+            failed: list.length - refreshed,
+            total: list.length,
+            errors: errors.length ? errors : undefined,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       case "exchange-code": {
         const { code, redirect_uri } = params;
         
@@ -452,8 +530,8 @@ Deno.serve(async (req: Request) => {
             token_type: tokenData.token_type,
             expires_in: tokenData.expires_in,
             refresh_token: tokenData.refresh_token || null,
-            account_id: accountId, // Return account_id for frontend to save
-            // Note: Avito may provide refresh_token in some cases
+            scope: tokenData.scope ?? null,
+            account_id: accountId,
           }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -889,6 +967,7 @@ Deno.serve(async (req: Request) => {
           access_token,
           refresh_token,
           expires_in,
+          scope: scopeParam,
         } = params;
 
         // Валидация обязательных параметров
@@ -959,6 +1038,7 @@ Deno.serve(async (req: Request) => {
           access_token_encrypted: string;
           refresh_token_encrypted?: string;
           token_expires_at: string;
+          scope?: string | null;
           is_active: boolean;
           is_enabled: boolean;
           markup_type: string;
@@ -979,9 +1059,11 @@ Deno.serve(async (req: Request) => {
             markup_value: avito_markup !== null && avito_markup !== undefined ? parseFloat(avito_markup) : 0,
         };
 
-        // Add refresh_token if provided
         if (refresh_token) {
           upsertData.refresh_token_encrypted = refresh_token;
+        }
+        if (scopeParam != null && scopeParam !== "") {
+          upsertData.scope = scopeParam;
         }
 
         const { data: integration, error } = await supabase
@@ -1214,23 +1296,27 @@ Deno.serve(async (req: Request) => {
 
           let accessToken = integration.access_token_encrypted;
           
-          // Check if token is expired
+          const now = Date.now();
+          const fiveMinMs = 5 * 60 * 1000;
+          let shouldRefresh = false;
           if (integration.token_expires_at) {
             let expiresAtString = integration.token_expires_at;
             if (!expiresAtString.endsWith('Z') && !expiresAtString.includes('+') && !expiresAtString.includes('-', 10)) {
               expiresAtString = expiresAtString + 'Z';
             }
-            
-            const expiresAt = new Date(expiresAtString);
-            const now = new Date();
-            
+            const expiresAt = new Date(expiresAtString).getTime();
             // Refresh if expired or expires within 5 minutes
-            if (expiresAt.getTime() <= now.getTime() + 5 * 60 * 1000) {
+            if (expiresAt <= now + fiveMinMs) shouldRefresh = true;
+          } else if (integration.refresh_token_encrypted) {
+            // token_expires_at missing but we have refresh_token — treat as expired and refresh
+            shouldRefresh = true;
+          }
+
+          if (shouldRefresh) {
               console.log("Token expired or expiring soon, refreshing...", {
-                expiresAt: expiresAt.toISOString(),
-                now: now.toISOString(),
                 integration_id: integration.id,
                 hasRefreshToken: !!integration.refresh_token_encrypted,
+                token_expires_at: integration.token_expires_at ?? null,
               });
 
               // Check if refresh token is available
@@ -1262,14 +1348,16 @@ Deno.serve(async (req: Request) => {
                   access_token_encrypted: string;
                   token_expires_at: string;
                   refresh_token_encrypted?: string;
+                  scope?: string | null;
                 } = {
-                  access_token_encrypted: accessToken, // Plain text for testing
+                  access_token_encrypted: accessToken,
                   token_expires_at: tokenExpiresAt.toISOString(),
                 };
-
-                // Update refresh_token if provided
                 if (refreshData.refresh_token) {
-                  updateData.refresh_token_encrypted = refreshData.refresh_token; // Plain text for testing
+                  updateData.refresh_token_encrypted = refreshData.refresh_token;
+                }
+                if (refreshData.scope != null) {
+                  updateData.scope = refreshData.scope;
                 }
 
                 const { error: updateError } = await supabase
@@ -1327,7 +1415,6 @@ Deno.serve(async (req: Request) => {
                 });
                 return null;
               }
-            }
           }
 
           if (!accessToken) {
@@ -2125,12 +2212,16 @@ Deno.serve(async (req: Request) => {
               access_token_encrypted: string;
               token_expires_at: string;
               refresh_token_encrypted?: string;
+              scope?: string | null;
             } = {
               access_token_encrypted: refreshData.access_token,
               token_expires_at: tokenExpiresAt.toISOString(),
             };
             if (refreshData.refresh_token) {
               updateData.refresh_token_encrypted = refreshData.refresh_token;
+            }
+            if (refreshData.scope != null) {
+              updateData.scope = refreshData.scope;
             }
                 
                 const { error: updateError } = await supabase
