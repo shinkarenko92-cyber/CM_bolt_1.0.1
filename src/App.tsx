@@ -16,6 +16,8 @@ import { OnboardingImport } from '@/pages/OnboardingImport';
 import { LoginPhonePage } from '@/pages/LoginPhonePage';
 import { CookieConsentBanner } from '@/components/CookieConsentBanner';
 import { AvitoErrorQueue } from '@/components/AvitoErrorQueue';
+import { SyncLogProvider } from '@/contexts/SyncLogContext';
+import { AvitoSyncErrorsHandler } from '@/components/AvitoSyncErrorsHandler';
 
 function AvitoCallbackHandler() {
   const [messengerSuccessModalOpen, setMessengerSuccessModalOpen] = useState(false);
@@ -191,7 +193,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 function AppContent() {
   return (
-    <>
+    <SyncLogProvider>
       <Routes>
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
@@ -204,9 +206,10 @@ function AppContent() {
       </Routes>
       <AvitoCallbackHandler />
       <AvitoErrorQueue />
+      <AvitoSyncErrorsHandler />
       <BoltChatWidget />
       <CookieConsentBanner />
-    </>
+    </SyncLogProvider>
   );
 }
 

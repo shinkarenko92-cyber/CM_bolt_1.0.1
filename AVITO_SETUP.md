@@ -113,13 +113,16 @@ For production, set up proper Vault encryption for tokens:
 - Avito tokens expire after 1 hour (no refresh token)
 - Click "Подключить заново" to re-authenticate
 
-### Sync not working
+### Sync not working (бронирования и цены не передаются)
 
-1. Check Edge Functions are deployed
-2. Check cron job is running
-3. Check Supabase Secrets are configured
-4. Check integration `is_active = true` in database
-5. Check sync queue for errors
+Если синхронизация с Avito перестала работать (не передаются бронирования, изменения цен), проверь по шагам:
+
+1. **Secrets** — Supabase Dashboard → Project Settings → Edge Functions → Secrets. Должны быть заданы `AVITO_CLIENT_ID` и `AVITO_CLIENT_SECRET` (значения из кабинета разработчика Avito). Если секреты сбросились или не заданы, синхронизация падает с 401 при обновлении токена.
+2. **Cron для avito-poller** — Supabase Dashboard → Database → Cron Jobs. Должно быть задание для функции `avito-poller` (например, `avito_poller_cron`), расписание раз в минуту или каждые 10 секунд (по возможностям платформы). Без cron очередь `avito_sync_queue` не обрабатывается.
+3. **Переподключить Avito по OAuth** — в приложении зайти в объект → API интеграции → заново пройти «Подключить Avito» (тот же OAuth URL с scope `short_term_rent:read`, `short_term_rent:write`). После успешного callback токены обновятся в таблице `integrations` и запись попадёт в очередь.
+4. **Логи Edge Functions** — Supabase Dashboard → Edge Functions → логи `avito_sync` и `avito-poller`. Ищи сообщения: `avito_401_reason refresh_failed` (проблема с токеном или секретами), `avito_401_reason token_expired` (истёк access token), `MISSING_AVITO_SECRETS` (не заданы секреты), а также ошибки вызова avito_sync из poller.
+
+Дополнительно: проверь, что Edge Functions `avito_sync` и `avito-poller` задеплоены; что у интеграции в БД `is_active = true`, заполнены `avito_user_id` и `avito_item_id`; что в `avito_sync_queue` есть записи со `status = 'pending'` и `next_sync_at <= now()`.
 
 ### 409 Error: "ID уже используется"
 

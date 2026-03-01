@@ -97,8 +97,18 @@ async function refreshAccessToken(
           expires_in: refreshData.expires_in || 3600,
         };
       }
+      const errorText = await refreshResponse.text();
+      console.log("[avito] avito_401_reason refresh_failed", {
+        integration_id: integration.id,
+        status: refreshResponse.status,
+        error_preview: errorText.substring(0, 200),
+      });
+      if (refreshResponse.status === 401) {
+        console.log("[avito] Token refresh returned 401 — check AVITO_CLIENT_ID/AVITO_CLIENT_SECRET in Secrets or reconnect Avito OAuth");
+      }
     } catch (error) {
       console.warn("Refresh token flow failed, falling back to client_credentials", error);
+      console.log("[avito] avito_401_reason refresh_failed", { integration_id: integration.id, error: String(error) });
     }
   }
 
@@ -119,6 +129,11 @@ async function refreshAccessToken(
 
   if (!refreshResponse.ok) {
     const errorText = await refreshResponse.text();
+    console.log("[avito] avito_401_reason refresh_failed", {
+      flow: "client_credentials",
+      status: refreshResponse.status,
+      error_preview: errorText.substring(0, 200),
+    });
     throw new Error(`Token refresh failed: ${refreshResponse.status} ${errorText}`);
   }
 
@@ -219,10 +234,24 @@ Deno.serve(async (req: Request) => {
     const avitoClientSecret = Deno.env.get("AVITO_CLIENT_SECRET") || "";
 
     if (!avitoClientId || !avitoClientSecret) {
-      throw new Error("AVITO_CLIENT_ID and AVITO_CLIENT_SECRET must be set in Supabase Secrets");
+      console.error("[avito] Server configuration error: AVITO_CLIENT_ID and/or AVITO_CLIENT_SECRET not set in Supabase Edge Function Secrets");
+      return new Response(
+        JSON.stringify({
+          error: "AVITO_CLIENT_ID and AVITO_CLIENT_SECRET must be set in Supabase Secrets (Project Settings → Edge Functions → Secrets). Sync will not work until these are configured.",
+          code: "MISSING_AVITO_SECRETS",
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
     if (avitoClientId.length < MIN_CLIENT_ID_LENGTH) {
-      throw new Error(`AVITO_CLIENT_ID должен быть не короче ${MIN_CLIENT_ID_LENGTH} символов`);
+      console.error("[avito] Server configuration error: AVITO_CLIENT_ID too short");
+      return new Response(
+        JSON.stringify({
+          error: `AVITO_CLIENT_ID должен быть не короче ${MIN_CLIENT_ID_LENGTH} символов`,
+          code: "INVALID_AVITO_CLIENT_ID",
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const avitoBaseUrl = getAvitoBaseUrl();
@@ -1335,6 +1364,11 @@ Deno.serve(async (req: Request) => {
 
         // If no token available, return error response for frontend
         if (!accessToken) {
+          console.log("[avito] avito_401_reason refresh_failed", {
+            integration_id: integration.id,
+            property_id: integration.property_id,
+            message: "No access token after refresh attempt — user must reconnect Avito",
+          });
           console.log("Sync aborted: No access token available", {
             integration_id: integration.id,
             property_id: integration.property_id,
@@ -1572,6 +1606,7 @@ Deno.serve(async (req: Request) => {
 
             // Handle 401 and retry with refreshed token
             if (pricesResponse.status === 401) {
+              console.log("[avito] avito_401_reason token_expired", { integration_id, endpoint: "prices" });
               console.log("401 Unauthorized, refreshing token and retrying prices update");
               const refreshedToken = await getAccessToken();
               pricesResponse = await fetchWithRetry(
@@ -1688,6 +1723,7 @@ Deno.serve(async (req: Request) => {
             });
 
             if (baseParamsResponse.status === 401) {
+              console.log("[avito] avito_401_reason token_expired", { integration_id, endpoint: "base_params" });
               console.log("401 Unauthorized, refreshing token and retrying base params update");
               const refreshedToken = await getAccessToken();
               baseParamsResponse = await fetchWithRetry(baseParamsUrl, {
@@ -1797,6 +1833,7 @@ Deno.serve(async (req: Request) => {
             });
 
             if (bookingsUpdateResponse.status === 401) {
+              console.log("[avito] avito_401_reason token_expired", { integration_id, endpoint: "calendar" });
               console.log("401 Unauthorized, refreshing token and retrying calendar update");
               const refreshedToken = await getAccessToken();
               bookingsUpdateResponse = await fetchWithRetry(calendarUrl, {
@@ -2066,6 +2103,7 @@ Deno.serve(async (req: Request) => {
 
           // If 401, refresh token and retry once
           if (response.status === 401) {
+              console.log("[avito] avito_401_reason token_expired", { integration_id, endpoint: "bookings" });
               console.log("Got 401, refreshing token and retrying...", {
                 item_id: itemId,
                 integration_id: integration.id,
@@ -2838,6 +2876,22 @@ Deno.serve(async (req: Request) => {
             intervalsPushSuccess,
             pushSuccess,
           });
+
+          // Persist sync errors so the app can notify the user (Realtime + journal)
+          if (hasError && integration?.id && integration?.property_id) {
+            try {
+              await supabase.from("avito_logs").insert({
+                integration_id: integration.id,
+                property_id: integration.property_id,
+                action: "sync",
+                status: "error",
+                error: syncErrors.map((e) => e.message || "Ошибка синхронизации").join("; "),
+                details: { errors: syncErrors },
+              });
+            } catch (logErr) {
+              console.error("Failed to log sync error to avito_logs", { error: logErr });
+            }
+          }
 
         return new Response(
           JSON.stringify({ 

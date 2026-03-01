@@ -10,7 +10,9 @@ import {
   DollarSign,
   RefreshCw,
   Loader2,
+  FileText,
 } from 'lucide-react';
+import { openSyncLogGlobal } from '@/contexts/SyncLogContext';
 import { Property, PropertyIntegration, AGGREGATOR_PLATFORMS } from '@/lib/supabase';
 import { isAvitoConfigured } from '@/services/avitoApi';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -376,6 +378,16 @@ export function ApiIntegrationSettings({ property, onIntegrationsChange }: ApiIn
           <span className="font-medium"> Настройки → Avito API</span>
         </p>
       </div>
+
+      {/* Sync log link */}
+      <button
+        type="button"
+        onClick={openSyncLogGlobal}
+        className={`mt-3 flex items-center gap-2 text-sm ${textSecondary} ${theme === 'light' ? 'hover:text-gray-900' : 'hover:text-white'} transition-colors`}
+      >
+        <FileText className="w-4 h-4" />
+        Журнал ошибок синхронизации Avito
+      </button>
     </div>
   );
 }
