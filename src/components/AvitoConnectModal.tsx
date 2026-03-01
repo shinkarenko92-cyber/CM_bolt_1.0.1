@@ -360,6 +360,7 @@ export function AvitoConnectModal({
   // Слушаем результат OAuth из popup (postMessage)
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
+      console.log('[avito-modal] received message', event.data, { origin: event.origin, expectedOrigin: window.location.origin });
       if (event.origin !== window.location.origin || event.data?.type !== 'avito-oauth-result') return;
       oauthPopupRef.current = null;
       setOauthRedirecting(false);

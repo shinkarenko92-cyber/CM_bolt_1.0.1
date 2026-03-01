@@ -14,6 +14,15 @@ export function AvitoCallbackPage() {
     hasProcessed.current = true;
 
     const params = new URLSearchParams(window.location.search);
+    console.log('[avito-callback] mounted', {
+      href: window.location.href,
+      search: window.location.search,
+      hasOpener: !!window.opener,
+      code: params.get('code'),
+      state: params.get('state'),
+      error: params.get('error'),
+    });
+
     const error = params.get('error');
     const errorDescription = params.get('error_description');
     const code = params.get('code');
@@ -33,11 +42,13 @@ export function AvitoCallbackPage() {
 
     if (isPopup) {
       if (error) {
+        console.log('[avito-callback] sending postMessage', { type: 'avito-oauth-result', success: false, hasCode: !!code });
         window.opener?.postMessage(
           { type: 'avito-oauth-result', success: false, error, error_description: errorDescription || 'Неизвестная ошибка' },
           window.location.origin
         );
       } else if (code && state) {
+        console.log('[avito-callback] sending postMessage', { type: 'avito-oauth-result', success: true, hasCode: !!code });
         window.opener?.postMessage(
           { type: 'avito-oauth-result', success: true, code, state, isMessengerAuth },
           window.location.origin
