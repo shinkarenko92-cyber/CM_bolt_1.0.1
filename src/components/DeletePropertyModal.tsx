@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -121,6 +122,9 @@ export function DeletePropertyModal({
               <span>{t('properties.deleteProperty', { defaultValue: 'Удаление объекта' })}: {property.name}</span>
             </div>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {t('properties.deletePropertyWarning', { propertyName: property.name, count: bookings.length, defaultValue: 'У объекта есть бронирования. Выберите действие.' })}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="py-4">

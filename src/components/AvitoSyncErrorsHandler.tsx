@@ -10,6 +10,7 @@ import { useSyncLog } from '@/hooks/useSyncLog';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -85,6 +86,7 @@ function SyncLogDialog() {
       <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Журнал ошибок синхронизации Avito</DialogTitle>
+          <DialogDescription className="sr-only">Список последних ошибок синхронизации с Avito</DialogDescription>
         </DialogHeader>
         <ScrollArea className="flex-1 min-h-0 rounded-md border">
           {loading ? (

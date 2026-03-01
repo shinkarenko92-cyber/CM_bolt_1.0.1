@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -24,12 +24,16 @@ function AvitoCallbackHandler() {
   const [noAvitoIntegrationDialogOpen, setNoAvitoIntegrationDialogOpen] = useState(false);
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const callbackProcessedRef = useRef(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const path = window.location.pathname;
 
     if (path === '/auth/avito-callback') {
+      if (callbackProcessedRef.current) return;
+      callbackProcessedRef.current = true;
+
       const error = params.get('error');
       const errorDescription = params.get('error_description');
       const code = params.get('code');

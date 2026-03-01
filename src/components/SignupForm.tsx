@@ -7,6 +7,7 @@ import { Eye, EyeOff, Lock, Mail, Phone, User } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -116,6 +117,7 @@ export function SignupForm() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('auth.verifyEmail', { defaultValue: 'Подтвердите email' })}</DialogTitle>
+            <DialogDescription className="sr-only">{t('auth.verifyEmailNotice')}</DialogDescription>
           </DialogHeader>
           <p className="text-muted-foreground">{t('auth.verifyEmailNotice')}</p>
           <DialogFooter>

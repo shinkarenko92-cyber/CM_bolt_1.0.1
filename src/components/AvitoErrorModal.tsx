@@ -6,6 +6,7 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -40,6 +41,7 @@ export function AvitoErrorModal({
           <DialogTitle>
             {t('avito.errors.syncFailed', { defaultValue: 'Ошибка синхронизации с Avito' })}
           </DialogTitle>
+          <DialogDescription className="sr-only">{t('avito.errors.details', { defaultValue: 'Детали ошибки' })}</DialogDescription>
         </DialogHeader>
         <div className="mt-4 space-y-3">
           <div>

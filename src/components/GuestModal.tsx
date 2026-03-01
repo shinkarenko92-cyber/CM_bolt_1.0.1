@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -94,6 +95,7 @@ export function GuestModal({ isOpen, onClose, guest, bookings, properties, onSav
             <DialogContent className="max-w-[700px]">
                 <DialogHeader>
                     <DialogTitle>{guest ? 'Профиль гостя' : 'Новый гость'}</DialogTitle>
+                    <DialogDescription className="sr-only">{guest ? 'Редактирование данных гостя' : 'Добавление нового гостя'}</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-6 pt-4">
                     <div className="grid grid-cols-2 gap-4">

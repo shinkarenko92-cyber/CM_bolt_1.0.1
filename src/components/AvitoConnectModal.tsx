@@ -8,6 +8,7 @@ import { Check, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -65,6 +66,7 @@ export function AvitoConnectModal({
   const [errorDialog, setErrorDialog] = useState<{ title: string; content: string; onOk?: () => void } | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
   const oauthPopupRef = useRef<Window | null>(null);
+  const oauthCodeConsumedRef = useRef(false);
 
   // Предполётная валидация Avito credentials при открытии модалки
   useEffect(() => {
@@ -276,7 +278,9 @@ export function AvitoConnectModal({
 
         const oauthSuccess = getOAuthSuccess();
         if (oauthSuccess) {
-          // OAuth success detected, calling handleOAuthCallback
+          if (oauthCodeConsumedRef.current) return;
+          oauthCodeConsumedRef.current = true;
+          clearOAuthSuccess();
           handleOAuthCallback(oauthSuccess.code, oauthSuccess.state);
         } else {
           // No OAuth callback, starting from step 0
@@ -284,7 +288,8 @@ export function AvitoConnectModal({
         }
       }
     } else {
-      // Reset on close
+      // Reset on close — allow consuming code again next time modal opens
+      oauthCodeConsumedRef.current = false;
       setCurrentStep(0);
       setOauthRedirecting(false);
       setIsProcessingOAuth(false);
@@ -292,20 +297,16 @@ export function AvitoConnectModal({
     }
   }, [isOpen, property.id, handleOAuthCallback]);
 
-  // Check if user is returning from OAuth redirect
-  // This handles the case when the modal is already open but OAuth callback hasn't been processed yet
+  // Check if user is returning from OAuth redirect (poll until code is consumed by main effect or here)
   useEffect(() => {
     if (isOpen && currentStep === 0 && !isProcessingOAuth) {
       const checkInterval = setInterval(() => {
-        // Проверяем, не обрабатывается ли уже OAuth callback
-        if (isProcessingOAuth) {
-          return;
-        }
-
+        if (isProcessingOAuth || oauthCodeConsumedRef.current) return;
         const oauthSuccess = getOAuthSuccess();
         if (oauthSuccess) {
-          // OAuth success detected in interval
           clearInterval(checkInterval);
+          oauthCodeConsumedRef.current = true;
+          clearOAuthSuccess();
           handleOAuthCallback(oauthSuccess.code, oauthSuccess.state);
         }
       }, 500);
@@ -600,6 +601,7 @@ export function AvitoConnectModal({
         <DialogContent className="max-w-[600px]" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => oauthRedirecting && e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Подключение Avito</DialogTitle>
+            <DialogDescription className="sr-only">Пошаговое подключение аккаунта Avito и объявления</DialogDescription>
           </DialogHeader>
 
           {showResumePrompt && (
@@ -773,6 +775,7 @@ export function AvitoConnectModal({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Прервать подключение?</DialogTitle>
+            <DialogDescription className="sr-only">Ваш прогресс будет сохранён. Вы сможете продолжить позже.</DialogDescription>
           </DialogHeader>
           <p className="text-muted-foreground">Ваш прогресс будет сохранён. Вы сможете продолжить позже.</p>
           <DialogFooter>
@@ -787,6 +790,7 @@ export function AvitoConnectModal({
         <DialogContent className="max-w-[500px]">
           <DialogHeader>
             <DialogTitle>{errorDialog?.title}</DialogTitle>
+            <DialogDescription className="sr-only">{errorDialog?.content}</DialogDescription>
           </DialogHeader>
           <p className="text-muted-foreground">{errorDialog?.content}</p>
           <DialogFooter>

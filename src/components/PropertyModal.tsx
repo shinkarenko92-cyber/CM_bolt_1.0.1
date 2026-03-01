@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -1025,6 +1026,9 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
               <DialogTitle>
                 {confirmAvito === 'disconnect' ? t('avito.integration.disconnectConfirmTitle') : t('avito.integration.deleteConfirmTitle')}
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                {confirmAvito === 'disconnect' ? t('avito.integration.disconnectConfirmContent') : t('avito.integration.deleteConfirmContent')}
+              </DialogDescription>
             </DialogHeader>
             <p className="text-muted-foreground">
               {confirmAvito === 'disconnect' ? t('avito.integration.disconnectConfirmContent') : t('avito.integration.deleteConfirmContent')}
@@ -1050,6 +1054,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{t('avito.integration.editMarkup')}</DialogTitle>
+              <DialogDescription className="sr-only">{t('avito.integration.markup')}</DialogDescription>
             </DialogHeader>
             <div className="py-4">
               <label className="block text-sm text-muted-foreground mb-2">{t('avito.integration.markup')}</label>
