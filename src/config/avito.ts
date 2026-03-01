@@ -7,7 +7,7 @@
 export const AVITO_API_BASE = "https://api.avito.ru";
 
 /** URL страницы авторизации OAuth (редирект пользователя в браузере) */
-export const AVITO_OAUTH_AUTHORIZE_URL = "https://avito.ru/oauth";
+export const AVITO_OAUTH_AUTHORIZE_URL = "https://www.avito.ru/oauth";
 
 /** OAuth user info (если поддерживается Avito) */
 export const AVITO_OAUTH_INFO_URL = `${AVITO_API_BASE}/web/1/oauth/info`;
