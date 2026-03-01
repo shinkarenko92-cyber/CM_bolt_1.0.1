@@ -339,6 +339,16 @@ export function AvitoConnectModal({
   const handleConnectClick = () => {
     try {
       const oauthUrl = generateOAuthUrl(property.id);
+      console.log('[avito-modal] opening popup with URL:', oauthUrl);
+      const redirectUriFromUrl = (() => {
+        try {
+          const u = new URL(oauthUrl);
+          return u.searchParams.get('redirect_uri') ?? '(not in query)';
+        } catch {
+          return '(parse error)';
+        }
+      })();
+      console.log('[avito-modal] redirect_uri in URL (decoded):', redirectUriFromUrl ? decodeURIComponent(redirectUriFromUrl) : redirectUriFromUrl);
       setOauthRedirecting(true);
       saveConnectionProgress(property.id, 0, {});
       const popup = window.open(
