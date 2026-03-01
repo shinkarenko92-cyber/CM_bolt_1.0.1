@@ -106,6 +106,11 @@ interface AvitoUserInfoResponse {
   account_id?: number | string;
 }
 
+/** Ответ GET /core/v1/accounts/self — поле id есть avito_user_id */
+interface AvitoAccountsSelfResponse {
+  id?: number;
+}
+
 /**
  * Парсит и валидирует state (base64 или plain JSON).
  * @param state - Строка state из OAuth callback (base64-encoded JSON или plain JSON)
@@ -237,6 +242,24 @@ async function fetchAvitoUserId(baseUrl: string, accessToken: string): Promise<n
     "Content-Type": "application/json",
   };
 
+  // Первая попытка: GET /core/v1/accounts/self — поле id = avito_user_id (рекомендованный способ)
+  const accountsSelfUrl = `${baseUrl}/core/v1/accounts/self`;
+  try {
+    logAvitoRequest("GET", accountsSelfUrl);
+    const res = await fetch(accountsSelfUrl, { method: "GET", headers });
+    if (res.ok) {
+      const data = (await res.json().catch(() => ({}))) as AvitoAccountsSelfResponse;
+      const id = typeof data.id === "number" && data.id > 0 ? data.id : null;
+      if (id) {
+        console.log(`${LOG_PREFIX} avito_user_id from /core/v1/accounts/self`, { id });
+        return id;
+      }
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log(`${LOG_PREFIX} /core/v1/accounts/self fetch failed`, msg);
+  }
+
   const tryFetch = async (path: string, retries = 3): Promise<number | null> => {
     const url = path.startsWith("http") ? path : `${baseUrl}${path}`;
     for (let attempt = 0; attempt < retries; attempt++) {
@@ -264,27 +287,8 @@ async function fetchAvitoUserId(baseUrl: string, accessToken: string): Promise<n
     return null;
   };
 
-  // /web/1/oauth/info — не критичен для Messenger; avito_user_id можно получить из /user/info или /user.
-  // При 400/401 не блокируем flow, только логируем.
-  const oauthInfoUrl = `${baseUrl}/web/1/oauth/info`;
-  try {
-    console.log("[avito] oauth/info", { url: oauthInfoUrl, hasToken: !!accessToken });
-    logAvitoRequest("GET", oauthInfoUrl);
-    const res = await fetch(oauthInfoUrl, { method: "GET", headers });
-    console.log("[avito] oauth/info", { url: oauthInfoUrl, status: res.status, hasToken: !!accessToken });
-    if (res.status === 400 || res.status === 401) {
-      const text = await res.text().catch(() => "");
-      console.warn(`${LOG_PREFIX} /web/1/oauth/info ${res.status} — не блокируем OAuth`, { body: text });
-      // continue to try /user/info and /user below
-    } else if (res.ok) {
-      const data = (await res.json().catch(() => ({}))) as AvitoUserInfoResponse;
-      const candidate = typeof data.user_id === "number" ? data.user_id : typeof data.id === "number" ? data.id : null;
-      if (candidate && candidate > 0) return candidate;
-    }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.log(`${LOG_PREFIX} /web/1/oauth/info fetch failed`, msg);
-  }
+  // Отключено: /web/1/oauth/info часто возвращает 400 на api.avito.ru; avito_user_id получаем из /core/v1/accounts/self и fallback ниже.
+  // try { const oauthInfoUrl = `${baseUrl}/web/1/oauth/info`; ... } catch { ... }
 
   try {
     const fromInfo = await tryFetch("/user/info");

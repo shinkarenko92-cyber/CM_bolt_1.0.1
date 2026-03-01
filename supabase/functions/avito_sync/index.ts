@@ -844,51 +844,9 @@ Deno.serve(async (req: Request) => {
         } catch {
           // use as-is if decrypt not available
         }
-        const oauthInfoUrl = `${avitoBaseUrl}/web/1/oauth/info`;
-        const maxRetries = 3;
-        let lastRes: Response | null = null;
-        for (let attempt = 0; attempt < maxRetries; attempt++) {
-          logAvitoRequest("GET", oauthInfoUrl);
-          const res = await fetch(oauthInfoUrl, {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-            },
-          });
-          lastRes = res;
-          console.log("[avito] oauth/info", { url: oauthInfoUrl, status: res.status, hasToken: !!accessToken });
-          if (res.status === 400 || res.status === 401) {
-            console.warn("[avito] /web/1/oauth/info", res.status, "— не блокируем; scope проверяется по integrations.scope из OAuth callback");
-            return new Response(
-              JSON.stringify({ warning: "Не удалось проверить права", status: res.status }),
-              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-          }
-          const shouldRetry = res.status === 429 || (res.status >= 500 && res.status < 600);
-          if (shouldRetry && attempt < maxRetries - 1) {
-            const waitTime = Math.pow(2, attempt) * 1000;
-            console.log(`[avito] get-oauth-info retry ${res.status} in ${waitTime}ms`);
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-            continue;
-          }
-          if (res.ok) {
-            const data = await res.json().catch(() => ({}));
-            return new Response(
-              JSON.stringify({ data }),
-              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-          }
-          const text = await res.text().catch(() => "");
-          console.warn("[avito] /web/1/oauth/info error", { status: res.status, body: text });
-          return new Response(
-            JSON.stringify({ warning: "Не удалось проверить права", status: res.status, body: text }),
-            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        const lastStatus = lastRes?.status ?? 0;
+        // Отключено: /web/1/oauth/info часто возвращает 400 на api.avito.ru; scope проверяется по integrations.scope из OAuth callback.
         return new Response(
-          JSON.stringify({ warning: "Не удалось проверить права", status: lastStatus }),
+          JSON.stringify({ skipped: true, reason: "oauth_info_disabled" }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

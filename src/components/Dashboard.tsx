@@ -688,6 +688,9 @@ export function Dashboard() {
             if (integrations?.length) {
               setAvitoIntegrationsForMessages(integrations.map((r: { id: string; property_id: string }) => ({ id: r.id, property_id: r.property_id })));
             }
+            // Сразу подтянуть чаты без перезагрузки страницы
+            await syncChatsFromAvito();
+            await loadChats();
           } else if ((data as { reason?: string })?.reason === 'no_avito_integration') {
             toast.error(t('messages.noAvitoIntegration.title'));
           } else {
@@ -702,7 +705,7 @@ export function Dashboard() {
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [redirectUri, t, properties]);
+  }, [redirectUri, t, properties, syncChatsFromAvito, loadChats]);
 
   // Popup закрыт без завершения OAuth
   useEffect(() => {
