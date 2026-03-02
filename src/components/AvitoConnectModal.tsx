@@ -356,9 +356,10 @@ export function AvitoConnectModal({
         return;
       }
       const oauthUrl = generateOAuthUrl(property.id);
+      const loginUrl = `https://www.avito.ru/login?next=${encodeURIComponent(oauthUrl)}`;
       sessionStorage.setItem('avito_oauth_pending', JSON.stringify({ propertyId: property.id }));
       saveConnectionProgress(property.id, 0, {});
-      window.location.replace(oauthUrl);
+      window.location.replace(loginUrl);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Ошибка при генерации OAuth URL');
     }
