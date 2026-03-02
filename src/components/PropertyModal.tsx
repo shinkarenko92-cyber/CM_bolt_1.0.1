@@ -39,9 +39,11 @@ interface PropertyModalProps {
   onDelete: (id: string) => Promise<void>;
   /** После редиректа с Avito OAuth — открыть форму ID объявления и наценки, а не экран успеха */
   initialShowAvitoForm?: boolean;
+  /** Вызвать когда пользователь закрыл модалку «Подключение Avito» (чтобы не открывать её снова при ре-рендере) */
+  onAvitoConnectClose?: () => void;
 }
 
-export function PropertyModal({ isOpen, onClose, property, onSave, onDelete, initialShowAvitoForm = false }: PropertyModalProps) {
+export function PropertyModal({ isOpen, onClose, property, onSave, onDelete, initialShowAvitoForm = false, onAvitoConnectClose }: PropertyModalProps) {
   const { t } = useTranslation();
   const location = useLocation();
   const [formData, setFormData] = useState({
@@ -1033,7 +1035,10 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete, ini
         {property && (
           <AvitoConnectModal
             isOpen={isAvitoModalOpen}
-            onClose={() => setIsAvitoModalOpen(false)}
+            onClose={() => {
+              setIsAvitoModalOpen(false);
+              onAvitoConnectClose?.();
+            }}
             property={property}
             onSuccess={() => {
               loadAvitoIntegration();

@@ -243,6 +243,7 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete, onProper
           }}
           property={selectedProperty}
           initialShowAvitoForm={!!(selectedProperty && avitoRedirectPropertyId === selectedProperty.id)}
+          onAvitoConnectClose={() => setAvitoRedirectPropertyId(null)}
           onSave={async (data) => {
             if (selectedProperty) {
               await onUpdate(selectedProperty.id, data);
