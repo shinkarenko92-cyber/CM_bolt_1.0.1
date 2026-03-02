@@ -13,6 +13,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+/** Avito may send timestamps as Unix seconds (number or string). Convert to ISO for Postgres. */
+function toIsoDate(value: string | number | null | undefined): string | null {
+  if (value == null) return null;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  const ms = n <= 9999999999 ? n * 1000 : n;
+  return new Date(ms).toISOString();
+}
+
 interface AvitoMessengerWebhookPayload {
   event: string; // e.g., "message.new", "chat.new", "chat.updated"
   chat_id?: string;
@@ -298,7 +307,7 @@ async function handleNewChat(
     contact_avatar_url: contactUser?.avatar?.url || null,
     status: "new",
     unread_count: 0,
-    last_message_at: chat.updated || chat.created,
+    last_message_at: toIsoDate(chat.updated ?? chat.created),
   });
 
   if (error) {
@@ -340,8 +349,9 @@ async function handleChatUpdate(
     updated_at: new Date().toISOString(),
   };
 
-  if (chat.updated) {
-    updateData.last_message_at = chat.updated;
+  const lastMessageAt = toIsoDate(chat.updated ?? chat.created);
+  if (lastMessageAt) {
+    updateData.last_message_at = lastMessageAt;
   }
 
   if (chat.unread_count !== undefined) {

@@ -468,12 +468,16 @@ export function Dashboard() {
             };
           });
 
-          // Upsert chats (update if exists, insert if new)
+          // Upsert chats (update if exists, insert if new). Ensure date fields are always ISO (never raw Unix).
           if (chatsToUpsert.length > 0) {
+            const normalized = chatsToUpsert.map((row) => ({
+              ...row,
+              last_message_at: toIsoDate(row.last_message_at as string | number) ?? row.last_message_at,
+            }));
             const { error: upsertError } = await supabase
               .from('chats')
               .upsert(
-                chatsToUpsert,
+                normalized,
                 {
                   onConflict: 'owner_id,avito_chat_id',
                   ignoreDuplicates: false,
