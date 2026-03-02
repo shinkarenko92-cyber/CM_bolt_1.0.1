@@ -302,7 +302,6 @@ export function AvitoConnectModal({
       hasShownRedirectSuccessRef.current = false;
       oauthCodeConsumedRef.current = false;
       setCurrentStep(0);
-      setOauthRedirecting(false);
       setIsProcessingOAuth(false);
       setShowSuccess(false);
     }
