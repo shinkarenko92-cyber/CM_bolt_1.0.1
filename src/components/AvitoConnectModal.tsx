@@ -268,8 +268,8 @@ export function AvitoConnectModal({
       if (progress && progress.step > 0) {
         // Resuming from saved progress
         setCurrentStep(progress.step);
-        if (progress.data.userId) setUserId(progress.data.userId);
-        if (progress.data.itemId) setItemId(progress.data.itemId);
+        if (progress.data.userId != null) setUserId(String(progress.data.userId));
+        if (progress.data.itemId != null) setItemId(String(progress.data.itemId));
         if (progress.data.markup) setMarkup(progress.data.markup);
         // Tokens are now stored in DB, not in progress
       } else {
@@ -376,14 +376,14 @@ export function AvitoConnectModal({
     }
 
     // Validate userId: must be 6-8 digits
-    const trimmedUserId = userId.trim();
+    const trimmedUserId = String(userId ?? '').trim();
     if (!trimmedUserId || !/^[0-9]{6,8}$/.test(trimmedUserId)) {
       toast.error('Номер аккаунта должен содержать 6-8 цифр');
       return;
     }
 
     // Validate itemId: must be 10-12 digits before saving
-    const trimmedItemId = itemId.trim();
+    const trimmedItemId = String(itemId ?? '').trim();
     if (!trimmedItemId || !/^[0-9]{10,12}$/.test(trimmedItemId)) {
       toast.error('ID объявления должен содержать 10-12 цифр');
       return;
@@ -542,8 +542,8 @@ export function AvitoConnectModal({
     const progress = loadConnectionProgress(property.id);
       if (progress) {
         setCurrentStep(progress.step);
-        if (progress.data.itemId) setItemId(progress.data.itemId);
-        if (progress.data.markup) setMarkup(progress.data.markup);
+        if (progress.data.itemId != null) setItemId(String(progress.data.itemId));
+        if (progress.data.markup != null) setMarkup(Number(progress.data.markup));
         // Tokens are now stored in DB, not in progress
         toast('Продолжаем подключение Avito');
       }

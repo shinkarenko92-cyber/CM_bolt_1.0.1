@@ -357,13 +357,13 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete, ini
   };
 
   const handleEditItemId = () => {
-    const currentItemId = avitoIntegration?.avito_item_id || '';
+    const currentItemId = avitoIntegration?.avito_item_id != null ? String(avitoIntegration.avito_item_id) : '';
     setEditingItemId(currentItemId);
     setIsEditingItemId(true);
   };
 
   const handleSaveItemId = async () => {
-    if (!avitoIntegration || !editingItemId || !/^[0-9]{10,11}$/.test(editingItemId.trim())) {
+    if (!avitoIntegration || !editingItemId || !/^[0-9]{10,11}$/.test(String(editingItemId).trim())) {
       toast.error('ID объявления должен содержать 10-11 цифр');
       return;
     }
@@ -373,7 +373,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete, ini
       const { error } = await supabase
         .from('integrations')
         .update({
-          avito_item_id: editingItemId.trim(),
+          avito_item_id: String(editingItemId).trim(),
           is_active: true  // Активируем, если была деактивирована миграцией
         })
         .eq('id', avitoIntegration.id);
