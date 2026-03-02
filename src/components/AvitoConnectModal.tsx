@@ -73,6 +73,7 @@ export function AvitoConnectModal({
   const [configError, setConfigError] = useState<string | null>(null);
   const oauthCodeConsumedRef = useRef(false);
   const hasShownRedirectSuccessRef = useRef(false);
+  const oauthPopupRef = useRef<Window | null>(null);
 
   // Предполётная валидация Avito credentials при открытии модалки
   useEffect(() => {
@@ -355,15 +356,62 @@ export function AvitoConnectModal({
         toast.error('Пожалуйста, войдите в систему');
         return;
       }
-      const oauthUrl = generateOAuthUrl(property.id);
-      const loginUrl = `https://www.avito.ru/login?next=${oauthUrl}`;
-      sessionStorage.setItem('avito_oauth_pending', JSON.stringify({ propertyId: property.id }));
+      const loginUrl = 'https://www.avito.ru/profile/login';
+      setOauthRedirecting(true);
       saveConnectionProgress(property.id, 0, {});
-      window.location.replace(loginUrl);
+      const popup = window.open(loginUrl, 'avito_oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
+      oauthPopupRef.current = popup;
+      if (!popup) {
+        toast.error('Включите всплывающие окна для этого сайта и попробуйте снова');
+        setOauthRedirecting(false);
+      }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Ошибка при генерации OAuth URL');
+      toast.error(error instanceof Error ? error.message : 'Ошибка при открытии окна Avito');
+      setOauthRedirecting(false);
     }
   };
+
+  const handleContinueToOAuth = () => {
+    if (!oauthPopupRef.current || oauthPopupRef.current.closed) {
+      toast.error('Окно Avito закрыто. Нажмите «Подключить Avito» снова.');
+      setOauthRedirecting(false);
+      return;
+    }
+    try {
+      const oauthUrl = generateOAuthUrl(property.id);
+      oauthPopupRef.current.location.href = oauthUrl;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Ошибка');
+    }
+  };
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.data?.type !== 'avito-oauth-result') return;
+      oauthPopupRef.current = null;
+      setOauthRedirecting(false);
+      if (event.data.success && event.data.code && event.data.state) {
+        handleOAuthCallback(event.data.code, event.data.state);
+      } else if (!event.data.success) {
+        const msg = event.data.error_description || event.data.error || 'Ошибка авторизации Avito';
+        toast.error(msg);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [handleOAuthCallback]);
+
+  useEffect(() => {
+    if (!oauthRedirecting || !oauthPopupRef.current) return;
+    const interval = setInterval(() => {
+      if (oauthPopupRef.current?.closed) {
+        oauthPopupRef.current = null;
+        setOauthRedirecting(false);
+        clearInterval(interval);
+      }
+    }, 300);
+    return () => clearInterval(interval);
+  }, [oauthRedirecting]);
 
   const handleSubmit = async () => {
     if (!userId) {
@@ -611,10 +659,19 @@ export function AvitoConnectModal({
               <div className="text-center py-8">
                 {oauthRedirecting ? (
                   <div>
-                    <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
-                    <p className="mt-4 text-muted-foreground">
-                      Ждём, пока вы подтвердите доступ в Avito… Это займёт 10 секунд
+                    <p className="text-foreground mb-4 text-base">
+                      Войдите в Avito в открывшемся окне.
                     </p>
+                    <p className="text-muted-foreground text-sm mb-6">
+                      После входа нажмите кнопку ниже, чтобы перейти к разрешению доступа.
+                    </p>
+                    <Button
+                      size="lg"
+                      onClick={handleContinueToOAuth}
+                      disabled={loading}
+                    >
+                      Я уже вошёл в Avito
+                    </Button>
                   </div>
                 ) : (
                   <div>
