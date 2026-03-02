@@ -61,7 +61,6 @@ export function AvitoConnectModal({
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [oauthRedirecting, setOauthRedirecting] = useState(false);
   const [userId, setUserId] = useState<string>('');
   const [itemId, setItemId] = useState<string>('');
   const [markup, setMarkup] = useState<number>(0);
@@ -73,7 +72,6 @@ export function AvitoConnectModal({
   const [configError, setConfigError] = useState<string | null>(null);
   const oauthCodeConsumedRef = useRef(false);
   const hasShownRedirectSuccessRef = useRef(false);
-  const oauthPopupRef = useRef<Window | null>(null);
 
   // Предполётная валидация Avito credentials при открытии модалки
   useEffect(() => {
@@ -356,62 +354,14 @@ export function AvitoConnectModal({
         toast.error('Пожалуйста, войдите в систему');
         return;
       }
-      const loginUrl = 'https://www.avito.ru/profile/login';
-      setOauthRedirecting(true);
-      saveConnectionProgress(property.id, 0, {});
-      const popup = window.open(loginUrl, 'avito_oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
-      oauthPopupRef.current = popup;
-      if (!popup) {
-        toast.error('Включите всплывающие окна для этого сайта и попробуйте снова');
-        setOauthRedirecting(false);
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Ошибка при открытии окна Avito');
-      setOauthRedirecting(false);
-    }
-  };
-
-  const handleContinueToOAuth = () => {
-    if (!oauthPopupRef.current || oauthPopupRef.current.closed) {
-      toast.error('Окно Avito закрыто. Нажмите «Подключить Avito» снова.');
-      setOauthRedirecting(false);
-      return;
-    }
-    try {
       const oauthUrl = generateOAuthUrl(property.id);
-      oauthPopupRef.current.location.href = oauthUrl;
+      sessionStorage.setItem('avito_oauth_pending', JSON.stringify({ propertyId: property.id }));
+      saveConnectionProgress(property.id, 0, {});
+      window.location.replace(oauthUrl);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Ошибка');
+      toast.error(error instanceof Error ? error.message : 'Ошибка при генерации OAuth URL');
     }
   };
-
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin || event.data?.type !== 'avito-oauth-result') return;
-      oauthPopupRef.current = null;
-      setOauthRedirecting(false);
-      if (event.data.success && event.data.code && event.data.state) {
-        handleOAuthCallback(event.data.code, event.data.state);
-      } else if (!event.data.success) {
-        const msg = event.data.error_description || event.data.error || 'Ошибка авторизации Avito';
-        toast.error(msg);
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [handleOAuthCallback]);
-
-  useEffect(() => {
-    if (!oauthRedirecting || !oauthPopupRef.current) return;
-    const interval = setInterval(() => {
-      if (oauthPopupRef.current?.closed) {
-        oauthPopupRef.current = null;
-        setOauthRedirecting(false);
-        clearInterval(interval);
-      }
-    }, 300);
-    return () => clearInterval(interval);
-  }, [oauthRedirecting]);
 
   const handleSubmit = async () => {
     if (!userId) {
@@ -624,7 +574,7 @@ export function AvitoConnectModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleCancel()} modal>
-        <DialogContent className="max-w-[600px]" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => oauthRedirecting && e.preventDefault()}>
+        <DialogContent className="max-w-[600px]" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => loading && e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Подключение Avito</DialogTitle>
             <DialogDescription className="sr-only">Пошаговое подключение аккаунта Avito и объявления</DialogDescription>
@@ -657,42 +607,24 @@ export function AvitoConnectModal({
           <div className="min-h-[200px]">
             {currentStep === 0 && (
               <div className="text-center py-8">
-                {oauthRedirecting ? (
-                  <div>
-                    <p className="text-foreground mb-4 text-base">
-                      Войдите в Avito в открывшемся окне.
+                <div>
+                  {configError && (
+                    <p className="text-destructive mb-4 text-sm" role="alert">
+                      Неверный Client ID. Проверьте настройки интеграции в админке
                     </p>
-                    <p className="text-muted-foreground text-sm mb-6">
-                      После входа нажмите кнопку ниже, чтобы перейти к разрешению доступа.
-                    </p>
-                    <Button
-                      size="lg"
-                      onClick={handleContinueToOAuth}
-                      disabled={loading}
-                    >
-                      Я уже вошёл в Avito
-                    </Button>
-                  </div>
-                ) : (
-                  <div>
-                    {configError && (
-                      <p className="text-destructive mb-4 text-sm" role="alert">
-                        Неверный Client ID. Проверьте настройки интеграции в админке
-                      </p>
-                    )}
-                    <p className="text-foreground mb-6 text-base">
-                      Нажмите кнопку ниже, чтобы авторизоваться в Avito и предоставить доступ к вашему аккаунту
-                    </p>
-                    <Button
-                      size="lg"
-                      onClick={handleConnectClick}
-                      disabled={loading || !!configError}
-                    >
-                      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                      Подключить Avito
-                    </Button>
-                  </div>
-                )}
+                  )}
+                  <p className="text-foreground mb-6 text-base">
+                    Нажмите кнопку ниже, чтобы авторизоваться в Avito и предоставить доступ к вашему аккаунту
+                  </p>
+                  <Button
+                    size="lg"
+                    onClick={handleConnectClick}
+                    disabled={loading || !!configError}
+                  >
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Подключить Avito
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -798,8 +730,8 @@ export function AvitoConnectModal({
 
           {!showSuccess && (
             <DialogFooter className="flex justify-between sm:justify-between">
-              <div>{currentStep > 0 && <Button variant="outline" onClick={handleBack} disabled={loading || oauthRedirecting}>Назад</Button>}</div>
-              <Button variant="outline" onClick={handleCancel} disabled={loading && !oauthRedirecting}>Отмена</Button>
+              <div>{currentStep > 0 && <Button variant="outline" onClick={handleBack} disabled={loading}>Назад</Button>}</div>
+              <Button variant="outline" onClick={handleCancel} disabled={loading}>Отмена</Button>
             </DialogFooter>
           )}
         </DialogContent>
