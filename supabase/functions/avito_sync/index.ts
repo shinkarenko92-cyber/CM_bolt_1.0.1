@@ -1887,218 +1887,180 @@ Deno.serve(async (req: Request) => {
             // Continue with other operations
           }
 
-        // 3. Заполнение календаря занятости: POST /core/v1/accounts/{user_id}/items/{item_id}/bookings (Avito STR spec)
-        // Тело: PostCalendarData — bookings[] с date_start, date_end, type ("manual" | "booking"), source
-        const bookingsPayload: Array<{ date_start: string; date_end: string; type?: "manual" | "booking" }> = [];
+        // 3. Заполнение календаря занятости
+        // Сначала пробуем POST /realty/v1/items/{item_id}/intervals (тот же API, что в avito-close-availability)
+        // Формат: intervals[] с date_from, date_to для каждого занятого периода
+        const intervalsPayload: Array<{ date_from: string; date_to: string }> = [];
         for (const booking of bookingsForAvito) {
-          const dateStart = booking.check_in.split("T")[0];
-          const dateEnd = booking.check_out.split("T")[0];
-          bookingsPayload.push({
-            date_start: dateStart,
-            date_end: dateEnd,
-            type: "booking",
-          });
+          const dateFrom = booking.check_in.split("T")[0];
+          const dateTo = booking.check_out.split("T")[0];
+          intervalsPayload.push({ date_from: dateFrom, date_to: dateTo });
         }
-        const calendarUrl = `${avitoBaseUrl}/core/v1/accounts/${userId}/items/${itemId}/bookings`;
-        const calendarBody = { bookings: bookingsPayload, source: "roomi" };
+        const intervalsUrl = `${avitoBaseUrl}/realty/v1/items/${itemId}/intervals`;
+        const intervalsBody = { item_id: itemId, intervals: intervalsPayload, source: "roomi_pms" };
 
-        if (bookingsPayload.length > 0) {
-          console.log("Sending calendar (bookings) to Avito", {
-            endpoint: calendarUrl,
-            bookingsCount: bookingsPayload.length,
+        if (intervalsPayload.length > 0) {
+          console.log("Sending intervals (blocked dates) to Avito", {
+            endpoint: intervalsUrl,
+            intervalsCount: intervalsPayload.length,
             exclude_booking_id: exclude_booking_id || null,
           });
 
           try {
-            let bookingsUpdateResponse = await fetchWithRetry(calendarUrl, {
+            let intervalsResponse = await fetchWithRetry(intervalsUrl, {
               method: "POST",
               headers: {
                 Authorization: `Bearer ${accessToken}`,
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify(calendarBody),
+              body: JSON.stringify(intervalsBody),
             });
 
-            if (bookingsUpdateResponse.status === 401) {
-              console.log("[avito] avito_401_reason token_expired", { integration_id, endpoint: "calendar" });
-              console.log("401 Unauthorized, refreshing token and retrying calendar update");
+            if (intervalsResponse.status === 401) {
+              console.log("[avito] avito_401_reason token_expired", { integration_id, endpoint: "intervals" });
               const refreshedToken = await getAccessToken();
-              bookingsUpdateResponse = await fetchWithRetry(calendarUrl, {
+              intervalsResponse = await fetchWithRetry(intervalsUrl, {
                 method: "POST",
                 headers: {
                   Authorization: `Bearer ${refreshedToken}`,
                   "Content-Type": "application/json",
                 },
-                body: JSON.stringify(calendarBody),
+                body: JSON.stringify(intervalsBody),
               });
             }
 
-          if (!bookingsUpdateResponse.ok) {
-              const errorText = await bookingsUpdateResponse.text().catch(() => 'Failed to read error response');
-            const errorStatus = bookingsUpdateResponse.status;
-            
-            // 404 - возвращаем как ошибку с телом ответа Avito
-            if (errorStatus === 404) {
-              let errMsg = "Даты в Avito не обновились (404).";
-              try {
-                const errJson = JSON.parse(errorText || "{}");
-                const apiMsg = errJson?.message ?? errJson?.error ?? errJson?.error_description;
-                if (apiMsg) errMsg += ` ${typeof apiMsg === "string" ? apiMsg : JSON.stringify(apiMsg)}`;
-              } catch {
-                if (errorText) errMsg += ` Ответ: ${errorText.substring(0, 200)}`;
-              }
-              syncErrors.push({
-                operation: "bookings_update",
-                statusCode: 404,
-                message: errMsg,
-                details: { item_id: itemId, response_body: errorText?.substring?.(0, 500) },
-              });
-              intervalsPushSuccess = false;
-            }
-            // Специальная обработка ошибки 409 (конфликт с оплаченными бронями)
-            else if (errorStatus === 409) {
-              const errorMessage = exclude_booking_id
-                ? "Конфликт с оплаченной бронью в Avito — проверь вручную"
-                : "Some bookings conflict with paid bookings in Avito (409)";
-              
-              console.warn(errorMessage, {
-                error: errorText,
-                bookingsCount: bookingsPayload.length,
-                excluded_booking_id: exclude_booking_id || null,
-              });
-              
-              // Add 409 to errors if it's a manual booking deletion (user needs to know)
-              if (exclude_booking_id) {
+            if (!intervalsResponse.ok) {
+              const errorText = await intervalsResponse.text().catch(() => 'Failed to read error response');
+              const errorStatus = intervalsResponse.status;
+              if (errorStatus === 404) {
+                let errMsg = "Даты в Avito не обновились (404). Проверь ID объявления.";
+                try {
+                  const errJson = JSON.parse(errorText || "{}");
+                  const apiMsg = errJson?.message ?? errJson?.error ?? errJson?.error_description;
+                  if (apiMsg) errMsg += ` ${typeof apiMsg === "string" ? apiMsg : JSON.stringify(apiMsg)}`;
+                } catch {
+                  if (errorText) errMsg += ` Ответ: ${errorText.substring(0, 200)}`;
+                }
                 syncErrors.push({
-                  operation: 'bookings_update',
-                  statusCode: 409,
+                  operation: "intervals_update",
+                  statusCode: 404,
+                  message: errMsg,
+                  details: { item_id: itemId, response_body: errorText?.substring?.(0, 500) },
+                });
+                intervalsPushSuccess = false;
+              }
+              // 409 — конфликт с оплаченными бронями в Avito
+              else if (errorStatus === 409) {
+                const errorMessage = exclude_booking_id
+                  ? "Конфликт с оплаченной бронью в Avito — проверь вручную"
+                  : "Some bookings conflict with paid bookings in Avito (409)";
+                console.warn(errorMessage, {
+                  error: errorText,
+                  intervalsCount: intervalsPayload.length,
+                  excluded_booking_id: exclude_booking_id || null,
+                });
+                if (exclude_booking_id) {
+                  syncErrors.push({
+                    operation: 'intervals_update',
+                    statusCode: 409,
+                    message: errorMessage,
+                    details: { item_id: itemId, excluded_booking_id: exclude_booking_id },
+                  });
+                }
+              } else {
+                let errorDetails: unknown = errorText;
+                let errorCode: string | undefined;
+                let errorMessage = `Не удалось обновить даты в Avito: ${errorStatus} ${intervalsResponse.statusText}`;
+                try {
+                  const errorJson = JSON.parse(errorText);
+                  errorDetails = errorJson;
+                  errorMessage = errorJson.message || errorJson.error?.message || errorMessage;
+                  errorCode = errorJson.error?.code || errorJson.code;
+                } catch {
+                  // ignore
+                }
+                syncErrors.push({
+                  operation: 'intervals_update',
+                  statusCode: errorStatus,
+                  errorCode,
                   message: errorMessage,
-                  details: { item_id: itemId, excluded_booking_id: exclude_booking_id },
+                  details: errorDetails,
+                });
+                console.error("Failed to update Avito intervals", {
+                  status: errorStatus,
+                  statusText: intervalsResponse.statusText,
+                  error: errorText,
                 });
               }
-              // Не добавляем 409 в ошибки для обычного sync, это нормальная ситуация
             } else {
-              let errorDetails: unknown = errorText;
-              let errorCode: string | undefined;
-              let errorMessage = `Failed to update bookings: ${errorStatus} ${bookingsUpdateResponse.statusText}`;
-
-              try {
-                const errorJson = JSON.parse(errorText);
-                errorDetails = errorJson;
-                errorMessage = errorJson.message || errorJson.error?.message || errorMessage;
-                errorCode = errorJson.error?.code || errorJson.code;
-              } catch {
-                // Если не JSON, используем текст как есть
-              }
-
-              syncErrors.push({
-                operation: 'bookings_update',
-                statusCode: errorStatus,
-                errorCode,
-                message: errorMessage,
-                details: errorDetails,
-              });
-
-              console.error("Failed to update Avito bookings", {
-                status: errorStatus,
-                statusText: bookingsUpdateResponse.statusText,
-                error: errorText,
-              });
-              // Не бросаем ошибку, продолжаем синхронизацию
-              console.warn("Bookings update failed, but continuing with sync");
-            }
-          } else {
-            try {
-              const responseData = await bookingsUpdateResponse.json().catch(() => null);
-              const logMessage = exclude_booking_id 
-                ? "Dates opened in Avito for manual booking delete"
-                : "Avito calendar (bookings) updated successfully";
-              
-              console.log(logMessage, {
-                bookingsCount: bookingsPayload.length,
-                excluded_booking_id: exclude_booking_id || null,
-                response: responseData,
-              });
+              const responseData = await intervalsResponse.json().catch(() => null);
+              console.log(
+                exclude_booking_id ? "Dates opened in Avito after delete" : "Avito intervals (blocked dates) updated successfully",
+                { intervalsCount: intervalsPayload.length, excluded_booking_id: exclude_booking_id || null, response: responseData }
+              );
               intervalsPushSuccess = true;
-
-              // Log success to avito_logs
               try {
-              await supabase.from("avito_logs").insert({
-                integration_id: integration.id,
-                property_id: integration.property_id,
-                action: exclude_booking_id ? "open_dates_after_delete" : "sync_calendar_bookings",
-                status: "success",
-                details: {
-                  bookings_count: bookingsPayload.length,
-                  excluded_booking_id: exclude_booking_id || null,
-                },
-              });
+                await supabase.from("avito_logs").insert({
+                  integration_id: integration.id,
+                  property_id: integration.property_id,
+                  action: exclude_booking_id ? "open_dates_after_delete" : "sync_calendar_intervals",
+                  status: "success",
+                  details: {
+                    intervals_count: intervalsPayload.length,
+                    excluded_booking_id: exclude_booking_id || null,
+                  },
+                });
               } catch (logError) {
                 console.error("Failed to log success", { error: logError });
               }
-            } catch {
-              console.log("Avito calendar (bookings) updated successfully", {
-                bookingsCount: bookingsPayload.length,
-                status: bookingsUpdateResponse.status,
-                excluded_booking_id: exclude_booking_id || null,
-              });
             }
-          }
-        } catch (fetchError) {
-          const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError);
-          console.error("Network error updating Avito calendar (bookings)", {
-            error: errorMessage,
-            itemId: itemId,
-          });
-          syncErrors.push({
-            operation: 'bookings_update',
-            message: `Network error: ${errorMessage}`,
-            details: { item_id: itemId },
-          });
-          // Continue with other operations
+          } catch (fetchError) {
+            const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError);
+            console.error("Network error updating Avito intervals", {
+              error: errorMessage,
+              itemId: itemId,
+            });
+            syncErrors.push({
+              operation: 'intervals_update',
+              message: `Network error: ${errorMessage}`,
+              details: { item_id: itemId },
+            });
           }
         } else {
-          // No bookings to block — send empty bookings to open all dates (POST /core/v1/.../bookings)
+          // Нет броней для блокировки — при удалении ручной брони открываем все даты (пустой intervals)
           if (exclude_booking_id) {
             console.log("No bookings left after deletion, opening all dates in Avito", {
               excluded_booking_id: exclude_booking_id,
             });
-
             try {
-              const openAllUrl = `${avitoBaseUrl}/core/v1/accounts/${userId}/items/${itemId}/bookings`;
+              const openAllUrl = `${avitoBaseUrl}/realty/v1/items/${itemId}/intervals`;
               const openAllResponse = await fetchWithRetry(openAllUrl, {
                 method: "POST",
                 headers: {
                   Authorization: `Bearer ${accessToken}`,
                   "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ bookings: [], source: "roomi" }),
+                body: JSON.stringify({ item_id: itemId, intervals: [], source: "roomi_pms" }),
               });
-
-            if (openAllResponse.ok) {
-                console.log("All dates opened in Avito after manual booking deletion", {
-                  itemId: itemId,
-                });
+              if (openAllResponse.ok) {
+                console.log("All dates opened in Avito after manual booking deletion", { itemId: itemId });
                 intervalsPushSuccess = true;
-              // Log success to avito_logs
                 try {
-              await supabase.from("avito_logs").insert({
-                integration_id: integration.id,
-                property_id: integration.property_id,
-                action: "open_all_dates_after_delete",
-                status: "success",
-                details: {
-                  excluded_booking_id: exclude_booking_id,
-                },
-              });
+                  await supabase.from("avito_logs").insert({
+                    integration_id: integration.id,
+                    property_id: integration.property_id,
+                    action: "open_all_dates_after_delete",
+                    status: "success",
+                    details: { excluded_booking_id: exclude_booking_id },
+                  });
                 } catch (logError) {
                   console.error("Failed to log success", { error: logError });
                 }
-            } else {
-                const errorText = await openAllResponse.text().catch(() => 'Failed to read error response');
-              console.error("Failed to open all dates in Avito", {
-                status: openAllResponse.status,
-                error: errorText,
+              } else {
+                const errorText = await openAllResponse.text().catch(() => '');
+                console.error("Failed to open all dates in Avito", {
+                  status: openAllResponse.status,
+                  error: errorText,
                   itemId: itemId,
                 });
                 syncErrors.push({
@@ -2109,12 +2071,8 @@ Deno.serve(async (req: Request) => {
                 });
               }
             } catch (fetchError) {
-              // Network error or other fetch failure
               const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError);
-              console.error("Network error opening all dates in Avito", {
-                error: errorMessage,
-                itemId: itemId,
-              });
+              console.error("Network error opening all dates in Avito", { error: errorMessage, itemId: itemId });
               syncErrors.push({
                 operation: 'open_all_dates',
                 message: `Network error: ${errorMessage}`,
@@ -2126,7 +2084,6 @@ Deno.serve(async (req: Request) => {
               bookingsForAvitoCount: bookingsForAvito.length,
               today: new Date().toISOString().split('T')[0],
             });
-            // No intervals to push = nothing to fail
             intervalsPushSuccess = true;
           }
         }
