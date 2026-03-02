@@ -70,15 +70,25 @@ type NewReservation = {
   deposit_returned?: boolean | null;
 };
 
+// Avito API may return timestamps as Unix seconds (number or string). Normalize to ISO for DB.
+function toIsoDate(value: string | number | null | undefined): string | null {
+  if (value == null) return null;
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  // Unix seconds (10 digits) → convert to ISO; already ms (13 digits) → use as ms
+  const ms = n <= 9999999999 ? n * 1000 : n;
+  return new Date(ms).toISOString();
+}
+
 // Avito Messenger API shapes (from avito-messenger Edge Function)
 type AvitoChatUser = { user_id: string; name: string; avatar?: { url: string } };
 type AvitoChat = {
   id: string;
   item_id?: string;
-  created: string;
-  updated: string;
+  created: string | number;
+  updated: string | number;
   unread_count: number;
-  last_message?: { text: string; created: string };
+  last_message?: { text: string; created: string | number };
   users?: AvitoChatUser[];
 };
 type AvitoMessage = {
@@ -453,7 +463,7 @@ export function Dashboard() {
               status: 'new' as const, // Default status, can be updated later
               unread_count: avitoChat.unread_count || 0,
               last_message_text: avitoChat.last_message?.text || null,
-              last_message_at: avitoChat.last_message?.created || avitoChat.updated || avitoChat.created,
+              last_message_at: toIsoDate(avitoChat.last_message?.created ?? avitoChat.updated ?? avitoChat.created),
               updated_at: new Date().toISOString(),
             };
           });
@@ -579,7 +589,7 @@ export function Dashboard() {
           sender_name: avitoMsg.author.name || (senderType === 'user' ? user.email || 'You' : 'Contact'),
           text: avitoMsg.content.text || null,
           attachments: avitoMsg.content.attachments || [],
-          created_at: avitoMsg.created,
+          created_at: toIsoDate(avitoMsg.created) ?? new Date().toISOString(),
           is_read: senderType === 'user', // User's own messages are always read
         };
       });
