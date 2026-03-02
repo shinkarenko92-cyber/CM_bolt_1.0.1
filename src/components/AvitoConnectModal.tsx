@@ -356,7 +356,7 @@ export function AvitoConnectModal({
         return;
       }
       const oauthUrl = generateOAuthUrl(property.id);
-      const loginUrl = `https://www.avito.ru/login?next=${encodeURIComponent(oauthUrl)}`;
+      const loginUrl = `https://www.avito.ru/login?next=${oauthUrl}`;
       sessionStorage.setItem('avito_oauth_pending', JSON.stringify({ propertyId: property.id }));
       saveConnectionProgress(property.id, 0, {});
       window.location.replace(loginUrl);
