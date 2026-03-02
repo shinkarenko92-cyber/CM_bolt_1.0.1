@@ -1,8 +1,10 @@
 /**
  * Avito Messenger Proxy — прокси к Avito Messenger API (https://developers.avito.ru/api-catalog/messenger/documentation).
  * Требуемые scopes: messenger:read, messenger:write.
- * Базовый URL: https://api.avito.ru/messenger/v2/
- * Actions: getChats, getMessages, sendMessage.
+ * Базовый URL: https://api.avito.ru/
+ * getChats: GET /messenger/v2/.../chats
+ * getMessages: GET /messenger/v3/.../messages/ (по спецификации)
+ * sendMessage: POST /messenger/v1/.../messages (по спецификации)
  * Deploy: supabase functions deploy avito-messenger --no-verify-jwt
  * (JWT проверяется внутри; шлюз не должен резать по 403.)
  */
@@ -503,7 +505,7 @@ Deno.serve(async (req: Request) => {
       const action = "getChats";
       let url = `${avitoBaseUrl}/messenger/v2/accounts/${avitoUserId}/chats`;
       const params = new URLSearchParams();
-      if (b.item_id) params.append("item_id", b.item_id);
+      if (b.item_id) params.append("item_ids", String(b.item_id));
       if (b.limit != null) params.append("limit", String(b.limit));
       if (b.offset != null) params.append("offset", String(b.offset));
       if (params.toString()) url += `?${params.toString()}`;
@@ -543,7 +545,7 @@ Deno.serve(async (req: Request) => {
         );
       }
       const action = "getMessages";
-      let url = `${avitoBaseUrl}/messenger/v2/accounts/${avitoUserId}/chats/${b.chat_id}/messages`;
+      let url = `${avitoBaseUrl}/messenger/v3/accounts/${avitoUserId}/chats/${b.chat_id}/messages/`;
       const params = new URLSearchParams();
       if (b.limit != null) params.append("limit", String(b.limit));
       if (b.offset != null) params.append("offset", String(b.offset));
@@ -563,7 +565,8 @@ Deno.serve(async (req: Request) => {
             { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        return new Response(JSON.stringify(data), {
+        const out = Array.isArray(data) ? { messages: data } : data;
+        return new Response(JSON.stringify(out), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } catch (err) {
@@ -584,10 +587,12 @@ Deno.serve(async (req: Request) => {
         );
       }
       const action = "sendMessage";
-      const postBody: { text?: string; attachments?: typeof b.attachments } = {};
-      if (b.text) postBody.text = b.text;
-      if (b.attachments?.length) postBody.attachments = b.attachments;
-      const url = `${avitoBaseUrl}/messenger/v2/accounts/${avitoUserId}/chats/${b.chat_id}/messages`;
+      const postBody: { message?: { text: string }; type?: string } = {};
+      if (b.text) {
+        postBody.message = { text: b.text };
+        postBody.type = "text";
+      }
+      const url = `${avitoBaseUrl}/messenger/v1/accounts/${avitoUserId}/chats/${b.chat_id}/messages`;
       log("avito_request", { action, url, method: "POST", textLength: b.text?.length ?? 0 });
       try {
         const res = await fetchWithTimeout(url, { method: "POST", headers, body: JSON.stringify(postBody) }, action);

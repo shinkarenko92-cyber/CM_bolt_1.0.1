@@ -80,8 +80,14 @@ function toIsoDate(value: string | number | null | undefined): string | null {
   return new Date(ms).toISOString();
 }
 
-// Avito Messenger API shapes (from avito-messenger Edge Function)
-type AvitoChatUser = { user_id: string; name: string; avatar?: { url: string } };
+// Avito Messenger API shapes (v2 chats: created/updated/last_message.created — Unix int; users — spec: id, name, public_user_profile.avatar)
+type AvitoChatUser = {
+  id?: number;
+  user_id?: string;
+  name: string;
+  avatar?: { url: string };
+  public_user_profile?: { avatar?: { default?: string } };
+};
 type AvitoChat = {
   id: string;
   item_id?: string;
@@ -91,12 +97,15 @@ type AvitoChat = {
   last_message?: { text: string; created: string | number };
   users?: AvitoChatUser[];
 };
+// v2: author { user_id, name }; v3: author_id (int), direction 'in'|'out', content.text
 type AvitoMessage = {
   id: string;
-  chat_id: string;
-  created: string;
-  content: { text?: string; attachments?: Array<{ type: string; url: string; name?: string }> };
-  author: { user_id: string; name: string };
+  chat_id?: string;
+  created: string | number;
+  content?: { text?: string; attachments?: Array<{ type: string; url: string; name?: string }> };
+  author?: { user_id: string; name: string };
+  author_id?: number;
+  direction?: 'in' | 'out';
 };
 type AvitoMessageRow = {
   chat_id: string;
@@ -449,7 +458,8 @@ export function Dashboard() {
           // Transform Avito chats to our format and save to database
           const chatsToUpsert = avitoResponse.chats.map((avitoChat: AvitoChat) => {
             // Find contact user (not the owner)
-            const contactUser = avitoChat.users?.find((u: AvitoChatUser) => u.user_id !== integration.avito_user_id);
+            const ownerAvitoId = integration.avito_user_id != null ? String(integration.avito_user_id) : '';
+            const contactUser = avitoChat.users?.find((u: AvitoChatUser) => (u.user_id ?? String(u.id ?? '')) !== ownerAvitoId);
 
             return {
               owner_id: user.id,
@@ -459,7 +469,7 @@ export function Dashboard() {
               avito_item_id: avitoChat.item_id || null,
               integration_id: integration.id,
               contact_name: contactUser?.name || null,
-              contact_avatar_url: contactUser?.avatar?.url || null,
+              contact_avatar_url: contactUser?.avatar?.url ?? contactUser?.public_user_profile?.avatar?.default ?? null,
               status: 'new' as const, // Default status, can be updated later
               unread_count: avitoChat.unread_count || 0,
               last_message_text: avitoChat.last_message?.text || null,
@@ -584,17 +594,19 @@ export function Dashboard() {
       const avitoUserId = integration?.avito_user_id != null ? String(integration.avito_user_id) : null;
 
       const messagesToInsert = avitoResponse.messages.map((avitoMsg: AvitoMessage) => {
-        const senderType = avitoUserId && avitoMsg.author.user_id === avitoUserId ? 'user' : 'contact';
-        
+        const isOut = avitoMsg.direction === 'out' || (avitoUserId && String(avitoMsg.author_id ?? avitoMsg.author?.user_id) === avitoUserId);
+        const senderType = isOut ? 'user' : 'contact';
+        const senderName = avitoMsg.author?.name ?? (senderType === 'user' ? user?.email ?? 'You' : 'Contact');
+        const content = avitoMsg.content ?? {};
         return {
           chat_id: chatId,
           avito_message_id: avitoMsg.id,
           sender_type: senderType,
-          sender_name: avitoMsg.author.name || (senderType === 'user' ? user.email || 'You' : 'Contact'),
-          text: avitoMsg.content.text || null,
-          attachments: avitoMsg.content.attachments || [],
+          sender_name: senderName,
+          text: content.text ?? null,
+          attachments: content.attachments ?? [],
           created_at: toIsoDate(avitoMsg.created) ?? new Date().toISOString(),
-          is_read: senderType === 'user', // User's own messages are always read
+          is_read: senderType === 'user',
         };
       });
 

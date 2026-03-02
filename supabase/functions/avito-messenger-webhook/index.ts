@@ -46,19 +46,13 @@ interface AvitoMessengerWebhookPayload {
   message?: {
     id: string;
     chat_id: string;
-    created: string;
-    content: {
+    created?: string | number;
+    content?: {
       text?: string;
-      attachments?: Array<{
-        type: string;
-        url: string;
-        name?: string;
-      }>;
+      attachments?: Array<{ type: string; url: string; name?: string }>;
     };
-    author: {
-      user_id: string;
-      name: string;
-    };
+    author?: { user_id: string; name: string };
+    author_id?: number;
   };
   timestamp?: string;
 }
@@ -210,17 +204,22 @@ async function saveMessage(
     .eq("id", chatId)
     .single();
 
-  const senderType = chat?.avito_user_id === message.author.user_id ? "user" : "contact";
+  const ownerAvitoId = chat?.avito_user_id != null ? String(chat.avito_user_id) : "";
+  const authorId = message.author_id != null ? String(message.author_id) : message.author?.user_id ?? "";
+  const senderType = authorId && ownerAvitoId && authorId === ownerAvitoId ? "user" : "contact";
+  const senderName = message.author?.name ?? (senderType === "user" ? "You" : "Contact");
+  const content = message.content ?? {};
+  const createdAt = toIsoDate(message.created);
 
-  // Insert message
   const { error } = await supabase.from("messages").insert({
     chat_id: chatId,
     avito_message_id: message.id,
     sender_type: senderType,
-    sender_name: message.author.name,
-    text: message.content.text || null,
-    attachments: message.content.attachments || [],
-    is_read: senderType === "user", // Messages from user are read by default
+    sender_name: senderName,
+    text: content.text ?? null,
+    attachments: content.attachments ?? [],
+    created_at: createdAt ?? new Date().toISOString(),
+    is_read: senderType === "user",
   });
 
   if (error) {
