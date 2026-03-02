@@ -480,7 +480,22 @@ export function Dashboard() {
 
           // Upsert chats (update if exists, insert if new). Ensure date fields are always ISO (never raw Unix).
           if (chatsToUpsert.length > 0) {
-            const normalized = chatsToUpsert.map((row) => ({
+            type ChatUpsertRow = {
+              owner_id: string;
+              property_id: string;
+              avito_chat_id: string;
+              avito_user_id: string | null;
+              avito_item_id: string | null;
+              integration_id: string;
+              contact_name: string | null;
+              contact_avatar_url: string | null;
+              status: 'new';
+              unread_count: number;
+              last_message_text: string | null;
+              last_message_at: string | number | null;
+              updated_at: string;
+            };
+            const normalized = chatsToUpsert.map((row: ChatUpsertRow) => ({
               ...row,
               last_message_at: toIsoDate(row.last_message_at as string | number) ?? row.last_message_at,
             }));
