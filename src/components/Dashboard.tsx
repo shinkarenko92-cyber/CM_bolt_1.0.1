@@ -341,15 +341,18 @@ export function Dashboard() {
     loadData();
   }, [loadData]);
 
-  // Open Messages tab when returning from Avito Messenger OAuth callback; open Properties when no integration
+  // Open Messages tab when returning from Avito Messenger OAuth callback; open Properties when no integration or after Avito OAuth
   useEffect(() => {
-    const state = location.state as { openMessages?: boolean; openProperties?: boolean };
+    const state = location.state as { openMessages?: boolean; openProperties?: boolean; avitoConnected?: boolean; propertyId?: string };
     if (state?.openMessages) {
       setCurrentView('messages');
       navigate(location.pathname, { replace: true, state: {} });
-    } else if (state?.openProperties) {
+    } else if (state?.openProperties || (state?.avitoConnected && state?.propertyId)) {
       setCurrentView('properties');
-      navigate(location.pathname, { replace: true, state: {} });
+      if (!state?.avitoConnected) {
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+      // avitoConnected + propertyId: не чистим state здесь — PropertiesView откроет модалку и передаст initialShowAvitoSuccess
     }
   }, [location.state, location.pathname, navigate]);
 

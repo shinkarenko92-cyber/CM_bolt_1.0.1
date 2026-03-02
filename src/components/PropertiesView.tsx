@@ -17,6 +17,8 @@ interface PropertiesViewProps {
 export function PropertiesView({ properties, onAdd, onUpdate, onDelete, onPropertyModalClose }: PropertiesViewProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  /** ID объекта, для которого только что вернулись с Avito OAuth (чтобы показать форму ID объявления и наценки, а не экран успеха) */
+  const [avitoRedirectPropertyId, setAvitoRedirectPropertyId] = useState<string | null>(null);
   const oauthProcessedRef = useRef(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -25,16 +27,18 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete, onProper
   useEffect(() => {
     if (!isModalOpen) {
       oauthProcessedRef.current = false;
+      setAvitoRedirectPropertyId(null);
     }
   }, [isModalOpen]);
 
-  // Возврат с полного редиректа Avito OAuth: открыть модалку объекта и очистить state
+  // Возврат с полного редиректа Avito OAuth: открыть модалку объекта и показать форму ID/наценки
   useEffect(() => {
     const state = location.state as { avitoConnected?: boolean; propertyId?: string } | null;
     if (!state?.avitoConnected || !state?.propertyId || oauthProcessedRef.current || properties.length === 0 || isModalOpen) return;
     const property = properties.find(p => p.id === state.propertyId);
     if (property) {
       oauthProcessedRef.current = true;
+      setAvitoRedirectPropertyId(state.propertyId);
       setSelectedProperty(property);
       setIsModalOpen(true);
       navigate(location.pathname, { replace: true, state: {} });
@@ -234,9 +238,11 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete, onProper
           onClose={() => {
             setIsModalOpen(false);
             setSelectedProperty(null);
+            setAvitoRedirectPropertyId(null);
             onPropertyModalClose?.();
           }}
           property={selectedProperty}
+          initialShowAvitoForm={!!(selectedProperty && avitoRedirectPropertyId === selectedProperty.id)}
           onSave={async (data) => {
             if (selectedProperty) {
               await onUpdate(selectedProperty.id, data);

@@ -37,9 +37,11 @@ interface PropertyModalProps {
   property: Property | null;
   onSave: (data: Partial<Property>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  /** После редиректа с Avito OAuth — открыть форму ID объявления и наценки, а не экран успеха */
+  initialShowAvitoForm?: boolean;
 }
 
-export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: PropertyModalProps) {
+export function PropertyModal({ isOpen, onClose, property, onSave, onDelete, initialShowAvitoForm = false }: PropertyModalProps) {
   const { t } = useTranslation();
   const location = useLocation();
   const [formData, setFormData] = useState({
@@ -237,6 +239,11 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       return;
     }
 
+    if (initialShowAvitoForm) {
+      setIsAvitoModalOpen(true);
+      return;
+    }
+
     const state = location.state as { avitoConnected?: boolean; propertyId?: string } | null;
     if (state?.avitoConnected && state?.propertyId === property.id) {
       setIsAvitoModalOpen(true);
@@ -275,7 +282,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       // Если есть ошибка OAuth, тоже открываем модальное окно, чтобы показать ошибку
       setIsAvitoModalOpen(true);
     }
-  }, [property, isOpen, isAvitoModalOpen, location.state]); // Include isAvitoModalOpen with early exit to prevent unnecessary processing
+  }, [property, isOpen, isAvitoModalOpen, location.state, initialShowAvitoForm]); // Include isAvitoModalOpen with early exit to prevent unnecessary processing
 
   const runDisconnectAvito = async () => {
     if (!avitoIntegration) return;
@@ -1030,7 +1037,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
             onSuccess={() => {
               loadAvitoIntegration();
             }}
-            initialShowAvitoSuccess={Boolean((location.state as { avitoConnected?: boolean; propertyId?: string })?.avitoConnected && (location.state as { propertyId?: string })?.propertyId === property.id)}
+            initialShowAvitoSuccess={initialShowAvitoForm || Boolean((location.state as { avitoConnected?: boolean; propertyId?: string })?.avitoConnected && (location.state as { propertyId?: string })?.propertyId === property.id)}
           />
         )}
 
