@@ -950,6 +950,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete, ini
                                     {/* Удалить интеграцию */}
                                     <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-slate-600">
                                       <Button
+                                        type="button"
                                         variant="destructive"
                                         onClick={handleDeleteAvito}
                                       >
