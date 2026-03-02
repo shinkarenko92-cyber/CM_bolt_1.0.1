@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Check, Loader2 } from 'lucide-react';
 import {
@@ -44,6 +45,8 @@ interface AvitoConnectModalProps {
   onClose: () => void;
   property: Property;
   onSuccess?: () => void;
+  /** Показать экран успеха сразу при открытии (после полного редиректа с callback) */
+  initialShowAvitoSuccess?: boolean;
 }
 
 export function AvitoConnectModal({
@@ -51,8 +54,11 @@ export function AvitoConnectModal({
   onClose,
   property,
   onSuccess,
+  initialShowAvitoSuccess = false,
 }: AvitoConnectModalProps) {
   const { t } = useTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [oauthRedirecting, setOauthRedirecting] = useState(false);
@@ -65,8 +71,8 @@ export function AvitoConnectModal({
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [errorDialog, setErrorDialog] = useState<{ title: string; content: string; onOk?: () => void } | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
-  const oauthPopupRef = useRef<Window | null>(null);
   const oauthCodeConsumedRef = useRef(false);
+  const hasShownRedirectSuccessRef = useRef(false);
 
   // Предполётная валидация Avito credentials при открытии модалки
   useEffect(() => {
@@ -246,10 +252,16 @@ export function AvitoConnectModal({
   // Load progress on open and reset success state
   useEffect(() => {
     if (isOpen) {
-      // Modal opened, loading progress
-      // Reset success state when modal opens
-      setShowSuccess(false);
-      
+      if (initialShowAvitoSuccess && !hasShownRedirectSuccessRef.current) {
+        hasShownRedirectSuccessRef.current = true;
+        setShowSuccess(true);
+        setCurrentStep(1);
+        sessionStorage.removeItem('avito_oauth_pending');
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+      if (!initialShowAvitoSuccess) {
+        setShowSuccess(false);
+      }
       const progress = loadConnectionProgress(property.id);
       
       if (progress && progress.step > 0) {
@@ -288,14 +300,14 @@ export function AvitoConnectModal({
         }
       }
     } else {
-      // Reset on close — allow consuming code again next time modal opens
+      hasShownRedirectSuccessRef.current = false;
       oauthCodeConsumedRef.current = false;
       setCurrentStep(0);
       setOauthRedirecting(false);
       setIsProcessingOAuth(false);
       setShowSuccess(false);
     }
-  }, [isOpen, property.id, handleOAuthCallback]);
+  }, [isOpen, property.id, handleOAuthCallback, initialShowAvitoSuccess, location.pathname, navigate]);
 
   // Check if user is returning from OAuth redirect (poll until code is consumed by main effect or here)
   useEffect(() => {
@@ -336,69 +348,21 @@ export function AvitoConnectModal({
     }
   }, [isOpen, property.id]);
 
-  const handleConnectClick = () => {
+  const handleConnectClick = async () => {
     try {
-      const oauthUrl = generateOAuthUrl(property.id);
-      console.log('[avito-modal] opening popup with URL:', oauthUrl);
-      const redirectUriFromUrl = (() => {
-        try {
-          const u = new URL(oauthUrl);
-          return u.searchParams.get('redirect_uri') ?? '(not in query)';
-        } catch {
-          return '(parse error)';
-        }
-      })();
-      console.log('[avito-modal] redirect_uri in URL (decoded):', redirectUriFromUrl ? decodeURIComponent(redirectUriFromUrl) : redirectUriFromUrl);
-      setOauthRedirecting(true);
-      saveConnectionProgress(property.id, 0, {});
-      const loginUrl = `https://www.avito.ru/login?next=${encodeURIComponent(oauthUrl)}`;
-      console.log('[avito-modal] opening popup with login URL (next=oauth):', loginUrl);
-      const popup = window.open(
-        loginUrl,
-        'avito_oauth',
-        'width=600,height=700,scrollbars=yes,resizable=yes'
-      );
-      oauthPopupRef.current = popup;
-      if (!popup) {
-        toast.error('Включите всплывающие окна для этого сайта и попробуйте снова');
-        setOauthRedirecting(false);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Пожалуйста, войдите в систему');
+        return;
       }
+      const oauthUrl = generateOAuthUrl(property.id);
+      sessionStorage.setItem('avito_oauth_pending', JSON.stringify({ propertyId: property.id }));
+      saveConnectionProgress(property.id, 0, {});
+      window.location.replace(oauthUrl);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Ошибка при генерации OAuth URL');
-      setOauthRedirecting(false);
     }
   };
-
-  // Слушаем результат OAuth из popup (postMessage)
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      console.log('[avito-modal] received message', event.data, { origin: event.origin, expectedOrigin: window.location.origin });
-      if (event.origin !== window.location.origin || event.data?.type !== 'avito-oauth-result') return;
-      oauthPopupRef.current = null;
-      setOauthRedirecting(false);
-      if (event.data.success && event.data.code && event.data.state) {
-        handleOAuthCallback(event.data.code, event.data.state);
-      } else if (!event.data.success) {
-        const msg = event.data.error_description || event.data.error || 'Ошибка авторизации Avito';
-        toast.error(msg);
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [handleOAuthCallback]);
-
-  // Если пользователь закрыл popup без завершения OAuth
-  useEffect(() => {
-    if (!oauthRedirecting || !oauthPopupRef.current) return;
-    const interval = setInterval(() => {
-      if (oauthPopupRef.current?.closed) {
-        oauthPopupRef.current = null;
-        setOauthRedirecting(false);
-        clearInterval(interval);
-      }
-    }, 300);
-    return () => clearInterval(interval);
-  }, [oauthRedirecting]);
 
   const handleSubmit = async () => {
     if (!userId) {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 
 export function AvitoCallbackPage() {
   const [messengerSuccessModalOpen, setMessengerSuccessModalOpen] = useState(false);
@@ -88,12 +89,37 @@ export function AvitoCallbackPage() {
           }
         })();
       } else {
-        const successData = { code, state };
-        localStorage.setItem('avito_oauth_success', JSON.stringify(successData));
-        window.history.replaceState({}, '', '/');
+        // Обычный OAuth подключения объекта: вызываем Edge Function напрямую, затем replace на /
+        (async () => {
+          const { supabase } = await import('../lib/supabase');
+          const redirectUri = import.meta.env.VITE_AVITO_REDIRECT_URI || 'https://app.roomi.pro/auth/avito-callback';
+          const { data, error: fnError } = await supabase.functions.invoke('avito-oauth-callback', {
+            body: { code, state, redirect_uri: redirectUri },
+          });
+          if (!fnError && data?.success) {
+            let propertyId: string | undefined;
+            try {
+              const stateData = JSON.parse(atob(state)) as { property_id?: string };
+              propertyId = stateData?.property_id;
+            } catch {
+              // ignore
+            }
+            navigate('/', { replace: true, state: { avitoConnected: true, propertyId } });
+          } else {
+            const status = (fnError as { status?: number })?.status;
+            const isSessionError = status === 401 || (fnError?.message && /unauthorized|session|jwt/i.test(fnError.message));
+            if (isSessionError) {
+              toast.error('Сессия истекла. Войдите в систему снова.');
+            } else {
+              const errorMsg = fnError?.message || (data as { error?: string })?.error || 'Ошибка подключения';
+              localStorage.setItem('avito_oauth_error', JSON.stringify({ error: errorMsg }));
+            }
+            navigate('/', { replace: true });
+          }
+        })();
       }
     }
-  }, []);
+  }, [navigate]);
 
   const handleMessengerSuccessClose = () => {
     setMessengerSuccessModalOpen(false);

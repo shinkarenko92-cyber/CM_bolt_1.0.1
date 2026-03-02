@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { X, Trash2, Upload, Image as ImageIcon, Loader2, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -40,6 +41,7 @@ interface PropertyModalProps {
 
 export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: PropertyModalProps) {
   const { t } = useTranslation();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     name: '',
     type: 'apartment',
@@ -222,13 +224,18 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     }
   };
 
-  // Автоматически открываем модальное окно Avito, если есть OAuth callback
+  // Автоматически открываем модальное окно Avito, если есть OAuth callback или возврат с полного редиректа
   useEffect(() => {
     if (!property || !isOpen) {
       return;
     }
 
-    // Check localStorage FIRST before any work
+    const state = location.state as { avitoConnected?: boolean; propertyId?: string } | null;
+    if (state?.avitoConnected && state?.propertyId === property.id) {
+      setIsAvitoModalOpen(true);
+    }
+
+    // Check localStorage FIRST before any work (старый поток)
     const oauthSuccess = getOAuthSuccess();
     const oauthError = getOAuthError();
 
@@ -261,7 +268,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
       // Если есть ошибка OAuth, тоже открываем модальное окно, чтобы показать ошибку
       setIsAvitoModalOpen(true);
     }
-  }, [property, isOpen, isAvitoModalOpen]); // Include isAvitoModalOpen with early exit to prevent unnecessary processing
+  }, [property, isOpen, isAvitoModalOpen, location.state]); // Include isAvitoModalOpen with early exit to prevent unnecessary processing
 
   const runDisconnectAvito = async () => {
     if (!avitoIntegration) return;
@@ -1016,6 +1023,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
             onSuccess={() => {
               loadAvitoIntegration();
             }}
+            initialShowAvitoSuccess={Boolean((location.state as { avitoConnected?: boolean; propertyId?: string })?.avitoConnected && (location.state as { propertyId?: string })?.propertyId === property.id)}
           />
         )}
 

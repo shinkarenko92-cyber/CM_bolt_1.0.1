@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Edit2, MapPin } from 'lucide-react';
 import { Property } from '@/lib/supabase';
 import { PropertyModal } from '@/components/PropertyModal';
@@ -17,6 +18,8 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete, onProper
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const oauthProcessedRef = useRef(false);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   // Сбрасываем флаг обработки OAuth при закрытии модального окна
   useEffect(() => {
@@ -25,7 +28,20 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete, onProper
     }
   }, [isModalOpen]);
 
-  // Автоматически открываем PropertyModal для property, если есть OAuth callback
+  // Возврат с полного редиректа Avito OAuth: открыть модалку объекта и очистить state
+  useEffect(() => {
+    const state = location.state as { avitoConnected?: boolean; propertyId?: string } | null;
+    if (!state?.avitoConnected || !state?.propertyId || oauthProcessedRef.current || properties.length === 0 || isModalOpen) return;
+    const property = properties.find(p => p.id === state.propertyId);
+    if (property) {
+      oauthProcessedRef.current = true;
+      setSelectedProperty(property);
+      setIsModalOpen(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, properties, isModalOpen, navigate]);
+
+  // Автоматически открываем PropertyModal для property, если есть OAuth callback (localStorage — старый поток)
   useEffect(() => {
     // Early exit: Check localStorage FIRST before any work
     const oauthSuccess = getOAuthSuccess();
