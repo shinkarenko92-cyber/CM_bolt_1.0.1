@@ -160,6 +160,7 @@ export function Dashboard() {
   const [isSyncing, setIsSyncing] = useState(false);
   const oauthProcessedRef = useRef(false);
   const lastAvitoReauthToastRef = useRef(0);
+  const avito403SkipRef = useRef<{ ids: Set<string>; until: number }>({ ids: new Set(), until: 0 });
   const messengerOauthPopupRef = useRef<Window | null>(null);
   const [messengerOauthInProgress, setMessengerOauthInProgress] = useState(false);
   const [avitoIntegrationsForMessages, setAvitoIntegrationsForMessages] = useState<IntegrationForMessenger[]>([]);
@@ -431,25 +432,44 @@ export function Dashboard() {
         return;
       }
 
+      const now = Date.now();
+      const skip403 = avito403SkipRef.current;
+      if (skip403.until < now) {
+        skip403.ids.clear();
+        skip403.until = 0;
+      }
+
       for (const integration of toSync) {
         if (!integration.avito_user_id) {
           continue;
         }
+        if (skip403.ids.has(integration.id)) {
+          continue;
+        }
 
         try {
-          // Edge Function avito-messenger: JWT is sent automatically via supabase client session
           const { data: avitoResponse, error: fnError } = await supabase.functions.invoke(
             'avito-messenger',
             { body: { action: 'getChats', integration_id: integration.id } }
           );
 
           if (fnError) {
-            console.error(`avito-messenger getChats error for ${integration.id}:`, fnError);
             const err = fnError as { message?: string; context?: { status?: number }; status?: number };
             const status = err?.context?.status ?? err?.status ?? (err?.message?.includes('403') ? 403 : err?.message?.includes('401') ? 401 : 0);
-            if (status === 403 || status === 401) {
+            if (status === 403) {
+              skip403.ids.add(integration.id);
+              if (skip403.until === 0) skip403.until = now + 5 * 60 * 1000;
               setHasMessengerAccess(false);
-              const now = Date.now();
+              if (now - lastAvitoReauthToastRef.current > 120000) {
+                lastAvitoReauthToastRef.current = now;
+                toast.error(
+                  t('messages.avito.forbidden403', {
+                    defaultValue: 'Доступ к чатам Avito заблокирован (403). Задеплойте: supabase functions deploy avito-messenger --no-verify-jwt',
+                  })
+                );
+              }
+            } else if (status === 401) {
+              setHasMessengerAccess(false);
               if (now - lastAvitoReauthToastRef.current > 120000) {
                 lastAvitoReauthToastRef.current = now;
                 toast.error(t('messages.avito.reauthRequired', { defaultValue: 'Требуется повторная авторизация для сообщений Avito. Нажмите «Авторизоваться в Avito» в разделе Сообщения.' }));
