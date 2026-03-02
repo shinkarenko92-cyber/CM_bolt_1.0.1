@@ -6,7 +6,7 @@
  * getMessages: GET /messenger/v3/.../messages/ (по спецификации)
  * sendMessage: POST /messenger/v1/.../messages (по спецификации)
  * Deploy: supabase functions deploy avito-messenger --no-verify-jwt
- * (JWT проверяется внутри; шлюз не должен резать по 403.)
+ * Без --no-verify-jwt шлюз Supabase может возвращать 403 до вызова функции.
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -177,10 +177,9 @@ Deno.serve(async (req: Request) => {
   }
   log("integration_found", { integration_id: integration.id, property_id: integration.property_id, hasToken: !!integration.access_token_encrypted });
 
-  const hasValidAvitoUserId =
-    typeof integration.avito_user_id === "number" &&
-    Number.isFinite(integration.avito_user_id) &&
-    integration.avito_user_id > 0;
+  const rawAvitoUserId = integration.avito_user_id;
+  const numAvitoUserId = typeof rawAvitoUserId === "number" ? rawAvitoUserId : Number(rawAvitoUserId);
+  const hasValidAvitoUserId = Number.isFinite(numAvitoUserId) && numAvitoUserId > 0;
   if (!hasValidAvitoUserId && !isDebugAction) {
     log("invalid_avito_user_id", { avito_user_id: integration.avito_user_id, avito_account_id: integration.avito_account_id });
     return new Response(
@@ -205,7 +204,11 @@ Deno.serve(async (req: Request) => {
   if (property.owner_id !== user.id) {
     log("forbidden_owner_mismatch", { property_owner_id: property.owner_id, user_id: user.id });
     return new Response(
-      JSON.stringify({ error: "Forbidden" }),
+      JSON.stringify({
+        error: "Forbidden",
+        code: "owner_mismatch",
+        message: "Интеграция не принадлежит текущему пользователю.",
+      }),
       { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
@@ -403,7 +406,7 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  const avitoUserId = hasValidAvitoUserId ? (integration.avito_user_id as number) : null;
+  const avitoUserId = hasValidAvitoUserId ? numAvitoUserId : null;
   log("avito_user_id", { avitoUserId });
 
   const headers: Record<string, string> = {

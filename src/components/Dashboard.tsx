@@ -416,16 +416,22 @@ export function Dashboard() {
         return;
       }
 
-      // Only call getChats for integrations that have messenger:read scope (avoids 403 spam)
+      // Only call getChats for integrations that have messenger:read and belong to current user's properties (avoids 403 owner_mismatch)
       const withMessengerScope = integrations.filter(
-        (i: { scope?: string | null }) => (i.scope ?? '').includes('messenger:read')
+        (i: { scope?: string | null; property_id?: string }) => (i.scope ?? '').includes('messenger:read')
       );
-      if (withMessengerScope.length === 0) {
+      const ownedIntegrationIds = new Set(
+        properties.filter(p => p.owner_id === user.id).map(p => p.id)
+      );
+      const toSync = withMessengerScope.filter(
+        (i: { property_id?: string }) => i.property_id && ownedIntegrationIds.has(i.property_id)
+      );
+      if (toSync.length === 0) {
         await loadChats();
         return;
       }
 
-      for (const integration of withMessengerScope) {
+      for (const integration of toSync) {
         if (!integration.avito_user_id) {
           continue;
         }
