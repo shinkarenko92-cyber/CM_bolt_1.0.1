@@ -253,10 +253,10 @@ export function AvitoConnectModal({
     if (isOpen) {
       if (initialShowAvitoSuccess && !hasShownRedirectSuccessRef.current) {
         hasShownRedirectSuccessRef.current = true;
-        setShowSuccess(true);
         setCurrentStep(1);
         sessionStorage.removeItem('avito_oauth_pending');
         navigate(location.pathname, { replace: true, state: {} });
+        toast.success('Аккаунт Avito подключён! Введите ID объявления и наценку.');
       }
       if (!initialShowAvitoSuccess) {
         setShowSuccess(false);
