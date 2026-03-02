@@ -5,6 +5,7 @@
  * getChats: GET /messenger/v2/.../chats
  * getMessages: GET /messenger/v3/.../messages/ (по спецификации)
  * sendMessage: POST /messenger/v1/.../messages (по спецификации)
+ * Debug (admin only): body: { action: 'debug', integration_id }, headers: { 'X-Debug': 'true' } → scope, token_valid, avito_user_id, Avito API test.
  * Deploy: supabase functions deploy avito-messenger --no-verify-jwt
  * Без --no-verify-jwt шлюз Supabase может возвращать 403 до вызова функции.
  */

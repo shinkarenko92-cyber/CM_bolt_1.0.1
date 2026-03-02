@@ -72,6 +72,7 @@ export function AvitoConnectModal({
   const [configError, setConfigError] = useState<string | null>(null);
   const oauthCodeConsumedRef = useRef(false);
   const hasShownRedirectSuccessRef = useRef(false);
+  const handleOAuthCallbackRef = useRef<(code: string, state: string) => Promise<void>>(() => Promise.resolve());
 
   // Предполётная валидация Avito credentials при открытии модалки
   useEffect(() => {
@@ -309,25 +310,24 @@ export function AvitoConnectModal({
     }
   }, [isOpen, property.id, handleOAuthCallback, initialShowAvitoSuccess, location.pathname, navigate]);
 
-  // Check if user is returning from OAuth redirect (poll until code is consumed by main effect or here)
   useEffect(() => {
-    if (isOpen && currentStep === 0 && !isProcessingOAuth) {
-      const checkInterval = setInterval(() => {
-        if (isProcessingOAuth || oauthCodeConsumedRef.current) return;
-        const oauthSuccess = getOAuthSuccess();
-        if (oauthSuccess) {
-          clearInterval(checkInterval);
-          oauthCodeConsumedRef.current = true;
-          clearOAuthSuccess();
-          handleOAuthCallback(oauthSuccess.code, oauthSuccess.state);
-        }
-      }, 500);
+    handleOAuthCallbackRef.current = handleOAuthCallback;
+  }, [handleOAuthCallback]);
 
-      return () => {
-        clearInterval(checkInterval);
-      };
-    }
-  }, [isOpen, currentStep, handleOAuthCallback, isProcessingOAuth]);
+  // Check if user is returning from OAuth redirect (poll every 1000ms; ref to avoid deps churn)
+  useEffect(() => {
+    if (!isOpen || currentStep !== 0 || isProcessingOAuth) return;
+    const checkInterval = setInterval(() => {
+      if (oauthCodeConsumedRef.current) return;
+      const oauthSuccess = getOAuthSuccess();
+      if (oauthSuccess) {
+        oauthCodeConsumedRef.current = true;
+        clearOAuthSuccess();
+        handleOAuthCallbackRef.current(oauthSuccess.code, oauthSuccess.state);
+      }
+    }, 1000);
+    return () => clearInterval(checkInterval);
+  }, [isOpen, currentStep, isProcessingOAuth]);
 
   // Also check for OAuth callback when component mounts, even if modal is closed
   // This ensures we process the callback even if the user navigated away

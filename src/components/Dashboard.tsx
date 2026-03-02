@@ -165,6 +165,10 @@ export function Dashboard() {
   const [messengerOauthInProgress, setMessengerOauthInProgress] = useState(false);
   const [avitoIntegrationsForMessages, setAvitoIntegrationsForMessages] = useState<IntegrationForMessenger[]>([]);
   const [hasMessengerAccess, setHasMessengerAccess] = useState(false);
+  const syncChatsFromAvitoRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const loadChatsRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const syncMessagesFromAvitoRef = useRef<(chatId: string) => Promise<void>>(() => Promise.resolve());
+  const loadMessagesRef = useRef<(chatId: string, offset?: number, limit?: number) => Promise<void>>(() => Promise.resolve());
 
   // Helper function for retry logic
   type SupabaseQueryResult<T> = {
@@ -448,6 +452,7 @@ export function Dashboard() {
         }
 
         try {
+          // Supabase client sends Authorization from session automatically when user is logged in; do not pass headers manually
           const { data: avitoResponse, error: fnError } = await supabase.functions.invoke(
             'avito-messenger',
             { body: { action: 'getChats', integration_id: integration.id } }
@@ -684,13 +689,24 @@ export function Dashboard() {
     }
   }, [user, chats, loadMessages]);
 
-  // Load chats and sync from Avito when view changes to messages
+  // Keep refs up to date for polling (avoids effect deps that cause infinite re-runs)
   useEffect(() => {
-    if (currentView === 'messages' && user) {
-      loadChats();
-      syncChatsFromAvito();
-    }
-  }, [currentView, user, loadChats, syncChatsFromAvito]);
+    syncChatsFromAvitoRef.current = syncChatsFromAvito;
+    loadChatsRef.current = loadChats;
+    syncMessagesFromAvitoRef.current = syncMessagesFromAvito;
+    loadMessagesRef.current = loadMessages;
+  }, [syncChatsFromAvito, loadChats, syncMessagesFromAvito, loadMessages]);
+
+  // Load chats and sync from Avito when view changes to messages (debounced 1000ms, no callback deps)
+  useEffect(() => {
+    if (currentView !== 'messages' || !user) return;
+    loadChatsRef.current();
+    const debounceMs = 1000;
+    const t = setTimeout(() => {
+      syncChatsFromAvitoRef.current();
+    }, debounceMs);
+    return () => clearTimeout(t);
+  }, [currentView, user]);
 
   // Load Avito integrations for Messages tab (check scope for messenger access)
   useEffect(() => {
@@ -790,43 +806,39 @@ export function Dashboard() {
     return () => clearInterval(interval);
   }, [messengerOauthInProgress]);
 
-  // Periodic sync of chats list while on Messages tab (Avito Messenger API)
+  // Periodic sync of chats list while on Messages tab (15s; ref to avoid deps churn)
   useEffect(() => {
     if (currentView !== 'messages' || !user) return;
-
     const intervalId = setInterval(() => {
-      syncChatsFromAvito();
-    }, 15000); // 15 seconds
-
+      syncChatsFromAvitoRef.current();
+    }, 15000);
     return () => clearInterval(intervalId);
-  }, [currentView, user, syncChatsFromAvito]);
+  }, [currentView, user]);
 
-  // Load messages when chat is selected
+  // Load messages when chat is selected (debounce 1000ms for Avito sync; refs to avoid deps churn)
   useEffect(() => {
-    if (selectedChatId) {
-      setMessagesOffset(0);
-      setHasMoreMessages(true);
-      // First load from local database
-      loadMessages(selectedChatId, 0);
-      // Then sync from Avito API
-      syncMessagesFromAvito(selectedChatId);
-    } else {
+    if (!selectedChatId) {
       setMessages([]);
+      return;
     }
-  }, [selectedChatId, loadMessages, syncMessagesFromAvito]);
+    setMessagesOffset(0);
+    setHasMoreMessages(true);
+    loadMessagesRef.current(selectedChatId, 0, 50);
+    const debounceMs = 1000;
+    const t = setTimeout(() => {
+      syncMessagesFromAvitoRef.current(selectedChatId);
+    }, debounceMs);
+    return () => clearTimeout(t);
+  }, [selectedChatId]);
 
-  // Periodic sync every 7 seconds for active chat messages
+  // Periodic sync every 7 seconds for active chat messages (ref to avoid deps churn)
   useEffect(() => {
     if (!selectedChatId) return;
-
     const intervalId = setInterval(() => {
-      syncMessagesFromAvito(selectedChatId);
-    }, 7000); // 7 seconds
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [selectedChatId, syncMessagesFromAvito]);
+      syncMessagesFromAvitoRef.current(selectedChatId);
+    }, 7000);
+    return () => clearInterval(intervalId);
+  }, [selectedChatId]);
 
   // Handle send message
   const handleSendMessage = useCallback(async (
