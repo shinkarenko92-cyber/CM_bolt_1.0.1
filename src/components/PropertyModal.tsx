@@ -112,6 +112,13 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
     }
   }, [property]);
 
+  // Сбрасываем модалку Авито при закрытии редактирования объекта, чтобы при повторном открытии не показывалась сразу
+  useEffect(() => {
+    if (!isOpen) {
+      setIsAvitoModalOpen(false);
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (property) {
       setFormData({
@@ -821,7 +828,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
 
                           <div className="bg-slate-700/50 rounded-lg p-4 min-w-0 overflow-hidden">
                             {!avitoIntegration ? (
-                              <Button onClick={() => setIsAvitoModalOpen(true)}>
+                              <Button type="button" onClick={() => setIsAvitoModalOpen(true)}>
                                 {t('avito.integration.connectAvito')}
                               </Button>
                             ) : (
@@ -851,7 +858,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                                 <CollapsibleContent>
                                   <div className="mt-4 space-y-4">
                                     {!avitoIntegration.is_active && (
-                                      <Button onClick={() => setIsAvitoModalOpen(true)}>
+                                      <Button type="button" onClick={() => setIsAvitoModalOpen(true)}>
                                         {t('avito.integration.reconnect')}
                                       </Button>
                                     )}
@@ -888,11 +895,11 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                                             <p className="text-xs text-red-400">{t('avito.integration.itemIdInvalid')}</p>
                                           )}
                                           <div className="flex flex-wrap gap-2">
-                                            <Button size="sm" onClick={handleSaveItemId} disabled={!editingItemId || !/^[0-9]{10,11}$/.test(editingItemId) || loading}>
+                                            <Button type="button" size="sm" onClick={handleSaveItemId} disabled={!editingItemId || !/^[0-9]{10,11}$/.test(editingItemId) || loading}>
                                               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                                               {t('avito.integration.save')}
                                             </Button>
-                                            <Button size="sm" variant="outline" onClick={() => { setIsEditingItemId(false); setEditingItemId(''); }} disabled={loading}>
+                                            <Button type="button" size="sm" variant="outline" onClick={() => { setIsEditingItemId(false); setEditingItemId(''); }} disabled={loading}>
                                               {t('avito.integration.cancel')}
                                             </Button>
                                           </div>
@@ -902,7 +909,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                                           <span className="text-white truncate min-w-0" title={avitoIntegration.avito_item_id || ''}>
                                             {avitoIntegration.avito_item_id || '—'}
                                           </span>
-                                          <Button size="sm" variant="outline" onClick={handleEditItemId} disabled={loading}>
+                                          <Button type="button" size="sm" variant="outline" onClick={handleEditItemId} disabled={loading}>
                                             {t('avito.integration.editItemId')}
                                           </Button>
                                         </div>
@@ -918,7 +925,7 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete }: P
                                             ? `${Math.abs(avitoIntegration.avito_markup)} руб`
                                             : `${avitoIntegration.avito_markup ?? 0}%`}
                                         </span>
-                                        <Button size="sm" variant="outline" onClick={handleEditMarkup}>{t('avito.integration.editMarkup')}</Button>
+                                        <Button type="button" size="sm" variant="outline" onClick={handleEditMarkup}>{t('avito.integration.editMarkup')}</Button>
                                       </div>
                                     </div>
 
