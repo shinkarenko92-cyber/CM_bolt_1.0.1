@@ -226,7 +226,7 @@ export function MessagesView({
                       {chat.property_id ? getPropertyName(chat.property_id) : '—'}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {chat.last_message_text || '—'}
+                      {chat.last_message_text ?? ''}
                     </p>
                   </div>
                   <span

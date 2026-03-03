@@ -219,7 +219,7 @@ Deno.serve(async (req: Request) => {
 
   // Check scope for messenger access
   const scope = integration.scope || "";
-  const scopes = (scope ?? "").split(/\s+/);
+  const scopes = (scope ?? "").split(/[\s,]+/).filter(Boolean);
   const hasMessengerRead = scopes.includes("messenger:read");
   const hasMessengerWrite = scopes.includes("messenger:write");
 

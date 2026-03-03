@@ -80,7 +80,7 @@ function toIsoDate(value: string | number | null | undefined): string | null {
   return new Date(ms).toISOString();
 }
 
-// Avito Messenger API shapes (v2 chats: created/updated/last_message.created — Unix int; users — spec: id, name, public_user_profile.avatar)
+// Avito Messenger API shapes (v2 chats: last_message can be { type, content: { text }, direction, created })
 type AvitoChatUser = {
   id?: number;
   user_id?: string;
@@ -88,15 +88,42 @@ type AvitoChatUser = {
   avatar?: { url: string };
   public_user_profile?: { avatar?: { default?: string } };
 };
+type AvitoLastMessage = {
+  type?: string;
+  content?: { text?: string };
+  direction?: 'in' | 'out';
+  created?: string | number;
+  text?: string; // legacy
+};
 type AvitoChat = {
   id: string;
   item_id?: string;
   created: string | number;
   updated: string | number;
   unread_count: number;
-  last_message?: { text: string; created: string | number };
+  last_message?: AvitoLastMessage;
   users?: AvitoChatUser[];
 };
+
+function getLastMessagePreview(lm: AvitoLastMessage | null | undefined): string | null {
+  if (!lm) return null;
+  const prefix = lm.direction === 'out' ? 'Вы: ' : '';
+  const text = (lm.content?.text ?? lm.text ?? '').trim();
+  switch (lm.type) {
+    case 'text':
+      return text ? prefix + text : null;
+    case 'image':
+      return prefix + '📷 Фото';
+    case 'call':
+      return prefix + '📞 Звонок';
+    case 'system':
+      return prefix + (text || 'Системное сообщение');
+    case 'deleted':
+      return prefix + 'Сообщение удалено';
+    default:
+      return text ? prefix + text : null;
+  }
+}
 // v2: author { user_id, name }; v3: author_id (int), direction 'in'|'out', content.text
 type AvitoMessage = {
   id: string;
@@ -505,7 +532,7 @@ export function Dashboard() {
               contact_avatar_url: contactUser?.avatar?.url ?? contactUser?.public_user_profile?.avatar?.default ?? null,
               status: 'new' as const, // Default status, can be updated later
               unread_count: avitoChat.unread_count || 0,
-              last_message_text: avitoChat.last_message?.text || null,
+              last_message_text: getLastMessagePreview(avitoChat.last_message) ?? avitoChat.last_message?.text ?? null,
               last_message_at: toIsoDate(avitoChat.last_message?.created ?? avitoChat.updated ?? avitoChat.created),
               updated_at: new Date().toISOString(),
             };
