@@ -52,7 +52,8 @@ export function generateOAuthUrl(propertyId: string): string {
   const redirectUri = import.meta.env.VITE_AVITO_REDIRECT_URI || 'https://app.roomi.pro/auth/avito-callback';
   validateAvitoRedirectUri(redirectUri);
 
-  const baseScope = 'user:read,short_term_rent:read,short_term_rent:write';
+  // Включаем scopes мессенджера с первого подключения — иначе avito-messenger возвращает 403 (missing messenger:read)
+  const baseScope = 'user:read,short_term_rent:read,short_term_rent:write,messenger:read,messenger:write';
 
   // Спецификация Avito: https://avito.ru/oauth
   return `${AVITO_OAUTH_AUTHORIZE_URL}?client_id=${clientId}` +

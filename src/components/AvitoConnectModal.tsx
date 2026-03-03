@@ -70,6 +70,7 @@ export function AvitoConnectModal({
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [errorDialog, setErrorDialog] = useState<{ title: string; content: string; onOk?: () => void } | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
+  const [needsReconnectForMessenger, setNeedsReconnectForMessenger] = useState(false);
   const oauthCodeConsumedRef = useRef(false);
   const hasShownRedirectSuccessRef = useRef(false);
   const handleOAuthCallbackRef = useRef<(code: string, state: string) => Promise<void>>(() => Promise.resolve());
@@ -80,6 +81,28 @@ export function AvitoConnectModal({
     const validation = getAvitoConfigValidation();
     setConfigError(validation.valid ? null : validation.error);
   }, [isOpen]);
+
+  // Проверяем, есть ли уже интеграция без scope мессенджера — показываем баннер «переподключите»
+  useEffect(() => {
+    if (!isOpen || !property?.id) {
+      setNeedsReconnectForMessenger(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('integrations')
+        .select('id, scope')
+        .eq('property_id', property.id)
+        .eq('platform', 'avito')
+        .maybeSingle();
+      if (cancelled) return;
+      const scope = (data as { scope?: string | null } | null)?.scope ?? '';
+      const hasMessengerScope = scope.includes('messenger:read');
+      setNeedsReconnectForMessenger(Boolean(data && !hasMessengerScope));
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, property?.id]);
 
   const handleOAuthCallback = useCallback(async (code: string, state: string) => {
     // Предотвращаем двойной вызов
@@ -580,6 +603,15 @@ export function AvitoConnectModal({
             <DialogTitle>Подключение Avito</DialogTitle>
             <DialogDescription className="sr-only">Пошаговое подключение аккаунта Avito и объявления</DialogDescription>
           </DialogHeader>
+
+          {needsReconnectForMessenger && (
+            <div className="mb-4 p-4 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-900 dark:text-amber-200" role="alert">
+              <p className="text-sm font-medium mb-1">Для работы чатов нужны права мессенджера</p>
+              <p className="text-xs opacity-90">
+                Avito уже подключён без доступа к сообщениям. Отключите интеграцию в настройках объекта, затем нажмите «Подключить Avito» снова — новый токен будет с правами на чаты.
+              </p>
+            </div>
+          )}
 
           {showResumePrompt && (
             <div className="mb-4 p-3 bg-primary/10 border border-primary/30 rounded-md">
