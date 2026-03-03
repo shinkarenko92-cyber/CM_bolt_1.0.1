@@ -5,7 +5,7 @@
 @layer base {
   :root {
     --radius: 0.75rem;
-    /* Primary #00bda4 (teal), booking/success #29BF12, destructive #F21B3F */
+    /* Primary & booking: our brand teal #00bda4; success #29BF12; destructive #F21B3F */
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
     --card: 215 28% 17%;
@@ -28,8 +28,8 @@
     --border: 215 28% 27%;
     --input: 215 28% 27%;
     --ring: 174 100% 37%;
-    --booking: 113 83% 41%;
-    --booking-hover: 113 83% 36%;
+    --booking: 174 100% 37%;
+    --booking-hover: 174 95% 32%;
     --booking-foreground: 0 0% 100%;
   }
   :root[data-theme='dark'] {
@@ -55,8 +55,8 @@
     --border: 215 28% 27%;
     --input: 215 28% 27%;
     --ring: 174 100% 37%;
-    --booking: 113 83% 41%;
-    --booking-hover: 113 83% 36%;
+    --booking: 174 100% 37%;
+    --booking-hover: 174 95% 32%;
     --booking-foreground: 0 0% 100%;
   }
   :root[data-theme='light'] {
@@ -82,8 +82,8 @@
     --border: 214 32% 91%;
     --input: 214 32% 91%;
     --ring: 174 100% 37%;
-    --booking: 113 83% 41%;
-    --booking-hover: 113 83% 36%;
+    --booking: 174 100% 37%;
+    --booking-hover: 174 95% 32%;
     --booking-foreground: 0 0% 100%;
   }
 }
