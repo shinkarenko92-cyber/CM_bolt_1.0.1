@@ -225,9 +225,9 @@ export function MessagesView({
                     >
                       {chat.property_id ? getPropertyName(chat.property_id) : '—'}
                     </p>
-                    {chat.avito_item_id ? (
+                    {(chat.avito_item_title || chat.avito_item_id) ? (
                       <p className="text-xs text-gray-400 truncate mb-1">
-                        № {chat.avito_item_id}
+                        {chat.avito_item_title ?? `№ ${chat.avito_item_id}`}
                       </p>
                     ) : null}
                     <p className="text-xs text-muted-foreground truncate">

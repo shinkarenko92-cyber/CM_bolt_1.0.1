@@ -162,6 +162,7 @@ export type Chat = {
   avito_chat_id: string;
   avito_user_id: string;
   avito_item_id: string | null;
+  avito_item_title: string | null;
   integration_id: string | null;
   contact_name: string | null;
   contact_phone: string | null;

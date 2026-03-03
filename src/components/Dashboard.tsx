@@ -95,6 +95,11 @@ type AvitoLastMessage = {
   created?: string | number;
   text?: string; // legacy
 };
+type AvitoChatContext = {
+  value?: { title?: string; id?: string; user_id?: string; [key: string]: unknown };
+  type?: string;
+  [key: string]: unknown;
+};
 type AvitoChat = {
   id: string;
   item_id?: string;
@@ -103,6 +108,7 @@ type AvitoChat = {
   unread_count: number;
   last_message?: AvitoLastMessage;
   users?: AvitoChatUser[];
+  context?: AvitoChatContext;
 };
 
 function getLastMessagePreview(lm: AvitoLastMessage | null | undefined): string | null {
@@ -521,12 +527,15 @@ export function Dashboard() {
             const ownerAvitoId = integration.avito_user_id != null ? String(integration.avito_user_id) : '';
             const contactUser = avitoChat.users?.find((u: AvitoChatUser) => (u.user_id ?? String(u.id ?? '')) !== ownerAvitoId);
 
+            const itemTitle =
+              (avitoChat as { context?: { value?: { title?: string } } }).context?.value?.title?.trim() || null;
             return {
               owner_id: user.id,
               property_id: integration.property_id,
               avito_chat_id: avitoChat.id,
               avito_user_id: integration.avito_user_id,
               avito_item_id: avitoChat.item_id || null,
+              avito_item_title: itemTitle,
               integration_id: integration.id,
               contact_name: contactUser?.name || null,
               contact_avatar_url: contactUser?.avatar?.url ?? contactUser?.public_user_profile?.avatar?.default ?? null,
@@ -546,6 +555,7 @@ export function Dashboard() {
               avito_chat_id: string;
               avito_user_id: string | null;
               avito_item_id: string | null;
+              avito_item_title: string | null;
               integration_id: string;
               contact_name: string | null;
               contact_avatar_url: string | null;
