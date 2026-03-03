@@ -5,16 +5,16 @@
 @layer base {
   :root {
     --radius: 0.75rem;
-    /* Primary #9ECBFF, booking/success #29BF12, destructive #F21B3F */
+    /* Primary #00bda4 (teal), booking/success #29BF12, destructive #F21B3F */
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
     --card: 215 28% 17%;
     --card-foreground: 210 40% 98%;
     --popover: 215 28% 17%;
     --popover-foreground: 210 40% 98%;
-    --primary: 214 100% 81%;
-    --primary-hover: 214 95% 75%;
-    --primary-foreground: 222 47% 11%;
+    --primary: 174 100% 37%;
+    --primary-hover: 174 95% 32%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 215 28% 17%;
     --secondary-foreground: 210 40% 98%;
     --muted: 215 28% 27%;
@@ -27,7 +27,7 @@
     --warning: 38 92% 50%;
     --border: 215 28% 27%;
     --input: 215 28% 27%;
-    --ring: 214 100% 81%;
+    --ring: 174 100% 37%;
     --booking: 113 83% 41%;
     --booking-hover: 113 83% 36%;
     --booking-foreground: 0 0% 100%;
@@ -39,9 +39,9 @@
     --card-foreground: 210 40% 98%;
     --popover: 215 28% 17%;
     --popover-foreground: 210 40% 98%;
-    --primary: 214 100% 81%;
-    --primary-hover: 214 95% 75%;
-    --primary-foreground: 222 47% 11%;
+    --primary: 174 100% 37%;
+    --primary-hover: 174 95% 32%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 215 28% 17%;
     --secondary-foreground: 210 40% 98%;
     --muted: 215 28% 27%;
@@ -54,7 +54,7 @@
     --warning: 38 92% 50%;
     --border: 215 28% 27%;
     --input: 215 28% 27%;
-    --ring: 214 100% 81%;
+    --ring: 174 100% 37%;
     --booking: 113 83% 41%;
     --booking-hover: 113 83% 36%;
     --booking-foreground: 0 0% 100%;
@@ -66,9 +66,9 @@
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 214 100% 81%;
-    --primary-hover: 214 95% 75%;
-    --primary-foreground: 222 47% 11%;
+    --primary: 174 100% 37%;
+    --primary-hover: 174 95% 32%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 214 32% 91%;
     --secondary-foreground: 222 47% 11%;
     --muted: 214 32% 91%;
@@ -81,7 +81,7 @@
     --warning: 38 92% 50%;
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 214 100% 81%;
+    --ring: 174 100% 37%;
     --booking: 113 83% 41%;
     --booking-hover: 113 83% 36%;
     --booking-foreground: 0 0% 100%;
@@ -94,6 +94,16 @@
   }
   .glass-card {
     @apply backdrop-blur-md bg-card/95 border border-border shadow-xl;
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 10px;
   }
 }
 
