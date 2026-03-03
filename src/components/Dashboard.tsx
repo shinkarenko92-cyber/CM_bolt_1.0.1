@@ -361,9 +361,11 @@ export function Dashboard() {
     loadDataRef.current = loadData;
   }, [loadData]);
 
+  // Run loadData only when user.id changes (not when loadData identity changes — avoids GET spam)
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!user?.id) return;
+    loadDataRef.current();
+  }, [user?.id]);
 
   // Open Messages tab when returning from Avito Messenger OAuth callback; open Properties when no integration or after Avito OAuth
   useEffect(() => {
@@ -697,36 +699,36 @@ export function Dashboard() {
     loadMessagesRef.current = loadMessages;
   }, [syncChatsFromAvito, loadChats, syncMessagesFromAvito, loadMessages]);
 
-  // Load chats and sync from Avito when view changes to messages (debounced 1000ms, no callback deps)
+  // Load chats and sync from Avito when view changes to messages (debounced 1000ms, stable deps)
   useEffect(() => {
-    if (currentView !== 'messages' || !user) return;
+    if (currentView !== 'messages' || !user?.id) return;
     loadChatsRef.current();
     const debounceMs = 1000;
     const t = setTimeout(() => {
       syncChatsFromAvitoRef.current();
     }, debounceMs);
     return () => clearTimeout(t);
-  }, [currentView, user]);
+  }, [currentView, user?.id]);
 
-  // Load Avito integrations for Messages tab (check scope for messenger access)
+  // Load Avito integrations for Messages tab (stable deps to avoid GET spam)
   useEffect(() => {
-    if (currentView !== 'messages' || !user || !properties.length) {
+    if (currentView !== 'messages' || !user?.id || !properties.length) {
       setAvitoIntegrationsForMessages([]);
       setHasMessengerAccess(false);
       return;
     }
     let cancelled = false;
+    const propertyIds = properties.map(p => p.id);
     (async () => {
       const { data, error } = await supabase
         .from('integrations')
         .select('id, property_id, scope')
         .eq('platform', 'avito')
         .eq('is_active', true)
-        .in('property_id', properties.map(p => p.id));
+        .in('property_id', propertyIds);
       if (cancelled || error) return;
       const list: IntegrationForMessenger[] = (data || []).map((r: { id: string; property_id: string }) => ({ id: r.id, property_id: r.property_id }));
       setAvitoIntegrationsForMessages(list);
-      // Check if any integration has messenger scopes
       const hasMessenger = (data || []).some((r: { scope?: string | null }) => {
         const scope = r.scope || '';
         return scope.includes('messenger:read') && scope.includes('messenger:write');
@@ -734,7 +736,7 @@ export function Dashboard() {
       setHasMessengerAccess(hasMessenger);
     })();
     return () => { cancelled = true; };
-  }, [currentView, user, properties]);
+  }, [currentView, user?.id, properties.length]);
 
   const handleAvitoMessengerAuth = useCallback(async (integrationId?: string | null) => {
     const effectiveId = integrationId ?? avitoIntegrationsForMessages?.[0]?.id ?? null;
@@ -806,14 +808,14 @@ export function Dashboard() {
     return () => clearInterval(interval);
   }, [messengerOauthInProgress]);
 
-  // Periodic sync of chats list while on Messages tab (15s; ref to avoid deps churn)
+  // Periodic sync of chats list while on Messages tab (15s; stable deps)
   useEffect(() => {
-    if (currentView !== 'messages' || !user) return;
+    if (currentView !== 'messages' || !user?.id) return;
     const intervalId = setInterval(() => {
       syncChatsFromAvitoRef.current();
     }, 15000);
     return () => clearInterval(intervalId);
-  }, [currentView, user]);
+  }, [currentView, user?.id]);
 
   // Load messages when chat is selected (debounce 1000ms for Avito sync; refs to avoid deps churn)
   useEffect(() => {
@@ -2079,40 +2081,51 @@ export function Dashboard() {
             onEditGuest={handleEditGuest}
           />
         ) : currentView === 'messages' ? (
-          <div className="flex-1 flex overflow-hidden">
-            <div className="flex-1 overflow-hidden">
-              <MessagesView
-                chats={chats}
-                properties={properties}
-                selectedChatId={selectedChatId}
-                onSelectChat={setSelectedChatId}
-                hasMessengerAccess={hasMessengerAccess}
-                integrationsForMessenger={avitoIntegrationsForMessages}
-                onRequestMessengerAuth={handleAvitoMessengerAuth}
-              />
-            </div>
-            {selectedChatId && (
-              <div className="w-full md:w-1/2 lg:w-2/3 xl:w-3/4 border-l border-border">
-                <ChatPanel
-                  chat={chats.find(c => c.id === selectedChatId) || null}
-                  property={chats.find(c => c.id === selectedChatId)?.property_id 
-                    ? properties.find(p => p.id === chats.find(c => c.id === selectedChatId)?.property_id || '') || null
-                    : null}
-                  messages={messages}
-                  isLoading={messagesLoading}
-                  isSyncing={isSyncing}
-                  onSendMessage={async (text, attachments) => {
-                    if (selectedChatId) {
-                      await handleSendMessage(selectedChatId, text, attachments);
-                    }
-                  }}
-                  onLoadMore={() => selectedChatId && loadMessages(selectedChatId, messagesOffset)}
-                  hasMore={hasMoreMessages}
-                  onCreateBooking={handleCreateBookingFromChat}
-                  onStatusChange={handleChatStatusChange}
+          <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+            <header className="h-16 border-b border-border flex items-center justify-between px-6 shrink-0">
+              <h2 className="text-lg font-bold">{t('messages.title', 'Сообщения')}</h2>
+            </header>
+            <div className="flex-1 flex overflow-hidden min-h-0">
+              <div className="w-80 shrink-0 border-r border-border flex flex-col min-h-0">
+                <MessagesView
+                  chats={chats}
+                  properties={properties}
+                  selectedChatId={selectedChatId}
+                  onSelectChat={setSelectedChatId}
+                  hasMessengerAccess={hasMessengerAccess}
+                  integrationsForMessenger={avitoIntegrationsForMessages}
+                  onRequestMessengerAuth={handleAvitoMessengerAuth}
                 />
               </div>
-            )}
+              {selectedChatId ? (
+                <div className="flex-1 flex flex-col min-w-0">
+                  <ChatPanel
+                    chat={chats.find(c => c.id === selectedChatId) || null}
+                    property={chats.find(c => c.id === selectedChatId)?.property_id
+                      ? properties.find(p => p.id === chats.find(c => c.id === selectedChatId)?.property_id || '') || null
+                      : null}
+                    messages={messages}
+                    isLoading={messagesLoading}
+                    isSyncing={isSyncing}
+                    onSendMessage={async (text, attachments) => {
+                      if (selectedChatId) {
+                        await handleSendMessage(selectedChatId, text, attachments);
+                      }
+                    }}
+                    onLoadMore={() => selectedChatId && loadMessages(selectedChatId, messagesOffset)}
+                    hasMore={hasMoreMessages}
+                    onCreateBooking={handleCreateBookingFromChat}
+                    onStatusChange={handleChatStatusChange}
+                  />
+                </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center bg-muted/30 border-l border-border">
+                  <div className="text-center px-6">
+                    <p className="text-muted-foreground">{t('messages.selectChat', 'Выберите чат')}</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         ) : currentView === 'analytics' ? (
           isMobile ? (
