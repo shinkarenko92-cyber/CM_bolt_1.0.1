@@ -481,15 +481,30 @@ async function handleOAuthCallbackImpl(req: Request, env: Env): Promise<Response
       throw new AvitoError("Нет подходящей интеграции Avito для подключения чатов.", 422, "no_avito_integration");
     }
 
+    // Encrypt tokens before saving (same as avito-messenger refresh path)
+    let accessEnc = tokenData.access_token;
+    let refreshEnc: string | undefined = tokenData.refresh_token;
+    try {
+      const { data: encAccess } = await supabase.rpc("encrypt_avito_token", { token: tokenData.access_token });
+      if (encAccess) accessEnc = encAccess;
+      if (tokenData.refresh_token) {
+        const { data: encRefresh } = await supabase.rpc("encrypt_avito_token", { token: tokenData.refresh_token });
+        if (encRefresh) refreshEnc = encRefresh;
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.log(`${LOG_PREFIX} messenger_auth encrypt_avito_token failed, saving plain`, msg);
+    }
+
     const updateData: Record<string, unknown> = {
-      access_token_encrypted: tokenData.access_token,
+      access_token_encrypted: accessEnc,
       token_expires_at: tokenExpiresAt.toISOString(),
       scope: tokenData.scope ?? "user:read short_term_rent:read short_term_rent:write messenger:read messenger:write",
       is_active: true,
       is_enabled: true,
     };
-    if (tokenData.refresh_token) {
-      updateData.refresh_token_encrypted = tokenData.refresh_token;
+    if (refreshEnc) {
+      updateData.refresh_token_encrypted = refreshEnc;
     }
     if (avitoUserId != null && avitoUserId > 0) {
       updateData.avito_user_id = avitoUserId;
@@ -536,15 +551,30 @@ async function handleOAuthCallbackImpl(req: Request, env: Env): Promise<Response
     integrationId = existingIntegration?.id;
   }
 
+  // Encrypt tokens before saving (same as messenger_auth branch)
+  let accessEnc = tokenData.access_token;
+  let refreshEnc: string | undefined = tokenData.refresh_token;
+  try {
+    const { data: encAccess } = await supabase.rpc("encrypt_avito_token", { token: tokenData.access_token });
+    if (encAccess) accessEnc = encAccess;
+    if (tokenData.refresh_token) {
+      const { data: encRefresh } = await supabase.rpc("encrypt_avito_token", { token: tokenData.refresh_token });
+      if (encRefresh) refreshEnc = encRefresh;
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log(`${LOG_PREFIX} encrypt_avito_token failed, saving plain`, msg);
+  }
+
   const updateData: Record<string, unknown> = {
-    access_token_encrypted: tokenData.access_token,
+    access_token_encrypted: accessEnc,
     token_expires_at: tokenExpiresAt.toISOString(),
     scope: tokenData.scope ?? null,
     is_active: true,
     is_enabled: true,
   };
-  if (tokenData.refresh_token) {
-    updateData.refresh_token_encrypted = tokenData.refresh_token;
+  if (refreshEnc) {
+    updateData.refresh_token_encrypted = refreshEnc;
   }
   if (avitoUserId != null && avitoUserId > 0) {
     updateData.avito_user_id = avitoUserId;
