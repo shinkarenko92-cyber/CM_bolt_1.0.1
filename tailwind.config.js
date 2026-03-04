@@ -46,6 +46,14 @@ export default {
           foreground: 'hsl(var(--booking-foreground))',
           hover: 'hsl(var(--booking-hover))',
         },
+        'nav-logo-bg': 'hsl(var(--nav-logo-bg))',
+        'nav-active-bg': 'hsl(var(--nav-active-bg))',
+        'nav-active-fg': 'hsl(var(--nav-active-fg))',
+        'today-cell-bg': 'hsl(var(--today-cell-bg))',
+        'add-booking-bg': {
+          DEFAULT: 'hsl(var(--add-booking-bg))',
+          hover: 'hsl(var(--add-booking-bg-hover))',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',

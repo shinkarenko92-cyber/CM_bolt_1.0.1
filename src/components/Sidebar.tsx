@@ -64,7 +64,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
       >
         <div className="p-4 md:p-5 border-b border-border">
           <div className="flex items-center gap-3 pl-8 md:pl-0">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-nav-logo-bg text-white">
               <Calendar className="h-5 w-5" />
             </div>
             <div>
@@ -82,10 +82,10 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
             return (
               <Button
                 key={item.id}
-                variant={isActive ? 'default' : 'ghost'}
+                variant="ghost"
                 className={cn(
                   'w-full justify-start gap-3 h-10 px-3 md:px-4 font-medium text-sm md:text-base transition-all duration-200',
-                  isActive && 'shadow-md',
+                  isActive && 'bg-nav-active-bg text-nav-active-fg shadow-md hover:bg-nav-active-bg hover:text-nav-active-fg',
                   !isActive && 'hover:scale-[1.02]'
                 )}
                 onClick={() => handleNavClick(item.id)}

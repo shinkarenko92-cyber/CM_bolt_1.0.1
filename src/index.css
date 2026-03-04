@@ -28,9 +28,15 @@
     --border: 215 28% 27%;
     --input: 215 28% 27%;
     --ring: 174 100% 37%;
-    --booking: 174 100% 37%;
-    --booking-hover: 174 95% 32%;
+    --booking: 108 58% 51%;
+    --booking-hover: 108 58% 45%;
     --booking-foreground: 0 0% 100%;
+    --nav-logo-bg: 225 65% 79%;
+    --nav-active-bg: 218 100% 94%;
+    --nav-active-fg: 217 78% 63%;
+    --today-cell-bg: 120 60% 95%;
+    --add-booking-bg: 134 61% 40%;
+    --add-booking-bg-hover: 134 61% 35%;
   }
   :root[data-theme='dark'] {
     --background: 222 47% 11%;
@@ -55,9 +61,15 @@
     --border: 215 28% 27%;
     --input: 215 28% 27%;
     --ring: 174 100% 37%;
-    --booking: 174 100% 37%;
-    --booking-hover: 174 95% 32%;
+    --booking: 108 58% 51%;
+    --booking-hover: 108 58% 45%;
     --booking-foreground: 0 0% 100%;
+    --nav-logo-bg: 225 65% 79%;
+    --nav-active-bg: 218 100% 94%;
+    --nav-active-fg: 217 78% 63%;
+    --today-cell-bg: 120 60% 95%;
+    --add-booking-bg: 134 61% 40%;
+    --add-booking-bg-hover: 134 61% 35%;
   }
   :root[data-theme='light'] {
     --background: 210 40% 98%;
@@ -82,9 +94,15 @@
     --border: 214 32% 91%;
     --input: 214 32% 91%;
     --ring: 174 100% 37%;
-    --booking: 174 100% 37%;
-    --booking-hover: 174 95% 32%;
+    --booking: 108 58% 51%;
+    --booking-hover: 108 58% 45%;
     --booking-foreground: 0 0% 100%;
+    --nav-logo-bg: 225 65% 79%;
+    --nav-active-bg: 218 100% 94%;
+    --nav-active-fg: 217 78% 63%;
+    --today-cell-bg: 120 60% 95%;
+    --add-booking-bg: 134 61% 40%;
+    --add-booking-bg-hover: 134 61% 35%;
   }
 }
 

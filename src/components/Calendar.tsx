@@ -913,7 +913,7 @@ export function Calendar({
         <div className="flex items-center gap-2">
           <button
             onClick={() => onAddReservation('', '', '')}
-            className="px-4 py-2 bg-booking hover:bg-booking-hover text-booking-foreground rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-add-booking-bg hover:bg-add-booking-bg-hover text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
             Добавить бронь
@@ -970,14 +970,14 @@ export function Calendar({
                   return (
                     <div
                       key={i}
-                      className={`w-16 flex-shrink-0 border-r border-border relative ${isToday ? 'bg-booking' : isWeekend ? 'bg-slate-700/50' : ''
+                      className={`w-16 flex-shrink-0 border-r border-border relative ${isToday ? 'bg-today-cell-bg' : isWeekend ? 'bg-slate-700/50' : ''
                         }`}
                     >
                       <div className="px-2 py-2 text-center relative z-10">
-                        <div className={`text-sm font-medium ${isToday ? 'text-booking-foreground' : 'text-slate-300'}`}>
+                        <div className={`text-sm font-medium ${isToday ? 'text-foreground' : 'text-slate-300'}`}>
                           {date.getDate()}
                         </div>
-                        <div className={`text-xs ${isToday ? 'text-booking-foreground' : 'text-slate-400'}`}>
+                        <div className={`text-xs ${isToday ? 'text-foreground' : 'text-slate-400'}`}>
                           {date.toLocaleDateString('ru-RU', { weekday: 'short' })}
                         </div>
                       </div>
@@ -1075,7 +1075,7 @@ export function Calendar({
                                     return (
                                       <div
                                         key={i}
-                                        className={`w-16 flex-shrink-0 border-r border-border cursor-pointer transition-all relative flex flex-col overflow-hidden ${isToday ? 'bg-primary/20' : isWeekend ? 'bg-slate-700/50' : ''
+                                        className={`w-16 flex-shrink-0 border-r border-border cursor-pointer transition-all relative flex flex-col overflow-hidden ${isToday ? 'bg-today-cell-bg' : isWeekend ? 'bg-slate-700/50' : ''
                                           } ${isSelected ? 'bg-booking/30' : ''
                                           } ${isInRange || isHoverRange ? 'bg-booking/20 shadow-[inset_0_0_15px_rgba(135,221,245,0.3)] ring-1 ring-booking/40 ring-inset' : ''} ${isDragOverThisCell ? dragOverColor : ''} ${!isOccupied ? 'hover:bg-slate-800/30 hover:ring-2 hover:ring-booking/30' : ''}`}
                                         title={isDragOverOtherProperty ? t('calendar.dragToOtherObject', { defaultValue: 'Перенести на другой объект' }) : undefined}
@@ -1090,12 +1090,12 @@ export function Calendar({
                                           <div className="absolute inset-0 ring-1 ring-booking/50 ring-inset shadow-[0_0_12px_rgba(135,221,245,0.25)] pointer-events-none" />
                                         )}
                                         <div className="flex-1 flex items-start justify-center pt-1 px-0.5 min-h-0">
-                                          <span className="text-xs font-medium text-slate-300 tabular-nums truncate leading-tight">
+                                          <span className={`text-xs font-medium tabular-nums truncate leading-tight ${isToday ? 'text-slate-700' : 'text-slate-300'}`}>
                                             {displayPrice} {currencySymbol}
                                           </span>
                                         </div>
                                         <div className="flex justify-end items-center gap-0.5 pr-1 pb-1">
-                                          <span className="text-[10px] text-slate-500 tabular-nums">{displayMinStay}</span>
+                                          <span className={`text-[10px] tabular-nums ${isToday ? 'text-slate-600' : 'text-slate-500'}`}>{displayMinStay}</span>
                                           <Moon className="w-3 h-3 text-slate-500 flex-shrink-0" aria-hidden />
                                         </div>
                                       </div>
