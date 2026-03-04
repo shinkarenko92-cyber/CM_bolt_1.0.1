@@ -39,7 +39,7 @@ interface AnalyticsViewProps {
   properties: Property[];
 }
 
-const COLORS = ['#14b8a6', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#22c55e'];
+const COLORS = ['#A0C9FD', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#22c55e'];
 
 type DateRangeType = 'month' | 'custom';
 type ComparisonMode = 'sply' | 'previous_month' | 'none';
@@ -668,7 +668,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                     <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
                     <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                     <RechartsTooltip content={<CustomTooltip />} />
-                    <Bar dataKey="revenue" name={t('analytics.revenue')} fill="#14b8a6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="revenue" name={t('analytics.revenue')} fill="#A0C9FD" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -843,7 +843,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                 />
                 <Legend />
                 <Line yAxisId="left" type="monotone" dataKey="bookings" name={t('analytics.bookingsCount')} stroke="#8b5cf6" strokeWidth={2} dot={{ fill: '#8b5cf6' }} />
-                <Line yAxisId="right" type="monotone" dataKey="revenue" name={t('analytics.revenue')} stroke="#14b8a6" strokeWidth={2} dot={{ fill: '#14b8a6' }} />
+                <Line yAxisId="right" type="monotone" dataKey="revenue" name={t('analytics.revenue')} stroke="#A0C9FD" strokeWidth={2} dot={{ fill: '#A0C9FD' }} />
               </LineChart>
             </ResponsiveContainer>
           </div>

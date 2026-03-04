@@ -19,7 +19,7 @@ createRoot(document.getElementById('root')!).render(
         },
         success: {
           iconTheme: {
-            primary: '#14b8a6',
+            primary: '#A0C9FD',
             secondary: '#f1f5f9',
           },
         },

@@ -18,7 +18,7 @@ import {
 import type { Booking, Property } from '@/lib/supabase';
 
 const ROOMI_PRIMARY = '#0066FF';
-const ROOMI_SUCCESS = '#10B981';
+const ROOMI_SUCCESS = '#A0C9FD';
 
 const mockOccupancy = 84;
 const mockADR = 185;
@@ -107,7 +107,7 @@ export function AnalyticsInsights({ bookings, properties }: AnalyticsInsightsPro
               </div>
               <p className="text-3xl font-extrabold tracking-tight">{occupancy}%</p>
               <div className="flex items-center gap-1">
-                <TrendingUp className="size-4 text-[#10B981]" />
+                <TrendingUp className="size-4 text-[#A0C9FD]" />
                 <Badge variant="success" className="text-xs font-bold border-0" style={{ backgroundColor: `${ROOMI_SUCCESS}20`, color: ROOMI_SUCCESS }}>
                   +{trend.toFixed(1)}%
                 </Badge>
@@ -123,8 +123,8 @@ export function AnalyticsInsights({ bookings, properties }: AnalyticsInsightsPro
               </div>
               <p className="text-3xl font-extrabold tracking-tight">{formatRevenue(adr)}</p>
               <div className="flex items-center gap-1">
-                <TrendingUp className="size-4 text-[#10B981]" />
-                <span className="text-sm font-bold text-[#10B981]">+1.5%</span>
+                <TrendingUp className="size-4 text-[#A0C9FD]" />
+                <span className="text-sm font-bold text-[#A0C9FD]">+1.5%</span>
               </div>
             </CardContent>
           </Card>
@@ -136,8 +136,8 @@ export function AnalyticsInsights({ bookings, properties }: AnalyticsInsightsPro
               </div>
               <p className="text-3xl font-extrabold tracking-tight">{formatRevenue(revpar)}</p>
               <div className="flex items-center gap-1">
-                <TrendingUp className="size-4 text-[#10B981]" />
-                <span className="text-sm font-bold text-[#10B981]">+3.8%</span>
+                <TrendingUp className="size-4 text-[#A0C9FD]" />
+                <span className="text-sm font-bold text-[#A0C9FD]">+3.8%</span>
               </div>
             </CardContent>
           </Card>
@@ -152,7 +152,7 @@ export function AnalyticsInsights({ bookings, properties }: AnalyticsInsightsPro
                   <p className="text-4xl font-extrabold tracking-tighter truncate">{formatRevenue(revenue)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[#10B981] text-sm font-bold">+{trend}%</p>
+                  <p className="text-[#A0C9FD] text-sm font-bold">+{trend}%</p>
                   <p className="text-muted-foreground text-xs">{t('analytics.last30Days')}</p>
                 </div>
               </div>
