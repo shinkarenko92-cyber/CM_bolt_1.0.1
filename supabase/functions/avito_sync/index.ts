@@ -1481,12 +1481,12 @@ Deno.serve(async (req: Request) => {
           .eq("id", integration.property_id)
           .single();
 
-        // Only confirmed bookings close dates in Avito (we create as confirmed)
+        // Confirmed and paid bookings close dates in Avito (including backdated)
         const { data: bookings } = await supabase
           .from("bookings")
           .select("*")
           .eq("property_id", integration.property_id)
-          .eq("status", "confirmed");
+          .in("status", ["confirmed", "paid"]);
 
         // Calculate prices with markup
         // Negative values = rub, positive = %
