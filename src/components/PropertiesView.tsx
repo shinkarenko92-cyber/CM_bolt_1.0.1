@@ -121,7 +121,7 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete, onProper
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-white">Объекты недвижимости</h1>
+            <h1 className="text-2xl font-bold text-[#A5B7EB]">Объекты недвижимости</h1>
             <p className="text-slate-400 mt-1">Управление вашими квартирами и отелями</p>
           </div>
           <button

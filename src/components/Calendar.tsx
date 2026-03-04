@@ -956,7 +956,7 @@ export function Calendar({
             <div className="flex border-b border-slate-700 bg-slate-800 sticky top-0 z-20 min-w-max">
               <div className="w-64 flex-shrink-0 sticky left-0 z-30 border-r border-slate-700 bg-slate-800">
                 <div className="h-14 flex items-center justify-center">
-                  <span className="text-sm text-slate-400">Объекты</span>
+                  <span className="text-sm text-[#A5B7EB]">Объекты</span>
                 </div>
               </div>
               <div className="flex" style={{ width: `${dates.length * CELL_WIDTH}px` }}>

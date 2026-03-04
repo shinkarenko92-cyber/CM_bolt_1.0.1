@@ -68,7 +68,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
               <Calendar className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="font-bold text-base md:text-lg tracking-tight">Roomi</h1>
+              <h1 className="font-bold text-base md:text-lg tracking-tight text-[#A5B7EB]">Roomi</h1>
               <p className="text-xs text-muted-foreground">Booking Manager</p>
             </div>
           </div>
