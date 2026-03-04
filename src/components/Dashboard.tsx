@@ -2031,7 +2031,7 @@ export function Dashboard() {
                 data-testid="button-sync"
               >
                 <Bell className="h-4 w-4 md:h-5 md:w-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-[#A0C9FD] rounded-full" />
               </button>
 
               <DropdownMenu>
@@ -2047,7 +2047,7 @@ export function Dashboard() {
                       <div className="text-xs text-muted-foreground">{user?.email}</div>
                     </div>
                     <Avatar className="h-8 w-8 md:h-10 md:w-10 rounded-lg">
-                      <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
+                      <AvatarFallback className="rounded-lg bg-[#A0C9FD] text-slate-800">
                         <User className="h-4 w-4 md:h-5 md:w-5" />
                       </AvatarFallback>
                     </Avatar>
