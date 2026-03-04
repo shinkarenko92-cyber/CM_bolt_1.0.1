@@ -50,7 +50,7 @@ export function CalendarHeader({
           </button>
           <button
             onClick={onToday}
-            className="px-4 py-2 bg-[#ADD8E6] hover:opacity-90 text-black rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95"
+            className="px-4 py-2 bg-[#A0C9FD] hover:opacity-90 text-black rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95"
           >
             Сегодня
           </button>
