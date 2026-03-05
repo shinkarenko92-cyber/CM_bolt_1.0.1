@@ -103,7 +103,20 @@ export function GuestsView({ guests, bookings, onEditGuest }: GuestsViewProps) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {sortedGuests.slice(0, 15).map(record => (
+                            {sortedGuests.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                                        {guests.length === 0 ? (
+                                            <>
+                                                <p className="font-medium">Пока нет гостей</p>
+                                                <p className="text-sm mt-1">Гости появятся здесь после добавления бронирований с именем и контактами (телефон/email).</p>
+                                            </>
+                                        ) : (
+                                            'Ничего не найдено по запросу. Измените поиск.'
+                                        )}
+                                    </TableCell>
+                                </TableRow>
+                            ) : sortedGuests.slice(0, 15).map(record => (
                                 <TableRow key={record.id}>
                                     <TableCell>
                                         <div className="flex flex-col">
