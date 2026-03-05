@@ -115,7 +115,7 @@ export function SignupForm() {
   return (
     <>
       <Dialog open={verifyModalOpen} onOpenChange={setVerifyModalOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-sm p-5 sm:rounded-lg">
           <DialogHeader>
             <DialogTitle>{t('auth.verifyEmail', { defaultValue: 'Подтвердите email' })}</DialogTitle>
             <DialogDescription className="sr-only">{t('auth.verifyEmailNotice')}</DialogDescription>
