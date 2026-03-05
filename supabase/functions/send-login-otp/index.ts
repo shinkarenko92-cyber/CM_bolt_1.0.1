@@ -35,7 +35,7 @@ function normalizePhone(phone: string): string {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders, status: 204 });
+    return new Response(null, { headers: corsHeaders, status: 200 });
   }
 
   try {

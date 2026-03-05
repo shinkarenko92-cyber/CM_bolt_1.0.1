@@ -4,3 +4,10 @@
 [functions.avito-messenger]
 # JWT is validated inside the function via auth.getUser(token); gateway 403 avoided.
 verify_jwt = false
+
+# Публичные функции входа по телефону (OTP без авторизации)
+[functions.send-login-otp]
+verify_jwt = false
+
+[functions.verify-login-otp]
+verify_jwt = false
