@@ -63,7 +63,12 @@ export function LoginPhonePage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data?.error || t('errors.somethingWentWrong'));
+        const errCode = data?.error;
+        setError(
+          errCode === 'telegram_chat_not_found'
+            ? t('auth.telegramChatNotFound', { defaultValue: 'Чат не найден. Сначала откройте бота в Telegram и отправьте /start.' })
+            : (errCode || t('errors.somethingWentWrong'))
+        );
         return;
       }
       setStep('code');

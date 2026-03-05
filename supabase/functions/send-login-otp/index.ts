@@ -94,8 +94,20 @@ Deno.serve(async (req: Request) => {
           body: JSON.stringify({ chat_id: telegramId, text }),
         });
         if (!res.ok) {
-          const err = await res.text();
-          console.error("Telegram send error:", err);
+          const errText = await res.text();
+          console.error("Telegram send error:", errText);
+          let telegramErr: { description?: string; error_code?: number };
+          try {
+            telegramErr = JSON.parse(errText) as { description?: string; error_code?: number };
+          } catch {
+            telegramErr = {};
+          }
+          if (telegramErr.description?.toLowerCase().includes("chat not found")) {
+            return jsonResponse(
+              { error: "telegram_chat_not_found" },
+              400
+            );
+          }
         }
       } catch (e) {
         console.error("Telegram send error:", e);

@@ -70,6 +70,7 @@
     "telegramIdRequired": "Введите Telegram ID — код придёт в личку бота",
     "telegramIdHint": "Напишите боту @userinfobot команду /start — он пришлёт ваш ID. Или нашему боту @{{bot}} /start.",
     "telegramIdHintFallback": "Напишите боту @userinfobot команду /start — он пришлёт ваш ID.",
+    "telegramChatNotFound": "Чат не найден. Сначала откройте бота в Telegram и отправьте ему /start — после этого запросите код снова.",
     "phoneInvalid": "Введите корректный номер телефона"
   },
   "nav": {
