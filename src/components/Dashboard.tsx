@@ -2074,11 +2074,12 @@ export function Dashboard() {
         ) : bookings.length === 0 && properties.length === 0 ? (
           <div className="flex-1 flex items-center justify-center p-6">
             <Card className="max-w-lg w-full">
-              <CardHeader>
+              <CardHeader className="text-center">
                 <CardTitle>Добро пожаловать в Roomi</CardTitle>
-                <CardDescription>
-                  Начни с загрузки своего файла с бронированиями, мы автоматически настроим твои объекты, или зайди во вкладку «Объекты» и настрой вручную.
-                </CardDescription>
+                <div className="text-sm text-muted-foreground space-y-2">
+                  <p>Начните с загрузки своего файла с бронированиями, мы автоматически настроим ваши объекты.</p>
+                  <p>Или зайдите во вкладку «Объекты» и настройте вручную.</p>
+                </div>
               </CardHeader>
               <CardContent>
                 <Button asChild className="w-full" size="lg">
