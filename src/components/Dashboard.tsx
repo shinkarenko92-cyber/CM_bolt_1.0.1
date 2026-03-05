@@ -36,7 +36,7 @@ import { supabase, Property, Booking, Profile, Guest, Chat, Message } from '@/li
 import { useAuth } from '@/contexts/AuthContext';
 import { getOAuthSuccess, getOAuthError, generateMessengerOAuthUrl } from '@/services/avito';
 import { syncWithExternalAPIs, syncAvitoIntegration } from '@/services/apiSync';
-import { showAvitoErrors } from '@/services/avitoErrors';
+import { showAvitoErrors, type AvitoErrorInfo } from '@/services/avitoErrors';
 import { DeletePropertyModal } from '@/components/DeletePropertyModal';
 import { ImportBookingsModal } from '@/components/ImportBookingsModal';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -773,7 +773,7 @@ export function Dashboard() {
       setHasMessengerAccess(hasMessenger);
     })();
     return () => { cancelled = true; };
-  }, [currentView, user?.id, properties.length]);
+  }, [currentView, user?.id, properties]);
 
   const handleAvitoMessengerAuth = useCallback(async (integrationId?: string | null) => {
     const effectiveId = integrationId ?? avitoIntegrationsForMessages?.[0]?.id ?? null;
@@ -1480,7 +1480,7 @@ export function Dashboard() {
             if (lastError.errors && lastError.errors.length > 0) {
               const errorMessages = lastError.errors.map(e => e.message || 'Ошибка').join(', ');
               toast.error(`Ошибка синхронизации: ${errorMessages}`);
-              showAvitoErrors(lastError.errors, t).catch((err) => {
+              showAvitoErrors(lastError.errors as AvitoErrorInfo[], t).catch((err) => {
                 console.error('Error showing Avito error modals:', err);
               });
             } else {
