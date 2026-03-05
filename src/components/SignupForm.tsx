@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,6 +38,7 @@ export function SignupForm() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { signUp } = useAuth();
+  const { setTheme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -84,19 +86,15 @@ export function SignupForm() {
         return;
       }
 
-      if (data?.user && !data?.session) {
-        setVerifyModalOpen(true);
-        return;
-      }
-
-      if (data?.session) {
+      if (data?.user) {
+        setTheme('light');
+        if (!data?.session) {
+          setVerifyModalOpen(true);
+          return;
+        }
         toast.success(t('auth.signupSuccess'));
         navigate('/', { replace: true });
         return;
-      }
-
-      if (data?.user) {
-        setVerifyModalOpen(true);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : t('errors.somethingWentWrong');

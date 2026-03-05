@@ -2077,7 +2077,7 @@ export function Dashboard() {
               <CardHeader>
                 <CardTitle>Добро пожаловать в Roomi</CardTitle>
                 <CardDescription>
-                  Начни с загрузки своего файла с бронированиями — мы не даём шаблон, используй свой Excel.
+                  Начни с загрузки своего файла с бронированиями, мы автоматически настроим твои объекты, или зайди во вкладку «Объекты» и настрой вручную.
                 </CardDescription>
               </CardHeader>
               <CardContent>

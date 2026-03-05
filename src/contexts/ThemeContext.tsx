@@ -59,14 +59,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         const dbTheme = data.theme as Theme;
         setThemeState(dbTheme);
         document.documentElement.setAttribute('data-theme', dbTheme);
-        // Sync localStorage with DB
         localStorage.setItem(THEME_STORAGE_KEY, dbTheme);
       } else {
-        // If no theme in DB, use localStorage or default
-        const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
-        if (savedTheme === 'light' || savedTheme === 'dark') {
-          setThemeState(savedTheme);
-          document.documentElement.setAttribute('data-theme', savedTheme);
+        // Новый пользователь — по умолчанию светлая тема
+        const defaultTheme: Theme = 'light';
+        setThemeState(defaultTheme);
+        document.documentElement.setAttribute('data-theme', defaultTheme);
+        localStorage.setItem(THEME_STORAGE_KEY, defaultTheme);
+        try {
+          await supabase.from('profiles').update({ theme: defaultTheme }).eq('id', user.id);
+        } catch (e) {
+          console.warn('Could not save default theme to profile:', e);
         }
       }
     } catch (error) {
