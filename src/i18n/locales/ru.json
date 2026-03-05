@@ -67,6 +67,9 @@
     "code": "Код",
     "changePhone": "Изменить номер",
     "telegramIdOptional": "Telegram ID (если известен, для доставки кода)",
+    "telegramIdRequired": "Введите Telegram ID — код придёт в личку бота",
+    "telegramIdHint": "Напишите боту @userinfobot команду /start — он пришлёт ваш ID. Или нашему боту @{{bot}} /start.",
+    "telegramIdHintFallback": "Напишите боту @userinfobot команду /start — он пришлёт ваш ID.",
     "phoneInvalid": "Введите корректный номер телефона"
   },
   "nav": {

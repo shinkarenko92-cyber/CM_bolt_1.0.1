@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME as string | undefined;
 
 type Channel = 'telegram' | 'whatsapp';
 
@@ -43,6 +44,12 @@ export function LoginPhonePage() {
       const normalized = normalizePhone(phone);
       if (normalized.length < 10) {
         setError(t('auth.phoneInvalid', { defaultValue: 'Введите корректный номер телефона' }));
+        setLoading(false);
+        return;
+      }
+      if (channel === 'telegram' && !telegramId.trim()) {
+        setError(t('auth.telegramIdRequired', { defaultValue: 'Введите Telegram ID — код придёт в личку бота' }));
+        setLoading(false);
         return;
       }
       const res = await fetch(`${SUPABASE_URL}/functions/v1/send-login-otp`, {
@@ -51,7 +58,7 @@ export function LoginPhonePage() {
         body: JSON.stringify({
           phone: normalized,
           channel,
-          ...(channel === 'telegram' && telegramId ? { telegram_id: telegramId } : {}),
+          ...(channel === 'telegram' && telegramId.trim() ? { telegram_id: telegramId.trim() } : {}),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -182,7 +189,8 @@ export function LoginPhonePage() {
                 {channel === 'telegram' && (
                   <div>
                     <Label htmlFor="telegram_id" className="mb-2 block text-slate-700 dark:text-slate-300 text-sm">
-                      {t('auth.telegramIdOptional', { defaultValue: 'Telegram ID (если известен, для доставки кода)' })}
+                      {t('auth.telegramIdOptional', { defaultValue: 'Telegram ID (для доставки кода)' })}
+                      <span className="text-destructive ml-0.5">*</span>
                     </Label>
                     <Input
                       id="telegram_id"
@@ -191,7 +199,13 @@ export function LoginPhonePage() {
                       onChange={(e) => setTelegramId(e.target.value)}
                       placeholder="123456789"
                       className="h-11 bg-slate-50 dark:bg-slate-800"
+                      required
                     />
+                    <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                      {TELEGRAM_BOT_USERNAME
+                        ? t('auth.telegramIdHint', { bot: TELEGRAM_BOT_USERNAME, defaultValue: 'Напишите боту @userinfobot /start или нашему боту @' + TELEGRAM_BOT_USERNAME + ' /start.' })
+                        : t('auth.telegramIdHintFallback', { defaultValue: 'Напишите боту @userinfobot команду /start — он пришлёт ваш ID.' })}
+                    </p>
                   </div>
                 )}
                 {error && (
@@ -199,7 +213,11 @@ export function LoginPhonePage() {
                     {error}
                   </div>
                 )}
-                <Button type="submit" disabled={loading} className="w-full h-12">
+                <Button
+                  type="submit"
+                  disabled={loading || (channel === 'telegram' && !telegramId.trim())}
+                  className="w-full h-12"
+                >
                   {loading ? t('common.loading') : t('auth.getCode', { defaultValue: 'Получить код' })}
                 </Button>
               </form>

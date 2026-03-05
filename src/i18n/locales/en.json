@@ -67,6 +67,9 @@
     "code": "Code",
     "changePhone": "Change number",
     "telegramIdOptional": "Telegram ID (optional, for code delivery)",
+    "telegramIdRequired": "Enter your Telegram ID — the code will be sent in the bot chat",
+    "telegramIdHint": "Send /start to @userinfobot to get your ID, or to our bot @{{bot}}.",
+    "telegramIdHintFallback": "Send /start to @userinfobot to get your ID.",
     "phoneInvalid": "Enter a valid phone number"
   },
   "nav": {
