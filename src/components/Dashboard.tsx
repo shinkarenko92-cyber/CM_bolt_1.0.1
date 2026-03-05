@@ -1450,51 +1450,45 @@ export function Dashboard() {
         `${t('success.bookingUpdated')}. ${t('success.changesSaved')}`
       );
 
-      // Sync to Avito after successful booking update
-      const booking = bookings.find(b => b.id === id);
-      if (booking?.property_id) {
+      // Sync to Avito after successful booking update (both old and new property when booking moved)
+      const propertyIdsToSync: string[] = [];
+      if (oldBooking?.property_id) propertyIdsToSync.push(oldBooking.property_id);
+      if (data.property_id && !propertyIdsToSync.includes(data.property_id)) propertyIdsToSync.push(data.property_id);
+      if (propertyIdsToSync.length > 0) {
         const syncToastId = toast.loading('Синхронизация с Avito...');
 
         try {
-          const syncResult = await syncAvitoIntegration(booking.property_id);
-
+          let anySuccess = false;
+          let lastError: { success?: boolean; message?: string; errors?: Array<{ message?: string }>; skipUserError?: boolean; warnings?: Array<{ message?: string }>; warningMessage?: string } | null = null;
+          for (const propertyId of propertyIdsToSync) {
+            const syncResult = await syncAvitoIntegration(propertyId);
+            if (syncResult.success) anySuccess = true;
+            else lastError = syncResult;
+          }
           // PRIORITY: Check hasError === false first (from Edge Function response)
-          // If syncResult.success === true, it means hasError was false or not present
-          if (syncResult.success) {
+          if (anySuccess) {
             toast.dismiss(syncToastId);
             toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
-            if (syncResult.warnings?.length || syncResult.warningMessage) {
-              toast(syncResult.warningMessage || syncResult.warnings?.map(w => w.message).join(' ') || 'Есть предупреждения по Avito', {
+            if (lastError?.warnings?.length || lastError?.warningMessage) {
+              toast(lastError.warningMessage || lastError.warnings?.map(w => w.message).join(' ') || 'Есть предупреждения по Avito', {
                 icon: '⚠️',
                 duration: 6000,
               });
             }
-          } else {
-            // Sync failed - show error only when integration was active (not skipUserError)
+          } else if (lastError && !lastError.skipUserError) {
             toast.dismiss(syncToastId);
-            if (syncResult.skipUserError) {
-              // Integration not found/inactive or not configured - don't show error to user
-            } else if (syncResult.errors && syncResult.errors.length > 0) {
-              const errorMessages = syncResult.errors.map(e => e.message || 'Ошибка').join(', ');
+            if (lastError.errors && lastError.errors.length > 0) {
+              const errorMessages = lastError.errors.map(e => e.message || 'Ошибка').join(', ');
               toast.error(`Ошибка синхронизации: ${errorMessages}`);
-              showAvitoErrors(syncResult.errors, t).catch((err) => {
+              showAvitoErrors(lastError.errors, t).catch((err) => {
                 console.error('Error showing Avito error modals:', err);
               });
             } else {
-              toast.error(syncResult.message || 'Ошибка синхронизации с Avito');
+              toast.error(lastError.message || 'Ошибка синхронизации с Avito');
             }
-            if (!syncResult.skipUserError) {
-              console.error('Dashboard: Avito sync failed after booking update', syncResult);
-              if (syncResult.errors?.length) {
-                syncResult.errors.forEach((e, i) => {
-                  console.error(`Dashboard: Avito error ${i + 1}/${syncResult.errors!.length}`, {
-                    operation: e.operation,
-                    statusCode: e.statusCode,
-                    message: e.message,
-                  });
-                });
-              }
-            }
+            console.error('Dashboard: Avito sync failed after booking update', lastError);
+          } else {
+            toast.dismiss(syncToastId);
           }
         } catch (error) {
           toast.dismiss(syncToastId);
