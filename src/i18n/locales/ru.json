@@ -71,6 +71,8 @@
     "telegramIdHint": "Напишите боту @userinfobot команду /start — он пришлёт ваш ID. Или нашему боту @{{bot}} /start.",
     "telegramIdHintFallback": "Напишите боту @userinfobot команду /start — он пришлёт ваш ID.",
     "telegramChatNotFound": "Чат не найден. Сначала откройте бота в Telegram и отправьте ему /start — после этого запросите код снова.",
+    "phoneCodeDeliveryDisabled": "Доставка кода временно отключена. Войдите по email.",
+    "phoneCodeDeliveryDisabledHint": "Доставка кода по Telegram/WhatsApp временно отключена. Войдите по email.",
     "phoneInvalid": "Введите корректный номер телефона"
   },
   "nav": {

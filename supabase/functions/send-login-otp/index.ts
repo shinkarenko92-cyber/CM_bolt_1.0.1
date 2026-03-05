@@ -85,6 +85,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Failed to store OTP" }, 500);
     }
 
+    let delivered = false;
     if (channel === "telegram" && telegramBotToken && telegramId) {
       try {
         const text = `Ваш код входа Roomi Pro: ${code}. Код действителен 10 минут.`;
@@ -108,15 +109,17 @@ Deno.serve(async (req: Request) => {
               400
             );
           }
+        } else {
+          delivered = true;
         }
       } catch (e) {
         console.error("Telegram send error:", e);
       }
     } else {
-      console.log(`send-login-otp: phone ${phone}, code ${code} (channel ${channel}, no delivery)`);
+      console.log(`send-login-otp: phone ${phone}, code ${code} (no delivery)`);
     }
 
-    return jsonResponse({ success: true }, 200);
+    return jsonResponse({ success: true, delivered }, 200);
   } catch (error) {
     console.error("send-login-otp error:", error);
     return jsonResponse(

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Phone, MessageCircle } from 'lucide-react';
+import { Phone } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { LanguageSelector } from '@/components/LanguageSelector';
@@ -12,9 +12,6 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME as string | undefined;
-
-type Channel = 'telegram' | 'whatsapp';
 
 export function LoginPhonePage() {
   const { t } = useTranslation();
@@ -22,8 +19,6 @@ export function LoginPhonePage() {
   const { user } = useAuth();
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [phone, setPhone] = useState('');
-  const [channel, setChannel] = useState<Channel>('telegram');
-  const [telegramId, setTelegramId] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,28 +42,21 @@ export function LoginPhonePage() {
         setLoading(false);
         return;
       }
-      if (channel === 'telegram' && !telegramId.trim()) {
-        setError(t('auth.telegramIdRequired', { defaultValue: 'Введите Telegram ID — код придёт в личку бота' }));
-        setLoading(false);
-        return;
-      }
       const res = await fetch(`${SUPABASE_URL}/functions/v1/send-login-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone: normalized,
-          channel,
-          ...(channel === 'telegram' && telegramId.trim() ? { telegram_id: telegramId.trim() } : {}),
-        }),
+        body: JSON.stringify({ phone: normalized }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const errCode = data?.error;
-        setError(
-          errCode === 'telegram_chat_not_found'
-            ? t('auth.telegramChatNotFound', { defaultValue: 'Чат не найден. Сначала откройте бота в Telegram и отправьте /start.' })
-            : (errCode || t('errors.somethingWentWrong'))
-        );
+        setError(data?.error || t('errors.somethingWentWrong'));
+        setLoading(false);
+        return;
+      }
+      // Доставка кода по Telegram/WhatsApp отключена — не переходим на ввод кода
+      if (data.delivered === false) {
+        setError(t('auth.phoneCodeDeliveryDisabled', { defaultValue: 'Доставка кода временно отключена. Войдите по email.' }));
+        setLoading(false);
         return;
       }
       setStep('code');
@@ -161,68 +149,15 @@ export function LoginPhonePage() {
                     />
                   </div>
                 </div>
-                <div>
-                  <Label className="mb-2 block text-slate-700 dark:text-slate-300">
-                    {t('auth.codeVia', { defaultValue: 'Код в' })}
-                  </Label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setChannel('telegram')}
-                      className={`flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
-                        channel === 'telegram'
-                          ? 'border-sky-500 bg-sky-500/10 text-sky-600 dark:text-sky-400'
-                          : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400'
-                      }`}
-                    >
-                      <MessageCircle className="h-4 w-4" />
-                      Telegram
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setChannel('whatsapp')}
-                      className={`flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
-                        channel === 'whatsapp'
-                          ? 'border-green-500 bg-green-500/10 text-green-600 dark:text-green-400'
-                          : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400'
-                      }`}
-                    >
-                      WhatsApp
-                    </button>
-                  </div>
-                </div>
-                {channel === 'telegram' && (
-                  <div>
-                    <Label htmlFor="telegram_id" className="mb-2 block text-slate-700 dark:text-slate-300 text-sm">
-                      {t('auth.telegramIdOptional', { defaultValue: 'Telegram ID (для доставки кода)' })}
-                      <span className="text-destructive ml-0.5">*</span>
-                    </Label>
-                    <Input
-                      id="telegram_id"
-                      type="text"
-                      value={telegramId}
-                      onChange={(e) => setTelegramId(e.target.value)}
-                      placeholder="123456789"
-                      className="h-11 bg-slate-50 dark:bg-slate-800"
-                      required
-                    />
-                    <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-                      {TELEGRAM_BOT_USERNAME
-                        ? t('auth.telegramIdHint', { bot: TELEGRAM_BOT_USERNAME, defaultValue: 'Напишите боту @userinfobot /start или нашему боту @' + TELEGRAM_BOT_USERNAME + ' /start.' })
-                        : t('auth.telegramIdHintFallback', { defaultValue: 'Напишите боту @userinfobot команду /start — он пришлёт ваш ID.' })}
-                    </p>
-                  </div>
-                )}
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t('auth.phoneCodeDeliveryDisabledHint', { defaultValue: 'Доставка кода по Telegram/WhatsApp временно отключена. Войдите по email.' })}
+                </p>
                 {error && (
                   <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                     {error}
                   </div>
                 )}
-                <Button
-                  type="submit"
-                  disabled={loading || (channel === 'telegram' && !telegramId.trim())}
-                  className="w-full h-12"
-                >
+                <Button type="submit" disabled={loading} className="w-full h-12">
                   {loading ? t('common.loading') : t('auth.getCode', { defaultValue: 'Получить код' })}
                 </Button>
               </form>

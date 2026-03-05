@@ -71,6 +71,8 @@
     "telegramIdHint": "Send /start to @userinfobot to get your ID, or to our bot @{{bot}}.",
     "telegramIdHintFallback": "Send /start to @userinfobot to get your ID.",
     "telegramChatNotFound": "Chat not found. Open the bot in Telegram and send /start first, then request the code again.",
+    "phoneCodeDeliveryDisabled": "Code delivery is temporarily disabled. Sign in with email.",
+    "phoneCodeDeliveryDisabledHint": "Code delivery via Telegram/WhatsApp is temporarily disabled. Sign in with email.",
     "phoneInvalid": "Enter a valid phone number"
   },
   "nav": {

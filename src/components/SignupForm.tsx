@@ -21,7 +21,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 
-const normalizePhone = (v: string) => v.replace(/[\s\-()]/g, '');
+const normalizePhone = (v: string) =>
+  v.trim().replace(/[\s\-()]/g, '').replace(/^\+7/, '7').replace(/^8/, '7');
 
 type SignupFields = {
   firstName: string;
@@ -221,11 +222,15 @@ export function SignupForm() {
                     id="phone"
                     type="tel"
                     autoComplete="tel"
-                    placeholder={t('auth.phone')}
+                    placeholder="+7 900 123-45-67"
                     className={`h-12 pl-10 bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-500 hover:border-slate-300 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/30 focus-visible:ring-offset-0 dark:bg-slate-800 dark:border-slate-600 dark:text-white dark:placeholder:text-slate-500 dark:hover:border-slate-500 ${errors.phone ? 'border-destructive' : ''}`}
                     {...register('phone', {
                       required: t('auth.enterPhone'),
-                      minLength: { value: 9, message: t('auth.internationalPhoneFormat') },
+                      validate: (value) => {
+                        const n = normalizePhone(value || '');
+                        if (n.length < 10) return t('auth.phoneInvalid', { defaultValue: 'Введите корректный номер телефона' });
+                        return true;
+                      },
                     })}
                   />
                 </div>
