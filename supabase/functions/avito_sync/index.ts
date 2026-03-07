@@ -1886,8 +1886,8 @@ Deno.serve(async (req: Request) => {
           }
 
         // 3. Заполнение календаря занятости
-        // POST /realty/v1/items/intervals (PostCalendarDataV2): open = квота на даты (> 0 = доступно, 0 = занято).
-        // Пустой список intervals = «продажи закрыты на год вперёд» — при «открыть всё» шлём явный интервал с open: 1.
+        // POST /realty/v1/items/intervals (PostCalendarDataV2): open = квота (> 0 = доступно, 0 = занято).
+        // Важно: интервалы, НЕ пришедшие в запросе, считаются закрытыми — шлём ОДИН запрос со всеми интервалами (и доступные, и блоки).
         const toYMD = (v: string): string => {
           const s = (v || "").trim();
           const dateOnly = s.slice(0, 10);
@@ -1896,24 +1896,46 @@ Deno.serve(async (req: Request) => {
           if (Number.isNaN(d.getTime())) return s;
           return d.toISOString().slice(0, 10);
         };
+        const addDays = (ymd: string, days: number): string => {
+          const d = new Date(ymd + "T12:00:00.000Z");
+          d.setUTCDate(d.getUTCDate() + days);
+          return d.toISOString().slice(0, 10);
+        };
         const todayStr = new Date().toISOString().slice(0, 10);
-        const intervalsPayload: Array<{ date_start: string; date_end: string; open: number }> = [];
-        for (const booking of bookingsForAvito) {
-          let dateFrom = toYMD(booking.check_in);
-          const dateTo = toYMD(booking.check_out);
-          if (dateTo < todayStr) continue; // интервал полностью в прошлом — не отправляем
-          if (dateFrom < todayStr) dateFrom = todayStr; // обрезаем начало до сегодня
-          intervalsPayload.push({ date_start: dateFrom, date_end: dateTo, open: 0 }); // 0 = занято/заблокировано в Авито
-        }
-        const intervalsUrl = `${avitoBaseUrl}/realty/v1/items/intervals`;
-        // Сначала «открываем» календарь на год вперёд, чтобы снять старые блоки (которых уже нет в Roomi)
         const openUntil = new Date();
         openUntil.setFullYear(openUntil.getFullYear() + 1);
         const openUntilStr = openUntil.toISOString().slice(0, 10);
-        const openAllFirst: Array<{ date_start: string; date_end: string; open: number }> = [
-          { date_start: todayStr, date_end: openUntilStr, open: 1 }, // 1 = доступно в Авито (снять блоки)
-        ];
 
+        // Собираем занятые периоды (брони), обрезанные по [today, openUntil], сортируем по check_in
+        const blocks: Array<{ start: string; end: string }> = [];
+        for (const booking of bookingsForAvito) {
+          let start = toYMD(booking.check_in);
+          let end = toYMD(booking.check_out);
+          if (end < todayStr) continue;
+          if (start < todayStr) start = todayStr;
+          if (end > openUntilStr) end = openUntilStr;
+          blocks.push({ start, end });
+        }
+        blocks.sort((a, b) => a.start.localeCompare(b.start));
+
+        // Один список интервалов: доступные (open: 1) и занятые (open: 0), без пересечений
+        const intervalsPayload: Array<{ date_start: string; date_end: string; open: number }> = [];
+        let cursor = todayStr;
+        for (const block of blocks) {
+          if (cursor < block.start) {
+            intervalsPayload.push({ date_start: cursor, date_end: addDays(block.start, -1), open: 1 });
+          }
+          intervalsPayload.push({ date_start: block.start, date_end: block.end, open: 0 });
+          cursor = addDays(block.end, 1);
+        }
+        if (cursor <= openUntilStr) {
+          intervalsPayload.push({ date_start: cursor, date_end: openUntilStr, open: 1 });
+        }
+        if (intervalsPayload.length === 0) {
+          intervalsPayload.push({ date_start: todayStr, date_end: openUntilStr, open: 1 });
+        }
+
+        const intervalsUrl = `${avitoBaseUrl}/realty/v1/items/intervals`;
         const sendIntervals = async (body: { item_id: number; intervals: Array<{ date_start: string; date_end: string; open: number }> }) => {
           let res = await fetchWithRetry(intervalsUrl, {
             method: "POST",
@@ -1936,20 +1958,6 @@ Deno.serve(async (req: Request) => {
           }
           return res;
         };
-
-        // 1) Открыть календарь (снять все старые блоки)
-        try {
-          const openRes = await sendIntervals({ item_id: Number(itemId), intervals: openAllFirst });
-          if (!openRes.ok) {
-            const errText = await openRes.text().catch(() => "");
-            console.warn("Failed to open calendar before applying blocks", { status: openRes.status, error: errText });
-            // Продолжаем — возможно API не поддерживает open:1, тогда только блоки
-          } else {
-            console.log("Calendar opened (clear old blocks)", { date_start: todayStr, date_end: openUntilStr });
-          }
-        } catch (e) {
-          console.warn("Open calendar step failed", { error: e instanceof Error ? e.message : String(e) });
-        }
 
         const intervalsBody = { item_id: Number(itemId), intervals: intervalsPayload };
 
@@ -2063,13 +2071,16 @@ Deno.serve(async (req: Request) => {
             });
           }
         } else {
-          // Нет броней для блокировки — при удалении ручной брони открываем все даты (явно шлём интервал «доступно»)
+          // Запасная ветка (intervalsPayload теперь всегда непустой) — открыть весь год одним интервалом
           if (exclude_booking_id) {
             console.log("No bookings left after deletion, opening all dates in Avito", {
               excluded_booking_id: exclude_booking_id,
             });
             try {
-              const openAllResponse = await sendIntervals({ item_id: Number(itemId), intervals: openAllFirst });
+              const openAllResponse = await sendIntervals({
+                item_id: Number(itemId),
+                intervals: [{ date_start: todayStr, date_end: openUntilStr, open: 1 }],
+              });
               if (openAllResponse.ok) {
                 console.log("All dates opened in Avito after manual booking deletion", { itemId: itemId });
                 intervalsPushSuccess = true;
