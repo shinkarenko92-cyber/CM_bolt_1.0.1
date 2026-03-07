@@ -1507,9 +1507,16 @@ Deno.serve(async (req: Request) => {
           source?: string | null;
         }
         
-        // Filter bookings: exclude deleted booking if exclude_booking_id is provided
-        // This is used when deleting manual bookings to open dates in Avito
-        // Send all confirmed bookings to Avito (including past dates)
+        console.log("Raw bookings from DB", {
+          count: bookings?.length || 0,
+          bookings: (bookings || []).slice(0, 10).map((b: BookingRecord) => ({
+            id: b.id,
+            check_in: b.check_in,
+            check_out: b.check_out,
+            source: b.source,
+          })),
+        });
+
         const bookingsForAvito = (bookings as BookingRecord[] || []).filter((b) => {
           if (exclude_booking_id && b.id === exclude_booking_id) {
             console.log("Excluding deleted booking from Avito sync", {
