@@ -1886,7 +1886,8 @@ Deno.serve(async (req: Request) => {
           }
 
         // 3. Заполнение календаря занятости
-        // POST /realty/v1/items/intervals — Avito: open: 0 = доступно для брони, open: 1 = занято/заблокировано
+        // POST /realty/v1/items/intervals (PostCalendarDataV2): open = квота на даты (> 0 = доступно, 0 = занято).
+        // Пустой список intervals = «продажи закрыты на год вперёд» — при «открыть всё» шлём явный интервал с open: 1.
         const toYMD = (v: string): string => {
           const s = (v || "").trim();
           const dateOnly = s.slice(0, 10);
@@ -1902,7 +1903,7 @@ Deno.serve(async (req: Request) => {
           const dateTo = toYMD(booking.check_out);
           if (dateTo < todayStr) continue; // интервал полностью в прошлом — не отправляем
           if (dateFrom < todayStr) dateFrom = todayStr; // обрезаем начало до сегодня
-          intervalsPayload.push({ date_start: dateFrom, date_end: dateTo, open: 1 }); // 1 = занято/заблокировано в Авито
+          intervalsPayload.push({ date_start: dateFrom, date_end: dateTo, open: 0 }); // 0 = занято/заблокировано в Авито
         }
         const intervalsUrl = `${avitoBaseUrl}/realty/v1/items/intervals`;
         // Сначала «открываем» календарь на год вперёд, чтобы снять старые блоки (которых уже нет в Roomi)
@@ -1910,7 +1911,7 @@ Deno.serve(async (req: Request) => {
         openUntil.setFullYear(openUntil.getFullYear() + 1);
         const openUntilStr = openUntil.toISOString().slice(0, 10);
         const openAllFirst: Array<{ date_start: string; date_end: string; open: number }> = [
-          { date_start: todayStr, date_end: openUntilStr, open: 0 }, // 0 = доступно в Авито (снять блоки)
+          { date_start: todayStr, date_end: openUntilStr, open: 1 }, // 1 = доступно в Авито (снять блоки)
         ];
 
         const sendIntervals = async (body: { item_id: number; intervals: Array<{ date_start: string; date_end: string; open: number }> }) => {
@@ -2062,21 +2063,13 @@ Deno.serve(async (req: Request) => {
             });
           }
         } else {
-          // Нет броней для блокировки — при удалении ручной брони открываем все даты (пустой intervals)
+          // Нет броней для блокировки — при удалении ручной брони открываем все даты (явно шлём интервал «доступно»)
           if (exclude_booking_id) {
             console.log("No bookings left after deletion, opening all dates in Avito", {
               excluded_booking_id: exclude_booking_id,
             });
             try {
-              const openAllUrl = `${avitoBaseUrl}/realty/v1/items/intervals`;
-              const openAllResponse = await fetchWithRetry(openAllUrl, {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${accessToken}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ item_id: Number(itemId), intervals: [] }),
-              });
+              const openAllResponse = await sendIntervals({ item_id: Number(itemId), intervals: openAllFirst });
               if (openAllResponse.ok) {
                 console.log("All dates opened in Avito after manual booking deletion", { itemId: itemId });
                 intervalsPushSuccess = true;
