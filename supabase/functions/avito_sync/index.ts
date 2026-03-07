@@ -1886,12 +1886,14 @@ Deno.serve(async (req: Request) => {
           }
 
         // 3. Заполнение календаря занятости
-        // Сначала пробуем POST /realty/v1/items/{item_id}/intervals (тот же API, что в avito-close-availability)
-        // Формат: intervals[] с date_from, date_to для каждого занятого периода
+        // POST /realty/v1/items/{item_id}/intervals — даты должны быть не в прошлом (см. OpenAPI Avito STR)
+        const todayStr = new Date().toISOString().split("T")[0];
         const intervalsPayload: Array<{ date_from: string; date_to: string }> = [];
         for (const booking of bookingsForAvito) {
-          const dateFrom = booking.check_in.split("T")[0];
-          const dateTo = booking.check_out.split("T")[0];
+          let dateFrom = booking.check_in.split("T")[0];
+          let dateTo = booking.check_out.split("T")[0];
+          if (dateTo < todayStr) continue; // интервал полностью в прошлом — не отправляем
+          if (dateFrom < todayStr) dateFrom = todayStr; // обрезаем начало до сегодня
           intervalsPayload.push({ date_from: dateFrom, date_to: dateTo });
         }
         const intervalsUrl = `${avitoBaseUrl}/realty/v1/items/${itemId}/intervals`;
