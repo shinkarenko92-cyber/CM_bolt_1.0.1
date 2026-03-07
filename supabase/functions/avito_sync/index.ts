@@ -1901,31 +1901,40 @@ Deno.serve(async (req: Request) => {
           d.setUTCDate(d.getUTCDate() + days);
           return d.toISOString().slice(0, 10);
         };
-        const todayStr = new Date().toISOString().slice(0, 10);
+        // «Сегодня» по Москве, чтобы обрезка брони не прыгала из-за UTC (иначе в 00:01 UTC уже «12-е» и бронь 6–12 превращается в 12–12)
+        const todayStr = (() => {
+          const p = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+          const y = p.find((x) => x.type === "year")!.value;
+          const m = p.find((x) => x.type === "month")!.value;
+          const d = p.find((x) => x.type === "day")!.value;
+          return `${y}-${m}-${d}`;
+        })();
         const openUntil = new Date();
         openUntil.setFullYear(openUntil.getFullYear() + 1);
         const openUntilStr = openUntil.toISOString().slice(0, 10);
 
-        // Собираем занятые периоды (брони), обрезанные по [today, openUntil], сортируем по check_in
+        // Собираем занятые периоды (брони): в Авито шлём только с сегодня (прошлые даты не передаём)
         const blocks: Array<{ start: string; end: string }> = [];
         for (const booking of bookingsForAvito) {
           let start = toYMD(booking.check_in);
           let end = toYMD(booking.check_out);
           if (end < todayStr) continue;
-          if (start < todayStr) start = todayStr;
+          if (start < todayStr) start = todayStr; // сегодня 7-е, бронь 6–12 → в Авито 7–12
           if (end > openUntilStr) end = openUntilStr;
           blocks.push({ start, end });
         }
         blocks.sort((a, b) => a.start.localeCompare(b.start));
 
-        // Один список интервалов: доступные (open: 1) и занятые (open: 0), без пересечений
+        // Авито: «открытость одного дня указывается промежутком в два дня» — один день = [D, D+1]. Занятые периоды шлём по дням.
         const intervalsPayload: Array<{ date_start: string; date_end: string; open: number }> = [];
         let cursor = todayStr;
         for (const block of blocks) {
           if (cursor < block.start) {
             intervalsPayload.push({ date_start: cursor, date_end: addDays(block.start, -1), open: 1 });
           }
-          intervalsPayload.push({ date_start: block.start, date_end: block.end, open: 0 });
+          for (let d = block.start; d <= block.end; d = addDays(d, 1)) {
+            intervalsPayload.push({ date_start: d, date_end: addDays(d, 1), open: 0 });
+          }
           cursor = addDays(block.end, 1);
         }
         if (cursor <= openUntilStr) {
