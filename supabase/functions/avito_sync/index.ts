@@ -2069,20 +2069,59 @@ Deno.serve(async (req: Request) => {
                 { intervalsCount: intervalsPayload.length, excluded_booking_id: exclude_booking_id || null, response: responseData }
               );
               intervalsPushSuccess = true;
+            }
+
+            // Дублируем через старый API bookings: POST /core/v1/accounts/{user_id}/items/{item_id}/bookings
+            // Этот эндпоинт отвечает за визуальный календарь занятости в Авито
+            if (userId) {
+              const bookingsApiUrl = `${avitoBaseUrl}/core/v1/accounts/${userId}/items/${itemId}/bookings`;
+              const bookingsPayload: { bookings: Array<{ date_start: string; date_end: string; type?: string }>; source?: string } = {
+                bookings: blocks.map(b => ({ date_start: b.start, date_end: b.end })),
+              };
+              console.log("Sending bookings (calendar) to Avito via /core/ API", {
+                url: bookingsApiUrl,
+                bookingsCount: bookingsPayload.bookings.length,
+                payload: JSON.stringify(bookingsPayload),
+              });
               try {
-                await supabase.from("avito_logs").insert({
-                  integration_id: integration.id,
-                  property_id: integration.property_id,
-                  action: exclude_booking_id ? "open_dates_after_delete" : "sync_calendar_intervals",
-                  status: "success",
-                  details: {
-                    intervals_count: intervalsPayload.length,
-                    excluded_booking_id: exclude_booking_id || null,
-                  },
+                let bookingsRes = await fetchWithRetry(bookingsApiUrl, {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                  body: JSON.stringify(bookingsPayload),
                 });
-              } catch (logError) {
-                console.error("Failed to log success", { error: logError });
+                if (bookingsRes.status === 401) {
+                  const refreshedToken = await getAccessToken();
+                  bookingsRes = await fetchWithRetry(bookingsApiUrl, {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${refreshedToken}`, "Content-Type": "application/json" },
+                    body: JSON.stringify(bookingsPayload),
+                  });
+                }
+                if (bookingsRes.ok) {
+                  const bData = await bookingsRes.json().catch(() => null);
+                  console.log("Avito /core/ bookings API success", { response: bData });
+                } else {
+                  const errText = await bookingsRes.text().catch(() => "");
+                  console.warn("Avito /core/ bookings API failed", { status: bookingsRes.status, error: errText });
+                }
+              } catch (e) {
+                console.warn("Avito /core/ bookings API network error", { error: e instanceof Error ? e.message : String(e) });
               }
+            }
+
+            try {
+              await supabase.from("avito_logs").insert({
+                integration_id: integration.id,
+                property_id: integration.property_id,
+                action: exclude_booking_id ? "open_dates_after_delete" : "sync_calendar_intervals",
+                status: "success",
+                details: {
+                  intervals_count: intervalsPayload.length,
+                  excluded_booking_id: exclude_booking_id || null,
+                },
+              });
+            } catch (logError) {
+              console.error("Failed to log success", { error: logError });
             }
           } catch (fetchError) {
             const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError);
