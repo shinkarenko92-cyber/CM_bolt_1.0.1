@@ -223,7 +223,7 @@ Deno.serve(async (req: Request) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          item_id: itemId,
+          item_id: Number(itemId), // Avito API expects int64
           intervals: [], // Empty array closes full calendar (year ahead by default)
           source: "roomi_pms", // PMS source identifier
         }),

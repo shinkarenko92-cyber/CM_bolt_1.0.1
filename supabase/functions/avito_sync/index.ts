@@ -1897,7 +1897,7 @@ Deno.serve(async (req: Request) => {
           intervalsPayload.push({ date_from: dateFrom, date_to: dateTo });
         }
         const intervalsUrl = `${avitoBaseUrl}/realty/v1/items/intervals`;
-        const intervalsBody = { item_id: itemId, intervals: intervalsPayload, source: "roomi_pms" };
+        const intervalsBody = { item_id: Number(itemId), intervals: intervalsPayload, source: "roomi_pms" };
 
         if (intervalsPayload.length > 0) {
           console.log("Sending intervals (blocked dates) to Avito", {
@@ -2040,7 +2040,7 @@ Deno.serve(async (req: Request) => {
                   Authorization: `Bearer ${accessToken}`,
                   "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ item_id: itemId, intervals: [], source: "roomi_pms" }),
+                body: JSON.stringify({ item_id: Number(itemId), intervals: [], source: "roomi_pms" }),
               });
               if (openAllResponse.ok) {
                 console.log("All dates opened in Avito after manual booking deletion", { itemId: itemId });
