@@ -1925,24 +1925,34 @@ Deno.serve(async (req: Request) => {
         }
         blocks.sort((a, b) => a.start.localeCompare(b.start));
 
-        // Авито: «открытость одного дня указывается промежутком в два дня» — один день = [D, D+1]. Занятые периоды шлём по дням.
+        // Авито intervals: [date_start, date_end) — открытый конец. Один день = [D, D+1].
+        // check_out = день выезда (этот день уже доступен). Блокируем check_in..(check_out-1).
         const intervalsPayload: Array<{ date_start: string; date_end: string; open: number }> = [];
         let cursor = todayStr;
         for (const block of blocks) {
+          // block.end = check_out. Нужно блокировать [start, end) — дни start..end-1.
+          if (block.start >= block.end) continue; // некорректный диапазон
           if (cursor < block.start) {
-            intervalsPayload.push({ date_start: cursor, date_end: addDays(block.start, -1), open: 1 });
+            // Доступный промежуток до начала брони: [cursor, block.start)
+            intervalsPayload.push({ date_start: cursor, date_end: block.start, open: 1 });
           }
-          for (let d = block.start; d <= block.end; d = addDays(d, 1)) {
-            intervalsPayload.push({ date_start: d, date_end: addDays(d, 1), open: 0 });
-          }
-          cursor = addDays(block.end, 1);
+          // Заблокированный промежуток: [block.start, block.end) — check_out уже открыт
+          intervalsPayload.push({ date_start: block.start, date_end: block.end, open: 0 });
+          cursor = block.end; // check_out — с этого дня снова доступно
         }
-        if (cursor <= openUntilStr) {
+        if (cursor < openUntilStr) {
           intervalsPayload.push({ date_start: cursor, date_end: openUntilStr, open: 1 });
         }
         if (intervalsPayload.length === 0) {
           intervalsPayload.push({ date_start: todayStr, date_end: openUntilStr, open: 1 });
         }
+
+        console.log("Built intervals for Avito", {
+          blocksCount: blocks.length,
+          intervalsCount: intervalsPayload.length,
+          blocks: blocks.slice(0, 5),
+          sampleIntervals: intervalsPayload.slice(0, 10),
+        });
 
         const intervalsUrl = `${avitoBaseUrl}/realty/v1/items/intervals`;
         const sendIntervals = async (body: { item_id: number; intervals: Array<{ date_start: string; date_end: string; open: number }> }) => {
