@@ -39,7 +39,7 @@ import { syncWithExternalAPIs, syncAvitoIntegration } from '@/services/apiSync';
 import { showAvitoErrors, type AvitoErrorInfo } from '@/services/avitoErrors';
 import { DeletePropertyModal } from '@/components/DeletePropertyModal';
 import { ImportBookingsModal } from '@/components/ImportBookingsModal';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,

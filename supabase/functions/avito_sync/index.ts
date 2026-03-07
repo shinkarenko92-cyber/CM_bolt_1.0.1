@@ -1891,7 +1891,7 @@ Deno.serve(async (req: Request) => {
         const intervalsPayload: Array<{ date_from: string; date_to: string }> = [];
         for (const booking of bookingsForAvito) {
           let dateFrom = booking.check_in.split("T")[0];
-          let dateTo = booking.check_out.split("T")[0];
+          const dateTo = booking.check_out.split("T")[0];
           if (dateTo < todayStr) continue; // интервал полностью в прошлом — не отправляем
           if (dateFrom < todayStr) dateFrom = todayStr; // обрезаем начало до сегодня
           intervalsPayload.push({ date_from: dateFrom, date_to: dateTo });
