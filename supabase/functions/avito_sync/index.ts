@@ -1886,7 +1886,7 @@ Deno.serve(async (req: Request) => {
           }
 
         // 3. Заполнение календаря занятости
-        // POST /realty/v1/items/{item_id}/intervals — даты должны быть не в прошлом (см. OpenAPI Avito STR)
+        // POST /realty/v1/items/intervals (item_id в теле, не в path) — даты не в прошлом (OpenAPI Avito STR)
         const todayStr = new Date().toISOString().split("T")[0];
         const intervalsPayload: Array<{ date_from: string; date_to: string }> = [];
         for (const booking of bookingsForAvito) {
@@ -1896,7 +1896,7 @@ Deno.serve(async (req: Request) => {
           if (dateFrom < todayStr) dateFrom = todayStr; // обрезаем начало до сегодня
           intervalsPayload.push({ date_from: dateFrom, date_to: dateTo });
         }
-        const intervalsUrl = `${avitoBaseUrl}/realty/v1/items/${itemId}/intervals`;
+        const intervalsUrl = `${avitoBaseUrl}/realty/v1/items/intervals`;
         const intervalsBody = { item_id: itemId, intervals: intervalsPayload, source: "roomi_pms" };
 
         if (intervalsPayload.length > 0) {
@@ -2033,7 +2033,7 @@ Deno.serve(async (req: Request) => {
               excluded_booking_id: exclude_booking_id,
             });
             try {
-              const openAllUrl = `${avitoBaseUrl}/realty/v1/items/${itemId}/intervals`;
+              const openAllUrl = `${avitoBaseUrl}/realty/v1/items/intervals`;
               const openAllResponse = await fetchWithRetry(openAllUrl, {
                 method: "POST",
                 headers: {

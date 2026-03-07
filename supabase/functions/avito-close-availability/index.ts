@@ -194,9 +194,9 @@ Deno.serve(async (req: Request) => {
     }
 
     // Call Avito API to close all dates
-    // POST /realty/v1/items/{item_id}/intervals with empty intervals array closes full calendar
+    // POST /realty/v1/items/intervals (item_id в теле по OpenAPI), empty intervals = закрыть календарь
     const itemId = itemIdText;
-    const closeUrl = `${avitoBaseUrl}/realty/v1/items/${itemId}/intervals`;
+    const closeUrl = `${avitoBaseUrl}/realty/v1/items/intervals`;
 
     console.log("Calling Avito API to close availability", {
       url: closeUrl,
