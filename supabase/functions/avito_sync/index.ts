@@ -1886,48 +1886,83 @@ Deno.serve(async (req: Request) => {
           }
 
         // 3. Заполнение календаря занятости
-        // POST /realty/v1/items/intervals (item_id в теле, не в path) — даты не в прошлом (OpenAPI Avito STR)
-        const todayStr = new Date().toISOString().split("T")[0];
-        const intervalsPayload: Array<{ date_from: string; date_to: string }> = [];
+        // POST /realty/v1/items/intervals — Avito требует date_start/date_end строго YYYY-MM-DD
+        const toYMD = (v: string): string => {
+          const s = (v || "").trim();
+          const dateOnly = s.slice(0, 10);
+          if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) return dateOnly;
+          const d = new Date(s);
+          if (Number.isNaN(d.getTime())) return s;
+          return d.toISOString().slice(0, 10);
+        };
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const intervalsPayload: Array<{ date_start: string; date_end: string; open: number }> = [];
         for (const booking of bookingsForAvito) {
-          let dateFrom = booking.check_in.split("T")[0];
-          const dateTo = booking.check_out.split("T")[0];
+          let dateFrom = toYMD(booking.check_in);
+          const dateTo = toYMD(booking.check_out);
           if (dateTo < todayStr) continue; // интервал полностью в прошлом — не отправляем
           if (dateFrom < todayStr) dateFrom = todayStr; // обрезаем начало до сегодня
-          intervalsPayload.push({ date_from: dateFrom, date_to: dateTo });
+          intervalsPayload.push({ date_start: dateFrom, date_end: dateTo, open: 0 });
         }
         const intervalsUrl = `${avitoBaseUrl}/realty/v1/items/intervals`;
-        const intervalsBody = { item_id: Number(itemId), intervals: intervalsPayload, source: "roomi_pms" };
+        // Сначала «открываем» календарь на год вперёд, чтобы снять старые блоки (которых уже нет в Roomi)
+        const openUntil = new Date();
+        openUntil.setFullYear(openUntil.getFullYear() + 1);
+        const openUntilStr = openUntil.toISOString().slice(0, 10);
+        const openAllFirst: Array<{ date_start: string; date_end: string; open: number }> = [
+          { date_start: todayStr, date_end: openUntilStr, open: 1 },
+        ];
+
+        const sendIntervals = async (body: { item_id: number; intervals: Array<{ date_start: string; date_end: string; open: number }> }) => {
+          let res = await fetchWithRetry(intervalsUrl, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+          });
+          if (res.status === 401) {
+            const refreshedToken = await getAccessToken();
+            res = await fetchWithRetry(intervalsUrl, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${refreshedToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(body),
+            });
+          }
+          return res;
+        };
+
+        // 1) Открыть календарь (снять все старые блоки)
+        try {
+          const openRes = await sendIntervals({ item_id: Number(itemId), intervals: openAllFirst });
+          if (!openRes.ok) {
+            const errText = await openRes.text().catch(() => "");
+            console.warn("Failed to open calendar before applying blocks", { status: openRes.status, error: errText });
+            // Продолжаем — возможно API не поддерживает open:1, тогда только блоки
+          } else {
+            console.log("Calendar opened (clear old blocks)", { date_start: todayStr, date_end: openUntilStr });
+          }
+        } catch (e) {
+          console.warn("Open calendar step failed", { error: e instanceof Error ? e.message : String(e) });
+        }
+
+        const intervalsBody = { item_id: Number(itemId), intervals: intervalsPayload };
 
         if (intervalsPayload.length > 0) {
           console.log("Sending intervals (blocked dates) to Avito", {
             endpoint: intervalsUrl,
             intervalsCount: intervalsPayload.length,
             exclude_booking_id: exclude_booking_id || null,
+            sampleInterval: intervalsPayload[0],
+            requestBody: JSON.stringify(intervalsBody),
           });
 
           try {
-            let intervalsResponse = await fetchWithRetry(intervalsUrl, {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(intervalsBody),
-            });
-
-            if (intervalsResponse.status === 401) {
-              console.log("[avito] avito_401_reason token_expired", { integration_id, endpoint: "intervals" });
-              const refreshedToken = await getAccessToken();
-              intervalsResponse = await fetchWithRetry(intervalsUrl, {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${refreshedToken}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify(intervalsBody),
-              });
-            }
+            const intervalsResponse = await sendIntervals(intervalsBody);
 
             if (!intervalsResponse.ok) {
               const errorText = await intervalsResponse.text().catch(() => 'Failed to read error response');
@@ -2040,7 +2075,7 @@ Deno.serve(async (req: Request) => {
                   Authorization: `Bearer ${accessToken}`,
                   "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ item_id: Number(itemId), intervals: [], source: "roomi_pms" }),
+                body: JSON.stringify({ item_id: Number(itemId), intervals: [] }),
               });
               if (openAllResponse.ok) {
                 console.log("All dates opened in Avito after manual booking deletion", { itemId: itemId });

@@ -20,7 +20,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/useTheme';
 import { supabase, type BookingWithProperty, type Property } from '../lib/supabase';
 import { DetailsBookingModal } from './DetailsBookingModal';
-import { AddBookingModal } from './AddBookingModal';
 
 async function fetchBookings(): Promise<BookingWithProperty[]> {
   if (!supabase) return [];
@@ -129,7 +128,6 @@ export function BookingsScreen() {
   const queryClient = useQueryClient();
   const [selectedBooking, setSelectedBooking] = useState<BookingWithProperty | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [addModalVisible, setAddModalVisible] = useState(false);
   const [tab, setTab] = useState<TabFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -242,9 +240,6 @@ export function BookingsScreen() {
           <TouchableOpacity style={[styles.headerBtn, { backgroundColor: colors.primaryMuted }]} onPress={() => {}}>
             <Ionicons name="notifications-outline" size={22} color={colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.addBtn, { backgroundColor: colors.primary }]} onPress={() => setAddModalVisible(true)}>
-            <Ionicons name="add" size={24} color="#fff" />
-          </TouchableOpacity>
         </View>
       </View>
       <View style={[styles.searchWrap, { backgroundColor: colors.input }]}>
@@ -281,16 +276,6 @@ export function BookingsScreen() {
         booking={selectedBooking}
         propertyName={(selectedBooking as BookingWithProperty & { properties?: { name: string } } | null)?.properties?.name ?? null}
         onClose={closeModal}
-      />
-      <AddBookingModal
-        visible={addModalVisible}
-        properties={properties}
-        onClose={() => setAddModalVisible(false)}
-        onSuccess={() => {
-          setAddModalVisible(false);
-          queryClient.invalidateQueries({ queryKey: ['bookings'] });
-          queryClient.invalidateQueries({ queryKey: ['properties'] });
-        }}
       />
     </SafeAreaView>
   );
@@ -348,13 +333,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,

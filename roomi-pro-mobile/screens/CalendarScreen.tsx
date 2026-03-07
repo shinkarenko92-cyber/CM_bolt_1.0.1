@@ -1,6 +1,6 @@
 /**
  * Календарь: горизонтальный CalendarList, бары броней по комнатам (property),
- * выбранная дата → FlatList баров + Standard rate, FAB → AddBookingModal.
+ * выбранная дата → FlatList баров + Standard rate. Добавление брони — кнопка «+» в таббаре.
  * Realtime подписка на bookings.
  */
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
@@ -22,7 +22,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/useTheme';
 import { supabase, type Property, type BookingWithProperty } from '../lib/supabase';
 import { ScreenHeader } from '../components/ui/ScreenHeader';
-import { AddBookingModal } from './AddBookingModal';
 import { BulkEditModal } from '../components/BulkEditModal';
 
 async function fetchProperties(): Promise<Property[]> {
@@ -184,7 +183,6 @@ export function CalendarScreen() {
   const queryClient = useQueryClient();
   const { width } = useWindowDimensions();
   const [selectedDate, setSelectedDate] = useState(getTodayString);
-  const [addModalVisible, setAddModalVisible] = useState(false);
   const [bulkEditVisible, setBulkEditVisible] = useState(false);
 
   const calendarTheme = useMemo(() => buildCalendarTheme(colors), [colors]);
@@ -366,21 +364,6 @@ export function CalendarScreen() {
           ) : null
         }
       />
-      <Pressable
-        style={({ pressed }) => [styles.fab, { backgroundColor: colors.primary }, pressed && styles.fabPressed]}
-        onPress={() => setAddModalVisible(true)}
-      >
-        <Ionicons name="add" size={28} color="#fff" />
-      </Pressable>
-      <AddBookingModal
-        visible={addModalVisible}
-        properties={properties}
-        onClose={() => setAddModalVisible(false)}
-        onSuccess={() => {
-          setAddModalVisible(false);
-          queryClient.invalidateQueries({ queryKey: ['bookings'] });
-        }}
-      />
       <BulkEditModal
         visible={bulkEditVisible}
         onClose={() => setBulkEditVisible(false)}
@@ -484,23 +467,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginTop: 24,
-  },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  fabPressed: {
-    opacity: 0.9,
   },
 });

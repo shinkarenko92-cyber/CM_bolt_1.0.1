@@ -5,7 +5,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/useTheme';
 import { TrendBadge } from '../components/ui/TrendBadge';
@@ -20,17 +19,20 @@ const MOCK_TREND = 2.4;
 
 export function AnalyticsScreen() {
   const { colors } = useTheme();
-  const navigation = useNavigation();
   const [period, setPeriod] = useState<PeriodTab>('month');
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={[styles.headerRow, { borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        <View style={styles.headerLeft}>
+          <View style={[styles.headerIconWrap, { backgroundColor: colors.primaryMuted }]}>
+            <Ionicons name="bar-chart-outline" size={24} color={colors.primary} />
+          </View>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Аналитика и инсайты</Text>
+        </View>
+        <TouchableOpacity style={[styles.headerBtn, { backgroundColor: colors.primaryMuted }]} onPress={() => {}}>
+          <Ionicons name="notifications-outline" size={22} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Аналитика и инсайты</Text>
-        <View style={styles.headerRight} />
       </View>
       <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
         {(['day', 'week', 'month', 'year'] as const).map((p) => (
@@ -141,10 +143,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
-  backBtn: {
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerIconWrap: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -152,8 +159,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
-  headerRight: {
+  headerBtn: {
     width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tabs: {
     flexDirection: 'row',

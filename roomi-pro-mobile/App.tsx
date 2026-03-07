@@ -18,6 +18,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { useTheme } from './contexts/useTheme';
+import { AddBookingProvider } from './contexts/AddBookingContext';
+import { CustomTabBar } from './components/CustomTabBar';
 import { LoginScreen } from './screens/LoginScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
 import { CalendarScreen } from './screens/CalendarScreen';
@@ -76,6 +78,7 @@ function MainTabs() {
   const { colors } = useTheme();
   return (
     <Tab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
@@ -104,7 +107,7 @@ function MainTabs() {
         name="Bookings"
         component={BookingsScreen}
         options={{
-          title: 'Бронирования',
+          title: 'Брони',
           tabBarIcon: ({ color, size }) => <Ionicons name="book-outline" size={size} color={color} />,
         }}
       />
@@ -114,6 +117,14 @@ function MainTabs() {
         options={{
           title: 'Сообщения',
           tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles-outline" size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Analytics"
+        component={AnalyticsScreen}
+        options={{
+          title: 'Инсайты',
+          tabBarIcon: ({ color, size }) => <Ionicons name="bar-chart-outline" size={size} color={color} />,
         }}
       />
       <Tab.Screen
@@ -177,14 +188,11 @@ function RootNavigator() {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Main" component={MainTabs} />
-      <Stack.Screen
-        name="Analytics"
-        component={AnalyticsScreen}
-        options={{ headerShown: false }}
-      />
-    </Stack.Navigator>
+    <AddBookingProvider>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Main" component={MainTabs} />
+      </Stack.Navigator>
+    </AddBookingProvider>
   );
 }
 
