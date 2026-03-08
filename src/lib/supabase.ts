@@ -83,21 +83,21 @@ export type BookingLog = {
 
 export type Profile = {
   id: string;
-  full_name: string | null;
-  first_name: string | null;
-  last_name: string | null;
-  telegram_id: string | null;
-  email: string | null;
-  phone: string | null;
-  phone_confirmed_at: string | null;
-  subscription_tier: string;
-  subscription_expires_at: string | null;
-  role: 'user' | 'admin';
-  is_active: boolean;
+  full_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  telegram_id?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  phone_confirmed_at?: string | null;
+  subscription_tier?: string;
+  subscription_expires_at?: string | null;
+  role?: 'user' | 'admin';
+  is_active?: boolean;
   theme?: 'light' | 'dark';
   onboarding_survey?: Record<string, unknown> | null;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type AdminAction = {

@@ -430,7 +430,7 @@ export function AdminView() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{getUserPropertyCount(profile.id)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{getUserBookingCount(profile.id)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
-                    {new Date(profile.created_at).toLocaleDateString()}
+                    {profile.created_at ? new Date(profile.created_at).toLocaleDateString() : '—'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                     {profile.role !== 'admin' && (

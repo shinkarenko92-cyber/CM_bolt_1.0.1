@@ -84,7 +84,8 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
     }
   };
 
-  const isPaid = !['free', 'basic', 'trial', 'demo'].includes(profile.subscription_tier);
+  const tier = profile.subscription_tier ?? 'free';
+  const isPaid = !['free', 'basic', 'trial', 'demo'].includes(tier);
   const isExpired = profile.subscription_expires_at
     ? new Date(profile.subscription_expires_at) < new Date()
     : false;
@@ -102,8 +103,8 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
     enterprise: 'Enterprise',
   };
 
-  const tierPrice = TIER_PRICE_RUB[profile.subscription_tier] ?? null;
-  const tierRange = TIER_OBJECT_RANGE[profile.subscription_tier] ?? '';
+  const tierPrice = TIER_PRICE_RUB[tier] ?? null;
+  const tierRange = TIER_OBJECT_RANGE[tier] ?? '';
 
   const PAYMENT_CONTACT_EMAIL = 'support@roomi.pro';
   const paymentSubject = encodeURIComponent('Запрос на оплату по счёту — Roomi Pro');
@@ -212,7 +213,7 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
                 </label>
                 <div className="flex items-center gap-2">
                   <span className="text-lg font-bold text-white">
-                    {tierLabels[profile.subscription_tier] || profile.subscription_tier}
+                    {tierLabels[tier] || tier}
                   </span>
                   {isPaid && !isExpired ? (
                     <CheckCircle className="w-5 h-5 text-green-500" />
