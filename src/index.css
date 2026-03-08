@@ -37,7 +37,7 @@
     --today-cell-bg: 120 45% 88%;
     --add-booking-bg: 108 58% 51%;
     --add-booking-bg-hover: 108 58% 45%;
-    --brand: 194 53% 79%;
+    --brand: 214 96% 81%;
     --brand-foreground: 222 47% 11%;
   }
   :root[data-theme='dark'] {
@@ -72,7 +72,7 @@
     --today-cell-bg: 120 45% 88%;
     --add-booking-bg: 108 58% 51%;
     --add-booking-bg-hover: 108 58% 45%;
-    --brand: 194 53% 79%;
+    --brand: 214 96% 81%;
     --brand-foreground: 222 47% 11%;
   }
   :root[data-theme='light'] {
@@ -107,7 +107,7 @@
     --today-cell-bg: 120 45% 88%;
     --add-booking-bg: 108 58% 51%;
     --add-booking-bg-hover: 108 58% 45%;
-    --brand: 194 53% 79%;
+    --brand: 214 96% 81%;
     --brand-foreground: 222 47% 11%;
   }
 }
