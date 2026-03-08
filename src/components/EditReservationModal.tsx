@@ -42,39 +42,6 @@ type HistoryEvent = {
   changes?: Record<string, { old?: unknown; new?: unknown }> | null;
 };
 
-const ACTION_LABELS: Record<string, string> = {
-  create: 'Бронирование создано',
-  update: 'Бронирование обновлено',
-  delete: 'Бронирование удалено',
-  created: 'Бронирование создано',
-  updated: 'Бронирование обновлено',
-  deleted: 'Бронирование удалено',
-  status_changed: 'Изменен статус',
-};
-
-const SOURCE_LABELS: Record<string, string> = {
-  manual: 'Ручное создание',
-  avito: 'Avito',
-  cian: 'ЦИАН',
-  booking: 'Booking.com',
-  airbnb: 'Airbnb',
-};
-
-const FIELD_LABELS: Record<string, string> = {
-  guest_name: 'Имя гостя',
-  guest_email: 'Email',
-  guest_phone: 'Телефон',
-  check_in: 'Заезд',
-  check_out: 'Выезд',
-  guests_count: 'Количество гостей',
-  total_price: 'Цена',
-  currency: 'Валюта',
-  status: 'Статус',
-  notes: 'Заметки',
-  extra_services_amount: 'Доп. услуги',
-  property_id: 'Объект',
-};
-
 export function EditReservationModal({
   isOpen,
   onClose,
@@ -84,6 +51,40 @@ export function EditReservationModal({
   onDelete,
 }: EditReservationModalProps) {
   const { t } = useTranslation();
+
+  const ACTION_LABELS: Record<string, string> = {
+    create: t('history.created', { defaultValue: 'Бронирование создано' }),
+    update: t('history.updated', { defaultValue: 'Бронирование обновлено' }),
+    delete: t('history.deleted', { defaultValue: 'Бронирование удалено' }),
+    created: t('history.created', { defaultValue: 'Бронирование создано' }),
+    updated: t('history.updated', { defaultValue: 'Бронирование обновлено' }),
+    deleted: t('history.deleted', { defaultValue: 'Бронирование удалено' }),
+    status_changed: t('history.statusChanged', { defaultValue: 'Изменен статус' }),
+  };
+
+  const SOURCE_LABELS: Record<string, string> = {
+    manual: t('sources.manual', { defaultValue: 'Ручное создание' }),
+    avito: t('sources.avito', { defaultValue: 'Avito' }),
+    cian: t('sources.cian', { defaultValue: 'ЦИАН' }),
+    booking: t('sources.booking', { defaultValue: 'Booking.com' }),
+    airbnb: t('sources.airbnb', { defaultValue: 'Airbnb' }),
+  };
+
+  const FIELD_LABELS: Record<string, string> = {
+    guest_name: t('fields.guestName', { defaultValue: 'Имя гостя' }),
+    guest_email: t('fields.guestEmail', { defaultValue: 'Email' }),
+    guest_phone: t('fields.guestPhone', { defaultValue: 'Телефон' }),
+    check_in: t('fields.checkIn', { defaultValue: 'Заезд' }),
+    check_out: t('fields.checkOut', { defaultValue: 'Выезд' }),
+    guests_count: t('fields.guestsCount', { defaultValue: 'Количество гостей' }),
+    total_price: t('fields.totalPrice', { defaultValue: 'Цена' }),
+    currency: t('fields.currency', { defaultValue: 'Валюта' }),
+    status: t('fields.status', { defaultValue: 'Статус' }),
+    notes: t('fields.notes', { defaultValue: 'Заметки' }),
+    extra_services_amount: t('fields.extraServices', { defaultValue: 'Доп. услуги' }),
+    property_id: t('fields.property', { defaultValue: 'Объект' }),
+  };
+
   const [formData, setFormData] = useState({
     property_id: '',
     guest_name: '',
@@ -336,7 +337,7 @@ export function EditReservationModal({
               </div>
               <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 shrink-0">
                 <X className="h-4 w-4" />
-                <span className="sr-only">Закрыть</span>
+                <span className="sr-only">{t('common.close', { defaultValue: 'Закрыть' })}</span>
               </Button>
             </div>
           </DialogHeader>
@@ -356,8 +357,8 @@ export function EditReservationModal({
           ) : (
             <Tabs defaultValue="main" className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <TabsList className="mx-6 mt-2 w-auto shrink-0">
-                <TabsTrigger value="main">Основное</TabsTrigger>
-                <TabsTrigger value="history">История</TabsTrigger>
+                <TabsTrigger value="main">{t('bookings.basicTab', { defaultValue: 'Основное' })}</TabsTrigger>
+                <TabsTrigger value="history">{t('history.tab', { defaultValue: 'История' })}</TabsTrigger>
               </TabsList>
               <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
                 <TabsContent value="main" className="mt-0 p-6 pt-4">
@@ -564,11 +565,11 @@ export function EditReservationModal({
                   </form>
                 </TabsContent>
                 <TabsContent value="history" className="mt-0 p-6 pt-4">
-                  <h3 className="text-sm font-medium mb-4">История изменений</h3>
+                  <h3 className="text-sm font-medium mb-4">{t('history.title', { defaultValue: 'История изменений' })}</h3>
                   {loadingLogs ? (
-                    <p className="text-sm text-muted-foreground">Загрузка...</p>
+                    <p className="text-sm text-muted-foreground">{t('common.loading', { defaultValue: 'Загрузка...' })}</p>
                   ) : historyEvents.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">История изменений отсутствует</p>
+                    <p className="text-sm text-muted-foreground">{t('history.noHistory', { defaultValue: 'История изменений отсутствует' })}</p>
                   ) : (
                     <ul className="space-y-0 border-l-2 border-border pl-4">
                       {historyEvents.map((event, idx) => {
@@ -601,7 +602,7 @@ export function EditReservationModal({
                               </p>
                               {event.source && (
                                 <p className="text-muted-foreground mt-0.5">
-                                  Источник: {SOURCE_LABELS[event.source] || event.source}
+                                  {t('history.source', { defaultValue: 'Источник' })}: {SOURCE_LABELS[event.source] || event.source}
                                 </p>
                               )}
                               {changesText && (

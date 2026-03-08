@@ -26,7 +26,9 @@
     "justNow": "Только что",
     "minutesAgo": "мин назад",
     "hoursAgo": "ч назад",
-    "daysAgo": "дн назад"
+    "daysAgo": "дн назад",
+    "loadError": "Ошибка загрузки данных",
+    "tryAgainLater": "Проверьте соединение и попробуйте снова"
   },
   "auth": {
     "signIn": "Войти",
@@ -93,10 +95,18 @@
     "calendar": "Календарь",
     "bookings": "Бронирования",
     "properties": "Объекты",
+    "guests": "Гости",
     "messages": "Сообщения",
     "analytics": "Аналитика",
     "admin": "Админ",
     "settings": "Настройки"
+  },
+  "dashboard": {
+    "occupancy": "Загрузка",
+    "revenueMtd": "Выручка MTD",
+    "todayActivity": "Сегодня",
+    "checkInOut": "заезд / выезд",
+    "pending": "Ожидают"
   },
   "calendar": {
     "addBooking": "Добавить бронь",
@@ -137,7 +147,24 @@
     "pending": "Ожидание",
     "cancelled": "Отменено",
     "found": "Найдено",
-    "nights": "Ночей"
+    "nights": "Ночей",
+    "sortLabel": "Сортировка",
+    "perNight": "/ночь",
+    "basicTab": "Основное"
+  },
+  "guests": {
+    "title": "База гостей (CRM)",
+    "subtitle": "История бронирований и лояльность ваших клиентов",
+    "searchPlaceholder": "Поиск по имени, телефону или email...",
+    "name": "Гость",
+    "contacts": "Контакты",
+    "visits": "Визиты",
+    "totalSpent": "Всего потрачено",
+    "lastCheckIn": "Последний заезд",
+    "noGuests": "Пока нет гостей",
+    "noGuestsDesc": "Гости появятся здесь после добавления бронирований с именем и контактами.",
+    "noResults": "Ничего не найдено по запросу. Измените поиск.",
+    "shownCount": "Показано {{count}} из {{total}}. Уточните поиск для фильтрации."
   },
   "properties": {
     "title": "Объекты недвижимости",
@@ -298,6 +325,7 @@
   },
   "settings": {
     "title": "Настройки",
+    "subtitle": "Управление настройками и интеграциями",
     "close": "Закрыть",
     "language": "Язык",
     "theme": "Тема",
@@ -316,7 +344,48 @@
     "profileUpdated": "Профиль обновлён",
     "profileUpdateError": "Ошибка обновления email",
     "fullName": "ФИО",
-    "fullNamePlaceholder": "Введите имя"
+    "fullNamePlaceholder": "Введите имя",
+    "exportData": "Экспорт данных",
+    "period": "Период",
+    "allTime": "Все время",
+    "thisYear": "Этот год",
+    "thisQuarter": "Этот квартал",
+    "thisMonth": "Этот месяц",
+    "exportCSV": "Экспорт бронирований (CSV)",
+    "exportJSON": "Экспорт бронирований (JSON)",
+    "exportAnalytics": "Аналитический отчёт",
+    "exportComplete": "Экспорт завершён",
+    "reportGenerated": "Отчёт сформирован",
+    "deleteAccount": "Удаление аккаунта",
+    "deleteWarning": "Это действие необратимо. Все ваши данные, объекты и бронирования будут удалены.",
+    "deleteError": "Ошибка удаления аккаунта",
+    "requestError": "Ошибка при отправке запроса",
+    "deletionTableNotFound": "Таблица deletion_requests не найдена. Пожалуйста, примените миграцию базы данных.",
+    "exportFound": "Найдено {{count}} бронирований для экспорта"
+  },
+  "history": {
+    "tab": "История",
+    "created": "Бронирование создано",
+    "updated": "Бронирование обновлено",
+    "deleted": "Бронирование удалено",
+    "statusChanged": "Изменен статус",
+    "source": "Источник",
+    "title": "История изменений",
+    "noHistory": "История изменений отсутствует"
+  },
+  "fields": {
+    "guestName": "Имя гостя",
+    "guestEmail": "Email",
+    "guestPhone": "Телефон",
+    "checkIn": "Заезд",
+    "checkOut": "Выезд",
+    "guestsCount": "Количество гостей",
+    "totalPrice": "Цена",
+    "currency": "Валюта",
+    "status": "Статус",
+    "notes": "Заметки",
+    "extraServices": "Доп. услуги",
+    "property": "Объект"
   },
   "sources": {
     "manual": "Вручную",
@@ -526,6 +595,17 @@
     "openProfile": "Профиль и тариф"
   },
   "onboarding": {
+    "welcome": "Добро пожаловать в Roomi",
+    "subtitle": "Настройте систему за 3 простых шага",
+    "step1Title": "Добавьте объект",
+    "step1Desc": "Укажите квартиру, апартамент или дом",
+    "step2Title": "Загрузите бронирования",
+    "step2Desc": "Импортируйте из Excel или добавьте вручную",
+    "step3Title": "Подключите Avito",
+    "step3Desc": "Синхронизируйте календарь и бронирования",
+    "addProperty": "Добавить объект",
+    "importExcel": "Загрузить Excel",
+    "connectAvitoButton": "Подключить",
     "importTitle": "Загрузи свой Excel-файл с бронями",
     "dropzoneText": "Нажмите или перетащите файл сюда",
     "dropzoneHint": "Поддерживаются .xls и .xlsx",

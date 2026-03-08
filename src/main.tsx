@@ -13,20 +13,20 @@ createRoot(document.getElementById('root')!).render(
       toastOptions={{
         duration: 3000,
         style: {
-          background: '#1e293b',
-          color: '#f1f5f9',
-          border: '1px solid #334155',
+          background: 'hsl(var(--card))',
+          color: 'hsl(var(--card-foreground))',
+          border: '1px solid hsl(var(--border))',
         },
         success: {
           iconTheme: {
-            primary: '#A0C9FD',
-            secondary: '#f1f5f9',
+            primary: 'hsl(var(--brand))',
+            secondary: 'hsl(var(--card-foreground))',
           },
         },
         error: {
           iconTheme: {
-            primary: '#ef4444',
-            secondary: '#f1f5f9',
+            primary: 'hsl(var(--destructive))',
+            secondary: 'hsl(var(--card-foreground))',
           },
         },
       }}

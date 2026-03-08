@@ -26,7 +26,9 @@
     "justNow": "Just now",
     "minutesAgo": "min ago",
     "hoursAgo": "h ago",
-    "daysAgo": "d ago"
+    "daysAgo": "d ago",
+    "loadError": "Error loading data",
+    "tryAgainLater": "Check your connection and try again"
   },
   "auth": {
     "signIn": "Sign In",
@@ -93,10 +95,18 @@
     "calendar": "Calendar",
     "bookings": "Bookings",
     "properties": "Properties",
+    "guests": "Guests",
     "messages": "Messages",
     "analytics": "Analytics",
     "admin": "Admin",
     "settings": "Settings"
+  },
+  "dashboard": {
+    "occupancy": "Occupancy",
+    "revenueMtd": "Revenue MTD",
+    "todayActivity": "Today",
+    "checkInOut": "check-in / check-out",
+    "pending": "Pending"
   },
   "calendar": {
     "addBooking": "Add Booking",
@@ -137,7 +147,24 @@
     "pending": "Pending",
     "cancelled": "Cancelled",
     "found": "Found",
-    "nights": "Nights"
+    "nights": "Nights",
+    "sortLabel": "Sort by",
+    "perNight": "/night",
+    "basicTab": "Basic"
+  },
+  "guests": {
+    "title": "Guest Database (CRM)",
+    "subtitle": "Booking history and guest loyalty",
+    "searchPlaceholder": "Search by name, phone or email...",
+    "name": "Guest",
+    "contacts": "Contacts",
+    "visits": "Visits",
+    "totalSpent": "Total Spent",
+    "lastCheckIn": "Last Check-in",
+    "noGuests": "No guests yet",
+    "noGuestsDesc": "Guests will appear here after adding bookings with name and contacts.",
+    "noResults": "No results found. Try a different search.",
+    "shownCount": "Showing {{count}} of {{total}}. Refine search to filter."
   },
   "properties": {
     "title": "Properties",
@@ -290,6 +317,7 @@
   },
   "settings": {
     "title": "Settings",
+    "subtitle": "Manage settings and integrations",
     "close": "Close",
     "language": "Language",
     "theme": "Theme",
@@ -308,7 +336,48 @@
     "profileUpdated": "Profile updated",
     "profileUpdateError": "Error updating email",
     "fullName": "Full name",
-    "fullNamePlaceholder": "Enter name"
+    "fullNamePlaceholder": "Enter name",
+    "exportData": "Export Data",
+    "period": "Period",
+    "allTime": "All time",
+    "thisYear": "This year",
+    "thisQuarter": "This quarter",
+    "thisMonth": "This month",
+    "exportCSV": "Export bookings (CSV)",
+    "exportJSON": "Export bookings (JSON)",
+    "exportAnalytics": "Analytics report",
+    "exportComplete": "Export complete",
+    "reportGenerated": "Report generated",
+    "deleteAccount": "Delete Account",
+    "deleteWarning": "This action is irreversible. All your data, properties and bookings will be deleted.",
+    "deleteError": "Error deleting account",
+    "requestError": "Error sending request",
+    "deletionTableNotFound": "Table deletion_requests not found. Please apply the database migration.",
+    "exportFound": "Found {{count}} bookings for export"
+  },
+  "history": {
+    "tab": "History",
+    "created": "Booking created",
+    "updated": "Booking updated",
+    "deleted": "Booking deleted",
+    "statusChanged": "Status changed",
+    "source": "Source",
+    "title": "Change History",
+    "noHistory": "No change history"
+  },
+  "fields": {
+    "guestName": "Guest Name",
+    "guestEmail": "Email",
+    "guestPhone": "Phone",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "guestsCount": "Guests Count",
+    "totalPrice": "Price",
+    "currency": "Currency",
+    "status": "Status",
+    "notes": "Notes",
+    "extraServices": "Extra Services",
+    "property": "Property"
   },
   "sources": {
     "manual": "Manual",
@@ -515,6 +584,17 @@
     "openProfile": "Profile & plan"
   },
   "onboarding": {
+    "welcome": "Welcome to Roomi",
+    "subtitle": "Set up your system in 3 simple steps",
+    "step1Title": "Add a property",
+    "step1Desc": "Enter your apartment, flat or house",
+    "step2Title": "Upload bookings",
+    "step2Desc": "Import from Excel or add manually",
+    "step3Title": "Connect Avito",
+    "step3Desc": "Sync calendar and bookings",
+    "addProperty": "Add property",
+    "importExcel": "Upload Excel",
+    "connectAvitoButton": "Connect",
     "importTitle": "Upload your Excel file with bookings",
     "dropzoneText": "Click or drag a file here",
     "dropzoneHint": "Supports .xls and .xlsx",

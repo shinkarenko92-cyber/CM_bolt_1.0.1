@@ -46,6 +46,10 @@ export default {
           foreground: 'hsl(var(--booking-foreground))',
           hover: 'hsl(var(--booking-hover))',
         },
+        brand: {
+          DEFAULT: 'hsl(var(--brand))',
+          foreground: 'hsl(var(--brand-foreground))',
+        },
         'nav-logo-bg': 'hsl(var(--nav-logo-bg))',
         'nav-active-bg': 'hsl(var(--nav-active-bg))',
         'nav-active-fg': 'hsl(var(--nav-active-fg))',

@@ -37,6 +37,8 @@
     --today-cell-bg: 120 45% 88%;
     --add-booking-bg: 108 58% 51%;
     --add-booking-bg-hover: 108 58% 45%;
+    --brand: 213 95% 81%;
+    --brand-foreground: 222 47% 11%;
   }
   :root[data-theme='dark'] {
     --background: 222 47% 11%;
@@ -70,6 +72,8 @@
     --today-cell-bg: 120 45% 88%;
     --add-booking-bg: 108 58% 51%;
     --add-booking-bg-hover: 108 58% 45%;
+    --brand: 213 95% 81%;
+    --brand-foreground: 222 47% 11%;
   }
   :root[data-theme='light'] {
     --background: 210 40% 98%;
@@ -103,6 +107,8 @@
     --today-cell-bg: 120 45% 88%;
     --add-booking-bg: 108 58% 51%;
     --add-booking-bg-hover: 108 58% 45%;
+    --brand: 213 80% 55%;
+    --brand-foreground: 0 0% 100%;
   }
 }
 
@@ -374,39 +380,3 @@ html, body {
   border-top-color: hsl(var(--card));
 }
 
-/* Avito Account Select Styles */
-.avito-account-select .ant-select-selector {
-  background-color: #1e293b !important;
-  border-color: #475569 !important;
-  color: #f8fafc !important;
-}
-
-.avito-account-select .ant-select-selection-placeholder {
-  color: #94a3b8 !important;
-}
-
-.avito-account-select .ant-select-selection-item {
-  color: #f8fafc !important;
-}
-
-.avito-account-select-dropdown {
-  background-color: #1e293b !important;
-}
-
-.avito-account-select-dropdown .ant-select-item {
-  color: #f8fafc !important;
-  background-color: #1e293b !important;
-}
-
-.avito-account-select-dropdown .ant-select-item:hover {
-  background-color: #334155 !important;
-}
-
-.avito-account-select-dropdown .ant-select-item-option-selected {
-  background-color: #334155 !important;
-  color: #6366f1 !important;
-}
-
-.avito-account-select-dropdown .ant-select-item-option-active {
-  background-color: #334155 !important;
-}

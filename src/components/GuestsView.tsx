@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, Phone, Mail, User } from 'lucide-react';
 import { Guest, Booking } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,7 @@ interface GuestsViewProps {
 }
 
 export function GuestsView({ guests, bookings, onEditGuest }: GuestsViewProps) {
+    const { t } = useTranslation();
     const [searchTerm, setSearchTerm] = useState('');
     const [sortKey, setSortKey] = useState<'visits' | 'total_spent' | null>(null);
     const [sortAsc, setSortAsc] = useState(true);
@@ -73,8 +75,8 @@ export function GuestsView({ guests, bookings, onEditGuest }: GuestsViewProps) {
             <div className="max-w-7xl mx-auto">
                 <div className="flex items-center justify-between mb-6">
                     <div>
-                        <h1 className="text-2xl font-bold text-foreground">База гостей (CRM)</h1>
-                        <p className="text-muted-foreground mt-1">История бронирований и лояльность ваших клиентов</p>
+                        <h1 className="text-2xl font-bold text-foreground">{t('guests.title', { defaultValue: 'База гостей (CRM)' })}</h1>
+                        <p className="text-muted-foreground mt-1">{t('guests.subtitle', { defaultValue: 'История бронирований и лояльность ваших клиентов' })}</p>
                     </div>
                 </div>
 
@@ -82,7 +84,7 @@ export function GuestsView({ guests, bookings, onEditGuest }: GuestsViewProps) {
                     <div className="relative max-w-md">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                            placeholder="Поиск по имени, телефону или email..."
+                            placeholder={t('guests.searchPlaceholder', { defaultValue: 'Поиск по имени, телефону или email...' })}
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             className="pl-9"
@@ -94,11 +96,11 @@ export function GuestsView({ guests, bookings, onEditGuest }: GuestsViewProps) {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Гость</TableHead>
-                                <TableHead>Контакты</TableHead>
-                                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('visits')}>Визиты</TableHead>
-                                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('total_spent')}>Всего потрачено</TableHead>
-                                <TableHead>Последний заезд</TableHead>
+                                <TableHead>{t('guests.name', { defaultValue: 'Гость' })}</TableHead>
+                                <TableHead>{t('guests.contacts', { defaultValue: 'Контакты' })}</TableHead>
+                                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('visits')}>{t('guests.visits', { defaultValue: 'Визиты' })}</TableHead>
+                                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('total_spent')}>{t('guests.totalSpent', { defaultValue: 'Всего потрачено' })}</TableHead>
+                                <TableHead>{t('guests.lastCheckIn', { defaultValue: 'Последний заезд' })}</TableHead>
                                 <TableHead className="w-[60px]" />
                             </TableRow>
                         </TableHeader>
@@ -108,11 +110,11 @@ export function GuestsView({ guests, bookings, onEditGuest }: GuestsViewProps) {
                                     <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
                                         {guests.length === 0 ? (
                                             <>
-                                                <p className="font-medium">Пока нет гостей</p>
-                                                <p className="text-sm mt-1">Гости появятся здесь после добавления бронирований с именем и контактами (телефон/email).</p>
+                                                <p className="font-medium">{t('guests.noGuests', { defaultValue: 'Пока нет гостей' })}</p>
+                                                <p className="text-sm mt-1">{t('guests.noGuestsDesc', { defaultValue: 'Гости появятся здесь после добавления бронирований с именем и контактами (телефон/email).' })}</p>
                                             </>
                                         ) : (
-                                            'Ничего не найдено по запросу. Измените поиск.'
+                                            t('guests.noResults', { defaultValue: 'Ничего не найдено по запросу. Измените поиск.' })
                                         )}
                                     </TableCell>
                                 </TableRow>
@@ -156,7 +158,7 @@ export function GuestsView({ guests, bookings, onEditGuest }: GuestsViewProps) {
                                             : '—'}
                                     </TableCell>
                                     <TableCell>
-                                        <Button variant="ghost" size="icon" onClick={() => onEditGuest(record)} aria-label="Редактировать">
+                                        <Button variant="ghost" size="icon" onClick={() => onEditGuest(record)} aria-label={t('common.edit', { defaultValue: 'Редактировать' })}>
                                             <User size={16} className="text-muted-foreground" />
                                         </Button>
                                     </TableCell>
@@ -166,7 +168,7 @@ export function GuestsView({ guests, bookings, onEditGuest }: GuestsViewProps) {
                     </Table>
                     {sortedGuests.length > 15 && (
                         <p className="text-sm text-muted-foreground p-3 border-t border-border">
-                            Показано 15 из {sortedGuests.length}. Уточните поиск для фильтрации.
+                            {t('guests.shownCount', { count: 15, total: sortedGuests.length, defaultValue: 'Показано {{count}} из {{total}}. Уточните поиск для фильтрации.' })}
                         </p>
                     )}
                 </div>

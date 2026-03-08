@@ -95,7 +95,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
     
     const csv = [headers.join(','), ...rows].join('\n');
     downloadFile(csv, 'bookings.csv', 'text/csv');
-    toast.success('Экспорт завершён');
+    toast.success(t('settings.exportComplete', { defaultValue: 'Экспорт завершён' }));
   };
 
   const exportBookingsJSON = () => {
@@ -128,7 +128,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
     
     const json = JSON.stringify(data, null, 2);
     downloadFile(json, 'bookings.json', 'application/json');
-    toast.success('Экспорт завершён');
+    toast.success(t('settings.exportComplete', { defaultValue: 'Экспорт завершён' }));
   };
 
   const exportAnalyticsReport = () => {
@@ -175,7 +175,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
     
     const json = JSON.stringify(report, null, 2);
     downloadFile(json, 'analytics_report.json', 'application/json');
-    toast.success('Отчёт сформирован');
+    toast.success(t('settings.reportGenerated', { defaultValue: 'Отчёт сформирован' }));
   };
 
   const downloadFile = (content: string, filename: string, mimeType: string) => {
@@ -203,7 +203,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
       if (error) {
         // If table doesn't exist (404), show helpful message
         if (error.code === 'PGRST116' || error.message?.includes('404')) {
-          toast.error('Таблица deletion_requests не найдена. Пожалуйста, примените миграцию базы данных.');
+          toast.error(t('settings.deletionTableNotFound', { defaultValue: 'Таблица deletion_requests не найдена. Пожалуйста, примените миграцию базы данных.' }));
         } else {
           throw error;
         }
@@ -213,7 +213,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
       toast.success(t('settings.deletionRequestSent', { defaultValue: 'Account deletion request sent. An administrator will review it shortly.' }));
       setDeletionReason('');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Ошибка при отправке запроса');
+      toast.error(error instanceof Error ? error.message : t('settings.requestError', { defaultValue: 'Ошибка при отправке запроса' }));
     }
   };
 
@@ -223,7 +223,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
       await deleteAccount();
       setDeleteNowModalOpen(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Ошибка удаления аккаунта');
+      toast.error(error instanceof Error ? error.message : t('settings.deleteError', { defaultValue: 'Ошибка удаления аккаунта' }));
     } finally {
       setDeleteNowLoading(false);
     }
@@ -234,7 +234,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-white mb-1">{t('settings.title')}</h1>
-          <p className="text-slate-400 text-sm">Управление настройками и интеграциями</p>
+          <p className="text-slate-400 text-sm">{t('settings.subtitle', { defaultValue: 'Управление настройками и интеграциями' })}</p>
         </div>
 
         {/* Language & Theme */}
@@ -282,21 +282,21 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
             <div className="p-2 bg-green-500/20 rounded-lg">
               <Download className="w-5 h-5 text-green-400" />
             </div>
-            <h2 className="text-lg font-semibold text-white">Экспорт данных</h2>
+            <h2 className="text-lg font-semibold text-white">{t('settings.exportData', { defaultValue: 'Экспорт данных' })}</h2>
           </div>
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-2">Период</label>
+              <label className="block text-sm text-slate-400 mb-2">{t('settings.period', { defaultValue: 'Период' })}</label>
               <select
                 value={exportDateRange}
                 onChange={(e) => setExportDateRange(e.target.value)}
                 className="w-full md:w-auto px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
               >
-                <option value="all">Все время</option>
-                <option value="year">Этот год</option>
-                <option value="quarter">Этот квартал</option>
-                <option value="month">Этот месяц</option>
+                <option value="all">{t('settings.allTime', { defaultValue: 'Все время' })}</option>
+                <option value="year">{t('settings.thisYear', { defaultValue: 'Этот год' })}</option>
+                <option value="quarter">{t('settings.thisQuarter', { defaultValue: 'Этот квартал' })}</option>
+                <option value="month">{t('settings.thisMonth', { defaultValue: 'Этот месяц' })}</option>
               </select>
             </div>
             
@@ -306,7 +306,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
                 className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
               >
                 <FileSpreadsheet className="w-4 h-4" />
-                Экспорт бронирований (CSV)
+                {t('settings.exportCSV', { defaultValue: 'Экспорт бронирований (CSV)' })}
               </button>
               
               <button
@@ -314,7 +314,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
                 className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
               >
                 <FileText className="w-4 h-4" />
-                Экспорт бронирований (JSON)
+                {t('settings.exportJSON', { defaultValue: 'Экспорт бронирований (JSON)' })}
               </button>
               
               <button
@@ -322,12 +322,12 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
                 className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors"
               >
                 <Download className="w-4 h-4" />
-                Аналитический отчёт
+                {t('settings.exportAnalytics', { defaultValue: 'Аналитический отчёт' })}
               </button>
             </div>
             
             <p className="text-xs text-slate-500">
-              Найдено {getFilteredBookings().length} бронирований для экспорта
+              {t('settings.exportFound', { count: getFilteredBookings().length, defaultValue: 'Найдено {{count}} бронирований для экспорта' })}
             </p>
           </div>
         </div>
@@ -338,7 +338,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
             <div className="p-2 bg-red-500/20 rounded-lg">
               <Trash2 className="w-5 h-5 text-red-400" />
             </div>
-            <h2 className="text-lg font-semibold text-white">Удаление аккаунта</h2>
+            <h2 className="text-lg font-semibold text-white">{t('settings.deleteAccount', { defaultValue: 'Удаление аккаунта' })}</h2>
           </div>
           
           <p className="text-slate-400 text-sm mb-4">

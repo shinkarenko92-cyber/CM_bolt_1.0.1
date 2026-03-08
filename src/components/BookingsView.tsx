@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, Calendar, MapPin, User, Phone, Mail, Upload } from 'lucide-react';
 import { Booking, Property } from '@/lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
@@ -21,29 +22,36 @@ interface BookingsViewProps {
   onImport?: () => void;
 }
 
-const SOURCE_LABELS: Record<string, string> = {
-  manual: 'Вручную',
-  airbnb: 'Airbnb',
-  booking: 'Booking.com',
-  avito: 'Avito',
-  cian: 'CIAN',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  confirmed: 'Подтверждено',
-  pending: 'Ожидание',
-  cancelled: 'Отменено',
-};
-
 export function BookingsView({ bookings, properties, onEdit, onImport }: BookingsViewProps) {
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'upcoming' | 'past'>('all');
   const [sortBy, setSortBy] = useState<'date' | 'property' | 'source'>('date');
 
   const getPropertyName = useCallback(
-    (propertyId: string) => properties.find((p) => p.id === propertyId)?.name || 'Неизвестно',
-    [properties]
+    (propertyId: string) => properties.find((p) => p.id === propertyId)?.name || t('common.unknown', { defaultValue: 'Неизвестно' }),
+    [properties, t]
   );
+
+  const getSourceLabel = (source: string) => {
+    const labels: Record<string, string> = {
+      manual: t('sources.manual', { defaultValue: 'Вручную' }),
+      airbnb: t('sources.airbnb', { defaultValue: 'Airbnb' }),
+      booking: t('sources.booking', { defaultValue: 'Booking.com' }),
+      avito: t('sources.avito', { defaultValue: 'Avito' }),
+      cian: t('sources.cian', { defaultValue: 'CIAN' }),
+    };
+    return labels[source] ?? source;
+  };
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      confirmed: t('bookings.confirmed', { defaultValue: 'Подтверждено' }),
+      pending: t('bookings.pending', { defaultValue: 'Ожидание' }),
+      cancelled: t('bookings.cancelled', { defaultValue: 'Отменено' }),
+    };
+    return labels[status] ?? status;
+  };
 
   const filteredAndSortedBookings = useMemo(() => {
     const nowDate = new Date();
@@ -112,13 +120,13 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Бронирования</h1>
-            <p className="text-muted-foreground text-sm mt-1">Просмотр всех прошлых и будущих бронирований</p>
+            <h1 className="text-2xl font-bold tracking-tight">{t('bookings.title', { defaultValue: 'Бронирования' })}</h1>
+            <p className="text-muted-foreground text-sm mt-1">{t('bookings.subtitle', { defaultValue: 'Просмотр всех прошлых и будущих бронирований' })}</p>
           </div>
           {onImport && (
             <Button onClick={onImport} className="shrink-0">
               <Upload className="h-4 w-4 mr-2" />
-              Импорт из Excel
+              {t('bookings.importExcel', { defaultValue: 'Импорт из Excel' })}
             </Button>
           )}
         </div>
@@ -126,7 +134,7 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Всего</CardDescription>
+              <CardDescription>{t('bookings.total', { defaultValue: 'Всего' })}</CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">{stats.total}</p>
@@ -134,7 +142,7 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Будущие</CardDescription>
+              <CardDescription>{t('bookings.upcoming', { defaultValue: 'Будущие' })}</CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold text-primary">{stats.upcoming}</p>
@@ -142,7 +150,7 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Прошлые</CardDescription>
+              <CardDescription>{t('bookings.past', { defaultValue: 'Прошлые' })}</CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold text-muted-foreground">{stats.past}</p>
@@ -158,7 +166,7 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="text"
-                    placeholder="Поиск по гостю или объекту..."
+                    placeholder={t('bookings.searchPlaceholder', { defaultValue: 'Поиск по гостю или объекту...' })}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 h-10"
@@ -173,18 +181,18 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
                     size="sm"
                     onClick={() => setFilterType(type)}
                   >
-                    {type === 'all' ? 'Все' : type === 'upcoming' ? 'Будущие' : 'Прошлые'}
+                    {type === 'all' ? t('bookings.all', { defaultValue: 'Все' }) : type === 'upcoming' ? t('bookings.upcoming', { defaultValue: 'Будущие' }) : t('bookings.past', { defaultValue: 'Прошлые' })}
                   </Button>
                 ))}
               </div>
               <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'date' | 'property' | 'source')}>
                 <SelectTrigger className="w-[180px] h-10">
-                  <SelectValue placeholder="Сортировка" />
+                  <SelectValue placeholder={t('bookings.sortLabel', { defaultValue: 'Сортировка' })} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="date">По дате</SelectItem>
-                  <SelectItem value="property">По объекту</SelectItem>
-                  <SelectItem value="source">По источнику</SelectItem>
+                  <SelectItem value="date">{t('bookings.sortByDate', { defaultValue: 'По дате' })}</SelectItem>
+                  <SelectItem value="property">{t('bookings.sortByProperty', { defaultValue: 'По объекту' })}</SelectItem>
+                  <SelectItem value="source">{t('bookings.sortBySource', { defaultValue: 'По источнику' })}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -194,15 +202,15 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
         {filteredAndSortedBookings.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">Бронирований не найдено</p>
+              <p className="text-muted-foreground">{t('bookings.noBookings', { defaultValue: 'Бронирований не найдено' })}</p>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-3">
             {filteredAndSortedBookings.map((booking) => {
               const nights = calculateNights(booking.check_in, booking.check_out);
-              const sourceLabel = SOURCE_LABELS[booking.source] || booking.source;
-              const statusLabel = STATUS_LABELS[booking.status] || booking.status;
+              const sourceLabel = getSourceLabel(booking.source);
+              const statusLabel = getStatusLabel(booking.status);
 
               return (
                 <Card
@@ -280,7 +288,7 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
 
                         {booking.notes && (
                           <div className="pt-3 border-t border-border">
-                            <p className="text-xs font-medium text-muted-foreground mb-1">Заметки</p>
+                            <p className="text-xs font-medium text-muted-foreground mb-1">{t('fields.notes', { defaultValue: 'Заметки' })}</p>
                             <p className="text-sm whitespace-pre-wrap break-words line-clamp-2">
                               {booking.notes.length > 150 ? `${booking.notes.substring(0, 150)}...` : booking.notes}
                             </p>
@@ -291,7 +299,7 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
                       <div className="text-left md:text-right shrink-0">
                         <p className="text-2xl font-bold">{booking.total_price} {booking.currency}</p>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {nights > 0 ? Math.round(booking.total_price / nights) : 0} {booking.currency}/ночь
+                          {nights > 0 ? Math.round(booking.total_price / nights) : 0} {booking.currency}{t('bookings.perNight', { defaultValue: '/ночь' })}
                         </p>
                       </div>
                     </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, Bell, User, Upload, X } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Search, Bell, User, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -32,6 +32,10 @@ import { MessagesView, type IntegrationForMessenger } from '@/components/Message
 import { ChatPanel } from '@/components/ChatPanel';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { SkeletonCalendar } from '@/components/Skeleton';
+import { ViewSkeleton } from '@/components/ViewSkeleton';
+import { ErrorRetry } from '@/components/ErrorRetry';
+import { DashboardKPI } from '@/components/DashboardKPI';
+import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { supabase, Property, Booking, Profile, Guest, Chat, Message } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { getOAuthSuccess, getOAuthError, generateMessengerOAuthUrl } from '@/services/avito';
@@ -39,7 +43,6 @@ import { syncWithExternalAPIs, syncAvitoIntegration } from '@/services/apiSync';
 import { showAvitoErrors, type AvitoErrorInfo } from '@/services/avitoErrors';
 import { DeletePropertyModal } from '@/components/DeletePropertyModal';
 import { ImportBookingsModal } from '@/components/ImportBookingsModal';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -161,6 +164,7 @@ export function Dashboard() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -265,6 +269,7 @@ export function Dashboard() {
     }
 
     try {
+      setLoadError(null);
       await supabase.auth.getSession();
 
       // Retry для properties
@@ -382,6 +387,7 @@ export function Dashboard() {
     } catch (error) {
       console.error('Error loading data:', error);
       const errorMessage = error instanceof Error ? error.message : t('errors.somethingWentWrong');
+      setLoadError(errorMessage);
       toast.error(`${t('errors.failedToLoadData')}: ${errorMessage}`);
     } finally {
       setLoading(false);
@@ -2028,7 +2034,7 @@ export function Dashboard() {
                 data-testid="button-sync"
               >
                 <Bell className="h-4 w-4 md:h-5 md:w-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-[#A0C9FD] rounded-full" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-brand rounded-full" />
               </button>
 
               <DropdownMenu>
@@ -2044,7 +2050,7 @@ export function Dashboard() {
                       <div className="text-xs text-muted-foreground">{user?.email}</div>
                     </div>
                     <Avatar className="h-8 w-8 md:h-10 md:w-10 rounded-lg">
-                      <AvatarFallback className="rounded-lg bg-[#A0C9FD] text-slate-800">
+                      <AvatarFallback className="rounded-lg bg-brand text-brand-foreground">
                         <User className="h-4 w-4 md:h-5 md:w-5" />
                       </AvatarFallback>
                     </Avatar>
@@ -2073,27 +2079,23 @@ export function Dashboard() {
         )}
 
         {loading ? (
+          currentView === 'bookings' ? <ViewSkeleton variant="cards" /> :
+          currentView === 'properties' ? <ViewSkeleton variant="cards" /> :
+          currentView === 'guests' ? <ViewSkeleton variant="table" /> :
+          currentView === 'messages' ? <ViewSkeleton variant="chat" /> :
+          currentView === 'analytics' ? <ViewSkeleton variant="cards" /> :
           <SkeletonCalendar />
-        ) : bookings.length === 0 && properties.length === 0 ? (
+        ) : loadError ? (
           <div className="flex-1 flex items-center justify-center p-6">
-            <Card className="max-w-lg w-full">
-              <CardHeader className="text-center">
-                <CardTitle>Добро пожаловать в Roomi</CardTitle>
-                <div className="text-sm text-muted-foreground space-y-2">
-                  <p>Начните с загрузки своего файла с бронированиями, мы автоматически настроим ваши объекты.</p>
-                  <p>Или зайдите во вкладку «Объекты» и настройте вручную.</p>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Button asChild className="w-full" size="lg">
-                  <Link to="/onboarding/import">
-                    <Upload className="mr-2 h-4 w-4" />
-                    Загрузить свой Excel прямо сейчас
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
+            <ErrorRetry message={loadError} onRetry={loadData} />
           </div>
+        ) : bookings.length === 0 && properties.length === 0 ? (
+          <OnboardingWizard
+            hasProperties={properties.length > 0}
+            hasBookings={bookings.length > 0}
+            hasAvito={avitoIntegrationsForMessages.length > 0}
+            onGoToProperties={() => setCurrentView('properties')}
+          />
         ) : currentView === 'properties' ? (
           <PropertiesView
             properties={properties || []}
@@ -2191,6 +2193,9 @@ export function Dashboard() {
           </div>
         ) : currentView === 'calendar' ? (
           <>
+            {(bookings.length > 0 || properties.length > 0) && (
+              <DashboardKPI bookings={bookings} properties={properties} />
+            )}
             <Calendar
               properties={properties}
               bookings={filteredBookings}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Edit2, MapPin } from 'lucide-react';
 import { Property } from '@/lib/supabase';
@@ -15,6 +16,7 @@ interface PropertiesViewProps {
 }
 
 export function PropertiesView({ properties, onAdd, onUpdate, onDelete, onPropertyModalClose }: PropertiesViewProps) {
+  const { t } = useTranslation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   /** ID объекта, для которого только что вернулись с Avito OAuth (чтобы показать форму ID объявления и наценки, а не экран успеха) */
@@ -121,27 +123,27 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete, onProper
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-[#A0C9FD]">Объекты недвижимости</h1>
-            <p className="text-slate-400 mt-1">Управление вашими квартирами и отелями</p>
+            <h1 className="text-2xl font-bold text-brand">{t('properties.title', { defaultValue: 'Объекты недвижимости' })}</h1>
+            <p className="text-slate-400 mt-1">{t('properties.subtitle', { defaultValue: 'Управление вашими квартирами и отелями' })}</p>
           </div>
           <button
             onClick={handleAdd}
             className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition"
           >
             <Plus size={20} />
-            Добавить объект
+            {t('properties.addProperty', { defaultValue: 'Добавить объект' })}
           </button>
         </div>
 
         {/* ВСЕГДА рендерим объекты, даже если groups error */}
         {properties.length === 0 ? (
           <div className="text-center py-12 bg-slate-800 rounded-lg">
-            <p className="text-slate-400 mb-4">У вас пока нет объектов недвижимости</p>
+            <p className="text-slate-400 mb-4">{t('properties.noProperties', { defaultValue: 'У вас пока нет объектов' })}</p>
             <button
               onClick={handleAdd}
               className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition"
             >
-              Добавить первый объект
+              {t('properties.addFirst', { defaultValue: 'Добавить первый объект' })}
             </button>
           </div>
         ) : (
@@ -195,36 +197,36 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete, onProper
 
                   <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-700">
                     <div>
-                      <div className="text-xs text-slate-500">Цена за ночь</div>
+                      <div className="text-xs text-slate-500">{t('properties.basePrice', { defaultValue: 'Цена за ночь' })}</div>
                       <div className="text-white font-semibold">
                         {property.base_price} {property.currency}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-slate-500">Мин. бронь</div>
+                      <div className="text-xs text-slate-500">{t('properties.minBookingDays', { defaultValue: 'Мин. бронь' })}</div>
                       <div className="text-white font-semibold">
-                        {property.minimum_booking_days || 1} {property.minimum_booking_days === 1 ? 'ночь' : 'ночей'}
+                        {property.minimum_booking_days || 1} {property.minimum_booking_days === 1 ? t('common.night', { defaultValue: 'ночь' }) : t('common.nights', { defaultValue: 'ночей' })}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-slate-500">Гостей</div>
+                      <div className="text-xs text-slate-500">{t('common.guests', { defaultValue: 'Гостей' })}</div>
                       <div className="text-white font-semibold">{property.max_guests}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-slate-500">Спален</div>
+                      <div className="text-xs text-slate-500">{t('properties.bedrooms', { defaultValue: 'Спален' })}</div>
                       <div className="text-white font-semibold">{property.bedrooms}</div>
                     </div>
                   </div>
 
                   <div className="mt-3 pt-3 border-t border-slate-700">
-                    <div className="text-xs text-slate-500 mb-1">Статус</div>
+                    <div className="text-xs text-slate-500 mb-1">{t('properties.status', { defaultValue: 'Статус' })}</div>
                     <span
                       className={`inline-block px-2 py-1 text-xs rounded ${property.status === 'active'
                           ? 'bg-green-500/20 text-green-400'
                           : 'bg-slate-700 text-slate-400'
                         }`}
                     >
-                      {property.status === 'active' ? 'Активен' : 'Неактивен'}
+                      {property.status === 'active' ? t('properties.active', { defaultValue: 'Активен' }) : t('properties.inactive', { defaultValue: 'Неактивен' })}
                     </span>
                   </div>
                 </div>

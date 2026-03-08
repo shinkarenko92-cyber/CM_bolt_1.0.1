@@ -20,7 +20,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
     { id: 'calendar', icon: Calendar, label: t('nav.calendar') },
     { id: 'properties', icon: Home, label: t('nav.properties') },
     { id: 'bookings', icon: Users, label: t('nav.bookings') },
-    { id: 'guests', icon: Users, label: 'Гости' },
+    { id: 'guests', icon: Users, label: t('nav.guests') },
     { id: 'messages', icon: MessageCircle, label: t('nav.messages') },
     { id: 'analytics', icon: BarChart3, label: t('nav.analytics') },
     { id: 'settings', icon: Settings, label: t('nav.settings') },
@@ -64,7 +64,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
       >
         <div className="p-4 md:p-5 border-b border-border">
           <div className="flex items-center gap-3 pl-8 md:pl-0">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#A0C9FD] text-slate-800">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand text-brand-foreground">
               <Calendar className="h-5 w-5" />
             </div>
             <div>
