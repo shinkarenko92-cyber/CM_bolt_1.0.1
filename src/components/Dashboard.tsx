@@ -1917,11 +1917,6 @@ export function Dashboard() {
     }
   };
 
-  const handleEditGuest = (guest: Guest) => {
-    setSelectedGuest(guest);
-    setIsGuestModalOpen(true);
-  };
-
   const handleSaveGuest = async (data: Partial<Guest>) => {
     if (!user) return;
     try {
