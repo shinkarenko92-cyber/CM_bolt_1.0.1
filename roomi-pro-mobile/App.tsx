@@ -27,6 +27,8 @@ import { BookingsScreen } from './screens/BookingsScreen';
 import { MessagesScreen } from './screens/MessagesScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { AnalyticsScreen } from './screens/AnalyticsScreen';
+import { ObjectsScreen } from './screens/ObjectsScreen';
+import type { RootStackParamList, MainTabParamList } from './types/navigation';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -71,8 +73,8 @@ async function registerForPushNotificationsAsync(): Promise<void> {
   }
 }
 
-const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<MainTabParamList>();
 
 function MainTabs() {
   const { colors } = useTheme();
@@ -101,6 +103,14 @@ function MainTabs() {
         options={{
           title: 'Календарь',
           tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Objects"
+        component={ObjectsScreen}
+        options={{
+          title: 'Объекты',
+          tabBarIcon: ({ color, size }) => <Ionicons name="business-outline" size={size} color={color} />,
         }}
       />
       <Tab.Screen

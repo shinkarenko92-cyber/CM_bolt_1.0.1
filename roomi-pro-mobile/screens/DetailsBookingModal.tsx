@@ -1,8 +1,8 @@
 /**
  * Модалка деталей брони: гость, контакты, даты, статус, сумма, комментарий, объект.
- * Кнопки «Подтвердить» / «Отменить» — заглушки.
+ * Кнопки «Подтвердить» / «Отменить» обновляют статус через Supabase.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,8 +11,11 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
-import { type Booking } from '../lib/supabase';
+import Toast from 'react-native-toast-message';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase, type Booking } from '../lib/supabase';
 import { useTheme } from '../contexts/useTheme';
 
 export type DetailsBookingModalProps = {
@@ -33,6 +36,9 @@ export function DetailsBookingModal({
   onClose,
 }: DetailsBookingModalProps) {
   const { colors } = useTheme();
+  const queryClient = useQueryClient();
+  const [updating, setUpdating] = useState(false);
+
   if (!booking) return null;
 
   const checkIn = formatDate(booking.check_in);
@@ -44,12 +50,39 @@ export function DetailsBookingModal({
         ? colors.error
         : colors.warning;
 
-  const handleConfirm = () => {
-    // Заглушка: позже — обновление status через Supabase
+  const updateStatus = async (newStatus: 'confirmed' | 'cancelled') => {
+    if (!supabase) return;
+    setUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: newStatus })
+        .eq('id', booking.id);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+
+      Toast.show({
+        type: 'success',
+        text1: newStatus === 'confirmed' ? 'Бронирование подтверждено' : 'Бронирование отменено',
+        visibilityTime: 2500,
+      });
+      onClose();
+    } catch (err) {
+      Toast.show({
+        type: 'error',
+        text1: 'Ошибка',
+        text2: err instanceof Error ? err.message : 'Не удалось обновить статус',
+        visibilityTime: 3000,
+      });
+    } finally {
+      setUpdating(false);
+    }
   };
-  const handleCancel = () => {
-    // Заглушка: позже — обновление status на cancelled
-  };
+
+  const handleConfirm = () => updateStatus('confirmed');
+  const handleCancel = () => updateStatus('cancelled');
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -105,10 +138,22 @@ export function DetailsBookingModal({
             ) : null}
 
             <View style={styles.actions}>
-              <TouchableOpacity style={[styles.buttonPrimary, { backgroundColor: colors.primary }]} onPress={handleConfirm}>
-                <Text style={styles.buttonPrimaryText}>Подтвердить</Text>
+              <TouchableOpacity
+                style={[styles.buttonPrimary, { backgroundColor: colors.primary }]}
+                onPress={handleConfirm}
+                disabled={updating || booking.status === 'confirmed'}
+              >
+                {updating ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.buttonPrimaryText}>Подтвердить</Text>
+                )}
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.buttonSecondary, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={handleCancel}>
+              <TouchableOpacity
+                style={[styles.buttonSecondary, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={handleCancel}
+                disabled={updating || booking.status === 'cancelled'}
+              >
                 <Text style={[styles.buttonSecondaryText, { color: colors.text }]}>Отменить</Text>
               </TouchableOpacity>
             </View>

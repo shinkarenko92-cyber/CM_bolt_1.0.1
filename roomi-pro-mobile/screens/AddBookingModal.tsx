@@ -13,9 +13,9 @@ import {
   Pressable,
   TextInput,
   ActivityIndicator,
-  Alert,
   Platform,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -107,7 +107,7 @@ export function AddBookingModal({
 
   const onSubmit = async (data: AddBookingFormValues) => {
     if (!supabase) {
-      Alert.alert('Ошибка', 'Supabase не настроен');
+      Toast.show({ type: 'error', text1: 'Ошибка', text2: 'Supabase не настроен' });
       return;
     }
     const { error } = await supabase.from('bookings').insert({
@@ -125,7 +125,7 @@ export function AddBookingModal({
       notes: data.notes || null,
     });
     if (error) {
-      Alert.alert('Ошибка', error.message);
+      Toast.show({ type: 'error', text1: 'Ошибка', text2: error.message });
       return;
     }
     onSuccess();

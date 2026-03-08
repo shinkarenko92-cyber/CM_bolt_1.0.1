@@ -23,7 +23,7 @@
     "unknown": "Unknown",
     "underDevelopment": "This section is under development",
     "retry": "Retry",
-    "today": "Just now",
+    "justNow": "Just now",
     "minutesAgo": "min ago",
     "hoursAgo": "h ago",
     "daysAgo": "d ago"
@@ -73,7 +73,21 @@
     "telegramChatNotFound": "Chat not found. Open the bot in Telegram and send /start first, then request the code again.",
     "phoneCodeDeliveryDisabled": "Code delivery is temporarily disabled. Sign in with email.",
     "phoneCodeDeliveryDisabledHint": "Code delivery via Telegram/WhatsApp is temporarily disabled. Sign in with email.",
-    "phoneInvalid": "Enter a valid phone number"
+    "phoneInvalid": "Enter a valid phone number",
+    "newPassword": "New Password",
+    "enterNewPassword": "Enter a new password for your account",
+    "confirmPassword": "Confirm Password",
+    "confirmPasswordPlaceholder": "Repeat password",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "passwordUpdated": "Password Updated",
+    "redirectingToLogin": "Redirecting to sign in...",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "verifyPhone": "Phone Verification",
+    "verifyPhoneDescription": "Enter the code sent to {{phone}}",
+    "verifyPhoneCode": "Code",
+    "verifying": "Verifying...",
+    "authRequired": "Authentication required"
   },
   "nav": {
     "calendar": "Calendar",
@@ -499,6 +513,33 @@
     "trialExpired": "Trial ended. Choose a plan in profile to continue.",
     "demoExpired": "Demo ended. Choose a plan in profile to continue.",
     "openProfile": "Profile & plan"
+  },
+  "onboarding": {
+    "importTitle": "Upload your Excel file with bookings",
+    "dropzoneText": "Click or drag a file here",
+    "dropzoneHint": "Supports .xls and .xlsx",
+    "parsing": "Parsing file...",
+    "parseErrors": "Found {{count}} parsing errors",
+    "recognized": "Bookings recognized: {{count}}",
+    "importing": "Importing...",
+    "importAll": "Import all ({{count}})",
+    "importBlocked": "Import blocked: date overlaps",
+    "importSuccess": "Imported {{count}} bookings. You can go to the calendar or connect Avito.",
+    "goToCalendar": "Go to calendar",
+    "connectAvito": "Next — connect Avito",
+    "skipToCalendar": "Skip and go to calendar",
+    "showingFirst": "Showing first 10 of {{count}}",
+    "fileFormatError": "File must be .xls or .xlsx format",
+    "property": "Property",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "guest": "Guest",
+    "amount": "Amount"
+  },
+  "legal": {
+    "backToLogin": "Back to sign in",
+    "privacyTitle": "Privacy Policy",
+    "termsTitle": "Terms of Use"
   },
   "cookieConsent": {
     "text": "We use cookies for sessions and analytics. By continuing, you agree to our use of cookies.",

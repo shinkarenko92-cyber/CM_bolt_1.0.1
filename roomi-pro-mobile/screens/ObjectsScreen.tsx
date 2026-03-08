@@ -14,13 +14,13 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Pressable,
-  Alert,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 import { useTheme } from '../contexts/useTheme';
 import { supabase, type Property, type BookingWithProperty } from '../lib/supabase';
 import { DAY_CELL_WIDTH, ROOM_NAME_WIDTH } from '../constants/layout';
@@ -218,7 +218,7 @@ export function ObjectsScreen() {
       >
         <Pressable
           style={[styles.dropdown, { backgroundColor: colors.card }]}
-          onPress={() => Alert.alert('Скоро', 'Выбор объекта будет доступен.')}
+          onPress={() => Toast.show({ type: 'info', text1: 'Скоро', text2: 'Выбор объекта будет доступен.' })}
         >
           <Text style={[styles.dropdownText, { color: colors.text }]}>Все объекты</Text>
           <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
@@ -309,7 +309,7 @@ export function ObjectsScreen() {
 
       <Pressable
         style={({ pressed }) => [styles.fab, { backgroundColor: colors.primary }, pressed && styles.fabPressed]}
-        onPress={() => Alert.alert('Добавить бронь', 'Скоро будет доступно.')}
+        onPress={() => Toast.show({ type: 'info', text1: 'Добавить бронь', text2: 'Скоро будет доступно.' })}
       >
         <Ionicons name="add" size={28} color="#fff" />
       </Pressable>

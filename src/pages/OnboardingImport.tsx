@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { FileSpreadsheet, ArrowRight } from 'lucide-react';
 import { parseExcelFile, type ParsedBooking } from '@/utils/excelParser';
 import { supabase } from '@/lib/supabase';
@@ -39,6 +40,7 @@ const INSTRUCTION = `Мы не даём готовый шаблон — испо
 • Источник (Avito / Direct и т.д.)`;
 
 export function OnboardingImport() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -58,7 +60,7 @@ export function OnboardingImport() {
     setImportSuccess(false);
     const fileNameLower = file.name.toLowerCase();
     if (!fileNameLower.endsWith('.xls') && !fileNameLower.endsWith('.xlsx')) {
-      toast.error('Файл должен быть в формате .xls или .xlsx');
+      toast.error(t('onboarding.fileFormatError'));
       return;
     }
     setFileName(file.name);
@@ -151,7 +153,7 @@ export function OnboardingImport() {
       <div className="max-w-3xl mx-auto space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">Загрузи свой Excel-файл с бронями</CardTitle>
+            <CardTitle className="text-2xl">{t('onboarding.importTitle')}</CardTitle>
             <CardDescription className="whitespace-pre-line text-left mt-2">
               {INSTRUCTION}
             </CardDescription>
@@ -178,17 +180,17 @@ export function OnboardingImport() {
               } ${loading || importing ? 'opacity-50 pointer-events-none' : ''}`}
             >
               <FileSpreadsheet className="h-12 w-12 text-primary mx-auto mb-2" />
-              <p className="font-medium">{fileName || 'Нажмите или перетащите файл сюда'}</p>
-              <p className="text-sm text-muted-foreground mt-1">Поддерживаются .xls и .xlsx</p>
+              <p className="font-medium">{fileName || t('onboarding.dropzoneText')}</p>
+              <p className="text-sm text-muted-foreground mt-1">{t('onboarding.dropzoneHint')}</p>
             </div>
 
             {loading && (
-              <div className="text-center py-4 text-muted-foreground">Парсинг файла...</div>
+              <div className="text-center py-4 text-muted-foreground">{t('onboarding.parsing')}</div>
             )}
 
             {parseErrors.length > 0 && (
               <div className="rounded-md border border-warning/50 bg-warning/10 p-4">
-                <p className="font-medium text-warning">Найдено {parseErrors.length} ошибок при парсинге</p>
+                <p className="font-medium text-warning">{t('onboarding.parseErrors', { count: parseErrors.length })}</p>
                 <div className="max-h-32 overflow-y-auto mt-2 text-sm space-y-1">
                   {parseErrors.slice(0, 5).map((e, i) => (
                     <div key={i}>Строка {e.row}: {e.message}</div>
@@ -202,16 +204,16 @@ export function OnboardingImport() {
               <>
                 <div className="flex items-center justify-between gap-4">
                   <p className="text-sm text-muted-foreground">
-                    Распознано броней: {parsedBookings.length}
+                    {t('onboarding.recognized', { count: parsedBookings.length })}
                   </p>
                   <Button onClick={handleImport} disabled={importing}>
-                    {importing ? 'Импорт...' : `Импортировать всё (${parsedBookings.length})`}
+                    {importing ? t('onboarding.importing') : t('onboarding.importAll', { count: parsedBookings.length })}
                   </Button>
                 </div>
                 {importing && <Progress value={importProgress} className="h-2" />}
                 {importResult && importResult.errors.length > 0 && (
                   <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4">
-                    <p className="font-medium text-destructive">Импорт заблокирован: пересечения дат</p>
+                    <p className="font-medium text-destructive">{t('onboarding.importBlocked')}</p>
                     <div className="max-h-24 overflow-y-auto mt-2 text-sm space-y-1">
                       {importResult.errors.slice(0, 3).map((e, i) => (
                         <div key={i}>Строка {e.row}: {e.message}</div>
@@ -223,11 +225,11 @@ export function OnboardingImport() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Объект</TableHead>
-                        <TableHead>Заезд</TableHead>
-                        <TableHead>Выезд</TableHead>
-                        <TableHead>Гость</TableHead>
-                        <TableHead>Сумма</TableHead>
+                        <TableHead>{t('onboarding.property')}</TableHead>
+                        <TableHead>{t('onboarding.checkIn')}</TableHead>
+                        <TableHead>{t('onboarding.checkOut')}</TableHead>
+                        <TableHead>{t('onboarding.guest')}</TableHead>
+                        <TableHead>{t('onboarding.amount')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -245,7 +247,7 @@ export function OnboardingImport() {
                 </div>
                 {parsedBookings.length > 10 && (
                   <div className="text-center py-2 text-sm text-muted-foreground border border-border rounded-md">
-                    Показаны первые 10 из {parsedBookings.length}
+                    {t('onboarding.showingFirst', { count: parsedBookings.length })}
                   </div>
                 )}
               </>
@@ -254,15 +256,15 @@ export function OnboardingImport() {
             {importSuccess && importResult && (
               <div className="space-y-4">
                 <p className="text-lg font-medium text-primary">
-                  Импортировано {importResult.imported} броней. Можешь перейти в календарь или подключить Avito.
+                  {t('onboarding.importSuccess', { count: importResult.imported })}
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <Button asChild>
-                    <Link to="/">В календарь</Link>
+                    <Link to="/">{t('onboarding.goToCalendar')}</Link>
                   </Button>
                   <Button variant="outline" asChild>
                     <Link to="/">
-                      Дальше — подключаем Avito
+                      {t('onboarding.connectAvito')}
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                   </Button>
@@ -274,7 +276,7 @@ export function OnboardingImport() {
 
         <div className="text-center">
           <Link to="/" className="text-sm text-muted-foreground hover:underline">
-            Пропустить и перейти в календарь
+            {t('onboarding.skipToCalendar')}
           </Link>
         </div>
       </div>

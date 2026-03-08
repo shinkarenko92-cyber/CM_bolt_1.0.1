@@ -1,133 +1,20 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+/**
+ * Backward-compatible re-export from Zustand themeStore.
+ * ThemeProvider loads theme on mount; state lives in Zustand.
+ */
+import { useEffect, type ReactNode } from 'react';
+import { useThemeStore, useTheme } from '@/stores/themeStore';
+import { useAuthStore } from '@/stores/authStore';
 
-type Theme = 'light' | 'dark';
-
-interface ThemeContextType {
-  theme: Theme;
-  toggleTheme: () => void;
-  setTheme: (theme: Theme) => void;
-}
-
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-
-const THEME_STORAGE_KEY = 'app_theme';
+export { useTheme };
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
-  
-  // Initialize theme from localStorage or default to 'dark'
-  const getInitialTheme = (): Theme => {
-    if (typeof window !== 'undefined') {
-      const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
-      if (savedTheme === 'light' || savedTheme === 'dark') {
-        return savedTheme;
-      }
-    }
-    return 'dark';
-  };
-
-  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
-
-  // Apply theme to document immediately on mount
-  useEffect(() => {
-    const initialTheme = getInitialTheme();
-    document.documentElement.setAttribute('data-theme', initialTheme);
-    setThemeState(initialTheme);
-  }, []);
-
-  const loadTheme = useCallback(async () => {
-    if (!user) {
-      // If no user, use localStorage theme
-      const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
-      if (savedTheme === 'light' || savedTheme === 'dark') {
-        setThemeState(savedTheme);
-        document.documentElement.setAttribute('data-theme', savedTheme);
-      }
-      return;
-    }
-
-    try {
-      const { data } = await supabase
-        .from('profiles')
-        .select('theme')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (data?.theme) {
-        const dbTheme = data.theme as Theme;
-        setThemeState(dbTheme);
-        document.documentElement.setAttribute('data-theme', dbTheme);
-        localStorage.setItem(THEME_STORAGE_KEY, dbTheme);
-      } else {
-        // Новый пользователь — по умолчанию светлая тема
-        const defaultTheme: Theme = 'light';
-        setThemeState(defaultTheme);
-        document.documentElement.setAttribute('data-theme', defaultTheme);
-        localStorage.setItem(THEME_STORAGE_KEY, defaultTheme);
-        try {
-          await supabase.from('profiles').update({ theme: defaultTheme }).eq('id', user.id);
-        } catch (e) {
-          console.warn('Could not save default theme to profile:', e);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading theme:', error);
-      // Fallback to localStorage on error
-      const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
-      if (savedTheme === 'light' || savedTheme === 'dark') {
-        setThemeState(savedTheme);
-        document.documentElement.setAttribute('data-theme', savedTheme);
-      }
-    }
-  }, [user]);
+  const loadTheme = useThemeStore((s) => s.loadTheme);
+  const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
     loadTheme();
-  }, [loadTheme]);
+  }, [loadTheme, user]);
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
-
-  const setTheme = async (newTheme: Theme) => {
-    setThemeState(newTheme);
-    document.documentElement.setAttribute('data-theme', newTheme);
-    
-    // Save to localStorage immediately
-    localStorage.setItem(THEME_STORAGE_KEY, newTheme);
-
-    // Save to database if user is logged in
-    if (user) {
-      try {
-        await supabase
-          .from('profiles')
-          .update({ theme: newTheme })
-          .eq('id', user.id);
-      } catch (error) {
-        console.error('Error saving theme to database:', error);
-        // Theme is still saved in localStorage, so it will persist
-      }
-    }
-  };
-
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
-  };
-
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
-}
-
-// eslint-disable-next-line react-refresh/only-export-components
-export function useTheme() {
-  const context = useContext(ThemeContext);
-  if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
+  return <>{children}</>;
 }

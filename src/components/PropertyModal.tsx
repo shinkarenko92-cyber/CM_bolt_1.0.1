@@ -81,14 +81,16 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete, ini
   const loadAvitoIntegration = useCallback(async () => {
     if (!property) return;
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('integrations')
       .select('*')
       .eq('property_id', property.id)
       .eq('platform', 'avito')
       .maybeSingle();
 
-    // Load Avito integration
+    if (error) {
+      console.error('Error loading Avito integration:', error);
+    }
     setAvitoIntegration(data);
     if (data != null) {
       const m = data.avito_markup;

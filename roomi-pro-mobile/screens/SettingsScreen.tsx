@@ -143,7 +143,7 @@ export function SettingsScreen() {
       <SectionTitle title="Приложение" colors={colors} />
       <Row icon="information-circle-outline" label="Версия" value={version} colors={colors} />
       <Row icon="document-text-outline" label="О приложении" onPress={() => {}} colors={colors} />
-      <Row icon="bar-chart-outline" label="Аналитика" onPress={() => navigation.navigate('Analytics' as never)} colors={colors} />
+      <Row icon="bar-chart-outline" label="Аналитика" onPress={() => navigation.navigate('Analytics')} colors={colors} />
       <Divider colors={colors} />
 
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>

@@ -9,11 +9,11 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/useTheme';
 import { supabase } from '../lib/supabase';
@@ -38,7 +38,7 @@ export function LoginScreen() {
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Ошибка входа';
       setError(message);
-      Alert.alert('Ошибка входа', message);
+      Toast.show({ type: 'error', text1: 'Ошибка входа', text2: message });
     } finally {
       setLoading(false);
     }
@@ -46,7 +46,7 @@ export function LoginScreen() {
 
   const handleForgotPassword = async () => {
     if (!email.trim()) {
-      Alert.alert('Укажите email', 'Введите email в поле выше, затем нажмите «Забыли пароль?»');
+      Toast.show({ type: 'info', text1: 'Укажите email', text2: 'Введите email в поле выше, затем нажмите «Забыли пароль?»' });
       return;
     }
     if (!supabase) return;
@@ -54,10 +54,10 @@ export function LoginScreen() {
       await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: undefined,
       });
-      Alert.alert('Проверьте почту', 'Ссылка для сброса пароля отправлена на указанный email.');
+      Toast.show({ type: 'success', text1: 'Проверьте почту', text2: 'Ссылка для сброса пароля отправлена на указанный email.' });
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Ошибка отправки';
-      Alert.alert('Ошибка', message);
+      Toast.show({ type: 'error', text1: 'Ошибка', text2: message });
     }
   };
 

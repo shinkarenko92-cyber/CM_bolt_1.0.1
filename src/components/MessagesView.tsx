@@ -89,7 +89,7 @@ export function MessagesView({
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-    if (diffMins < 1) return t('common.today', { defaultValue: 'Только что' });
+    if (diffMins < 1) return t('common.justNow', { defaultValue: 'Только что' });
     if (diffMins < 60) return `${diffMins} ${t('common.minutesAgo', { defaultValue: 'мин назад' })}`;
     if (diffHours < 24) return `${diffHours} ${t('common.hoursAgo', { defaultValue: 'ч назад' })}`;
     if (diffDays < 7) return `${diffDays} ${t('common.daysAgo', { defaultValue: 'дн назад' })}`;

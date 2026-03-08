@@ -51,13 +51,13 @@ export function AdminView() {
     setLoading(true);
     try {
       const [usersData, propertiesData, bookingsData, deletionRequestsData] = await Promise.all([
-        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+        supabase.from('profiles').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(0, 499),
         supabase
           .from('properties')
-          .select('*')
-          // Note: deleted_at filter temporarily removed
-          .order('created_at', { ascending: false }),
-        supabase.from('bookings').select('*').order('created_at', { ascending: false }),
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .range(0, 499),
+        supabase.from('bookings').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(0, 499),
         supabase.from('deletion_requests').select('*').order('created_at', { ascending: false }),
       ]);
 
@@ -65,19 +65,19 @@ export function AdminView() {
         setUsers(usersData.data);
         setStats(prev => ({
           ...prev,
-          totalUsers: usersData.data.length,
+          totalUsers: usersData.count ?? usersData.data.length,
           activeUsers: usersData.data.filter(u => u.is_active).length,
         }));
       }
 
       if (propertiesData.data) {
         setProperties(propertiesData.data);
-        setStats(prev => ({ ...prev, totalProperties: propertiesData.data.length }));
+        setStats(prev => ({ ...prev, totalProperties: propertiesData.count ?? propertiesData.data.length }));
       }
 
       if (bookingsData.data) {
         setBookings(bookingsData.data);
-        setStats(prev => ({ ...prev, totalBookings: bookingsData.data.length }));
+        setStats(prev => ({ ...prev, totalBookings: bookingsData.count ?? bookingsData.data.length }));
       }
 
       // Handle deletion_requests - table might not exist if migration not applied

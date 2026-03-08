@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -116,12 +117,13 @@ Email: [Shinkarenko@me.com](mailto:Shinkarenko@me.com)
 `;
 
 export function PrivacyPage() {
+  const { t } = useTranslation();
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="mx-auto max-w-3xl">
         <Card>
           <CardHeader className="space-y-2">
-            <CardTitle>Политика конфиденциальности</CardTitle>
+            <CardTitle>{t('legal.privacyTitle')}</CardTitle>
           </CardHeader>
           <CardContent className="prose prose-invert max-w-none dark:prose-invert">
             <ReactMarkdown>{PRIVACY_CONTENT}</ReactMarkdown>
@@ -129,7 +131,7 @@ export function PrivacyPage() {
         </Card>
         <div className="mt-4">
           <Button variant="ghost" asChild>
-            <Link to="/login">Назад к входу</Link>
+            <Link to="/login">{t('legal.backToLogin')}</Link>
           </Button>
         </div>
       </div>

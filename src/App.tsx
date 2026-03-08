@@ -14,6 +14,9 @@ import { PrivacyPage } from '@/pages/PrivacyPage';
 import { OnboardingImport } from '@/pages/OnboardingImport';
 import { LoginPhonePage } from '@/pages/LoginPhonePage';
 import { AvitoCallbackPage } from '@/pages/AvitoCallbackPage';
+import { AvitoMessengerCallbackPage } from '@/pages/AvitoMessengerCallbackPage';
+import { VerifyPhonePage } from '@/pages/VerifyPhonePage';
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { CookieConsentBanner } from '@/components/CookieConsentBanner';
 import { AvitoErrorQueue } from '@/components/AvitoErrorQueue';
 import { SyncLogProvider } from '@/contexts/SyncLogContext';
@@ -73,6 +76,9 @@ function AppContent() {
         <Route path="/signup" element={<AuthLayout><SignupForm /></AuthLayout>} />
         <Route path="/onboarding/import" element={<RequireAuth><OnboardingImport /></RequireAuth>} />
         <Route path="/auth/avito-callback" element={<AvitoCallbackPage />} />
+        <Route path="/auth/avito-callback-messenger" element={<AvitoMessengerCallbackPage />} />
+        <Route path="/verify-phone" element={<RequireAuth><VerifyPhonePage /></RequireAuth>} />
+        <Route path="/reset-password" element={<AuthLayout><ResetPasswordPage /></AuthLayout>} />
         <Route path="/" element={<MainOrRedirect />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

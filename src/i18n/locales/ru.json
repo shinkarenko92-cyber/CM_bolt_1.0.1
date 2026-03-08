@@ -23,7 +23,7 @@
     "unknown": "Неизвестно",
     "underDevelopment": "Этот раздел находится в разработке",
     "retry": "Повторить",
-    "today": "Только что",
+    "justNow": "Только что",
     "minutesAgo": "мин назад",
     "hoursAgo": "ч назад",
     "daysAgo": "дн назад"
@@ -73,7 +73,21 @@
     "telegramChatNotFound": "Чат не найден. Сначала откройте бота в Telegram и отправьте ему /start — после этого запросите код снова.",
     "phoneCodeDeliveryDisabled": "Доставка кода временно отключена. Войдите по email.",
     "phoneCodeDeliveryDisabledHint": "Доставка кода по Telegram/WhatsApp временно отключена. Войдите по email.",
-    "phoneInvalid": "Введите корректный номер телефона"
+    "phoneInvalid": "Введите корректный номер телефона",
+    "newPassword": "Новый пароль",
+    "enterNewPassword": "Введите новый пароль для вашего аккаунта",
+    "confirmPassword": "Подтвердите пароль",
+    "confirmPasswordPlaceholder": "Повторите пароль",
+    "passwordsDoNotMatch": "Пароли не совпадают",
+    "passwordUpdated": "Пароль обновлён",
+    "redirectingToLogin": "Перенаправляем на страницу входа...",
+    "showPassword": "Показать пароль",
+    "hidePassword": "Скрыть пароль",
+    "verifyPhone": "Подтверждение телефона",
+    "verifyPhoneDescription": "Введите код из СМС для номера {{phone}}",
+    "verifyPhoneCode": "Код",
+    "verifying": "Проверка...",
+    "authRequired": "Нужна авторизация"
   },
   "nav": {
     "calendar": "Календарь",
@@ -510,6 +524,33 @@
     "trialExpired": "Триал закончился. Выберите тариф в профиле для продолжения работы.",
     "demoExpired": "Демо закончилось. Выберите тариф в профиле для продолжения работы.",
     "openProfile": "Профиль и тариф"
+  },
+  "onboarding": {
+    "importTitle": "Загрузи свой Excel-файл с бронями",
+    "dropzoneText": "Нажмите или перетащите файл сюда",
+    "dropzoneHint": "Поддерживаются .xls и .xlsx",
+    "parsing": "Парсинг файла...",
+    "parseErrors": "Найдено {{count}} ошибок при парсинге",
+    "recognized": "Распознано броней: {{count}}",
+    "importing": "Импорт...",
+    "importAll": "Импортировать всё ({{count}})",
+    "importBlocked": "Импорт заблокирован: пересечения дат",
+    "importSuccess": "Импортировано {{count}} броней. Можешь перейти в календарь или подключить Avito.",
+    "goToCalendar": "В календарь",
+    "connectAvito": "Дальше — подключаем Avito",
+    "skipToCalendar": "Пропустить и перейти в календарь",
+    "showingFirst": "Показаны первые 10 из {{count}}",
+    "fileFormatError": "Файл должен быть в формате .xls или .xlsx",
+    "property": "Объект",
+    "checkIn": "Заезд",
+    "checkOut": "Выезд",
+    "guest": "Гость",
+    "amount": "Сумма"
+  },
+  "legal": {
+    "backToLogin": "Назад к входу",
+    "privacyTitle": "Политика конфиденциальности",
+    "termsTitle": "Условия использования"
   },
   "cookieConsent": {
     "text": "Мы используем cookies для работы сессий и аналитики. Продолжая, вы соглашаетесь с использованием cookies.",

@@ -71,16 +71,40 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify webhook signature if Avito provides it
-    // This is a placeholder - actual signature verification depends on Avito's implementation
-    const signature = req.headers.get("X-Avito-Signature");
-    if (signature) {
-      // TODO: Implement signature verification when Avito provides documentation
-      console.log("Webhook signature received", { signature });
+    const rawBody = await req.text();
+
+    // Verify webhook signature (HMAC-SHA256)
+    const webhookSecret = Deno.env.get("AVITO_WEBHOOK_SECRET");
+    if (webhookSecret) {
+      const signature = req.headers.get("X-Avito-Signature");
+      if (!signature) {
+        return new Response(JSON.stringify({ error: "Missing signature" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const encoder = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(webhookSecret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"],
+      );
+      const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(rawBody));
+      const expected = Array.from(new Uint8Array(sig))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      if (signature !== expected) {
+        console.warn("Invalid webhook signature");
+        return new Response(JSON.stringify({ error: "Invalid signature" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
-    // Parse webhook payload
-    const payload: AvitoWebhookPayload = await req.json();
+    const payload: AvitoWebhookPayload = JSON.parse(rawBody);
 
     console.log("Avito webhook received", {
       event: payload.event,

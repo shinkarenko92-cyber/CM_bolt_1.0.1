@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
 export function VerifyPhonePage() {
+  const { t } = useTranslation();
   const { profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [code, setCode] = useState('');
@@ -22,7 +24,7 @@ export function VerifyPhonePage() {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
-        setError('Нужна авторизация');
+        setError(t('auth.authRequired'));
         return;
       }
       const res = await fetch(`${supabaseUrl}/functions/v1/verify-otp`, {
@@ -32,13 +34,13 @@ export function VerifyPhonePage() {
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        setError(data.error ?? `Ошибка ${res.status}`);
+        setError(data.error ?? `${t('errors.somethingWentWrong')} (${res.status})`);
         return;
       }
       await refreshProfile();
       navigate('/', { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
+      setError(err instanceof Error ? err.message : t('errors.somethingWentWrong'));
     } finally {
       setLoading(false);
     }
@@ -48,15 +50,15 @@ export function VerifyPhonePage() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Подтверждение телефона</CardTitle>
+          <CardTitle>{t('auth.verifyPhone')}</CardTitle>
           <CardDescription>
-            Введите код из СМС для номера {profile?.phone ?? '—'}
+            {t('auth.verifyPhoneDescription', { phone: profile?.phone ?? '—' })}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="space-y-2">
-              <Label htmlFor="code">Код</Label>
+              <Label htmlFor="code">{t('auth.verifyPhoneCode')}</Label>
               <Input
                 id="code"
                 value={code}
@@ -72,7 +74,7 @@ export function VerifyPhonePage() {
               </div>
             )}
             <Button type="submit" disabled={loading || code.length < 4} className="w-full h-11">
-              {loading ? 'Проверка...' : 'Подтвердить'}
+              {loading ? t('auth.verifying') : t('common.confirm')}
             </Button>
           </form>
         </CardContent>

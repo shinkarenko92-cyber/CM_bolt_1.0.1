@@ -2,8 +2,8 @@ import { avitoApi, isAvitoConfigured, initializeAvito } from '@/services/avitoAp
 import { supabase, Booking, Property, PropertyIntegration } from '@/lib/supabase';
 import type { AvitoErrorInfo } from '@/services/avitoErrors';
 
-const devLog = (...args: unknown[]) => { if (import.meta.env.DEV) devLog(...args); };
-const devWarn = (...args: unknown[]) => { if (import.meta.env.DEV) devWarn(...args); };
+const devLog = (...args: unknown[]) => { if (import.meta.env.DEV) console.log(...args); };
+const devWarn = (...args: unknown[]) => { if (import.meta.env.DEV) console.warn(...args); };
 
 export type SyncResult = {
   platform: string;

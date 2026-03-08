@@ -671,11 +671,14 @@ export function Dashboard() {
 
       // Transform Avito messages to our format and save to database
       // Get avito_user_id for sender_type (from integration; EF doesn't return it in getMessages)
-      const { data: integration } = await supabase
+      const { data: integration, error: integrationError } = await supabase
         .from('integrations')
         .select('avito_user_id')
         .eq('id', chat.integration_id)
         .single();
+      if (integrationError) {
+        console.error('Error loading integration for chat:', integrationError);
+      }
       const avitoUserId = integration?.avito_user_id != null ? String(integration.avito_user_id) : null;
 
       const messagesToInsert = avitoResponse.messages.map((avitoMsg: AvitoMessage) => {

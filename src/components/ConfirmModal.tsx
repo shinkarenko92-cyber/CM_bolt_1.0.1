@@ -36,15 +36,16 @@ export function ConfirmModal({
 
   return (
     <div 
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-modal-title"
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       onMouseDown={(e) => {
-        // Сохраняем, что mousedown произошел на backdrop
         if (e.target === e.currentTarget) {
           (e.currentTarget as HTMLElement).dataset.mouseDown = 'true';
         }
       }}
       onMouseUp={(e) => {
-        // Закрываем только если mousedown и mouseup произошли на backdrop
         const backdrop = e.currentTarget as HTMLElement;
         if (e.target === backdrop && backdrop.dataset.mouseDown === 'true') {
           onClose();
@@ -57,10 +58,12 @@ export function ConfirmModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
-          <h2 className="text-xl font-semibold text-white">{title}</h2>
+          <h2 id="confirm-modal-title" className="text-xl font-semibold text-white">{title}</h2>
           <button
+            type="button"
             onClick={onClose}
             className="text-slate-400 hover:text-white transition"
+            aria-label={t('common.close')}
           >
             <X size={24} />
           </button>
@@ -71,6 +74,7 @@ export function ConfirmModal({
 
           <div className="flex gap-3 justify-end">
             <button
+              type="button"
               onClick={onClose}
               disabled={loading}
               className="px-4 py-2 text-slate-300 hover:text-white transition disabled:opacity-50"
@@ -78,6 +82,7 @@ export function ConfirmModal({
               {cancelText || t('common.cancel')}
             </button>
             <button
+              type="button"
               onClick={onConfirm}
               disabled={loading}
               className={`px-4 py-2 text-white rounded transition disabled:opacity-50 ${variantStyles[variant]}`}
