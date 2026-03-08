@@ -66,7 +66,6 @@ export type BookingWithProperty = Booking & {
 export type Profile = {
   id: string;
   full_name: string | null;
-  business_name: string | null;
   email: string | null;
   phone: string | null;
   subscription_tier: string;

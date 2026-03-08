@@ -195,15 +195,6 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
             {saving ? t('common.loading', { defaultValue: 'Сохранение...' }) : t('common.save', { defaultValue: 'Сохранить' })}
           </Button>
 
-          {profile.business_name && (
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">
-                Business Name
-              </label>
-              <div className="text-white font-medium">{profile.business_name}</div>
-            </div>
-          )}
-
           {profile.phone && (
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
