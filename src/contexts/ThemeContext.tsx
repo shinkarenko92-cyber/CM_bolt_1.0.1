@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * Backward-compatible re-export from Zustand themeStore.
  * ThemeProvider loads theme on mount; state lives in Zustand.

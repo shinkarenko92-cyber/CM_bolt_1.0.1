@@ -138,7 +138,8 @@ export function BookingsScreen() {
     refetch,
   } = useQuery({ queryKey: ['bookings'], queryFn: fetchBookings });
 
-  const { data: properties = [] } = useQuery({ queryKey: ['properties'], queryFn: fetchProperties });
+  const { data: _properties = [] } = useQuery({ queryKey: ['properties'], queryFn: fetchProperties });
+  void _properties;
 
   const filteredBookings = useMemo(() => {
     let list = bookings;

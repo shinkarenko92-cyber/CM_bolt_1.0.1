@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * Backward-compatible re-export from Zustand syncLogStore.
  * SyncLogProvider is kept as passthrough.

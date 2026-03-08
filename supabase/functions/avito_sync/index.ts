@@ -1903,11 +1903,12 @@ Deno.serve(async (req: Request) => {
           if (Number.isNaN(d.getTime())) return s;
           return d.toISOString().slice(0, 10);
         };
-        const addDays = (ymd: string, days: number): string => {
+        const _addDays = (ymd: string, days: number): string => {
           const d = new Date(ymd + "T12:00:00.000Z");
           d.setUTCDate(d.getUTCDate() + days);
           return d.toISOString().slice(0, 10);
         };
+        void _addDays;
         // «Сегодня» по Москве, чтобы обрезка брони не прыгала из-за UTC (иначе в 00:01 UTC уже «12-е» и бронь 6–12 превращается в 12–12)
         const todayStr = (() => {
           const p = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());

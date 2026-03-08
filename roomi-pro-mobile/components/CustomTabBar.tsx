@@ -19,7 +19,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
   const leftRoutes = state.routes.slice(0, PLUS_AFTER_INDEX + 1);
   const rightRoutes = state.routes.slice(PLUS_AFTER_INDEX + 1, state.routes.length);
 
-  const renderTab = (route: (typeof state.routes)[0], index: number) => {
+  const renderTab = (route: (typeof state.routes)[0]) => {
     const globalIndex = state.routes.indexOf(route);
     const isFocused = state.index === globalIndex;
     const { options } = descriptors[route.key];

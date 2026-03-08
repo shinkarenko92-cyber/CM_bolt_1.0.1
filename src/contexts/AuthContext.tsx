@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * Backward-compatible re-export from Zustand authStore.
  * AuthProvider is kept as a passthrough so existing <AuthProvider> wrappers

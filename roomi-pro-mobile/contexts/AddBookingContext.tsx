@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * Контекст глобального открытия модалки добавления брони (кнопка «+» в таббаре).
  * Провайдер держит AddBookingModal и загружает properties.
