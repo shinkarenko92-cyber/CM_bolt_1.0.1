@@ -20,7 +20,6 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
     { id: 'calendar', icon: Calendar, label: t('nav.calendar') },
     { id: 'properties', icon: Home, label: t('nav.properties') },
     { id: 'bookings', icon: Users, label: t('nav.bookings') },
-    { id: 'guests', icon: Users, label: t('nav.guests') },
     { id: 'messages', icon: MessageCircle, label: t('nav.messages') },
     { id: 'analytics', icon: BarChart3, label: t('nav.analytics') },
     { id: 'settings', icon: Settings, label: t('nav.settings') },

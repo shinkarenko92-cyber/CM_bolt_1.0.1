@@ -23,7 +23,6 @@ import { BookingsView } from '@/components/BookingsView';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { AnalyticsView } from '@/components/AnalyticsView';
 import { AnalyticsInsights } from '@/components/AnalyticsInsights';
-import { GuestsView } from '@/components/GuestsView';
 import { GuestModal } from '@/components/GuestModal';
 import { AdminView } from '@/components/AdminView';
 import { SettingsView } from '@/components/SettingsView';
@@ -2081,7 +2080,6 @@ export function Dashboard() {
         {loading ? (
           currentView === 'bookings' ? <ViewSkeleton variant="cards" /> :
           currentView === 'properties' ? <ViewSkeleton variant="cards" /> :
-          currentView === 'guests' ? <ViewSkeleton variant="table" /> :
           currentView === 'messages' ? <ViewSkeleton variant="chat" /> :
           currentView === 'analytics' ? <ViewSkeleton variant="cards" /> :
           <SkeletonCalendar />
@@ -2110,12 +2108,6 @@ export function Dashboard() {
             properties={properties}
             onEdit={handleEditReservation}
             onImport={() => setIsImportModalOpen(true)}
-          />
-        ) : currentView === 'guests' ? (
-          <GuestsView
-            guests={guests}
-            bookings={bookings}
-            onEditGuest={handleEditGuest}
           />
         ) : currentView === 'messages' ? (
           <div className="flex-1 flex flex-col overflow-hidden min-w-0">
@@ -2194,7 +2186,9 @@ export function Dashboard() {
         ) : currentView === 'calendar' ? (
           <>
             {(bookings.length > 0 || properties.length > 0) && (
-              <DashboardKPI bookings={bookings} properties={properties} />
+              <div className="mt-10">
+                <DashboardKPI bookings={bookings} properties={properties} />
+              </div>
             )}
             <Calendar
               properties={properties}
