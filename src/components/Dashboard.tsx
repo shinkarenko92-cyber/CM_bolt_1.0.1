@@ -2126,6 +2126,7 @@ export function Dashboard() {
                   hasMessengerAccess={hasMessengerAccess}
                   integrationsForMessenger={avitoIntegrationsForMessages}
                   onRequestMessengerAuth={handleAvitoMessengerAuth}
+                  onGoToProperties={() => setCurrentView('properties')}
                 />
               </div>
               {selectedChatId ? (

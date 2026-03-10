@@ -22,6 +22,7 @@ interface MessagesViewProps {
   hasMessengerAccess?: boolean;
   integrationsForMessenger?: IntegrationForMessenger[];
   onRequestMessengerAuth?: (integrationId: string | null) => void;
+  onGoToProperties?: () => void;
 }
 
 export function MessagesView({
@@ -32,14 +33,16 @@ export function MessagesView({
   hasMessengerAccess = true,
   integrationsForMessenger = [],
   onRequestMessengerAuth,
+  onGoToProperties,
 }: MessagesViewProps) {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPropertyId, setFilterPropertyId] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'in_progress' | 'closed'>('all');
   const [messengerAuthModalOpen, setMessengerAuthModalOpen] = useState(false);
+  const [noIntegrationModalOpen, setNoIntegrationModalOpen] = useState(false);
 
-  const showMessengerCta = !hasMessengerAccess && integrationsForMessenger.length > 0 && onRequestMessengerAuth;
+  const showMessengerCta = !hasMessengerAccess && !!onRequestMessengerAuth;
   const firstIntegrationForMessenger = integrationsForMessenger[0];
 
   const getPropertyName = useCallback((propertyId: string | null) => {
@@ -106,7 +109,13 @@ export function MessagesView({
             <Button
               size="sm"
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-              onClick={() => setMessengerAuthModalOpen(true)}
+              onClick={() => {
+                if (integrationsForMessenger.length === 0) {
+                  setNoIntegrationModalOpen(true);
+                } else {
+                  setMessengerAuthModalOpen(true);
+                }
+              }}
             >
               <MessageCircle className="w-4 h-4 mr-1.5" />
               {t('messages.messengerCta.button')}
@@ -114,6 +123,32 @@ export function MessagesView({
           </div>
         </div>
       )}
+
+      <Dialog open={noIntegrationModalOpen} onOpenChange={setNoIntegrationModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('messages.noAvitoIntegration.title')}</DialogTitle>
+            <DialogDescription>
+              {t('messages.noAvitoIntegration.description')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNoIntegrationModalOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              className="bg-primary hover:bg-primary/90"
+              onClick={() => {
+                setNoIntegrationModalOpen(false);
+                onGoToProperties?.();
+              }}
+              disabled={!onGoToProperties}
+            >
+              {t('messages.noAvitoIntegration.connectButton')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={messengerAuthModalOpen} onOpenChange={setMessengerAuthModalOpen}>
         <DialogContent className="sm:max-w-md">
