@@ -13,9 +13,12 @@ interface PropertiesViewProps {
   onDelete: (id: string) => Promise<void>;
   /** Called when PropertyModal closes (so parent can refresh calendar integrations) */
   onPropertyModalClose?: () => void;
+  /** Открыть модалку добавления объекта при монтировании (онбординг) */
+  initialOpenAddModal?: boolean;
+  onOpenAddModalConsumed?: () => void;
 }
 
-export function PropertiesView({ properties, onAdd, onUpdate, onDelete, onPropertyModalClose }: PropertiesViewProps) {
+export function PropertiesView({ properties, onAdd, onUpdate, onDelete, onPropertyModalClose, initialOpenAddModal, onOpenAddModalConsumed }: PropertiesViewProps) {
   const { t } = useTranslation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
@@ -105,6 +108,16 @@ export function PropertiesView({ properties, onAdd, onUpdate, onDelete, onProper
       oauthProcessedRef.current = true;
     }
   }, [properties, isModalOpen]); // Added isModalOpen back, but with early exit to prevent unnecessary processing
+
+  const openAddModalConsumedRef = useRef(false);
+  // Онбординг: по запросу родителя открыть модалку добавления объекта один раз
+  useEffect(() => {
+    if (!initialOpenAddModal || openAddModalConsumedRef.current || isModalOpen) return;
+    openAddModalConsumedRef.current = true;
+    setSelectedProperty(null);
+    setIsModalOpen(true);
+    onOpenAddModalConsumed?.();
+  }, [initialOpenAddModal, isModalOpen, onOpenAddModalConsumed]);
 
   const handleAdd = () => {
     setSelectedProperty(null);

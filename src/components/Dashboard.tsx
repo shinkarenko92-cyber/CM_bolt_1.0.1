@@ -183,6 +183,7 @@ export function Dashboard() {
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
   const [bookingsForDelete, setBookingsForDelete] = useState<Booking[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [pendingOpenAddPropertyModal, setPendingOpenAddPropertyModal] = useState(false);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [isGuestModalOpen, setIsGuestModalOpen] = useState(false);
   const [isBookingLimitModalOpen, setIsBookingLimitModalOpen] = useState(false);
@@ -2082,12 +2083,16 @@ export function Dashboard() {
           <div className="flex-1 flex items-center justify-center p-6">
             <ErrorRetry message={loadError} onRetry={loadData} />
           </div>
-        ) : bookings.length === 0 && properties.length === 0 ? (
+        ) : bookings.length === 0 && properties.length === 0 && currentView !== 'properties' ? (
           <OnboardingWizard
             hasProperties={properties.length > 0}
             hasBookings={bookings.length > 0}
             hasAvito={avitoIntegrationsForMessages.length > 0}
             onGoToProperties={() => setCurrentView('properties')}
+            onAddProperty={() => {
+              setCurrentView('properties');
+              setPendingOpenAddPropertyModal(true);
+            }}
           />
         ) : currentView === 'properties' ? (
           <PropertiesView
@@ -2096,6 +2101,8 @@ export function Dashboard() {
             onUpdate={handleUpdateProperty}
             onDelete={handleDeleteProperty}
             onPropertyModalClose={() => setRefreshIntegrationsTrigger((t) => t + 1)}
+            initialOpenAddModal={bookings.length === 0 && properties.length === 0 ? pendingOpenAddPropertyModal : false}
+            onOpenAddModalConsumed={() => setPendingOpenAddPropertyModal(false)}
           />
         ) : currentView === 'bookings' ? (
           <BookingsView
