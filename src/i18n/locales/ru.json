@@ -373,6 +373,8 @@
     "unlimited": "Без ограничений",
     "planUnknown": "—",
     "planHelp": "Чтобы изменить тариф, напишите в поддержку: support@roomi.pro",
+    "trial5Days": "Trial 5 дней",
+    "trialDescription": "При регистрации вам доступен Trial 5 дней — все функции включены, безлимитное количество объектов.",
     "exportFound": "Найдено {{count}} бронирований для экспорта"
   },
   "history": {

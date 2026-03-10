@@ -36,8 +36,8 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
   const bookingLimit = getBookingLimit(profile ?? null);
 
   const tierLabels: Record<string, string> = {
-    free: t('subscription.tiers.free', { defaultValue: 'Free' }),
-    basic: t('subscription.tiers.free', { defaultValue: 'Free' }),
+    free: t('settings.trial5Days', { defaultValue: 'Trial 5 дней' }),
+    basic: t('settings.trial5Days', { defaultValue: 'Trial 5 дней' }),
     demo: t('subscription.tiers.demo', { defaultValue: 'Demo' }),
     trial: t('subscription.tiers.demo', { defaultValue: 'Demo' }),
     start: t('subscription.tiers.standard', { defaultValue: 'Standard' }),
@@ -300,38 +300,40 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
     }
   };
 
+  const isTrialPlan = tier === 'free' || tier === 'basic';
+
   return (
-    <div className="flex-1 overflow-auto p-4 md:p-6">
+    <div className="flex-1 overflow-auto p-4 md:p-6 bg-white text-black">
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-white mb-1">{t('settings.title')}</h1>
-          <p className="text-slate-400 text-sm">{t('settings.subtitle', { defaultValue: 'Управление настройками и интеграциями' })}</p>
+          <h1 className="text-xl md:text-2xl font-bold text-black mb-1">{t('settings.title')}</h1>
+          <p className="text-slate-600 text-sm">{t('settings.subtitle', { defaultValue: 'Управление настройками и интеграциями' })}</p>
         </div>
 
         {/* Subscription / Plan */}
-        <div className="bg-slate-800 rounded-lg p-6">
+        <div className="bg-white rounded-lg p-6 border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-teal-500/20 rounded-lg">
-              <CreditCard className="w-5 h-5 text-teal-300" />
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <CreditCard className="w-5 h-5 text-primary" />
             </div>
-            <h2 className="text-lg font-semibold text-white">{t('settings.planTitle', { defaultValue: 'Тариф' })}</h2>
+            <h2 className="text-lg font-semibold text-black">{t('settings.planTitle', { defaultValue: 'Тариф' })}</h2>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="text-white font-semibold">
+            <div className="text-black font-semibold">
               {t('settings.currentPlan', { defaultValue: 'Текущий план:' })}{' '}
-              <span className="text-teal-200">{tierLabels[tier] ?? tier}</span>
+              <span className="text-primary">{tierLabels[tier] ?? tier}</span>
             </div>
-            <span className="text-xs px-2 py-1 rounded-full bg-slate-700 text-slate-200">
+            <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-800">
               {tierRange || t('settings.planUnknown', { defaultValue: '—' })}
             </span>
             {tierPriceRub != null && tierPriceRub > 0 && (
-              <span className="text-xs px-2 py-1 rounded-full bg-slate-700 text-slate-200">
+              <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-800">
                 {t('settings.planPrice', { defaultValue: '{{price}} ₽/мес', price: tierPriceRub })}
               </span>
             )}
             {(tier === 'demo' || tier === 'trial') && profile?.subscription_expires_at && (
-              <span className={`text-xs px-2 py-1 rounded-full ${expiredDemo ? 'bg-red-500/20 text-red-200' : 'bg-amber-500/20 text-amber-100'}`}>
+              <span className={`text-xs px-2 py-1 rounded-full ${expiredDemo ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}>
                 {expiredDemo
                   ? t('settings.planExpired', { defaultValue: 'Демо истекло' })
                   : t('settings.planExpires', { defaultValue: 'Демо до {{date}}', date: formatDate(profile.subscription_expires_at) })}
@@ -339,40 +341,46 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
             )}
           </div>
 
+          {isTrialPlan && (
+            <p className="mt-3 text-sm text-slate-700">
+              {t('settings.trialDescription', { defaultValue: 'При регистрации вам доступен Trial 5 дней — все функции включены, безлимитное количество объектов.' })}
+            </p>
+          )}
+
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-slate-900/40 rounded-lg p-4 border border-slate-700/60">
-              <p className="text-sm font-semibold text-white mb-2">
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <p className="text-sm font-semibold text-black mb-2">
                 {t('settings.planLimits', { defaultValue: 'Лимиты' })}
               </p>
-              <div className="text-sm text-slate-300 space-y-1">
+              <div className="text-sm text-slate-700 space-y-1">
                 <div className="flex items-center justify-between gap-3">
                   <span>{t('settings.planLimitProperties', { defaultValue: 'Объекты' })}</span>
-                  <span className="text-slate-100 font-medium">
+                  <span className="text-black font-medium">
                     {propertyLimit >= 999 ? t('settings.unlimited', { defaultValue: 'Без ограничений' }) : propertyLimit}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span>{t('settings.planLimitBookings', { defaultValue: 'Бронирования/мес' })}</span>
-                  <span className="text-slate-100 font-medium">
+                  <span className="text-black font-medium">
                     {bookingLimit === -1 ? t('settings.unlimited', { defaultValue: 'Без ограничений' }) : bookingLimit}
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-slate-900/40 rounded-lg p-4 border border-slate-700/60">
-              <p className="text-sm font-semibold text-white mb-2">
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <p className="text-sm font-semibold text-black mb-2">
                 {t('settings.planFeatures', { defaultValue: 'Особенности тарифа' })}
               </p>
               <ul className="space-y-1">
                 {planFeatures.map((f) => (
                   <li key={f.key} className="flex items-center gap-2 text-sm">
                     {f.enabled ? (
-                      <CheckCircle2 className="w-4 h-4 text-teal-300 shrink-0" />
+                      <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
                     ) : (
-                      <XCircle className="w-4 h-4 text-slate-500 shrink-0" />
+                      <XCircle className="w-4 h-4 text-slate-400 shrink-0" />
                     )}
-                    <span className={f.enabled ? 'text-slate-200' : 'text-slate-500'}>{f.label}</span>
+                    <span className={f.enabled ? 'text-slate-800' : 'text-slate-500'}>{f.label}</span>
                   </li>
                 ))}
               </ul>
@@ -385,12 +393,12 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
         </div>
 
         {/* Language & Theme */}
-        <div className="bg-slate-800 rounded-lg p-6">
+        <div className="bg-white rounded-lg p-6 border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-blue-500/20 rounded-lg">
-              <Globe className="w-5 h-5 text-blue-400" />
+            <div className="p-2 bg-blue-500/10 rounded-lg">
+              <Globe className="w-5 h-5 text-blue-600" />
             </div>
-            <h2 className="text-lg font-semibold text-white">{t('settings.language')}</h2>
+            <h2 className="text-lg font-semibold text-black">{t('settings.language')}</h2>
           </div>
           
           <div className="flex gap-3">
@@ -401,8 +409,8 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
               }}
               className={`px-4 py-2 rounded-lg transition-colors ${
                 i18n.language === 'ru' 
-                  ? 'bg-teal-600 text-white' 
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  ? 'bg-primary text-primary-foreground' 
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
               }`}
             >
               🇷🇺 Русский
@@ -414,8 +422,8 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
               }}
               className={`px-4 py-2 rounded-lg transition-colors ${
                 i18n.language === 'en' 
-                  ? 'bg-teal-600 text-white' 
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  ? 'bg-primary text-primary-foreground' 
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
               }`}
             >
               🇬🇧 English
@@ -424,21 +432,21 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
         </div>
 
         {/* Export Reports */}
-        <div className="bg-slate-800 rounded-lg p-6">
+        <div className="bg-white rounded-lg p-6 border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-green-500/20 rounded-lg">
-              <Download className="w-5 h-5 text-green-400" />
+            <div className="p-2 bg-green-500/10 rounded-lg">
+              <Download className="w-5 h-5 text-green-600" />
             </div>
-            <h2 className="text-lg font-semibold text-white">{t('settings.exportData', { defaultValue: 'Экспорт данных' })}</h2>
+            <h2 className="text-lg font-semibold text-black">{t('settings.exportData', { defaultValue: 'Экспорт данных' })}</h2>
           </div>
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-2">{t('settings.period', { defaultValue: 'Период' })}</label>
+              <label className="block text-sm text-slate-600 mb-2">{t('settings.period', { defaultValue: 'Период' })}</label>
               <select
                 value={exportDateRange}
                 onChange={(e) => setExportDateRange(e.target.value)}
-                className="w-full md:w-auto px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                className="w-full md:w-auto px-4 py-2 bg-white border border-slate-300 rounded-lg text-black"
               >
                 <option value="all">{t('settings.allTime', { defaultValue: 'Все время' })}</option>
                 <option value="year">{t('settings.thisYear', { defaultValue: 'Этот год' })}</option>
@@ -450,7 +458,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={exportBookingsCSV}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-lg transition-colors"
               >
                 <FileSpreadsheet className="w-4 h-4" />
                 {t('settings.exportCSV', { defaultValue: 'Экспорт бронирований (CSV)' })}
@@ -458,7 +466,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
               
               <button
                 onClick={exportBookingsJSON}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-lg transition-colors"
               >
                 <FileText className="w-4 h-4" />
                 {t('settings.exportJSON', { defaultValue: 'Экспорт бронирований (JSON)' })}
@@ -466,7 +474,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
               
               <button
                 onClick={exportAnalyticsReport}
-                className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
               >
                 <Download className="w-4 h-4" />
                 {t('settings.exportAnalytics', { defaultValue: 'Аналитический отчёт' })}
@@ -480,15 +488,15 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
         </div>
 
         {/* Delete Account */}
-        <div className="bg-slate-800 rounded-lg p-6 border border-red-500/20">
+        <div className="bg-white rounded-lg p-6 border border-red-200 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-red-500/20 rounded-lg">
-              <Trash2 className="w-5 h-5 text-red-400" />
+            <div className="p-2 bg-red-100 rounded-lg">
+              <Trash2 className="w-5 h-5 text-red-600" />
             </div>
-            <h2 className="text-lg font-semibold text-white">{t('settings.deleteAccount', { defaultValue: 'Удаление аккаунта' })}</h2>
+            <h2 className="text-lg font-semibold text-black">{t('settings.deleteAccount', { defaultValue: 'Удаление аккаунта' })}</h2>
           </div>
           
-          <p className="text-slate-400 text-sm mb-4">
+          <p className="text-slate-600 text-sm mb-4">
             Для удаления аккаунта отправьте запрос администратору.
             После одобрения все ваши данные будут безвозвратно удалены.
             Либо удалите аккаунт сразу — без запроса (все данные будут удалены без возможности восстановления).
@@ -499,7 +507,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
               value={deletionReason}
               onChange={(e) => setDeletionReason(e.target.value)}
               placeholder={t('settings.deletionReason', { defaultValue: 'Reason for deletion (optional)' })}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white min-h-[80px] resize-y"
+              className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-black min-h-[80px] resize-y placeholder:text-slate-400"
             />
             <div className="flex flex-wrap gap-3">
               <button
@@ -510,7 +518,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
               </button>
               <button
                 onClick={() => setDeleteNowModalOpen(true)}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-red-400 border border-red-500/50 rounded-lg transition-colors"
+                className="px-4 py-2 bg-white hover:bg-slate-50 text-red-600 border border-red-300 rounded-lg transition-colors"
               >
                 {t('settings.deleteAccountNow', { defaultValue: 'Delete account now' })}
               </button>

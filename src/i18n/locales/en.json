@@ -365,6 +365,8 @@
     "unlimited": "Unlimited",
     "planUnknown": "—",
     "planHelp": "To change your plan, contact support: support@roomi.pro",
+    "trial5Days": "Trial 5 days",
+    "trialDescription": "On registration you get a 5-day Trial — all features included, unlimited number of properties.",
     "exportFound": "Found {{count}} bookings for export"
   },
   "history": {
