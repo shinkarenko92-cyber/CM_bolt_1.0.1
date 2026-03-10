@@ -61,6 +61,7 @@ export function AvitoMessengerCallbackPage() {
   const handleCloseSuccess = () => {
     setSuccessModalOpen(false);
     navigate('/', { replace: true, state: { openMessages: true } });
+    window.history.pushState(null, '', '/');
   };
 
   if (status === 'loading') {
@@ -80,7 +81,7 @@ export function AvitoMessengerCallbackPage() {
         <div className="max-w-md w-full rounded-lg border border-border bg-card p-6 text-center">
           <h1 className="text-lg font-semibold text-destructive mb-2">{t('messages.messengerCta.errorTitle', { defaultValue: 'Ошибка подключения' })}</h1>
           <p className="text-muted-foreground text-sm mb-4">{errorMessage}</p>
-          <Button onClick={() => navigate('/', { replace: true })}>{t('common.back', { defaultValue: 'На главную' })}</Button>
+          <Button onClick={() => { navigate('/', { replace: true }); window.history.pushState(null, '', '/'); }}>{t('common.back', { defaultValue: 'На главную' })}</Button>
         </div>
       </div>
     );

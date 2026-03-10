@@ -57,6 +57,7 @@ export function AvitoCallbackPage() {
       };
       localStorage.setItem('avito_oauth_error', JSON.stringify(errorData));
       window.history.replaceState({}, '', '/');
+      window.history.pushState(null, '', '/');
       return;
     }
 
@@ -76,6 +77,7 @@ export function AvitoCallbackPage() {
             const errorMsg = fnError?.message || (data as { error?: string })?.error || 'Ошибка подключения';
             localStorage.setItem('avito_oauth_error', JSON.stringify({ error: errorMsg }));
             window.history.replaceState({}, '', '/');
+            window.history.pushState(null, '', '/');
           }
         })();
       } else {
@@ -95,6 +97,7 @@ export function AvitoCallbackPage() {
               // ignore
             }
             navigate('/', { replace: true, state: { avitoConnected: true, propertyId } });
+            window.history.pushState(null, '', '/');
           } else {
             const status = (fnError as { status?: number })?.status;
             const isSessionError = status === 401 || (fnError?.message && /unauthorized|session|jwt/i.test(fnError.message));
@@ -105,6 +108,7 @@ export function AvitoCallbackPage() {
               localStorage.setItem('avito_oauth_error', JSON.stringify({ error: errorMsg }));
             }
             navigate('/', { replace: true });
+            window.history.pushState(null, '', '/');
           }
         })();
       }
@@ -114,11 +118,13 @@ export function AvitoCallbackPage() {
   const handleMessengerSuccessClose = () => {
     setMessengerSuccessModalOpen(false);
     navigate('/', { replace: true, state: { openMessages: true } });
+    window.history.pushState(null, '', '/');
   };
 
   const handleNoAvitoIntegrationClose = () => {
     setNoAvitoIntegrationDialogOpen(false);
     navigate('/', { replace: true, state: { openProperties: true } });
+    window.history.pushState(null, '', '/');
   };
 
   if (noAvitoIntegrationDialogOpen) {
