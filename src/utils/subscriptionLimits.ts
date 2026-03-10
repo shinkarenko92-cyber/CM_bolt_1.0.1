@@ -6,10 +6,10 @@ import type { Profile } from '@/lib/supabase';
  * Start: 1–3 квартиры, Pro: 4–8, Business: 8–15, Enterprise: 15+.
  */
 
-/** Максимальное число объектов недвижимости по тарифу */
+/** Максимальное число объектов недвижимости по тарифу. Trial (free/basic): безлимит. */
 export const PROPERTY_LIMITS: Record<string, number> = {
-  free: 1,
-  basic: 1,
+  free: 999,
+  basic: 999,
   demo: 999,
   trial: 999, // legacy, обрабатывается как demo
   start: 3,
@@ -53,8 +53,8 @@ export const TIER_PRICE_RUB: Record<string, number | null> = {
 
 /** Описание диапазона объектов по тарифу (для UI) */
 export const TIER_OBJECT_RANGE: Record<string, string> = {
-  free: '1 объект',
-  basic: '1 объект',
+  free: 'Любое количество объектов',
+  basic: 'Любое количество объектов',
   demo: 'Все функции без ограничений',
   trial: 'Все функции без ограничений',
   start: '1–3 квартиры',

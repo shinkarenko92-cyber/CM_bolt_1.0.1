@@ -57,6 +57,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
     });
   };
 
+  const isTrialPlan = tier === 'free' || tier === 'basic';
   const planFeatures = [
     {
       key: 'calendar',
@@ -71,27 +72,27 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
     {
       key: 'channel',
       label: t('subscription.features.channels', { defaultValue: 'Подключение Avito/других площадок' }),
-      enabled: tier !== 'free' && tier !== 'basic',
+      enabled: isTrialPlan || (tier !== 'free' && tier !== 'basic'),
     },
     {
       key: 'export',
       label: t('subscription.features.export', { defaultValue: 'Экспорт и отчёты' }),
-      enabled: tier !== 'free' && tier !== 'basic',
+      enabled: isTrialPlan || (tier !== 'free' && tier !== 'basic'),
     },
     {
       key: 'templates',
       label: t('subscription.features.templates', { defaultValue: 'Шаблоны сообщений' }),
-      enabled: tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
+      enabled: isTrialPlan || tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
     },
     {
       key: 'ai',
       label: t('subscription.features.ai', { defaultValue: 'AI‑поддержка' }),
-      enabled: tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
+      enabled: isTrialPlan || tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
     },
     {
       key: 'mobile',
-      label: t('subscription.features.mobile', { defaultValue: 'Мобильное приложение' }),
-      enabled: tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
+      label: t('subscription.features.mobileWithSoon', { defaultValue: 'Мобильное приложение (скоро Апрель 2026)' }),
+      enabled: true,
     },
   ] as const;
 
@@ -299,8 +300,6 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
       setDeleteNowLoading(false);
     }
   };
-
-  const isTrialPlan = tier === 'free' || tier === 'basic';
 
   return (
     <div className="flex-1 overflow-auto p-4 md:p-6 bg-white text-black">

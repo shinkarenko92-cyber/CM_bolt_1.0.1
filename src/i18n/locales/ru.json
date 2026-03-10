@@ -104,6 +104,7 @@
   "dashboard": {
     "occupancy": "Загрузка",
     "revenueMtd": "Выручка MTD",
+    "revenueMonth": "Выручка {{month}}",
     "todayActivity": "Сегодня",
     "checkInOut": "заезд / выезд",
     "pending": "Ожидают"
@@ -622,7 +623,8 @@
       "export": "Экспорт и отчёты",
       "templates": "Шаблоны сообщений",
       "ai": "AI‑поддержка",
-      "mobile": "Мобильное приложение"
+      "mobile": "Мобильное приложение",
+      "mobileWithSoon": "Мобильное приложение (скоро Апрель 2026)"
     }
   },
   "onboarding": {

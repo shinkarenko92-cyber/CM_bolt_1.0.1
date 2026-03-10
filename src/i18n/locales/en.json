@@ -104,6 +104,7 @@
   "dashboard": {
     "occupancy": "Occupancy",
     "revenueMtd": "Revenue MTD",
+    "revenueMonth": "Revenue {{month}}",
     "todayActivity": "Today",
     "checkInOut": "check-in / check-out",
     "pending": "Pending"
@@ -611,7 +612,8 @@
       "export": "Export & reports",
       "templates": "Message templates",
       "ai": "AI support",
-      "mobile": "Mobile app"
+      "mobile": "Mobile app",
+      "mobileWithSoon": "Mobile app (coming April 2026)"
     }
   },
   "onboarding": {
