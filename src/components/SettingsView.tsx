@@ -323,28 +323,23 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
               {t('settings.currentPlan', { defaultValue: 'Текущий план:' })}{' '}
               <span className="text-primary">{tierLabels[tier] ?? tier}</span>
             </div>
-            <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-800">
-              {tierRange || t('settings.planUnknown', { defaultValue: '—' })}
-            </span>
+            {isDemoPlan && profile?.subscription_expires_at ? (
+              <span className={`text-xs px-2 py-1 rounded-full ${expiredDemo ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-800'}`}>
+                {expiredDemo
+                  ? t('settings.planExpired', { defaultValue: 'Демо истекло' })
+                  : t('settings.planExpires', { defaultValue: 'До {{date}}', date: formatDate(profile.subscription_expires_at) })}
+              </span>
+            ) : !isDemoPlan ? (
+              <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-800">
+                {tierRange || t('settings.planUnknown', { defaultValue: '—' })}
+              </span>
+            ) : null}
             {tierPriceRub != null && tierPriceRub > 0 && (
               <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-800">
                 {t('settings.planPrice', { defaultValue: '{{price}} ₽/мес', price: tierPriceRub })}
               </span>
             )}
-            {(tier === 'demo' || tier === 'trial' || tier === 'free' || tier === 'basic') && profile?.subscription_expires_at && (
-              <span className={`text-xs px-2 py-1 rounded-full ${expiredDemo ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}>
-                {expiredDemo
-                  ? t('settings.planExpired', { defaultValue: 'Демо истекло' })
-                  : t('settings.planExpires', { defaultValue: 'Демо до {{date}}', date: formatDate(profile.subscription_expires_at) })}
-              </span>
-            )}
           </div>
-
-          {isDemoPlan && (
-            <p className="mt-3 text-sm text-slate-700">
-              {t('settings.demoDescription', { defaultValue: 'В тарифе Demo 5 дней доступно всё: безлимит объектов (999), все функции. Мобильное приложение (скоро апрель 2026).' })}
-            </p>
-          )}
 
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
