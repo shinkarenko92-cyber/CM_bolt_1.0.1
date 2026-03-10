@@ -47,10 +47,10 @@ export function OnboardingWizard({
 
           {/* Выбор: добавить объект сам или загрузить бронирования */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide text-center">
               {t('onboarding.choiceLabel', { defaultValue: 'Как начать?' })}
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
               <OnboardingChoiceCard
                 icon={Building2}
                 title={t('onboarding.choiceAddObject', { defaultValue: 'Добавить объект вручную' })}
@@ -72,8 +72,8 @@ export function OnboardingWizard({
 
           {/* Дальше: подключение Avito и других площадок */}
           <div className="pt-2 border-t border-border space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1">
-              {t('onboarding.thenConnect', { defaultValue: 'Потом подключите площадки' })}
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide text-center">
+              {t('onboarding.thenConnect', { defaultValue: 'Затем подключите площадки' })}
             </p>
             <OnboardingStep
               icon={Globe}
@@ -107,7 +107,7 @@ function OnboardingChoiceCard({ icon: Icon, title, description, actionLabel, com
       'flex flex-col gap-3 p-4 rounded-lg border transition-colors h-full',
       completed ? 'border-brand/30 bg-brand/5' : 'border-border hover:border-muted-foreground/30'
     )}>
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3 flex-1 min-h-0">
         <div className={cn(
           'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
           completed ? 'bg-brand text-brand-foreground' : 'bg-muted text-muted-foreground'
@@ -120,15 +120,17 @@ function OnboardingChoiceCard({ icon: Icon, title, description, actionLabel, com
         </div>
       </div>
       {!completed && (
-        link ? (
-          <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
-            <Link to={link}>{actionLabel}</Link>
-          </Button>
-        ) : (
-          <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={onClick}>
-            {actionLabel}
-          </Button>
-        )
+        <div className="mt-auto pt-1">
+          {link ? (
+            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+              <Link to={link}>{actionLabel}</Link>
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={onClick}>
+              {actionLabel}
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );
