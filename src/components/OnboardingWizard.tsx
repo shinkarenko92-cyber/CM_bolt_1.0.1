@@ -115,18 +115,18 @@ function OnboardingChoiceCard({ icon: Icon, title, description, actionLabel, com
           {completed ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
         </div>
         <div className="min-w-0 flex-1">
-          <span className="font-medium text-foreground text-sm">{title}</span>
+          <span className="font-medium text-foreground text-sm whitespace-nowrap">{title}</span>
           <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
         </div>
       </div>
       {!completed && (
         <div className="mt-auto pt-1">
           {link ? (
-            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto justify-center">
               <Link to={link}>{actionLabel}</Link>
             </Button>
           ) : (
-            <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={onClick}>
+            <Button size="sm" variant="outline" className="w-full sm:w-auto justify-center" onClick={onClick}>
               {actionLabel}
             </Button>
           )}
