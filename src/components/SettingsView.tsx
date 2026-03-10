@@ -7,10 +7,14 @@ import {
   FileSpreadsheet,
   FileText,
   Trash2,
+  CreditCard,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import { Booking, Property, supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { TIER_OBJECT_RANGE, TIER_PRICE_RUB, getBookingLimit, getPropertyLimit, isDemoExpired } from '@/utils/subscriptionLimits';
 
 interface SettingsViewProps {
   bookings: Booking[];
@@ -19,10 +23,77 @@ interface SettingsViewProps {
 
 export function SettingsView({ bookings, properties }: SettingsViewProps) {
   const { t, i18n } = useTranslation();
-  const { deleteAccount } = useAuth();
+  const { deleteAccount, profile } = useAuth();
   const [exportDateRange, setExportDateRange] = useState('all');
   const [deleteNowModalOpen, setDeleteNowModalOpen] = useState(false);
   const [deleteNowLoading, setDeleteNowLoading] = useState(false);
+
+  const tier = profile?.subscription_tier ?? 'free';
+  const tierPriceRub = TIER_PRICE_RUB[tier] ?? null;
+  const tierRange = TIER_OBJECT_RANGE[tier] ?? '';
+  const expiredDemo = profile ? isDemoExpired(profile) : false;
+  const propertyLimit = getPropertyLimit(profile ?? null);
+  const bookingLimit = getBookingLimit(profile ?? null);
+
+  const tierLabels: Record<string, string> = {
+    free: t('subscription.tiers.free', { defaultValue: 'Free' }),
+    basic: t('subscription.tiers.free', { defaultValue: 'Free' }),
+    demo: t('subscription.tiers.demo', { defaultValue: 'Demo' }),
+    trial: t('subscription.tiers.demo', { defaultValue: 'Demo' }),
+    start: t('subscription.tiers.standard', { defaultValue: 'Standard' }),
+    starter: t('subscription.tiers.standard', { defaultValue: 'Standard' }),
+    pro: t('subscription.tiers.pro', { defaultValue: 'Pro' }),
+    business: t('subscription.tiers.business', { defaultValue: 'Business' }),
+    premium: t('subscription.tiers.business', { defaultValue: 'Business' }),
+    enterprise: t('subscription.tiers.enterprise', { defaultValue: 'Enterprise' }),
+  };
+
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleDateString(i18n.language === 'ru' ? 'ru-RU' : 'en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  const planFeatures = [
+    {
+      key: 'calendar',
+      label: t('subscription.features.calendar', { defaultValue: 'Календарь и бронирования' }),
+      enabled: true,
+    },
+    {
+      key: 'excel',
+      label: t('subscription.features.excel', { defaultValue: 'Импорт бронирований из Excel' }),
+      enabled: true,
+    },
+    {
+      key: 'channel',
+      label: t('subscription.features.channels', { defaultValue: 'Подключение Avito/других площадок' }),
+      enabled: tier !== 'free' && tier !== 'basic',
+    },
+    {
+      key: 'export',
+      label: t('subscription.features.export', { defaultValue: 'Экспорт и отчёты' }),
+      enabled: tier !== 'free' && tier !== 'basic',
+    },
+    {
+      key: 'templates',
+      label: t('subscription.features.templates', { defaultValue: 'Шаблоны сообщений' }),
+      enabled: tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
+    },
+    {
+      key: 'ai',
+      label: t('subscription.features.ai', { defaultValue: 'AI‑поддержка' }),
+      enabled: tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
+    },
+    {
+      key: 'mobile',
+      label: t('subscription.features.mobile', { defaultValue: 'Мобильное приложение' }),
+      enabled: tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
+    },
+  ] as const;
 
   const convertToRUB = (amount: number, currency: string) => {
     const rates: { [key: string]: number } = { RUB: 1, EUR: 100, USD: 92 };
@@ -235,6 +306,82 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-white mb-1">{t('settings.title')}</h1>
           <p className="text-slate-400 text-sm">{t('settings.subtitle', { defaultValue: 'Управление настройками и интеграциями' })}</p>
+        </div>
+
+        {/* Subscription / Plan */}
+        <div className="bg-slate-800 rounded-lg p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-teal-500/20 rounded-lg">
+              <CreditCard className="w-5 h-5 text-teal-300" />
+            </div>
+            <h2 className="text-lg font-semibold text-white">{t('settings.planTitle', { defaultValue: 'Тариф' })}</h2>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="text-white font-semibold">
+              {t('settings.currentPlan', { defaultValue: 'Текущий план:' })}{' '}
+              <span className="text-teal-200">{tierLabels[tier] ?? tier}</span>
+            </div>
+            <span className="text-xs px-2 py-1 rounded-full bg-slate-700 text-slate-200">
+              {tierRange || t('settings.planUnknown', { defaultValue: '—' })}
+            </span>
+            {tierPriceRub != null && tierPriceRub > 0 && (
+              <span className="text-xs px-2 py-1 rounded-full bg-slate-700 text-slate-200">
+                {t('settings.planPrice', { defaultValue: '{{price}} ₽/мес', price: tierPriceRub })}
+              </span>
+            )}
+            {(tier === 'demo' || tier === 'trial') && profile?.subscription_expires_at && (
+              <span className={`text-xs px-2 py-1 rounded-full ${expiredDemo ? 'bg-red-500/20 text-red-200' : 'bg-amber-500/20 text-amber-100'}`}>
+                {expiredDemo
+                  ? t('settings.planExpired', { defaultValue: 'Демо истекло' })
+                  : t('settings.planExpires', { defaultValue: 'Демо до {{date}}', date: formatDate(profile.subscription_expires_at) })}
+              </span>
+            )}
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-slate-900/40 rounded-lg p-4 border border-slate-700/60">
+              <p className="text-sm font-semibold text-white mb-2">
+                {t('settings.planLimits', { defaultValue: 'Лимиты' })}
+              </p>
+              <div className="text-sm text-slate-300 space-y-1">
+                <div className="flex items-center justify-between gap-3">
+                  <span>{t('settings.planLimitProperties', { defaultValue: 'Объекты' })}</span>
+                  <span className="text-slate-100 font-medium">
+                    {propertyLimit >= 999 ? t('settings.unlimited', { defaultValue: 'Без ограничений' }) : propertyLimit}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span>{t('settings.planLimitBookings', { defaultValue: 'Бронирования/мес' })}</span>
+                  <span className="text-slate-100 font-medium">
+                    {bookingLimit === -1 ? t('settings.unlimited', { defaultValue: 'Без ограничений' }) : bookingLimit}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-900/40 rounded-lg p-4 border border-slate-700/60">
+              <p className="text-sm font-semibold text-white mb-2">
+                {t('settings.planFeatures', { defaultValue: 'Особенности тарифа' })}
+              </p>
+              <ul className="space-y-1">
+                {planFeatures.map((f) => (
+                  <li key={f.key} className="flex items-center gap-2 text-sm">
+                    {f.enabled ? (
+                      <CheckCircle2 className="w-4 h-4 text-teal-300 shrink-0" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-slate-500 shrink-0" />
+                    )}
+                    <span className={f.enabled ? 'text-slate-200' : 'text-slate-500'}>{f.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-500 mt-4">
+            {t('settings.planHelp', { defaultValue: 'Чтобы изменить тариф, напишите в поддержку: support@roomi.pro' })}
+          </p>
         </div>
 
         {/* Language & Theme */}

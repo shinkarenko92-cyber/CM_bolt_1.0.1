@@ -361,6 +361,18 @@
     "deleteError": "Ошибка удаления аккаунта",
     "requestError": "Ошибка при отправке запроса",
     "deletionTableNotFound": "Таблица deletion_requests не найдена. Пожалуйста, примените миграцию базы данных.",
+    "planTitle": "Тариф",
+    "currentPlan": "Текущий план:",
+    "planPrice": "{{price}} ₽/мес",
+    "planExpires": "Демо до {{date}}",
+    "planExpired": "Демо истекло",
+    "planLimits": "Лимиты",
+    "planLimitProperties": "Объекты",
+    "planLimitBookings": "Бронирования/мес",
+    "planFeatures": "Особенности тарифа",
+    "unlimited": "Без ограничений",
+    "planUnknown": "—",
+    "planHelp": "Чтобы изменить тариф, напишите в поддержку: support@roomi.pro",
     "exportFound": "Найдено {{count}} бронирований для экспорта"
   },
   "history": {
@@ -592,7 +604,24 @@
     "requestInvoiceOrPlan": "Запросить счёт / Подключить тариф",
     "trialExpired": "Триал закончился. Выберите тариф в профиле для продолжения работы.",
     "demoExpired": "Демо закончилось. Выберите тариф в профиле для продолжения работы.",
-    "openProfile": "Профиль и тариф"
+    "openProfile": "Профиль и тариф",
+    "tiers": {
+      "free": "Free",
+      "standard": "Standard",
+      "pro": "Pro",
+      "business": "Business",
+      "enterprise": "Enterprise",
+      "demo": "Demo"
+    },
+    "features": {
+      "calendar": "Календарь и бронирования",
+      "excel": "Импорт бронирований из Excel",
+      "channels": "Подключение Avito/других площадок",
+      "export": "Экспорт и отчёты",
+      "templates": "Шаблоны сообщений",
+      "ai": "AI‑поддержка",
+      "mobile": "Мобильное приложение"
+    }
   },
   "onboarding": {
     "welcome": "Добро пожаловать в Roomi",

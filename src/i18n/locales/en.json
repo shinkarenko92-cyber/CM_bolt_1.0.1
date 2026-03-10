@@ -353,6 +353,18 @@
     "deleteError": "Error deleting account",
     "requestError": "Error sending request",
     "deletionTableNotFound": "Table deletion_requests not found. Please apply the database migration.",
+    "planTitle": "Plan",
+    "currentPlan": "Current plan:",
+    "planPrice": "{{price}} ₽/mo",
+    "planExpires": "Demo until {{date}}",
+    "planExpired": "Demo expired",
+    "planLimits": "Limits",
+    "planLimitProperties": "Properties",
+    "planLimitBookings": "Bookings/mo",
+    "planFeatures": "Plan features",
+    "unlimited": "Unlimited",
+    "planUnknown": "—",
+    "planHelp": "To change your plan, contact support: support@roomi.pro",
     "exportFound": "Found {{count}} bookings for export"
   },
   "history": {
@@ -581,7 +593,24 @@
     "requestInvoiceOrPlan": "Request invoice / Upgrade plan",
     "trialExpired": "Trial ended. Choose a plan in profile to continue.",
     "demoExpired": "Demo ended. Choose a plan in profile to continue.",
-    "openProfile": "Profile & plan"
+    "openProfile": "Profile & plan",
+    "tiers": {
+      "free": "Free",
+      "standard": "Standard",
+      "pro": "Pro",
+      "business": "Business",
+      "enterprise": "Enterprise",
+      "demo": "Demo"
+    },
+    "features": {
+      "calendar": "Calendar & bookings",
+      "excel": "Excel bookings import",
+      "channels": "Connect Avito/other channels",
+      "export": "Export & reports",
+      "templates": "Message templates",
+      "ai": "AI support",
+      "mobile": "Mobile app"
+    }
   },
   "onboarding": {
     "welcome": "Welcome to Roomi",
