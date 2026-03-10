@@ -366,6 +366,7 @@
     "currentPlan": "Текущий план:",
     "planPrice": "{{price}} ₽/мес",
     "planExpires": "Демо до {{date}}",
+    "demoUntilDateTime": "до {{dateTime}}",
     "planExpired": "Демо истекло",
     "planLimits": "Лимиты",
     "planLimitProperties": "Объекты",

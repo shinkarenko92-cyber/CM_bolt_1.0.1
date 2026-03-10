@@ -57,6 +57,15 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
     });
   };
 
+  const formatDateTime = (dateString: string | null | undefined) => {
+    if (!dateString) return '';
+    const d = new Date(dateString);
+    const locale = i18n.language === 'ru' ? 'ru-RU' : 'en-US';
+    const date = d.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' });
+    const time = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+    return `${date}, ${time}`;
+  };
+
   const isDemoPlan = tier === 'free' || tier === 'basic' || tier === 'demo' || tier === 'trial';
   const planFeatures = [
     {
@@ -322,6 +331,11 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
             <div className="text-black font-semibold">
               {t('settings.currentPlan', { defaultValue: 'Текущий план:' })}{' '}
               <span className="text-primary">{tierLabels[tier] ?? tier}</span>
+              {isDemoPlan && profile?.subscription_expires_at && !expiredDemo && (
+                <span className="text-slate-600 font-normal text-sm ml-1">
+                  {' '}({t('settings.demoUntilDateTime', { defaultValue: 'до {{dateTime}}', dateTime: formatDateTime(profile.subscription_expires_at) })})
+                </span>
+              )}
             </div>
             {isDemoPlan && profile?.subscription_expires_at ? (
               <span className={`text-xs px-2 py-1 rounded-full ${expiredDemo ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-800'}`}>
