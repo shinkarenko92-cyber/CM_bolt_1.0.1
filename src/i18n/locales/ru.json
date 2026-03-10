@@ -374,8 +374,9 @@
     "unlimited": "Без ограничений",
     "planUnknown": "—",
     "planHelp": "Чтобы изменить тариф, напишите в поддержку: support@roomi.pro",
-    "trial5Days": "Trial 5 дней",
-    "trialDescription": "При регистрации вам доступен Trial 5 дней — все функции включены, безлимитное количество объектов.",
+    "trial5Days": "Demo 5 дней",
+    "trialDescription": "В тарифе Demo 5 дней доступно всё: безлимит объектов (999), все функции. Мобильное приложение (скоро апрель 2026).",
+    "demoDescription": "В тарифе Demo 5 дней доступно всё: безлимит объектов (999), все функции. Мобильное приложение (скоро апрель 2026).",
     "exportFound": "Найдено {{count}} бронирований для экспорта"
   },
   "history": {
@@ -609,12 +610,14 @@
     "demoExpired": "Демо закончилось. Выберите тариф в профиле для продолжения работы.",
     "openProfile": "Профиль и тариф",
     "tiers": {
-      "free": "Free",
+      "free": "Demo 5 дней",
+      "basic": "Demo 5 дней",
+      "demo": "Demo 5 дней",
+      "trial": "Demo 5 дней",
       "standard": "Standard",
       "pro": "Pro",
       "business": "Business",
-      "enterprise": "Enterprise",
-      "demo": "Demo"
+      "enterprise": "Enterprise"
     },
     "features": {
       "calendar": "Календарь и бронирования",
@@ -624,7 +627,7 @@
       "templates": "Шаблоны сообщений",
       "ai": "AI‑поддержка",
       "mobile": "Мобильное приложение",
-      "mobileWithSoon": "Мобильное приложение (скоро Апрель 2026)"
+      "mobileWithSoon": "Мобильное приложение (скоро апрель 2026)"
     }
   },
   "onboarding": {

@@ -366,8 +366,9 @@
     "unlimited": "Unlimited",
     "planUnknown": "—",
     "planHelp": "To change your plan, contact support: support@roomi.pro",
-    "trial5Days": "Trial 5 days",
-    "trialDescription": "On registration you get a 5-day Trial — all features included, unlimited number of properties.",
+    "trial5Days": "Demo 5 days",
+    "trialDescription": "Demo 5 days includes everything: unlimited properties (999), all features. Mobile app (coming April 2026).",
+    "demoDescription": "Demo 5 days includes everything: unlimited properties (999), all features. Mobile app (coming April 2026).",
     "exportFound": "Found {{count}} bookings for export"
   },
   "history": {
@@ -598,12 +599,14 @@
     "demoExpired": "Demo ended. Choose a plan in profile to continue.",
     "openProfile": "Profile & plan",
     "tiers": {
-      "free": "Free",
+      "free": "Demo 5 days",
+      "basic": "Demo 5 days",
+      "demo": "Demo 5 days",
+      "trial": "Demo 5 days",
       "standard": "Standard",
       "pro": "Pro",
       "business": "Business",
-      "enterprise": "Enterprise",
-      "demo": "Demo"
+      "enterprise": "Enterprise"
     },
     "features": {
       "calendar": "Calendar & bookings",

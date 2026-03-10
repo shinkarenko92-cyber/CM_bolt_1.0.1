@@ -2,11 +2,11 @@ import type { Profile } from '@/lib/supabase';
 
 /**
  * Лимиты по тарифам — единый источник правды.
- * Demo: 7 дней при первой регистрации, все функции, без ограничений.
+ * Demo: 5 дней, все функции, безлимит объектов (999).
  * Start: 1–3 квартиры, Pro: 4–8, Business: 8–15, Enterprise: 15+.
  */
 
-/** Максимальное число объектов недвижимости по тарифу. Trial (free/basic): безлимит. */
+/** Максимальное число объектов по тарифу. Demo (free/basic/demo/trial): 999 (безлимит). */
 export const PROPERTY_LIMITS: Record<string, number> = {
   free: 999,
   basic: 999,
@@ -53,10 +53,10 @@ export const TIER_PRICE_RUB: Record<string, number | null> = {
 
 /** Описание диапазона объектов по тарифу (для UI) */
 export const TIER_OBJECT_RANGE: Record<string, string> = {
-  free: 'Любое количество объектов',
-  basic: 'Любое количество объектов',
-  demo: 'Все функции без ограничений',
-  trial: 'Все функции без ограничений',
+  free: 'Безлимит объектов (999)',
+  basic: 'Безлимит объектов (999)',
+  demo: 'Безлимит объектов (999)',
+  trial: 'Безлимит объектов (999)',
   start: '1–3 квартиры',
   starter: '1–3 квартиры',
   pro: '4–8 квартир',

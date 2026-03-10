@@ -36,10 +36,10 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
   const bookingLimit = getBookingLimit(profile ?? null);
 
   const tierLabels: Record<string, string> = {
-    free: t('settings.trial5Days', { defaultValue: 'Trial 5 дней' }),
-    basic: t('settings.trial5Days', { defaultValue: 'Trial 5 дней' }),
-    demo: t('subscription.tiers.demo', { defaultValue: 'Demo' }),
-    trial: t('subscription.tiers.demo', { defaultValue: 'Demo' }),
+    free: t('subscription.tiers.demo', { defaultValue: 'Demo 5 дней' }),
+    basic: t('subscription.tiers.demo', { defaultValue: 'Demo 5 дней' }),
+    demo: t('subscription.tiers.demo', { defaultValue: 'Demo 5 дней' }),
+    trial: t('subscription.tiers.demo', { defaultValue: 'Demo 5 дней' }),
     start: t('subscription.tiers.standard', { defaultValue: 'Standard' }),
     starter: t('subscription.tiers.standard', { defaultValue: 'Standard' }),
     pro: t('subscription.tiers.pro', { defaultValue: 'Pro' }),
@@ -57,7 +57,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
     });
   };
 
-  const isTrialPlan = tier === 'free' || tier === 'basic';
+  const isDemoPlan = tier === 'free' || tier === 'basic' || tier === 'demo' || tier === 'trial';
   const planFeatures = [
     {
       key: 'calendar',
@@ -72,26 +72,26 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
     {
       key: 'channel',
       label: t('subscription.features.channels', { defaultValue: 'Подключение Avito/других площадок' }),
-      enabled: isTrialPlan || (tier !== 'free' && tier !== 'basic'),
+      enabled: isDemoPlan || tier === 'start' || tier === 'starter' || tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
     },
     {
       key: 'export',
       label: t('subscription.features.export', { defaultValue: 'Экспорт и отчёты' }),
-      enabled: isTrialPlan || (tier !== 'free' && tier !== 'basic'),
+      enabled: isDemoPlan || tier === 'start' || tier === 'starter' || tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
     },
     {
       key: 'templates',
       label: t('subscription.features.templates', { defaultValue: 'Шаблоны сообщений' }),
-      enabled: isTrialPlan || tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
+      enabled: isDemoPlan || tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
     },
     {
       key: 'ai',
       label: t('subscription.features.ai', { defaultValue: 'AI‑поддержка' }),
-      enabled: isTrialPlan || tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
+      enabled: isDemoPlan || tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
     },
     {
       key: 'mobile',
-      label: t('subscription.features.mobileWithSoon', { defaultValue: 'Мобильное приложение (скоро Апрель 2026)' }),
+      label: t('subscription.features.mobileWithSoon', { defaultValue: 'Мобильное приложение (скоро апрель 2026)' }),
       enabled: true,
     },
   ] as const;
@@ -331,7 +331,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
                 {t('settings.planPrice', { defaultValue: '{{price}} ₽/мес', price: tierPriceRub })}
               </span>
             )}
-            {(tier === 'demo' || tier === 'trial') && profile?.subscription_expires_at && (
+            {(tier === 'demo' || tier === 'trial' || tier === 'free' || tier === 'basic') && profile?.subscription_expires_at && (
               <span className={`text-xs px-2 py-1 rounded-full ${expiredDemo ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}>
                 {expiredDemo
                   ? t('settings.planExpired', { defaultValue: 'Демо истекло' })
@@ -340,9 +340,9 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
             )}
           </div>
 
-          {isTrialPlan && (
+          {isDemoPlan && (
             <p className="mt-3 text-sm text-slate-700">
-              {t('settings.trialDescription', { defaultValue: 'При регистрации вам доступен Trial 5 дней — все функции включены, безлимитное количество объектов.' })}
+              {t('settings.demoDescription', { defaultValue: 'В тарифе Demo 5 дней доступно всё: безлимит объектов (999), все функции. Мобильное приложение (скоро апрель 2026).' })}
             </p>
           )}
 

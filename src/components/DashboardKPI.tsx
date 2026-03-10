@@ -20,7 +20,8 @@ function convertToRUB(amount: number, currency: string): number {
 }
 
 export function DashboardKPI({ bookings, properties }: DashboardKPIProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const monthName = new Date().toLocaleDateString(i18n.language === 'ru' ? 'ru-RU' : 'en-US', { month: 'long' });
 
   const kpi = useMemo(() => {
     const now = new Date();
@@ -72,7 +73,7 @@ export function DashboardKPI({ bookings, properties }: DashboardKPIProps) {
       color: 'text-brand',
     },
     {
-      label: t('dashboard.revenueMtd', { defaultValue: 'Выручка MTD' }),
+      label: t('dashboard.revenueMonth', { month: monthName, defaultValue: `Выручка ${monthName}` }),
       value: `${Math.round(kpi.revenue).toLocaleString('ru-RU')} ₽`,
       icon: TrendingUp,
       color: 'text-green-500',

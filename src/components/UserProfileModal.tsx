@@ -91,10 +91,10 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
     : false;
 
   const tierLabels: Record<string, string> = {
-    free: 'Free',
-    basic: 'Basic',
-    demo: 'Demo',
-    trial: 'Demo',
+    free: 'Demo 5 дней',
+    basic: 'Demo 5 дней',
+    demo: 'Demo 5 дней',
+    trial: 'Demo 5 дней',
     start: 'Start',
     starter: 'Start',
     pro: 'Pro',
