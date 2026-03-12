@@ -261,7 +261,8 @@ export async function getInventoryItems(propertyId: string): Promise<InventoryIt
 }
 
 export async function saveInventoryCheck(taskId: string, checks: InventoryCheckInput[]): Promise<InventoryCheck[]> {
-  await supabase.from('inventory_checks').delete().eq('task_id', taskId);
+  const { error: deleteError } = await supabase.from('inventory_checks').delete().eq('task_id', taskId);
+  if (deleteError) throw deleteError;
 
   if (checks.length === 0) return [];
 

@@ -16,22 +16,23 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const { signOut, isAdmin, profile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
-  const menuItems = [
-    { id: 'calendar', icon: Calendar, label: t('nav.calendar') },
-    { id: 'properties', icon: Home, label: t('nav.properties') },
-    { id: 'bookings', icon: Users, label: t('nav.bookings') },
-    { id: 'messages', icon: MessageCircle, label: t('nav.messages') },
-    { id: 'analytics', icon: BarChart3, label: t('nav.analytics') },
-    { id: 'settings', icon: Settings, label: t('nav.settings') },
-  ];
+  const isCleaner = profile?.role === 'cleaner';
 
-  if (isAdmin || profile?.role === 'cleaner') {
-    menuItems.splice(3, 0, { id: 'cleaning', icon: Sparkles, label: t('nav.cleaning', { defaultValue: 'Уборка' }) });
-  }
-
-  if (isAdmin) {
-    menuItems.push({ id: 'admin', icon: Shield, label: t('nav.admin') });
-  }
+  const menuItems = isCleaner
+    ? [
+        { id: 'cleaning', icon: Sparkles, label: t('nav.cleaning', { defaultValue: 'Уборка' }) },
+        { id: 'settings', icon: Settings, label: t('nav.settings') },
+      ]
+    : [
+        { id: 'calendar', icon: Calendar, label: t('nav.calendar') },
+        { id: 'properties', icon: Home, label: t('nav.properties') },
+        { id: 'bookings', icon: Users, label: t('nav.bookings') },
+        { id: 'messages', icon: MessageCircle, label: t('nav.messages') },
+        ...(isAdmin ? [{ id: 'cleaning', icon: Sparkles, label: t('nav.cleaning', { defaultValue: 'Уборка' }) }] : []),
+        { id: 'analytics', icon: BarChart3, label: t('nav.analytics') },
+        { id: 'settings', icon: Settings, label: t('nav.settings') },
+        ...(isAdmin ? [{ id: 'admin', icon: Shield, label: t('nav.admin') }] : []),
+      ];
 
   const handleNavClick = (id: string) => {
     onViewChange(id);

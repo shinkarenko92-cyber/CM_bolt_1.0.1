@@ -223,10 +223,11 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
                             )}
                           </div>
                         ))}
-                        <label className="w-20 h-20 rounded border-2 border-dashed flex items-center justify-center cursor-pointer hover:bg-muted/50">
+                        <label className="w-20 h-20 rounded border-2 border-dashed flex items-center justify-center cursor-pointer hover:bg-muted/50 touch-manipulation">
                           <input
                             type="file"
                             accept="image/*"
+                            capture="environment"
                             className="hidden"
                             disabled={uploading !== null}
                             onChange={(e) => {
@@ -251,10 +252,11 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
                             )}
                           </div>
                         ))}
-                        <label className="w-20 h-20 rounded border-2 border-dashed flex items-center justify-center cursor-pointer hover:bg-muted/50">
+                        <label className="w-20 h-20 rounded border-2 border-dashed flex items-center justify-center cursor-pointer hover:bg-muted/50 touch-manipulation">
                           <input
                             type="file"
                             accept="image/*"
+                            capture="environment"
                             className="hidden"
                             disabled={uploading !== null}
                             onChange={(e) => {
@@ -286,15 +288,16 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
                       <Input
                         type="number"
                         placeholder="факт"
-                        className="w-20 h-8"
+                        className="w-20 h-10"
                         value={checks[item.id]?.actual_count ?? ''}
                         onChange={(e) => {
                           const v = e.target.value;
+                          const parsed = parseInt(v, 10);
                           setChecks((prev) => ({
                             ...prev,
                             [item.id]: {
                               ...prev[item.id],
-                              actual_count: v === '' ? null : parseInt(v, 10),
+                              actual_count: v === '' ? null : Number.isNaN(parsed) ? 0 : parsed,
                             },
                           }));
                         }}
@@ -314,7 +317,7 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
                       </label>
                       <Input
                         placeholder={t('cleaning.cleaner.note', { defaultValue: 'Заметка' })}
-                        className="flex-1 min-w-0 h-8 text-xs"
+                        className="flex-1 min-w-0 h-10 text-xs"
                         value={checks[item.id]?.note ?? ''}
                         onChange={(e) =>
                           setChecks((prev) => ({

@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import type { CleaningTask, CleaningStatus } from '@/types/cleaning';
 import { TaskDetailSheet } from '@/pages/Cleaning/TaskDetailSheet';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
+import { Loader2 } from 'lucide-react';
 
 const today = () => new Date().toISOString().slice(0, 10);
 const tomorrow = () => {
@@ -22,6 +23,42 @@ export function CleaningCleanerView() {
   const { tasks, loading, fetchTasks, setSelectedWeekStart } = useCleaning();
   const [detailTask, setDetailTask] = useState<CleaningTask | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const startYRef = useRef(0);
+  const pullDistanceRef = useRef(0);
+  const [pullIndicator, setPullIndicator] = useState(0);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (scrollRef.current && scrollRef.current.scrollTop === 0) {
+      startYRef.current = e.touches[0].clientY;
+    } else {
+      startYRef.current = 0;
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!startYRef.current) return;
+    const diff = e.touches[0].clientY - startYRef.current;
+    pullDistanceRef.current = Math.max(0, diff);
+    setPullIndicator(Math.min(pullDistanceRef.current / 80, 1));
+  }, []);
+
+  const handleTouchEnd = useCallback(async () => {
+    if (pullDistanceRef.current > 80 && !refreshing) {
+      setRefreshing(true);
+      setPullIndicator(1);
+      try {
+        await fetchTasks();
+      } finally {
+        setRefreshing(false);
+      }
+    }
+    pullDistanceRef.current = 0;
+    startYRef.current = 0;
+    setPullIndicator(0);
+  }, [fetchTasks, refreshing]);
 
   useEffect(() => {
     setSelectedWeekStart(new Date());
@@ -54,7 +91,21 @@ export function CleaningCleanerView() {
   );
 
   return (
-    <div className="flex-1 flex flex-col overflow-auto p-4">
+    <div
+      ref={scrollRef}
+      className="flex-1 flex flex-col overflow-auto p-4 pb-20"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {(pullIndicator > 0 || refreshing) && (
+        <div
+          className="flex items-center justify-center transition-all"
+          style={{ height: refreshing ? 40 : pullIndicator * 40, opacity: refreshing ? 1 : pullIndicator }}
+        >
+          <Loader2 className={cn('h-5 w-5 text-primary', refreshing && 'animate-spin')} />
+        </div>
+      )}
       <header className="mb-4">
         <h1 className="text-xl font-bold tracking-tight">
           {t('cleaning.cleaner.title', { defaultValue: 'Мои уборки' })}
@@ -173,8 +224,54 @@ function TaskCard({
   const isInProgress = task.status === 'in_progress';
   const isDone = task.status === 'done';
 
+  const swipeStartXRef = useRef(0);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+
+  const handleSwipeStart = (e: React.TouchEvent) => {
+    swipeStartXRef.current = e.touches[0].clientX;
+  };
+  const handleSwipeMove = (e: React.TouchEvent) => {
+    if (!swipeStartXRef.current) return;
+    const diff = e.touches[0].clientX - swipeStartXRef.current;
+    if (diff > 0 && (isPending || isInProgress)) {
+      setSwipeOffset(Math.min(diff, 100));
+    }
+  };
+  const handleSwipeEnd = () => {
+    if (swipeOffset > 60) {
+      if (isPending) onStatusChange(task.id, 'in_progress');
+      else if (isInProgress) onStatusChange(task.id, 'done');
+    }
+    setSwipeOffset(0);
+    swipeStartXRef.current = 0;
+  };
+
+  const swipeLabel = isPending
+    ? t('cleaning.cleaner.start', { defaultValue: 'Начать' })
+    : isInProgress
+      ? t('cleaning.cleaner.finish', { defaultValue: 'Завершить' })
+      : '';
+
   return (
-    <Card className="p-4">
+    <div className="relative overflow-hidden rounded-xl">
+      {(isPending || isInProgress) && (
+        <div
+          className={cn(
+            'absolute inset-y-0 left-0 flex items-center pl-4 text-sm font-medium text-white',
+            isPending ? 'bg-blue-500' : 'bg-green-500',
+          )}
+          style={{ width: swipeOffset }}
+        >
+          {swipeOffset > 40 && <span className="whitespace-nowrap">{swipeLabel}</span>}
+        </div>
+      )}
+      <Card
+        className="p-4 relative transition-transform"
+        style={{ transform: `translateX(${swipeOffset}px)` }}
+        onTouchStart={handleSwipeStart}
+        onTouchMove={handleSwipeMove}
+        onTouchEnd={handleSwipeEnd}
+      >
       <div className="flex flex-col gap-2">
         <p className="text-lg font-semibold leading-tight">
           {task.address || t('common.unknown')}
@@ -189,7 +286,7 @@ function TaskCard({
           )}
         </div>
         <div className="flex items-center gap-2 mt-2 flex-wrap">
-          <Button variant="ghost" size="sm" onClick={onOpenDetail}>
+          <Button variant="ghost" className="h-11 px-4" onClick={onOpenDetail}>
             {t('cleaning.cleaner.details', { defaultValue: 'Подробнее' })}
           </Button>
           <Badge
@@ -206,7 +303,7 @@ function TaskCard({
           </Badge>
           {isPending && (
             <Button
-              size="sm"
+              className="h-11 px-5"
               onClick={() => onStatusChange(task.id, 'in_progress')}
             >
               {t('cleaning.cleaner.start', { defaultValue: 'Начать' })}
@@ -214,7 +311,7 @@ function TaskCard({
           )}
           {isInProgress && (
             <Button
-              size="sm"
+              className="h-11 px-5"
               variant="secondary"
               onClick={() => onStatusChange(task.id, 'done')}
             >
@@ -224,5 +321,6 @@ function TaskCard({
         </div>
       </div>
     </Card>
+    </div>
   );
 }

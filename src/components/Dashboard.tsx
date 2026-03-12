@@ -54,6 +54,7 @@ import { logBookingChange, getBookingChanges } from '@/services/bookingLog';
 import { getPropertyLimit, getBookingLimit, isDemoExpired } from '@/utils/subscriptionLimits';
 import { CleaningAdminView } from '@/pages/Cleaning/AdminView';
 import { CleaningCleanerView } from '@/pages/Cleaning/CleanerView';
+import { BottomNav } from '@/components/BottomNav';
 
 type NewReservation = {
   property_id: string;
@@ -157,10 +158,11 @@ type AvitoMessageRow = {
 
 export function Dashboard() {
   const { t } = useTranslation();
-  const { user, isAdmin, refreshProfile } = useAuth();
+  const { user, isAdmin, refreshProfile, profile: authProfile } = useAuth();
+  const isCleaner = authProfile?.role === 'cleaner';
   const location = useLocation();
   const navigate = useNavigate();
-  const [currentView, setCurrentView] = useState('calendar');
+  const [currentView, setCurrentView] = useState(isCleaner ? 'cleaning' : 'calendar');
   const [properties, setProperties] = useState<Property[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
@@ -1951,7 +1953,11 @@ export function Dashboard() {
 
   return (
     <div className="flex h-screen bg-background text-foreground">
-      <Sidebar currentView={currentView} onViewChange={setCurrentView} />
+      {isCleaner && isMobile ? (
+        <BottomNav currentView={currentView} onViewChange={setCurrentView} />
+      ) : (
+        <Sidebar currentView={currentView} onViewChange={setCurrentView} />
+      )}
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="relative z-40 backdrop-blur-md bg-card/90 border-b border-border px-3 md:px-6 py-3 md:py-4 shadow-lg transition-shadow duration-200">

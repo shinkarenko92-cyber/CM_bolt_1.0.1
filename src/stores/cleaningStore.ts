@@ -11,6 +11,7 @@ interface CleaningState {
   selectedWeekStart: Date;
   selectedTaskId: string | null;
   loading: boolean;
+  cleanersLoading: boolean;
   error: string | null;
 }
 
@@ -38,6 +39,7 @@ export const useCleaningStore = create<CleaningStore>((set, get) => ({
   selectedWeekStart: getWeekStart(new Date()),
   selectedTaskId: null,
   loading: false,
+  cleanersLoading: false,
   error: null,
 
   setSelectedWeekStart: (date: Date) => {
@@ -64,12 +66,14 @@ export const useCleaningStore = create<CleaningStore>((set, get) => ({
   },
 
   fetchCleaners: async () => {
+    set({ cleanersLoading: true });
     try {
       const cleaners = await getCleaners();
-      set({ cleaners });
+      set({ cleaners, cleanersLoading: false });
     } catch (error) {
       console.error('Failed to load cleaners', error);
       set({
+        cleanersLoading: false,
         error: error instanceof Error ? error.message : 'Failed to load cleaners',
       });
     }

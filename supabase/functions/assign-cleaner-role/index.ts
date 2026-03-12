@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://app.roomi.pro",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -148,6 +148,9 @@ Deno.serve(async (req: Request) => {
 
     if (cleanerError) {
       console.error("Error creating cleaner:", cleanerError);
+      await adminClient.auth.admin.deleteUser(newUser.id).catch((e: unknown) =>
+        console.error("Rollback: failed to delete orphaned user", e),
+      );
       return jsonResponse({ error: "Failed to create cleaner" }, 500);
     }
 
@@ -158,6 +161,12 @@ Deno.serve(async (req: Request) => {
 
     if (profileError) {
       console.error("Error updating profile role:", profileError);
+      await adminClient.from("cleaners").delete().eq("user_id", newUser.id).catch((e: unknown) =>
+        console.error("Rollback: failed to delete cleaner row", e),
+      );
+      await adminClient.auth.admin.deleteUser(newUser.id).catch((e: unknown) =>
+        console.error("Rollback: failed to delete orphaned user", e),
+      );
       return jsonResponse({ error: "Failed to update user role" }, 500);
     }
 

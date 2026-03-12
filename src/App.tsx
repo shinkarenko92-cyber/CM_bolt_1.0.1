@@ -21,6 +21,7 @@ import { CookieConsentBanner } from '@/components/CookieConsentBanner';
 import { AvitoErrorQueue } from '@/components/AvitoErrorQueue';
 import { SyncLogProvider } from '@/contexts/SyncLogContext';
 import { AvitoSyncErrorsHandler } from '@/components/AvitoSyncErrorsHandler';
+import { InstallPWA } from '@/components/InstallPWA';
 
 function MainOrRedirect() {
   const { user, loading } = useAuth();
@@ -86,6 +87,7 @@ function AppContent() {
       <AvitoSyncErrorsHandler />
       <BoltChatWidget />
       <CookieConsentBanner />
+      <InstallPWA />
     </SyncLogProvider>
   );
 }

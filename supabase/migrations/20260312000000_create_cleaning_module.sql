@@ -1,18 +1,8 @@
 -- Cleaning module: cleaners, cleaning tasks, photos, inventory, supplies, comments
 
 -- 1) Extend user_role enum with 'cleaner'
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_type t
-    JOIN pg_enum e ON t.oid = e.enumtypid
-    WHERE t.typname = 'user_role'
-      AND e.enumlabel = 'cleaner'
-  ) THEN
-    ALTER TYPE user_role ADD VALUE 'cleaner';
-  END IF;
-END $$;
+-- ADD VALUE IF NOT EXISTS requires PG 12+ and must be outside a DO $$ block
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'cleaner';
 
 -- 2) Cleaners table
 CREATE TABLE IF NOT EXISTS cleaners (

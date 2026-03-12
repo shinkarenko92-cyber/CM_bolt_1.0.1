@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://app.roomi.pro",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -69,6 +69,16 @@ Deno.serve(async (req: Request) => {
 
     if (userError || !user) {
       return jsonResponse({ error: "Invalid or expired token" }, 401);
+    }
+
+    const { data: callerProfile } = await client
+      .from("profiles")
+      .select("role, is_active")
+      .eq("id", user.id)
+      .single();
+
+    if (callerProfile?.role !== "admin" || callerProfile?.is_active !== true) {
+      return jsonResponse({ error: "Forbidden: admin role required" }, 403);
     }
 
     const contentType = req.headers.get("Content-Type") || "";
