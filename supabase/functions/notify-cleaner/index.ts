@@ -38,7 +38,7 @@ async function sendTelegramMessage(token: string, chatId: string, text: string):
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { status: 200, headers: corsHeaders });
   }
 
   try {
