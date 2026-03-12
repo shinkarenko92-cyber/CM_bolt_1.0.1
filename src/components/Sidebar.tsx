@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, Home, Settings, BarChart3, Users, LogOut, Shield, Menu, X, MessageCircle } from 'lucide-react';
+import { Calendar, Home, Settings, BarChart3, Users, LogOut, Shield, Menu, X, MessageCircle, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ type SidebarProps = {
 
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const { t } = useTranslation();
-  const { signOut, isAdmin } = useAuth();
+  const { signOut, isAdmin, profile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
   const menuItems = [
@@ -24,6 +24,10 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
     { id: 'analytics', icon: BarChart3, label: t('nav.analytics') },
     { id: 'settings', icon: Settings, label: t('nav.settings') },
   ];
+
+  if (isAdmin || profile?.role === 'cleaner') {
+    menuItems.splice(3, 0, { id: 'cleaning', icon: Sparkles, label: t('nav.cleaning', { defaultValue: 'Уборка' }) });
+  }
 
   if (isAdmin) {
     menuItems.push({ id: 'admin', icon: Shield, label: t('nav.admin') });

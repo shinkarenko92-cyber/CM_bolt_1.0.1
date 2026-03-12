@@ -1,3 +1,4 @@
+import { Navbar } from "@/components/landing/Navbar";
 import { Hero } from "@/components/landing/Hero";
 import { Features } from "@/components/landing/Features";
 import { HowItWorks } from "@/components/landing/HowItWorks";
@@ -9,11 +10,20 @@ import { Footer } from "@/components/landing/Footer";
 const Index = () => {
   return (
     <div className="min-h-screen flex flex-col">
+      <Navbar />
       <Hero />
-      <Features />
-      <HowItWorks />
-      <Pricing />
-      <Testimonials />
+      <section id="features">
+        <Features />
+      </section>
+      <section id="how-it-works">
+        <HowItWorks />
+      </section>
+      <section id="pricing">
+        <Pricing />
+      </section>
+      <section id="testimonials">
+        <Testimonials />
+      </section>
       <CTA />
       <Footer />
     </div>

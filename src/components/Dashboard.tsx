@@ -52,6 +52,8 @@ import {
 } from '@/components/ui/dialog';
 import { logBookingChange, getBookingChanges } from '@/services/bookingLog';
 import { getPropertyLimit, getBookingLimit, isDemoExpired } from '@/utils/subscriptionLimits';
+import { CleaningAdminView } from '@/pages/Cleaning/AdminView';
+import { CleaningCleanerView } from '@/pages/Cleaning/CleanerView';
 
 type NewReservation = {
   property_id: string;
@@ -2165,6 +2167,8 @@ export function Dashboard() {
           ) : (
             <AnalyticsView bookings={bookings} properties={properties} />
           )
+        ) : currentView === 'cleaning' ? (
+          isAdmin ? <CleaningAdminView properties={properties} /> : <CleaningCleanerView />
         ) : currentView === 'admin' && isAdmin ? (
           <AdminView />
         ) : currentView === 'settings' ? (

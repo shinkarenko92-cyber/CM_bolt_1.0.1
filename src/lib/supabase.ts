@@ -92,7 +92,7 @@ export type Profile = {
   phone_confirmed_at?: string | null;
   subscription_tier?: string;
   subscription_expires_at?: string | null;
-  role?: 'user' | 'admin';
+  role?: 'user' | 'admin' | 'cleaner';
   is_active?: boolean;
   theme?: 'light' | 'dark';
   onboarding_survey?: Record<string, unknown> | null;
