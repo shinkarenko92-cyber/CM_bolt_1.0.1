@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import type { Cleaner } from '@/types/cleaning';
 import {
   Dialog,
   DialogContent,
@@ -14,13 +15,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCleaning } from '@/stores/cleaningStore';
 import { assignCleanerRole } from '@/services/cleaning';
-import type { Cleaner } from '@/types/cleaning';
 import toast from 'react-hot-toast';
 
-export function CleanerProfiles() {
+type CleanerProfilesProps = {
+  addDialogOpen?: boolean;
+  onAddDialogOpenChange?: (open: boolean) => void;
+};
+
+export function CleanerProfiles({ addDialogOpen, onAddDialogOpenChange }: CleanerProfilesProps = {}) {
   const { t } = useTranslation();
   const { cleaners, fetchCleaners } = useCleaning();
-  const [open, setOpen] = useState(false);
+  const [openLocal, setOpenLocal] = useState(false);
+  const isControlled = addDialogOpen !== undefined && onAddDialogOpenChange !== undefined;
+  const open = isControlled ? addDialogOpen! : openLocal;
+  const setOpen = isControlled ? onAddDialogOpenChange! : setOpenLocal;
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
@@ -60,26 +68,29 @@ export function CleanerProfiles() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Кнопка в одной линии с «Добавить уборку» в календаре */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="min-w-[180px]" />
-        <Button onClick={() => setOpen(true)} size="sm">
-          <Plus className="h-4 w-4 mr-1" />
-          {t('cleaning.admin.addCleaner', { defaultValue: 'Добавить уборщицу' })}
-        </Button>
-      </div>
+    <div className="flex flex-col gap-4 flex-1 min-h-0">
+      {!isControlled && (
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="min-w-[180px]" />
+          <Button onClick={() => setOpen(true)} size="sm">
+            <Plus className="h-4 w-4 mr-1" />
+            {t('cleaning.admin.addCleaner', { defaultValue: 'Добавить уборщицу' })}
+          </Button>
+        </div>
+      )}
 
       {cleaners.length > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 overflow-auto">
           {cleaners.map((c) => (
             <CleanerCard key={c.id} cleaner={c} />
           ))}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground text-center py-12">
-          {t('cleaning.admin.noCleaners', { defaultValue: 'Нет уборщиц. Добавьте по email.' })}
-        </p>
+        <div className="flex-1 flex items-center justify-center min-h-[200px]">
+          <p className="text-sm text-muted-foreground text-center">
+            {t('cleaning.admin.noCleaners', { defaultValue: 'Нет уборщиц. Добавьте по email.' })}
+          </p>
+        </div>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>

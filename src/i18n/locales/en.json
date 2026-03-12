@@ -110,6 +110,7 @@
       "tabCleaners": "Cleaners",
       "addTask": "Add cleaning",
       "addCleaner": "Add cleaner",
+      "addCleanerFirst": "Add a cleaner first",
       "noCleaners": "No cleaners. Add one by email.",
       "cleanerEmailRequired": "Enter email",
       "cleanerAdded": "Cleaner added",

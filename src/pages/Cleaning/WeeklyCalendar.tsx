@@ -9,8 +9,6 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import type { CleaningTask, Cleaner } from '@/types/cleaning';
 import { updateTaskSchedule } from '@/services/cleaning';
 import { cn } from '@/lib/utils';
@@ -100,20 +98,14 @@ type WeeklyCalendarProps = {
   weekStart: Date;
   tasks: CleaningTask[];
   cleaners: Cleaner[];
-  onPrevWeek: () => void;
-  onNextWeek: () => void;
   onRefresh: () => void;
-  onAddTask: () => void;
 };
 
 export function WeeklyCalendar({
   weekStart,
   tasks,
   cleaners,
-  onPrevWeek,
-  onNextWeek,
   onRefresh,
-  onAddTask,
 }: WeeklyCalendarProps) {
   const { t } = useTranslation();
   const weekDays = getWeekDays(weekStart);
@@ -158,25 +150,6 @@ export function WeeklyCalendar({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={onPrevWeek} aria-label={t('calendar.prevWeek')}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm font-medium min-w-[180px] text-center">
-            {weekDays[0].toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} —{' '}
-            {weekDays[DAYS - 1].toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}
-          </span>
-          <Button variant="outline" size="icon" onClick={onNextWeek} aria-label={t('calendar.nextWeek')}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-        <Button onClick={onAddTask} size="sm">
-          <Plus className="h-4 w-4 mr-1" />
-          {t('cleaning.admin.addTask', { defaultValue: 'Добавить уборку' })}
-        </Button>
-      </div>
-
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="border rounded-lg overflow-auto max-h-[60vh]">
           <table className="w-full border-collapse min-w-[700px]">

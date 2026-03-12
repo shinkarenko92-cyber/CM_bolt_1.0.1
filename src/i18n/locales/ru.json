@@ -114,6 +114,7 @@
       "cleanersCta": "Управление в разработке",
       "addTask": "Добавить уборку",
       "addCleaner": "Добавить уборщицу",
+      "addCleanerFirst": "Для начала добавьте уборщицу",
       "noCleaners": "Нет уборщиц. Добавьте по email.",
       "cleanerEmailRequired": "Введите email",
       "cleanerAdded": "Уборщица добавлена",
