@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus } from 'lucide-react';
+import { Plus, Phone, Send, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import type { Cleaner } from '@/types/cleaning';
 import {
   Dialog,
@@ -77,29 +78,29 @@ export function CleanerProfiles({ addDialogOpen, onAddDialogOpenChange }: Cleane
   };
 
   return (
-    <div className="flex flex-col gap-4 overflow-auto">
-      {!isControlled && (
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="min-w-[180px]" />
-          <Button onClick={() => setOpen(true)} size="sm">
-            <Plus className="h-4 w-4 mr-1" />
-            {t('cleaning.admin.addCleaner', { defaultValue: 'Добавить уборщицу' })}
-          </Button>
-        </div>
-      )}
-
+    <>
       {cleaners.length > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {cleaners.map((c) => (
             <CleanerCard key={c.id} cleaner={c} />
           ))}
         </div>
       ) : (
-        <div className="py-12 flex items-center justify-center">
-          <p className="text-sm text-muted-foreground text-center">
-            {t('cleaning.admin.noCleaners', { defaultValue: 'Нет уборщиц' })}
+        <Card className="flex flex-col items-center justify-center py-16 px-6 border-dashed">
+          <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center mb-4">
+            <UserPlus className="h-7 w-7 text-muted-foreground" />
+          </div>
+          <p className="text-base font-medium mb-1">
+            {t('cleaning.admin.noCleanersTitle', { defaultValue: 'Нет уборщиц' })}
           </p>
-        </div>
+          <p className="text-sm text-muted-foreground mb-4 text-center max-w-xs">
+            {t('cleaning.admin.noCleanersDesc', { defaultValue: 'Добавьте первую уборщицу, чтобы начать планировать уборки' })}
+          </p>
+          <Button onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4 mr-1.5" />
+            {t('cleaning.admin.addCleaner', { defaultValue: 'Добавить уборщицу' })}
+          </Button>
+        </Card>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -109,17 +110,18 @@ export function CleanerProfiles({ addDialogOpen, onAddDialogOpenChange }: Cleane
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="cleaner-name">{t('auth.firstName')} / Имя *</Label>
+              <Label htmlFor="cleaner-name">Имя *</Label>
               <Input
                 id="cleaner-name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder={t('cleaning.admin.cleanerNamePlaceholder', { defaultValue: 'Имя уборщицы' })}
+                placeholder="Анна Иванова"
                 required
+                autoFocus
               />
             </div>
             <div>
-              <Label htmlFor="cleaner-phone">{t('auth.phone')} *</Label>
+              <Label htmlFor="cleaner-phone">Телефон *</Label>
               <Input
                 id="cleaner-phone"
                 type="tel"
@@ -166,7 +168,7 @@ export function CleanerProfiles({ addDialogOpen, onAddDialogOpenChange }: Cleane
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
 
@@ -180,26 +182,38 @@ function CleanerCard({ cleaner }: { cleaner: Cleaner }) {
     .toUpperCase();
 
   return (
-    <Card className="p-4 transition-shadow hover:shadow-md">
-      <div className="flex items-center gap-3">
+    <Card className="p-4 transition-all hover:shadow-md hover:border-primary/20">
+      <div className="flex items-start gap-3">
         <div
-          className="h-11 w-11 rounded-full shrink-0 flex items-center justify-center text-white text-sm font-semibold"
+          className="h-12 w-12 rounded-full shrink-0 flex items-center justify-center text-white text-sm font-bold shadow-sm"
           style={{ backgroundColor: cleaner.color || '#6b7280' }}
         >
           {initials}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-medium truncate">{cleaner.full_name}</p>
-          {cleaner.phone && <p className="text-xs text-muted-foreground truncate">{cleaner.phone}</p>}
-          {cleaner.telegram_chat_id && (
-            <p className="text-xs text-muted-foreground">TG: {cleaner.telegram_chat_id}</p>
-          )}
+          <div className="flex items-center gap-2">
+            <p className="font-semibold truncate">{cleaner.full_name}</p>
+            {!cleaner.is_active && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                {t('cleaning.admin.inactive', { defaultValue: 'Неактивна' })}
+              </Badge>
+            )}
+          </div>
+          <div className="flex flex-col gap-0.5 mt-1">
+            {cleaner.phone && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Phone className="h-3 w-3" />
+                <span>{cleaner.phone}</span>
+              </div>
+            )}
+            {cleaner.telegram_chat_id && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Send className="h-3 w-3" />
+                <span>TG: {cleaner.telegram_chat_id}</span>
+              </div>
+            )}
+          </div>
         </div>
-        {!cleaner.is_active && (
-          <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
-            {t('cleaning.admin.inactive', { defaultValue: 'Неактивна' })}
-          </span>
-        )}
       </div>
     </Card>
   );

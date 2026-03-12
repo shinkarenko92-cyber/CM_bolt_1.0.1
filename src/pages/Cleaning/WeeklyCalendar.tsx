@@ -12,8 +12,9 @@ import {
 import type { CleaningTask, Cleaner } from '@/types/cleaning';
 import { updateTaskSchedule } from '@/services/cleaning';
 import { cn } from '@/lib/utils';
+import { MapPin, Clock } from 'lucide-react';
 
-const HOURS = Array.from({ length: 17 }, (_, i) => i + 8); // 8:00 - 24:00
+const HOURS = Array.from({ length: 17 }, (_, i) => i + 8);
 const DAYS = 7;
 
 function slotId(dayIndex: number, hour: number): string {
@@ -37,10 +38,9 @@ function getWeekDays(weekStart: Date): Date[] {
 }
 
 function taskToSlotKey(task: CleaningTask, weekStart: Date): string {
-  const d = task.scheduled_date;
   const [h] = task.scheduled_time.split(':').map(Number);
   const start = new Date(weekStart);
-  const taskDate = new Date(d);
+  const taskDate = new Date(task.scheduled_date);
   const dayIndex = Math.round((taskDate.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
   if (dayIndex < 0 || dayIndex >= DAYS) return '';
   return slotId(dayIndex, h);
@@ -49,17 +49,21 @@ function taskToSlotKey(task: CleaningTask, weekStart: Date): string {
 function DroppableSlot({
   id,
   children,
-  className,
+  isToday,
 }: {
   id: string;
   children: React.ReactNode;
-  className?: string;
+  isToday?: boolean;
 }) {
   const { isOver, setNodeRef } = useDroppable({ id });
   return (
     <div
       ref={setNodeRef}
-      className={cn('min-h-[52px] p-1 border border-border/50 rounded', isOver && 'ring-2 ring-primary bg-primary/10', className)}
+      className={cn(
+        'min-h-[48px] p-0.5 rounded-sm transition-colors',
+        isToday ? 'bg-primary/[0.03]' : 'bg-transparent',
+        isOver && 'ring-2 ring-primary/40 bg-primary/10',
+      )}
     >
       {children}
     </div>
@@ -75,7 +79,8 @@ function DraggableTaskCard({
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
   const cleaner = task.cleaner_id ? cleaners.find((c) => c.id === task.cleaner_id) : null;
-  const color = cleaner?.color || '#6b7280';
+  const color = cleaner?.color || '#94a3b8';
+  const time = task.scheduled_time.slice(0, 5);
 
   return (
     <div
@@ -83,13 +88,25 @@ function DraggableTaskCard({
       {...listeners}
       {...attributes}
       className={cn(
-        'text-xs rounded px-2 py-1.5 cursor-grab active:cursor-grabbing truncate border-l-4 shadow-sm',
-        isDragging && 'opacity-50'
+        'text-[11px] leading-tight rounded-md px-2 py-1.5 cursor-grab active:cursor-grabbing',
+        'bg-white dark:bg-card border shadow-sm hover:shadow transition-shadow',
+        isDragging && 'opacity-40 shadow-lg',
       )}
-      style={{ borderLeftColor: color }}
+      style={{ borderLeft: `3px solid ${color}` }}
     >
-      <div className="font-medium truncate">{task.address || task.id.slice(0, 8)}</div>
-      <div className="text-muted-foreground truncate">{cleaner?.full_name ?? '—'}</div>
+      <div className="flex items-center gap-1 text-muted-foreground mb-0.5">
+        <Clock className="h-2.5 w-2.5" />
+        <span>{time}</span>
+      </div>
+      {task.address && (
+        <div className="flex items-start gap-1">
+          <MapPin className="h-2.5 w-2.5 mt-0.5 shrink-0 text-muted-foreground" />
+          <span className="font-medium truncate">{task.address}</span>
+        </div>
+      )}
+      <div className="text-muted-foreground truncate mt-0.5" style={{ color }}>
+        {cleaner?.full_name ?? '—'}
+      </div>
     </div>
   );
 }
@@ -132,11 +149,11 @@ export function WeeklyCalendar({
         console.error('Failed to move task', e);
       }
     },
-    [weekStart, tasks, onRefresh]
+    [weekStart, tasks, onRefresh],
   );
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
   const tasksBySlot = new Map<string, CleaningTask[]>();
@@ -150,38 +167,69 @@ export function WeeklyCalendar({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className="border rounded-lg overflow-auto max-h-[60vh]">
-          <table className="w-full border-collapse min-w-[700px]">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="w-14 p-2 text-left text-xs font-medium text-muted-foreground">
-                  {t('cleaning.admin.time', { defaultValue: 'Время' })}
-                </th>
-                {weekDays.map((d, i) => {
-                  const isToday = d.toISOString().slice(0, 10) === todayStr;
+    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <div className="border rounded-lg overflow-auto max-h-[calc(100vh-280px)] bg-card">
+        <table className="w-full border-collapse min-w-[720px]">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-muted/80 backdrop-blur-sm border-b">
+              <th className="w-[60px] p-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                {t('cleaning.admin.time', { defaultValue: 'Время' })}
+              </th>
+              {weekDays.map((d, i) => {
+                const isToday = d.toISOString().slice(0, 10) === todayStr;
+                const dayNum = d.getDate();
+                return (
+                  <th
+                    key={i}
+                    className={cn(
+                      'p-2 text-center min-w-[110px] transition-colors',
+                      isToday ? 'bg-primary/10' : '',
+                    )}
+                  >
+                    <div className="text-[11px] text-muted-foreground uppercase tracking-wider">
+                      {d.toLocaleDateString('ru-RU', { weekday: 'short' })}
+                    </div>
+                    <div
+                      className={cn(
+                        'text-sm font-semibold mt-0.5',
+                        isToday
+                          ? 'bg-primary text-primary-foreground rounded-full w-7 h-7 flex items-center justify-center mx-auto'
+                          : 'text-foreground',
+                      )}
+                    >
+                      {dayNum}
+                    </div>
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {HOURS.map((hour, idx) => (
+              <tr
+                key={hour}
+                className={cn(
+                  'border-b border-border/40',
+                  idx % 2 === 0 ? '' : 'bg-muted/20',
+                )}
+              >
+                <td className="px-2 py-1 text-[11px] text-muted-foreground align-top whitespace-nowrap tabular-nums">
+                  {hour === 24 ? '24:00' : `${String(hour).padStart(2, '0')}:00`}
+                </td>
+                {weekDays.map((d, dayIndex) => {
+                  const id = slotId(dayIndex, hour);
+                  const slotTasks = tasksBySlot.get(id) ?? [];
+                  const isTodayCol = d.toISOString().slice(0, 10) === todayStr;
                   return (
-                    <th key={i} className={cn('p-2 text-center text-xs font-medium min-w-[120px]', isToday && 'bg-primary/10 text-primary font-semibold')}>
-                      {d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' })}
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {HOURS.map((hour) => (
-                <tr key={hour} className="border-b">
-                  <td className="p-2 text-xs text-muted-foreground align-top whitespace-nowrap">
-                    {hour === 24 ? '24:00' : `${String(hour).padStart(2, '0')}:00`}
-                  </td>
-                  {weekDays.map((d, dayIndex) => {
-                    const id = slotId(dayIndex, hour);
-                    const slotTasks = tasksBySlot.get(id) ?? [];
-                    const isTodayCol = d.toISOString().slice(0, 10) === todayStr;
-                    return (
-                      <td key={id} className={cn('p-1 align-top', isTodayCol && 'bg-primary/5')}>
-                        <DroppableSlot id={id}>
+                    <td
+                      key={id}
+                      className={cn(
+                        'p-0.5 align-top border-l border-border/30',
+                        isTodayCol && 'bg-primary/[0.04]',
+                      )}
+                    >
+                      <DroppableSlot id={id} isToday={isTodayCol}>
+                        <div className="space-y-1">
                           {slotTasks.map((task) => (
                             <DraggableTaskCard
                               key={task.id}
@@ -189,16 +237,16 @@ export function WeeklyCalendar({
                               cleaners={cleaners}
                             />
                           ))}
-                        </DroppableSlot>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </DndContext>
-    </div>
+                        </div>
+                      </DroppableSlot>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </DndContext>
   );
 }
