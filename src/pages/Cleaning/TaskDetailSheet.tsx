@@ -29,7 +29,8 @@ import {
   saveSupplyUsage,
 } from '@/services/cleaning';
 import toast from 'react-hot-toast';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2, WifiOff } from 'lucide-react';
+import { enqueuePhoto, getPendingCount } from '@/lib/photoQueue';
 
 type TaskDetailSheetProps = {
   task: CleaningTask | null;
@@ -52,6 +53,7 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
   const [supplyAmount, setSupplyAmount] = useState('');
   const [supplyUnit, setSupplyUnit] = useState('ml');
   const [suppliesSaving, setSuppliesSaving] = useState(false);
+  const [pendingQueueCount, setPendingQueueCount] = useState(0);
 
   const loadPhotos = useCallback(async (taskId: string) => {
     setPhotosLoading(true);
@@ -118,17 +120,35 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
     void loadPhotos(task.id);
     void loadInventory(task.id, task.property_id);
     void loadSupplyUsage(task.id);
+    void getPendingCount().then(setPendingQueueCount);
   }, [open, task, loadPhotos, loadInventory, loadSupplyUsage]);
 
   const handlePhotoUpload = async (type: CleaningPhotoType, file: File | null) => {
     if (!task || !file) return;
     setUploading(type);
     try {
-      await uploadPhoto(task.id, file, type);
-      await loadPhotos(task.id);
-      toast.success(t('cleaning.cleaner.photoUploaded', { defaultValue: 'Фото загружено' }));
+      if (!navigator.onLine) {
+        await enqueuePhoto(task.id, file, type);
+        const count = await getPendingCount();
+        toast.success(
+          t('cleaning.cleaner.photoQueued', {
+            defaultValue: `Фото сохранено офлайн (в очереди: ${count})`,
+            count,
+          }),
+          { icon: '📡' },
+        );
+      } else {
+        await uploadPhoto(task.id, file, type);
+        await loadPhotos(task.id);
+        toast.success(t('cleaning.cleaner.photoUploaded', { defaultValue: 'Фото загружено' }));
+      }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Upload failed');
+      try {
+        await enqueuePhoto(task.id, file, type);
+        toast(t('cleaning.cleaner.photoQueuedFallback', { defaultValue: 'Ошибка сети — фото загрузится позже' }), { icon: '⏳' });
+      } catch {
+        toast.error(e instanceof Error ? e.message : 'Upload failed');
+      }
     } finally {
       setUploading(null);
     }
@@ -202,7 +222,15 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
           <div className="space-y-6 pb-4">
             {/* Photos */}
             <Card className="p-4">
-              <h3 className="font-medium mb-3">{t('cleaning.cleaner.photos', { defaultValue: 'Фото до/после' })}</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium">{t('cleaning.cleaner.photos', { defaultValue: 'Фото до/после' })}</h3>
+                {pendingQueueCount > 0 && (
+                  <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                    <WifiOff className="h-3 w-3" />
+                    {pendingQueueCount} в очереди
+                  </span>
+                )}
+              </div>
               {photosLoading ? (
                 <div className="flex items-center gap-2 text-muted-foreground text-sm">
                   <Loader2 className="h-4 w-4 animate-spin" />

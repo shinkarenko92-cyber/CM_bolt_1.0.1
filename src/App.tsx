@@ -22,6 +22,7 @@ import { AvitoErrorQueue } from '@/components/AvitoErrorQueue';
 import { SyncLogProvider } from '@/contexts/SyncLogContext';
 import { AvitoSyncErrorsHandler } from '@/components/AvitoSyncErrorsHandler';
 import { InstallPWA } from '@/components/InstallPWA';
+import { startQueueListener } from '@/lib/photoQueue';
 
 function MainOrRedirect() {
   const { user, loading } = useAuth();
@@ -125,6 +126,7 @@ function BoltChatWidget() {
 
 function AppWithTheme() {
   useTheme();
+  useEffect(() => { startQueueListener(); }, []);
   return <AppContent />;
 }
 
