@@ -3,8 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 const INTERNAL_EMAIL_DOMAIN = "internal.roomi.pro";
@@ -31,7 +30,7 @@ function phoneToEmail(phone: string): string {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders, status: 204 });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
