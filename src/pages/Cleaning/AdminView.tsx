@@ -68,7 +68,15 @@ export function CleaningAdminView({ properties }: CleaningAdminViewProps) {
         <div className="flex items-center justify-between flex-wrap gap-2 mb-4 shrink-0">
           {tabValue === 'calendar' && (
             <>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {cleaners.length === 0 && (
+                  <>
+                    <span className="text-sm text-muted-foreground">
+                      {t('cleaning.admin.addCleanerFirst', { defaultValue: 'Для начала добавьте уборщицу' })}
+                    </span>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />
+                  </>
+                )}
                 <Button
                   variant="outline"
                   size="icon"
@@ -98,16 +106,7 @@ export function CleaningAdminView({ properties }: CleaningAdminViewProps) {
           )}
           {tabValue === 'cleaners' && (
             <>
-              <div className="flex items-center gap-2 min-w-[180px]">
-                {cleaners.length === 0 && (
-                  <>
-                    <span className="text-sm text-muted-foreground">
-                      {t('cleaning.admin.addCleanerFirst', { defaultValue: 'Для начала добавьте уборщицу' })}
-                    </span>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />
-                  </>
-                )}
-              </div>
+              <div className="min-w-[180px]" />
               <Button size="sm" onClick={() => setAddCleanerDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-1" />
                 {t('cleaning.admin.addCleaner', { defaultValue: 'Добавить уборщицу' })}
