@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import { FadeIn } from "@/components/ui/fade-in";
@@ -59,21 +58,11 @@ const plans = [
   },
 ];
 
-const YEARLY_DISCOUNT = 0.2;
-
 function formatPrice(price: number): string {
   return price.toLocaleString("ru-RU");
 }
 
 export const Pricing = () => {
-  const [yearly, setYearly] = useState(false);
-
-  const getDisplayPrice = (monthlyPrice: number | null) => {
-    if (monthlyPrice === null) return null;
-    if (!yearly) return monthlyPrice;
-    return Math.round(monthlyPrice * (1 - YEARLY_DISCOUNT));
-  };
-
   return (
     <div className="py-24 bg-muted/20">
       <div className="container mx-auto px-4">
@@ -87,40 +76,11 @@ export const Pricing = () => {
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto font-light mb-8">
             Выберите план, который подходит вашему бизнесу
           </p>
-
-          {/* Monthly / Yearly toggle */}
-          <div className="inline-flex items-center gap-3 bg-secondary rounded-xl p-1">
-            <button
-              onClick={() => setYearly(false)}
-              className={cn(
-                "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-                !yearly
-                  ? "bg-card shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Месяц
-            </button>
-            <button
-              onClick={() => setYearly(true)}
-              className={cn(
-                "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2",
-                yearly
-                  ? "bg-card shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Год
-              <span className="bg-green-500/15 text-green-600 text-xs font-bold px-1.5 py-0.5 rounded-md">
-                −20%
-              </span>
-            </button>
-          </div>
         </FadeIn>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5 max-w-6xl mx-auto">
           {plans.map((plan, index) => {
-            const displayPrice = getDisplayPrice(plan.monthlyPrice);
+            const displayPrice = plan.monthlyPrice;
             return (
               <FadeIn key={index} delay={index * 80}>
                 <div
@@ -150,14 +110,6 @@ export const Pricing = () => {
                       </div>
                     ) : (
                       <div className="text-3xl font-bold">По запросу</div>
-                    )}
-                    {yearly && displayPrice !== null && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Оплата раз в год · экономия {formatPrice(Math.round(plan.monthlyPrice! * YEARLY_DISCOUNT * 12))} ₽
-                      </p>
-                    )}
-                    {!yearly && displayPrice !== null && (
-                      <p className="text-xs text-muted-foreground mt-1 opacity-0 select-none">—</p>
                     )}
                   </div>
 

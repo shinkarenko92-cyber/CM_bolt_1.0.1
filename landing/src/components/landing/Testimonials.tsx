@@ -8,7 +8,7 @@ const testimonials = [
     role: "50 апартаментов",
     text: "С Roomi синхронизирую 50 объектов без головняка. Раньше тратил 3 часа в день на ручное обновление, теперь всё автоматом. Доход вырос на 35% за первые два месяца.",
     rating: 5,
-    avatar: "https://i.pravatar.cc/96?u=ivan-sokolov-moscow",
+    avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Brad_Pitt_2019_by_Glenn_Francis.jpg/220px-Brad_Pitt_2019_by_Glenn_Francis.jpg",
   },
   {
     name: "Елена Петрова",

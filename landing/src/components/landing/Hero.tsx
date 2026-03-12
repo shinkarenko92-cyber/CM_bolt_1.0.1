@@ -46,9 +46,9 @@ export const Hero = () => {
             </p>
           </FadeIn>
 
-          {/* CTA Buttons */}
+          {/* CTA Buttons — классический вид: сплошная primary + outline */}
           <FadeIn delay={320} className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-            <Button variant="hero" size="lg" className="text-base px-8 h-13 rounded-xl shadow-lg" asChild>
+            <Button size="lg" className="text-base px-8 h-12 rounded-lg" asChild>
               <a href="https://app.roomi.pro" target="_blank" rel="noopener noreferrer">
                 Начать бесплатно
                 <ArrowRight className="ml-2 w-5 h-5" />
@@ -57,7 +57,7 @@ export const Hero = () => {
             <Button
               variant="outline"
               size="lg"
-              className="text-base px-8 h-13 rounded-xl"
+              className="text-base px-8 h-12 rounded-lg"
               asChild
             >
               <a href="https://app.roomi.pro" target="_blank" rel="noopener noreferrer">
