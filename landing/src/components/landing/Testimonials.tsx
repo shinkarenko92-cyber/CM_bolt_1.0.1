@@ -3,36 +3,36 @@ import { FadeIn } from "@/components/ui/fade-in";
 
 const testimonials = [
   {
-    name: "Иван Соколов",
+    name: "Геннадий Посуточников",
     location: "Москва",
     role: "50 апартаментов",
     text: "С Roomi синхронизирую 50 объектов без головняка. Раньше тратил 3 часа в день на ручное обновление, теперь всё автоматом. Доход вырос на 35% за первые два месяца.",
     rating: 5,
-    avatar: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Brad_Pitt_2019_by_Glenn_Francis.jpg/220px-Brad_Pitt_2019_by_Glenn_Francis.jpg",
+    avatar: "/avatars/gennadiy-posutochnikov.png",
   },
   {
-    name: "Елена Петрова",
+    name: "Ирина Заселяйко",
     location: "Санкт-Петербург",
     role: "12 апартаментов",
     text: "Забыла про двойные бронирования! Roomi сразу блокирует даты на всех площадках. Клиенты довольны, я спокойна.",
     rating: 5,
-    avatar: "https://i.pravatar.cc/96?u=elena-petrova-spb",
+    avatar: "/avatars/irina-zaselyayko.png",
   },
   {
-    name: "Дмитрий Орлов",
+    name: "Борис Выселяев",
     location: "Сочи",
     role: "8 апартаментов",
     text: "Увеличил загрузку на 35% за первый месяц. Аналитика показала, какие каналы работают лучше — перераспределил бюджет.",
     rating: 5,
-    avatar: "https://i.pravatar.cc/96?u=dmitry-orlov-sochi",
+    avatar: "/avatars/boris-vyselyaev.png",
   },
   {
-    name: "Ольга Морозова",
+    name: "Ольга Автоответова",
     location: "Казань",
     role: "20 апартаментов",
     text: "Управляю 20 апартаментами одна. Без Roomi это было бы невозможно. Автоответы и синхронизация — просто магия!",
     rating: 5,
-    avatar: "https://i.pravatar.cc/96?u=olga-morozova-kazan",
+    avatar: "/avatars/olga-avtootvetova.png",
   },
 ];
 
