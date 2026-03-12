@@ -60,20 +60,24 @@ export function CleanerProfiles() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
+    <div className="flex flex-col gap-4">
+      {/* Кнопка в одной линии с «Добавить уборку» в календаре */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="min-w-[180px]" />
         <Button onClick={() => setOpen(true)} size="sm">
           <Plus className="h-4 w-4 mr-1" />
           {t('cleaning.admin.addCleaner', { defaultValue: 'Добавить уборщицу' })}
         </Button>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {cleaners.map((c) => (
-          <CleanerCard key={c.id} cleaner={c} />
-        ))}
-      </div>
-      {cleaners.length === 0 && (
-        <p className="text-sm text-muted-foreground">
+
+      {cleaners.length > 0 ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {cleaners.map((c) => (
+            <CleanerCard key={c.id} cleaner={c} />
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground text-center py-12">
           {t('cleaning.admin.noCleaners', { defaultValue: 'Нет уборщиц. Добавьте по email.' })}
         </p>
       )}

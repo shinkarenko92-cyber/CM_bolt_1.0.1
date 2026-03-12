@@ -15,7 +15,7 @@ import type { CleaningTask, Cleaner } from '@/types/cleaning';
 import { updateTaskSchedule } from '@/services/cleaning';
 import { cn } from '@/lib/utils';
 
-const HOURS = Array.from({ length: 14 }, (_, i) => i + 8); // 8:00 - 21:00
+const HOURS = Array.from({ length: 17 }, (_, i) => i + 8); // 8:00 - 24:00
 const DAYS = 7;
 
 function slotId(dayIndex: number, hour: number): string {
@@ -178,7 +178,7 @@ export function WeeklyCalendar({
       </div>
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className="border rounded-lg overflow-x-auto">
+        <div className="border rounded-lg overflow-auto max-h-[60vh]">
           <table className="w-full border-collapse min-w-[700px]">
             <thead>
               <tr className="border-b bg-muted/50">
@@ -195,8 +195,8 @@ export function WeeklyCalendar({
             <tbody>
               {HOURS.map((hour) => (
                 <tr key={hour} className="border-b">
-                  <td className="p-2 text-xs text-muted-foreground align-top">
-                    {String(hour).padStart(2, '0')}:00
+                  <td className="p-2 text-xs text-muted-foreground align-top whitespace-nowrap">
+                    {hour === 24 ? '24:00' : `${String(hour).padStart(2, '0')}:00`}
                   </td>
                   {weekDays.map((_, dayIndex) => {
                     const id = slotId(dayIndex, hour);
