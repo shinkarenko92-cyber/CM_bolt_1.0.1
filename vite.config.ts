@@ -11,7 +11,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.png', 'icon-192x192.png', 'icon-512x512.png'],
+      includeAssets: ['favicon.png', 'icon-192x192.png', 'icon-512x512.png', 'offline.html'],
       manifest: {
         name: 'Roomi Pro — Управление уборками',
         short_name: 'Roomi',
@@ -42,7 +42,6 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         navigateFallback: '/index.html',
-        offlineFallback: '/offline.html',
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/kvauqrxihwdgclhwmzof\.supabase\.co\/rest\/v1\/.*/i,
