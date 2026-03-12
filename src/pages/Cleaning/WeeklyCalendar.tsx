@@ -109,6 +109,7 @@ export function WeeklyCalendar({
 }: WeeklyCalendarProps) {
   const { t } = useTranslation();
   const weekDays = getWeekDays(weekStart);
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
@@ -158,11 +159,14 @@ export function WeeklyCalendar({
                 <th className="w-14 p-2 text-left text-xs font-medium text-muted-foreground">
                   {t('cleaning.admin.time', { defaultValue: 'Время' })}
                 </th>
-                {weekDays.map((d, i) => (
-                  <th key={i} className="p-2 text-center text-xs font-medium min-w-[120px]">
-                    {d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' })}
-                  </th>
-                ))}
+                {weekDays.map((d, i) => {
+                  const isToday = d.toISOString().slice(0, 10) === todayStr;
+                  return (
+                    <th key={i} className={cn('p-2 text-center text-xs font-medium min-w-[120px]', isToday && 'bg-primary/10 text-primary font-semibold')}>
+                      {d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -171,11 +175,12 @@ export function WeeklyCalendar({
                   <td className="p-2 text-xs text-muted-foreground align-top whitespace-nowrap">
                     {hour === 24 ? '24:00' : `${String(hour).padStart(2, '0')}:00`}
                   </td>
-                  {weekDays.map((_, dayIndex) => {
+                  {weekDays.map((d, dayIndex) => {
                     const id = slotId(dayIndex, hour);
                     const slotTasks = tasksBySlot.get(id) ?? [];
+                    const isTodayCol = d.toISOString().slice(0, 10) === todayStr;
                     return (
-                      <td key={id} className="p-1 align-top">
+                      <td key={id} className={cn('p-1 align-top', isTodayCol && 'bg-primary/5')}>
                         <DroppableSlot id={id}>
                           {slotTasks.map((task) => (
                             <DraggableTaskCard

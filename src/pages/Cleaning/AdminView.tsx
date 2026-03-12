@@ -105,13 +105,12 @@ export function CleaningAdminView({ properties }: CleaningAdminViewProps) {
             </>
           )}
           {tabValue === 'cleaners' && (
-            <>
-              <div className="min-w-[180px]" />
+            <div className="flex-1 flex justify-end">
               <Button size="sm" onClick={() => setAddCleanerDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-1" />
                 {t('cleaning.admin.addCleaner', { defaultValue: 'Добавить уборщицу' })}
               </Button>
-            </>
+            </div>
           )}
         </div>
 
@@ -124,7 +123,7 @@ export function CleaningAdminView({ properties }: CleaningAdminViewProps) {
           />
         </TabsContent>
 
-        <TabsContent value="cleaners" className="flex-1 flex flex-col min-h-0 mt-0 overflow-hidden">
+        <TabsContent value="cleaners" className="mt-0 overflow-auto">
           <CleanerProfiles
             addDialogOpen={addCleanerDialogOpen}
             onAddDialogOpenChange={setAddCleanerDialogOpen}
@@ -137,7 +136,7 @@ export function CleaningAdminView({ properties }: CleaningAdminViewProps) {
         onOpenChange={setTaskDrawerOpen}
         properties={properties}
         cleaners={cleaners}
-        defaultDate={selectedWeekStart.toISOString().slice(0, 10)}
+        defaultDate={new Date().toISOString().slice(0, 10)}
         onSuccess={refresh}
       />
     </div>

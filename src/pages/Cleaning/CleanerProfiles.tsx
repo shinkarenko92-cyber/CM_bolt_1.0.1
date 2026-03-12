@@ -77,7 +77,7 @@ export function CleanerProfiles({ addDialogOpen, onAddDialogOpenChange }: Cleane
   };
 
   return (
-    <div className="flex flex-col gap-4 flex-1 min-h-0">
+    <div className="flex flex-col gap-4 overflow-auto">
       {!isControlled && (
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="min-w-[180px]" />
@@ -89,15 +89,15 @@ export function CleanerProfiles({ addDialogOpen, onAddDialogOpenChange }: Cleane
       )}
 
       {cleaners.length > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 overflow-auto">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {cleaners.map((c) => (
             <CleanerCard key={c.id} cleaner={c} />
           ))}
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center min-h-[200px]">
+        <div className="py-12 flex items-center justify-center">
           <p className="text-sm text-muted-foreground text-center">
-            {t('cleaning.admin.noCleaners', { defaultValue: 'Нет уборщиц. Добавьте по email.' })}
+            {t('cleaning.admin.noCleaners', { defaultValue: 'Нет уборщиц' })}
           </p>
         </div>
       )}
@@ -172,13 +172,22 @@ export function CleanerProfiles({ addDialogOpen, onAddDialogOpenChange }: Cleane
 
 function CleanerCard({ cleaner }: { cleaner: Cleaner }) {
   const { t } = useTranslation();
+  const initials = cleaner.full_name
+    .split(/\s+/)
+    .map((w) => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
-    <Card className="p-4">
+    <Card className="p-4 transition-shadow hover:shadow-md">
       <div className="flex items-center gap-3">
         <div
-          className="h-10 w-10 rounded-full shrink-0"
+          className="h-11 w-11 rounded-full shrink-0 flex items-center justify-center text-white text-sm font-semibold"
           style={{ backgroundColor: cleaner.color || '#6b7280' }}
-        />
+        >
+          {initials}
+        </div>
         <div className="min-w-0 flex-1">
           <p className="font-medium truncate">{cleaner.full_name}</p>
           {cleaner.phone && <p className="text-xs text-muted-foreground truncate">{cleaner.phone}</p>}
@@ -187,7 +196,9 @@ function CleanerCard({ cleaner }: { cleaner: Cleaner }) {
           )}
         </div>
         {!cleaner.is_active && (
-          <span className="text-xs text-muted-foreground">{t('cleaning.admin.inactive', { defaultValue: 'Неактивна' })}</span>
+          <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
+            {t('cleaning.admin.inactive', { defaultValue: 'Неактивна' })}
+          </span>
         )}
       </div>
     </Card>
