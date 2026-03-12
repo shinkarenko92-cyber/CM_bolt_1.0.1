@@ -103,7 +103,7 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
       setExistingSupplies(
         list.map((s) => ({
           supply_name: s.supply_name ?? '',
-          amount_used: Number(s.amount_used) ?? 0,
+          amount_used: s.amount_used != null ? Number(s.amount_used) : 0,
           unit: s.unit ?? 'ml',
         }))
       );

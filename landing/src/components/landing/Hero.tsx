@@ -3,25 +3,6 @@ import { ArrowRight, TrendingUp, Users, Star, Zap, Play } from "lucide-react";
 import heroDashboard from "@/assets/hero-dashboard.jpg";
 import { FadeIn } from "@/components/ui/fade-in";
 
-const floatingStats = [
-  {
-    icon: TrendingUp,
-    value: "+40%",
-    label: "рост дохода",
-    color: "text-green-500",
-    bg: "bg-green-500/10",
-    position: "top-6 -left-4 md:-left-10",
-  },
-  {
-    icon: Users,
-    value: "5 000+",
-    label: "объектов",
-    color: "text-primary",
-    bg: "bg-primary/10",
-    position: "top-6 -right-4 md:-right-10",
-  },
-];
-
 export const Hero = () => {
   return (
     <section
