@@ -107,12 +107,11 @@ const ASSIGN_CLEANER_FN = 'assign-cleaner-role';
 const NOTIFY_CLEANER_FN = 'notify-cleaner';
 
 export async function assignCleanerRole(payload: {
-  email: string;
   full_name: string;
-  phone?: string | null;
+  phone: string;
   telegram_chat_id?: string | null;
   color?: string | null;
-}): Promise<Cleaner> {
+}): Promise<{ cleaner: Cleaner; magic_link?: string }> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
 
@@ -131,7 +130,7 @@ export async function assignCleanerRole(payload: {
   if (!res.ok) {
     throw new Error(body?.error ?? `HTTP ${res.status}`);
   }
-  return body.cleaner as Cleaner;
+  return { cleaner: body.cleaner as Cleaner, magic_link: body.magic_link as string | undefined };
 }
 
 export async function notifyCleaner(taskId: string): Promise<void> {

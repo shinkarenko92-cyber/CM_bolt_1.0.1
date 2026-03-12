@@ -7,10 +7,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+const INTERNAL_EMAIL_DOMAIN = "internal.roomi.pro";
+
 type AssignCleanerPayload = {
-  email: string;
   full_name: string;
-  phone?: string | null;
+  phone: string;
   telegram_chat_id?: string | null;
   color?: string | null;
 };
@@ -20,6 +21,12 @@ function jsonResponse(body: unknown, status: number): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function phoneToEmail(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  const normalized = digits.startsWith("7") && digits.length === 11 ? digits : digits.length === 10 ? "7" + digits : digits;
+  return `${normalized}@${INTERNAL_EMAIL_DOMAIN}`;
 }
 
 Deno.serve(async (req: Request) => {
@@ -77,66 +84,88 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Invalid JSON body" }, 400);
     }
 
-    const email = payload.email?.trim().toLowerCase();
-    if (!email) {
-      return jsonResponse({ error: "Email is required" }, 400);
+    const fullName = payload.full_name?.trim();
+    const phone = payload.phone?.trim();
+    if (!fullName) {
+      return jsonResponse({ error: "full_name is required" }, 400);
+    }
+    if (!phone) {
+      return jsonResponse({ error: "phone is required" }, 400);
     }
 
-    // Look up user by email: listUsers has no email filter, so we fetch a page and find by email
+    const email = phoneToEmail(phone);
+
     const {
-      data: { users },
-      error: listError,
-    } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+      data: { user: newUser },
+      error: createError,
+    } = await adminClient.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      user_metadata: { full_name: fullName, phone },
+    });
 
-    if (listError) {
-      console.error("Error looking up user by email:", listError);
-      return jsonResponse({ error: "Failed to look up user by email" }, 500);
+    if (createError) {
+      if (createError.message.includes("already been registered")) {
+        return jsonResponse(
+          { error: "Уборщица с таким номером уже добавлена" },
+          409,
+        );
+      }
+      console.error("Error creating user:", createError);
+      return jsonResponse({ error: createError.message }, 500);
     }
 
-    const targetUser = users?.find((u) => u.email?.toLowerCase() === email);
-    if (!targetUser) {
-      return jsonResponse(
-        { error: "Пользователь с таким email не зарегистрирован" },
-        404,
-      );
+    if (!newUser) {
+      return jsonResponse({ error: "Failed to create user" }, 500);
     }
 
-    const userId = targetUser.id;
+    const {
+      data: { properties: linkData },
+      error: linkError,
+    } = await adminClient.auth.admin.generateLink({
+      type: "magiclink",
+      email,
+    });
 
-    // Upsert cleaner row
+    let magicLink: string | null = null;
+    if (!linkError && linkData?.action_link) {
+      magicLink = linkData.action_link;
+    } else {
+      console.error("Generate magic link error:", linkError);
+    }
+
     const { data: cleaner, error: cleanerError } = await adminClient
       .from("cleaners")
-      .upsert(
-        {
-          user_id: userId,
-          full_name: payload.full_name || targetUser.user_metadata?.full_name || email,
-          phone: payload.phone ?? null,
-          telegram_chat_id: payload.telegram_chat_id ?? null,
-          color: payload.color ?? null,
-          is_active: true,
-        },
-        { onConflict: "user_id" },
-      )
+      .insert({
+        user_id: newUser.id,
+        full_name: fullName,
+        phone: phone,
+        telegram_chat_id: payload.telegram_chat_id?.trim() || null,
+        color: payload.color?.trim() || null,
+        is_active: true,
+      })
       .select("*")
       .single();
 
     if (cleanerError) {
-      console.error("Error upserting cleaner:", cleanerError);
-      return jsonResponse({ error: "Failed to create or update cleaner" }, 500);
+      console.error("Error creating cleaner:", cleanerError);
+      return jsonResponse({ error: "Failed to create cleaner" }, 500);
     }
 
-    // Update profile role to 'cleaner'
     const { error: profileError } = await adminClient
       .from("profiles")
       .update({ role: "cleaner", is_active: true })
-      .eq("id", userId);
+      .eq("id", newUser.id);
 
     if (profileError) {
       console.error("Error updating profile role:", profileError);
-      return jsonResponse({ error: "Failed to update user role to cleaner" }, 500);
+      return jsonResponse({ error: "Failed to update user role" }, 500);
     }
 
-    return jsonResponse({ success: true, cleaner }, 200);
+    return jsonResponse(
+      { success: true, cleaner, magic_link: magicLink ?? undefined },
+      200,
+    );
   } catch (error) {
     console.error("Unexpected error in assign-cleaner-role:", error);
     return jsonResponse(
@@ -145,4 +174,3 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
-

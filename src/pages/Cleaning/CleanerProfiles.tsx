@@ -30,7 +30,6 @@ export function CleanerProfiles({ addDialogOpen, onAddDialogOpenChange }: Cleane
   const open = isControlled ? addDialogOpen! : openLocal;
   const setOpen = isControlled ? onAddDialogOpenChange! : setOpenLocal;
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [telegramChatId, setTelegramChatId] = useState('');
@@ -38,22 +37,32 @@ export function CleanerProfiles({ addDialogOpen, onAddDialogOpenChange }: Cleane
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) {
-      toast.error(t('cleaning.admin.cleanerEmailRequired', { defaultValue: 'Введите email' }));
+    const name = fullName.trim();
+    const phoneVal = phone.trim().replace(/\s/g, '');
+    if (!name) {
+      toast.error(t('cleaning.admin.cleanerNameRequired', { defaultValue: 'Введите имя' }));
+      return;
+    }
+    const digits = phoneVal.replace(/\D/g, '');
+    const normalized = digits.length === 10 ? '7' + digits : digits;
+    if (!phoneVal || normalized.length !== 11 || !normalized.startsWith('7')) {
+      toast.error(t('cleaning.admin.cleanerPhoneRequired', { defaultValue: 'Введите телефон в формате +7XXXXXXXXXX' }));
       return;
     }
     setLoading(true);
     try {
-      await assignCleanerRole({
-        email: email.trim().toLowerCase(),
-        full_name: fullName.trim() || email.trim(),
-        phone: phone.trim() || null,
+      const { magic_link } = await assignCleanerRole({
+        full_name: name,
+        phone: phoneVal.startsWith('+') ? phoneVal : `+${phoneVal}`,
         telegram_chat_id: telegramChatId.trim() || null,
         color: color.trim() || null,
       });
       toast.success(t('cleaning.admin.cleanerAdded', { defaultValue: 'Уборщица добавлена' }));
+      if (magic_link) {
+        await navigator.clipboard.writeText(magic_link);
+        toast.success(t('cleaning.admin.linkCopied', { defaultValue: 'Ссылка для входа скопирована в буфер' }));
+      }
       setOpen(false);
-      setEmail('');
       setFullName('');
       setPhone('');
       setTelegramChatId('');
@@ -100,37 +109,24 @@ export function CleanerProfiles({ addDialogOpen, onAddDialogOpenChange }: Cleane
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="cleaner-email">{t('auth.email')} *</Label>
-              <Input
-                id="cleaner-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="user@example.com"
-                required
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {t('cleaning.admin.cleanerEmailHint', {
-                  defaultValue: 'Пользователь должен быть уже зарегистрирован в системе.',
-                })}
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="cleaner-name">{t('auth.firstName')} / Имя</Label>
+              <Label htmlFor="cleaner-name">{t('auth.firstName')} / Имя *</Label>
               <Input
                 id="cleaner-name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder={t('cleaning.admin.cleanerNamePlaceholder', { defaultValue: 'Имя уборщицы' })}
+                required
               />
             </div>
             <div>
-              <Label htmlFor="cleaner-phone">{t('auth.phone')}</Label>
+              <Label htmlFor="cleaner-phone">{t('auth.phone')} *</Label>
               <Input
                 id="cleaner-phone"
+                type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="+7..."
+                placeholder="+7 999 123 45 67"
+                required
               />
             </div>
             <div>
