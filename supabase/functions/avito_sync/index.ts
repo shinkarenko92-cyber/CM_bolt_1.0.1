@@ -2073,11 +2073,14 @@ Deno.serve(async (req: Request) => {
             }
 
             // Дублируем через старый API bookings: POST /core/v1/accounts/{user_id}/items/{item_id}/bookings
-            // Этот эндпоинт отвечает за визуальный календарь занятости в Авито
+            // Этот эндпоинт отвечает за визуальный календарь занятости в Авито.
+            // type: "booking" — в Авито отображается как «даты заняты другой бронью» (не вручную).
             if (userId) {
               const bookingsApiUrl = `${avitoBaseUrl}/core/v1/accounts/${userId}/items/${itemId}/bookings`;
+              const validBlocks = blocks.filter((b) => b.start < b.end);
               const bookingsPayload: { bookings: Array<{ date_start: string; date_end: string; type?: string }>; source?: string } = {
-                bookings: blocks.map(b => ({ date_start: b.start, date_end: b.end })),
+                bookings: validBlocks.map((b) => ({ date_start: b.start, date_end: b.end, type: "booking" })),
+                source: "pms",
               };
               console.log("Sending bookings (calendar) to Avito via /core/ API", {
                 url: bookingsApiUrl,
