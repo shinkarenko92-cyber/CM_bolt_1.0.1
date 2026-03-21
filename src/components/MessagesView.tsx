@@ -248,24 +248,35 @@ export function MessagesView({
                   className={`w-full text-left p-4 border-b border-border/50 flex items-start gap-3 transition-colors ${
                     isSelected
                       ? 'bg-primary/5 border-l-4 border-l-primary'
-                      : 'hover:bg-muted/80'
+                      : chat.unread_count > 0
+                        ? 'bg-primary/[0.03] hover:bg-primary/[0.06]'
+                        : 'hover:bg-muted/80'
                   }`}
                 >
-                  <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-muted flex items-center justify-center">
-                    {chat.contact_avatar_url ? (
-                      <img
-                        src={chat.contact_avatar_url}
-                        alt={chat.contact_name || ''}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <User className="w-6 h-6 text-muted-foreground" />
+                  <div className="relative w-12 h-12 shrink-0">
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-muted flex items-center justify-center">
+                      {chat.contact_avatar_url ? (
+                        <img
+                          src={chat.contact_avatar_url}
+                          alt={chat.contact_name || ''}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="w-6 h-6 text-muted-foreground" />
+                      )}
+                    </div>
+                    {chat.unread_count > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
+                        {chat.unread_count > 99 ? '99+' : chat.unread_count}
+                      </span>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-0.5">
-                      <h3 className="text-sm font-bold truncate">{chat.contact_name || t('messages.contact')}</h3>
-                      <span className="text-[10px] text-muted-foreground font-medium shrink-0 ml-1">
+                      <h3 className={`text-sm truncate ${chat.unread_count > 0 ? 'font-extrabold' : 'font-bold'}`}>
+                        {chat.contact_name || t('messages.contact')}
+                      </h3>
+                      <span className={`text-[10px] shrink-0 ml-1 ${chat.unread_count > 0 ? 'text-primary font-bold' : 'text-muted-foreground font-medium'}`}>
                         {formatTime(chat.last_message_at)}
                       </span>
                     </div>
@@ -281,7 +292,7 @@ export function MessagesView({
                         {chat.avito_item_title ?? `№ ${chat.avito_item_id}`}
                       </p>
                     ) : null}
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className={`text-xs truncate ${chat.unread_count > 0 ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>
                       {chat.last_message_text ?? ''}
                     </p>
                   </div>

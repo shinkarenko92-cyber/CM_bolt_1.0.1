@@ -212,12 +212,6 @@ export function ChatPanel({
               {t('messages.viewBooking', { defaultValue: 'Бронь' })}
             </Button>
           )}
-          {onCreateBooking && (
-            <Button variant="secondary" size="sm" className="h-8 text-xs font-bold" onClick={() => onCreateBooking(chat)}>
-              <Calendar className="w-3.5 h-3.5 mr-1" />
-              {t('messages.createBooking')}
-            </Button>
-          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -225,6 +219,12 @@ export function ChatPanel({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {onCreateBooking && (
+                <DropdownMenuItem onClick={() => onCreateBooking(chat)}>
+                  <Calendar className="w-4 h-4 mr-2" />
+                  {t('messages.createBooking')}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => onStatusChange?.(chat, 'new')}>
                 {t('messages.status.new')}
               </DropdownMenuItem>

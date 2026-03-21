@@ -318,9 +318,17 @@ export function useAvitoChats(
 
       const { data: avitoResponse, error: fnError } = await supabase.functions.invoke(
         'avito-messenger',
-        { body: { action: 'getMessages', integration_id: chat.integration_id, chat_id: chat.avito_chat_id, limit: 20, offset: 0 } }
+        { body: { action: 'getMessages', integration_id: chat.integration_id, chat_id: chat.avito_chat_id, limit: 50, offset: 0 } }
       );
-      if (fnError || !avitoResponse?.messages?.length) return;
+      if (fnError) {
+        console.error('Error fetching messages from Avito:', fnError);
+        await loadMessages(chatId, 0, 50);
+        return;
+      }
+      if (!avitoResponse?.messages?.length) {
+        await loadMessages(chatId, 0, 50);
+        return;
+      }
 
       const { data: integration } = await supabase
         .from('integrations')
