@@ -851,7 +851,7 @@ export function Dashboard() {
     if (!user || currentView !== 'messages') return;
 
     const channel = supabase
-      .channel('chats_realtime')
+      .channel(`chats_realtime_${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -884,7 +884,7 @@ export function Dashboard() {
     if (!user || !selectedChatId) return;
 
     const channel = supabase
-      .channel('messages_realtime')
+      .channel(`messages_realtime_${selectedChatId}`)
       .on(
         'postgres_changes',
         {

@@ -11,46 +11,7 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { supabase, Property, Booking, Profile, Guest } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-
-// ---------------------------------------------------------------------------
-// Retry helper
-// ---------------------------------------------------------------------------
-
-type SupabaseQueryResult<T> = {
-  data: T | null;
-  error: { message: string; details?: string; hint?: string; code?: string } | null;
-};
-
-async function retryQuery<T>(
-  queryFn: () => Promise<SupabaseQueryResult<T>>,
-  retries = 3,
-  delay = 1000
-): Promise<SupabaseQueryResult<T>> {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const result = await queryFn();
-      if (!result.error || !result.error.message.includes('Failed to fetch')) {
-        return result;
-      }
-      if (attempt === retries) {
-        console.error(`Query failed after ${retries} attempts:`, result.error);
-        return result;
-      }
-      await new Promise(r => setTimeout(r, delay * attempt));
-    } catch (error: unknown) {
-      if (attempt === retries) {
-        const msg = error instanceof Error ? error.message : 'Unknown error';
-        console.error(`Query failed after ${retries} attempts:`, msg);
-        return {
-          data: null,
-          error: { message: msg, details: error instanceof Error ? error.stack : undefined },
-        };
-      }
-      await new Promise(r => setTimeout(r, delay * attempt));
-    }
-  }
-  return { data: null, error: { message: 'Max retries exceeded' } };
-}
+import { retryQuery } from '@/utils/retryQuery';
 
 // ---------------------------------------------------------------------------
 // Hook

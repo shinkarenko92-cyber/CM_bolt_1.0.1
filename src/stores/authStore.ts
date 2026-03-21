@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase, Profile } from '@/lib/supabase';
+import { retryQuery } from '@/utils/retryQuery';
 
 export type SignUpParams = {
   email: string;
@@ -28,44 +29,19 @@ interface AuthActions {
 
 type AuthStore = AuthState & AuthActions;
 
-async function fetchProfile(userId: string, retries = 3): Promise<Profile | null> {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (error) {
-        if (attempt === retries) {
-          console.error('Error fetching profile after all retries:', error);
-          return null;
-        }
-        if (attempt === 1 && error.message?.includes('Failed to fetch')) {
-          if (import.meta.env.DEV) console.log('Profile fetch failed, retrying... (attempt 1/3)');
-        }
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-        continue;
-      }
-
-      if (attempt > 1 && import.meta.env.DEV) {
-        console.log(`Profile fetched successfully after ${attempt} attempts`);
-      }
-
-      return data;
-    } catch (error) {
-      if (attempt === retries) {
-        console.error('Error in fetchProfile after all retries:', error);
-        return null;
-      }
-      if (attempt === 1 && import.meta.env.DEV) {
-        console.log('Profile fetch error, retrying... (attempt 1/3)');
-      }
-      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-    }
-  }
-  return null;
+async function fetchProfile(userId: string): Promise<Profile | null> {
+  const { data } = await retryQuery<Profile>(async () => {
+    const r = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    return {
+      data: r.data,
+      error: r.error ? { message: r.error.message, code: r.error.code } : null,
+    };
+  });
+  return data;
 }
 
 function computeIsAdmin(profile: Profile | null): boolean {

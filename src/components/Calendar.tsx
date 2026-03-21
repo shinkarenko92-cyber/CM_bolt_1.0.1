@@ -755,11 +755,20 @@ export function Calendar({
     };
   }, []);
 
-  const getRateForDate = useCallback((propertyId: string, date: Date): PropertyRate | null => {
-    const rates = propertyRates.get(propertyId) || [];
-    const dateString = format(date, 'yyyy-MM-dd');
-    return rates.find((r) => r.date === dateString) || null;
+  // O(1) rate lookup: Map<propertyId, Map<dateString, PropertyRate>>
+  const rateIndex = useMemo<Map<string, Map<string, PropertyRate>>>(() => {
+    const index = new Map<string, Map<string, PropertyRate>>();
+    propertyRates.forEach((rates, propertyId) => {
+      const byDate = new Map<string, PropertyRate>();
+      rates.forEach(r => byDate.set(r.date, r));
+      index.set(propertyId, byDate);
+    });
+    return index;
   }, [propertyRates]);
+
+  const getRateForDate = useCallback((propertyId: string, date: Date): PropertyRate | null => {
+    return rateIndex.get(propertyId)?.get(format(date, 'yyyy-MM-dd')) ?? null;
+  }, [rateIndex]);
 
   const resetDateSelection = useCallback(() => {
     setDateSelection({

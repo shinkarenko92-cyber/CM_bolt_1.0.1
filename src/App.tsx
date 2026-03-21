@@ -19,6 +19,7 @@ import { VerifyPhonePage } from '@/pages/VerifyPhonePage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { CookieConsentBanner } from '@/components/CookieConsentBanner';
 import { AvitoErrorQueue } from '@/components/AvitoErrorQueue';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { SyncLogProvider } from '@/contexts/SyncLogContext';
 import { AvitoSyncErrorsHandler } from '@/components/AvitoSyncErrorsHandler';
 import { InstallPWA } from '@/components/InstallPWA';
@@ -43,7 +44,11 @@ function MainOrRedirect() {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  return <Dashboard />;
+  return (
+    <ErrorBoundary>
+      <Dashboard />
+    </ErrorBoundary>
+  );
 }
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -127,7 +132,11 @@ function BoltChatWidget() {
 function AppWithTheme() {
   useTheme();
   useEffect(() => { startQueueListener(); }, []);
-  return <AppContent />;
+  return (
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
+  );
 }
 
 function App() {
