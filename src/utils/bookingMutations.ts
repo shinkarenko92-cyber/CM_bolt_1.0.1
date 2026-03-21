@@ -29,7 +29,7 @@ async function retryStripping<T>(
   payload: Payload,
   stripGroups: string[][]
 ): Promise<{ result: SupabaseResult<T>; finalPayload: Payload }> {
-  let p = { ...payload };
+  const p = { ...payload };
   let result = await fn(p);
 
   for (const group of stripGroups) {

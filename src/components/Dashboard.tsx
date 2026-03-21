@@ -43,7 +43,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { getOAuthSuccess, getOAuthError } from '@/services/avito';
 import { useAvitoChats } from '@/hooks/useAvitoChats';
-import { syncWithExternalAPIs, syncAvitoIntegration } from '@/services/apiSync';
+import { syncWithExternalAPIs } from '@/services/apiSync';
 import { syncAvitoWithNotify } from '@/services/avitoSyncNotify';
 import { insertBookingWithRetry, updateBookingWithRetry } from '@/utils/bookingMutations';
 const DeletePropertyModal = lazy(() => import('@/components/DeletePropertyModal').then(m => ({ default: m.DeletePropertyModal })));
@@ -362,7 +362,7 @@ export function Dashboard() {
         insertPayload.updated_by = user.id;
       }
 
-      const { result: insertResult, finalPayload: _fp } = await insertBookingWithRetry(insertPayload);
+      const { result: insertResult } = await insertBookingWithRetry(insertPayload);
       if (insertResult.error) throw insertResult.error;
       const data = insertResult.data as unknown[] | null;
 
