@@ -137,6 +137,7 @@ export function Dashboard() {
     loadMessages,
     handleSendMessage,
     handleAvitoMessengerAuth,
+    syncMessagesFromAvitoRef,
   } = useAvitoChats(properties, currentView);
 
   useKeyboardShortcuts({
@@ -1017,6 +1018,7 @@ export function Dashboard() {
                     hasMore={hasMoreMessages}
                     onCreateBooking={handleCreateBookingFromChat}
                     onStatusChange={handleChatStatusChange}
+                    onRefresh={selectedChatId ? () => syncMessagesFromAvitoRef.current(selectedChatId) : undefined}
                   />
                 </div>
               ) : (

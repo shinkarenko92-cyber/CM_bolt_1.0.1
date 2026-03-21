@@ -5,6 +5,13 @@ import App from '@/App';
 import '@/i18n';
 import '@/index.css';
 
+// After a new deploy, old cached JS chunks are gone from the server.
+// Vite fires this event when a dynamic import fails to load — reload to get fresh chunks.
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  window.location.reload();
+});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

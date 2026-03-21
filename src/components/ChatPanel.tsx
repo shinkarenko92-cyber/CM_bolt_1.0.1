@@ -39,6 +39,7 @@ interface ChatPanelProps {
   onCreateBooking?: (chat: Chat) => void;
   onStatusChange?: (chat: Chat, status: Chat['status']) => void;
   onViewBooking?: (bookingId: string) => void;
+  onRefresh?: () => void;
 }
 
 const TEMPLATES = [
@@ -89,6 +90,7 @@ export function ChatPanel({
   onCreateBooking,
   onStatusChange,
   onViewBooking,
+  onRefresh,
 }: ChatPanelProps) {
   const { t } = useTranslation();
   const [inputValue, setInputValue] = useState('');
@@ -244,8 +246,32 @@ export function ChatPanel({
         onScroll={handleScroll}
       >
         {isLoading && messages.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">{t('messages.loading')}</p>
+          <div className="flex-1 flex items-center justify-center py-8">
+            <p className="text-muted-foreground text-sm">{t('messages.loading')}</p>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
+            {isSyncing ? (
+              <>
+                <RefreshCw className="h-8 w-8 animate-spin text-primary/40 mb-3" />
+                <p className="text-sm text-muted-foreground">
+                  {t('messages.syncing', { defaultValue: 'Загружаем сообщения из Avito...' })}
+                </p>
+              </>
+            ) : (
+              <>
+                <MessageCircle className="h-10 w-10 text-muted-foreground/30 mb-3" />
+                <p className="text-sm text-muted-foreground">
+                  {t('messages.noMessagesYet', { defaultValue: 'Сообщений пока нет' })}
+                </p>
+                {onRefresh && (
+                  <Button variant="ghost" size="sm" className="mt-3 text-xs" onClick={onRefresh}>
+                    <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                    {t('messages.syncFromAvito', { defaultValue: 'Загрузить из Avito' })}
+                  </Button>
+                )}
+              </>
+            )}
           </div>
         ) : (
           <>
