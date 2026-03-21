@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useDashboardData } from '@/hooks/useDashboardData';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Search, Bell, User, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -163,11 +164,16 @@ export function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
   const [currentView, setCurrentView] = useState(isCleaner ? 'cleaning' : 'calendar');
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const {
+    properties, setProperties,
+    bookings, setBookings,
+    filteredBookings, setFilteredBookings,
+    guests, setGuests,
+    userProfile, setUserProfile,
+    loading,
+    loadError,
+    reload: reloadDashboardData,
+  } = useDashboardData();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -178,7 +184,6 @@ export function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [searchResults, setSearchResults] = useState<Booking[]>([]);
-  const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [prefilledDates, setPrefilledDates] = useState<{ propertyId: string; checkIn: string; checkOut: string } | null>(null);
   const [isDeletePropertyModalOpen, setIsDeletePropertyModalOpen] = useState(false);
@@ -188,7 +193,6 @@ export function Dashboard() {
   const [bookingsForDelete, setBookingsForDelete] = useState<Booking[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [pendingOpenAddPropertyModal, setPendingOpenAddPropertyModal] = useState(false);
-  const [guests, setGuests] = useState<Guest[]>([]);
   const [isGuestModalOpen, setIsGuestModalOpen] = useState(false);
   const [isBookingLimitModalOpen, setIsBookingLimitModalOpen] = useState(false);
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
@@ -210,205 +214,6 @@ export function Dashboard() {
   const loadChatsRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const syncMessagesFromAvitoRef = useRef<(chatId: string) => Promise<void>>(() => Promise.resolve());
   const loadMessagesRef = useRef<(chatId: string, offset?: number, limit?: number) => Promise<void>>(() => Promise.resolve());
-
-  // Helper function for retry logic
-  type SupabaseQueryResult<T> = {
-    data: T | null;
-    error: { message: string; details?: string; hint?: string; code?: string } | null;
-  };
-
-  const retrySupabaseQuery = useCallback(async <T,>(
-    queryFn: () => Promise<SupabaseQueryResult<T>>,
-    retries = 3,
-    delay = 1000
-  ): Promise<SupabaseQueryResult<T>> => {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        const result = await queryFn();
-        // Если нет ошибки или ошибка не связана с сетью, возвращаем результат
-        if (!result.error || (result.error.message && !result.error.message.includes('Failed to fetch'))) {
-          // Если была ошибка, но retry успешен, не логируем ошибку
-          // Query succeeded after retries
-          return result;
-        }
-
-        // Если это последняя попытка, возвращаем результат с ошибкой
-        if (attempt === retries) {
-          console.error(`Query failed after ${retries} attempts:`, result.error);
-          return result;
-        }
-
-        // Логируем только первую попытку, чтобы не засорять консоль
-        // Query failed, retrying
-
-        // Ждем перед повторной попыткой (экспоненциальная задержка)
-        await new Promise(resolve => setTimeout(resolve, delay * attempt));
-      } catch (error: unknown) {
-        // Если это последняя попытка, возвращаем ошибку
-        if (attempt === retries) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          console.error(`Query failed after ${retries} attempts:`, errorMessage);
-          return {
-            data: null,
-            error: {
-              message: errorMessage,
-              details: error instanceof Error ? error.stack : undefined
-            }
-          };
-        }
-
-        // Query error, retrying
-
-        // Ждем перед повторной попыткой
-        await new Promise(resolve => setTimeout(resolve, delay * attempt));
-      }
-    }
-    return { data: null, error: { message: 'Max retries exceeded' } };
-  }, []);
-
-  const loadData = useCallback(async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoadError(null);
-      await supabase.auth.getSession();
-
-      // Retry для properties
-      const propertiesResult = await retrySupabaseQuery<Property[]>(
-        async () => {
-          const result = await supabase
-            .from('properties')
-            .select('*')
-            .eq('owner_id', user.id);
-          // Note: deleted_at filter temporarily removed - will be re-enabled after migration verification
-          return {
-            data: result.data,
-            error: result.error ? {
-              message: result.error.message,
-              details: result.error.details,
-              hint: result.error.hint,
-              code: result.error.code
-            } : null
-          };
-        }
-      );
-      const { data: propertiesData, error: propsError } = propertiesResult;
-
-      if (propsError) {
-        toast.error(`${t('errors.failedToLoadProperties')}: ${propsError.message}`);
-      }
-
-      if (propertiesData) {
-        setProperties(propertiesData);
-
-        const propertyIds = propertiesData.map((p: Property) => p.id);
-
-        if (propertyIds.length > 0) {
-          // Retry для bookings - загружаем только подтвержденные брони (confirmed и paid)
-          const bookingsResult = await retrySupabaseQuery<Booking[]>(
-            async () => {
-              const result = await supabase
-                .from('bookings')
-                .select('*')
-                .in('property_id', propertyIds)
-                .in('status', ['confirmed', 'paid'])
-                .order('check_in');
-              return {
-                data: result.data,
-                error: result.error ? {
-                  message: result.error.message,
-                  details: result.error.details,
-                  hint: result.error.hint,
-                  code: result.error.code
-                } : null
-              };
-            }
-          );
-          const { data: bookingsData, error: bookingsError } = bookingsResult;
-
-          if (bookingsError) {
-            toast.error(`${t('errors.failedToLoadBookings')}: ${bookingsError.message}`);
-          }
-
-          if (bookingsData) {
-            setBookings(bookingsData);
-            setFilteredBookings(bookingsData);
-          }
-        }
-      }
-
-      // Retry для profile
-      const profileResult = await retrySupabaseQuery<Profile>(
-        async () => {
-          const result = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .maybeSingle();
-          return {
-            data: result.data,
-            error: result.error ? {
-              message: result.error.message,
-              details: result.error.details,
-              hint: result.error.hint,
-              code: result.error.code
-            } : null
-          };
-        }
-      );
-      const { data: profileData } = profileResult;
-
-      if (profileData) {
-        setUserProfile(profileData);
-        await refreshProfile();
-      }
-
-      // Load Guests
-      const guestsResult = await retrySupabaseQuery<Guest[]>(
-        async () => {
-          const result = await supabase
-            .from('guests')
-            .select('*')
-            .eq('owner_id', user.id)
-            .order('name');
-          return {
-            data: result.data,
-            error: result.error ? {
-              message: result.error.message,
-              details: result.error.details,
-              hint: result.error.hint,
-              code: result.error.code
-            } : null
-          };
-        }
-      );
-      if (guestsResult.data) {
-        setGuests(guestsResult.data);
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-      const errorMessage = error instanceof Error ? error.message : t('errors.somethingWentWrong');
-      setLoadError(errorMessage);
-      toast.error(`${t('errors.failedToLoadData')}: ${errorMessage}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [user, retrySupabaseQuery, t, refreshProfile]);
-
-  // Keep loadData ref up to date
-  const loadDataRef = useRef(loadData);
-  useEffect(() => {
-    loadDataRef.current = loadData;
-  }, [loadData]);
-
-  // Run loadData only when user.id changes (not when loadData identity changes — avoids GET spam)
-  useEffect(() => {
-    if (!user?.id) return;
-    loadDataRef.current();
-  }, [user?.id]);
 
   // Open Messages tab when returning from Avito Messenger OAuth callback; open Properties when no integration or after Avito OAuth
   useEffect(() => {
@@ -1039,7 +844,7 @@ export function Dashboard() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]); // Убрали loadData из зависимостей, используем ref
+  }, [user]);
 
   // Realtime subscription for chats
   useEffect(() => {
@@ -2089,7 +1894,7 @@ export function Dashboard() {
           <SkeletonCalendar />
         ) : loadError ? (
           <div className="flex-1 flex items-center justify-center p-6">
-            <ErrorRetry message={loadError} onRetry={loadData} />
+            <ErrorRetry message={loadError} onRetry={reloadDashboardData} />
           </div>
         ) : bookings.length === 0 && properties.length === 0 && currentView !== 'properties' ? (
           <OnboardingWizard
@@ -2332,7 +2137,7 @@ export function Dashboard() {
           isOpen={isImportModalOpen}
           onClose={() => setIsImportModalOpen(false)}
           onSuccess={() => {
-            loadData();
+            reloadDashboardData();
             setCurrentView('bookings');
           }}
         />

@@ -1,9 +1,22 @@
-import { avitoApi, isAvitoConfigured, initializeAvito } from '@/services/avitoApi';
-import { supabase, Booking, Property, PropertyIntegration } from '@/lib/supabase';
+import { isAvitoConfigured } from '@/services/avitoApi';
+import { supabase, Booking, PropertyIntegration } from '@/lib/supabase';
 import type { AvitoErrorInfo } from '@/services/avitoErrors';
 
 const devLog = (...args: unknown[]) => { if (import.meta.env.DEV) console.log(...args); };
 const devWarn = (...args: unknown[]) => { if (import.meta.env.DEV) console.warn(...args); };
+
+const ITEM_NOT_FOUND_MSG = 'Проверь ID объявления — это длинный номер из URL Avito (10-12 цифр)';
+
+/**
+ * Returns true if the error indicates the Avito listing was not found (404).
+ * Checks statusCode first (structured), falls back to message string as last resort.
+ */
+function isItemNotFoundError(statusCode?: number, message?: string): boolean {
+  if (statusCode === 404) return true;
+  if (!message) return false;
+  const m = message.toLowerCase();
+  return m.includes('объявление не найдено') || m.includes('не найдено') || m.includes('404');
+}
 
 export type SyncResult = {
   platform: string;
@@ -167,17 +180,11 @@ export async function syncAvitoIntegration(
 
   // Handle Supabase function invocation error
   if (syncError) {
-    // Check for "Объявление не найдено" error
-    const syncErrorMessage = syncError.message || 'Ошибка синхронизации с Avito';
-    if (syncErrorMessage.includes('Объявление не найдено') || syncErrorMessage.includes('404') || syncErrorMessage.includes('не найдено')) {
-      return { 
-        success: false, 
-        message: 'Проверь ID объявления — это длинный номер из URL Avito (10-12 цифр)',
-        errors: [{
-          operation: 'sync',
-          statusCode: 404,
-          message: 'Проверь ID объявления — это длинный номер из URL Avito (10-12 цифр)'
-        }]
+    if (isItemNotFoundError(undefined, syncError.message)) {
+      return {
+        success: false,
+        message: ITEM_NOT_FOUND_MSG,
+        errors: [{ operation: 'sync', statusCode: 404, message: ITEM_NOT_FOUND_MSG }],
       };
     }
     console.error('syncAvitoIntegration: Edge Function invocation error', {
@@ -278,20 +285,15 @@ export async function syncAvitoIntegration(
     if ('hasError' in responseData && responseData.hasError === true) {
       const errors = (responseData.errors as AvitoErrorInfo[]) || [];
       const responseErrorMessage = responseData.errorMessage as string || '';
-      
-      // Check for "Объявление не найдено" error
-      if (responseErrorMessage.includes('Объявление не найдено') || 
-          responseErrorMessage.includes('404') || 
-          responseErrorMessage.includes('не найдено') ||
-          errors.some(e => e.message?.includes('Объявление не найдено') || e.message?.includes('404'))) {
-        return { 
-          success: false, 
-          message: 'Проверь ID объявления — это длинный номер из URL Avito (10-12 цифр)',
-          errors: errors.length > 0 ? errors : [{
-            operation: 'sync',
-            statusCode: 404,
-            message: 'Проверь ID объявления — это длинный номер из URL Avito (10-12 цифр)'
-          }]
+
+      if (
+        isItemNotFoundError(undefined, responseErrorMessage) ||
+        errors.some(e => isItemNotFoundError(e.statusCode, e.message))
+      ) {
+        return {
+          success: false,
+          message: ITEM_NOT_FOUND_MSG,
+          errors: errors.length > 0 ? errors : [{ operation: 'sync', statusCode: 404, message: ITEM_NOT_FOUND_MSG }],
         };
       }
       const message = (responseData.error as string) || (responseData.message as string) || 'Avito synchronization failed';
@@ -401,247 +403,26 @@ export async function handleIncomingAvitoBookings(
 }
 
 /**
- * Sync all bookings to Avito calendar
+ * Trigger a manual sync check across all configured platforms.
+ * Real per-property sync for Avito happens via syncAvitoIntegration (Edge Function).
+ * This function returns status summary for UI feedback.
  */
-async function syncBookingsToAvito(
-  avitoUserId: string,
-  propertyAvitoMappings: Map<string, string>, // propertyId -> avitoItemId
-  bookings: Booking[]
-): Promise<SyncResult> {
-  let syncedCount = 0;
-  
-  try {
-    for (const booking of bookings) {
-      const avitoItemId = propertyAvitoMappings.get(booking.property_id);
-      if (!avitoItemId) continue;
-      
-      if (booking.status === 'confirmed' || booking.status === 'pending') {
-        await avitoApi.syncBookingToAvito(
-          avitoUserId,
-          avitoItemId,
-          booking.check_in,
-          booking.check_out
-        );
-        syncedCount++;
-      }
-    }
-    
-    return {
+export async function syncWithExternalAPIs(): Promise<SyncResult[]> {
+  devLog('🔄 Starting API sync check...');
+
+  const avitoConfigured = isAvitoConfigured();
+
+  const results: SyncResult[] = [
+    {
       platform: 'Avito',
-      success: true,
-      message: `Synced ${syncedCount} bookings`,
-      syncedItems: syncedCount,
-    };
-  } catch (error) {
-    console.error('Avito sync error:', error);
-    return {
-      platform: 'Avito',
-      success: false,
-      message: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}
+      success: avitoConfigured,
+      message: avitoConfigured ? 'Use per-property sync via settings' : 'Not configured',
+    },
+    { platform: 'Airbnb', success: true, message: 'Integration coming soon' },
+    { platform: 'CIAN', success: true, message: 'Integration coming soon' },
+    { platform: 'Booking.com', success: true, message: 'Integration coming soon' },
+  ];
 
-/**
- * Sync property rates to Avito with markup applied
- */
-export async function syncRatesToAvito(
-  avitoUserId: string,
-  propertyId: string,
-  avitoItemId: string,
-  startDate: string,
-  endDate: string
-): Promise<void> {
-  // Get integration settings for markup
-  const integration = await getPropertyIntegration(propertyId, 'avito');
-  
-  // Get property rates from database
-  const { data: rates } = await supabase
-    .from('property_rates')
-    .select('*')
-    .eq('property_id', propertyId)
-    .gte('date', startDate)
-    .lte('date', endDate);
-  
-  if (!rates || rates.length === 0) return;
-  
-  // Update Avito calendar with prices (with markup applied)
-  for (const rate of rates) {
-    const priceWithMarkup = calculatePriceWithMarkup(rate.daily_price, integration);
-    
-    await avitoApi.updatePrices(
-      avitoUserId,
-      avitoItemId,
-      rate.date,
-      rate.date,
-      priceWithMarkup,
-      rate.min_stay
-    );
-  }
-}
-
-/**
- * Main sync function that coordinates all platform syncs
- */
-export async function syncWithExternalAPIs(
-  userId?: string,
-  properties?: Property[],
-  bookings?: Booking[]
-): Promise<SyncResult[]> {
-  const results: SyncResult[] = [];
-  
-  devLog('🔄 Starting API sync...');
-  
-  // Avito Sync
-  if (isAvitoConfigured()) {
-    devLog('📡 Connecting to Avito...');
-    const initialized = await initializeAvito();
-    
-    if (initialized && userId && properties && bookings) {
-      // For now, we'll need to store property-to-Avito mappings somewhere
-      // This would typically be in the database
-      const avitoUserId = localStorage.getItem('avito_user_id') || '';
-      
-      if (avitoUserId) {
-        // Create mapping from localStorage (in production, this would be in DB)
-        const mappings = new Map<string, string>();
-        properties.forEach(prop => {
-          const avitoItemId = localStorage.getItem(`avito_item_${prop.id}`);
-          if (avitoItemId) {
-            mappings.set(prop.id, avitoItemId);
-          }
-        });
-        
-        if (mappings.size > 0) {
-          const avitoResult = await syncBookingsToAvito(avitoUserId, mappings, bookings);
-          results.push(avitoResult);
-          devLog(`✅ Avito: ${avitoResult.message}`);
-        } else {
-          results.push({
-            platform: 'Avito',
-            success: true,
-            message: 'No property mappings configured',
-          });
-        }
-      }
-    } else if (!initialized) {
-      results.push({
-        platform: 'Avito',
-        success: false,
-        message: 'Authentication failed',
-      });
-    }
-  } else {
-    results.push({
-      platform: 'Avito',
-      success: true,
-      message: 'Not configured',
-    });
-  }
-  
-  // Airbnb Sync (placeholder - requires their API partnership)
-  results.push({
-    platform: 'Airbnb',
-    success: true,
-    message: 'Integration coming soon',
-  });
-  devLog('⏳ Airbnb: Integration coming soon');
-  
-  // CIAN Sync (placeholder)
-  results.push({
-    platform: 'CIAN',
-    success: true,
-    message: 'Integration coming soon',
-  });
-  devLog('⏳ CIAN: Integration coming soon');
-  
-  // Booking.com Sync (placeholder - requires their API partnership)
-  results.push({
-    platform: 'Booking.com',
-    success: true,
-    message: 'Integration coming soon',
-  });
-  devLog('⏳ Booking.com: Integration coming soon');
-  
-  devLog('🎉 Sync completed');
-  
-  return results;
-}
-
-/**
- * Sync a single booking to all configured platforms
- */
-export async function syncSingleBooking(booking: Booking): Promise<SyncResult[]> {
-  const results: SyncResult[] = [];
-  
-  // Avito
-  if (isAvitoConfigured()) {
-    const avitoUserId = localStorage.getItem('avito_user_id');
-    const avitoItemId = localStorage.getItem(`avito_item_${booking.property_id}`);
-    
-    if (avitoUserId && avitoItemId) {
-      try {
-        await avitoApi.syncBookingToAvito(
-          avitoUserId,
-          avitoItemId,
-          booking.check_in,
-          booking.check_out
-        );
-        results.push({
-          platform: 'Avito',
-          success: true,
-          message: 'Booking synced',
-        });
-      } catch (error) {
-        results.push({
-          platform: 'Avito',
-          success: false,
-          message: error instanceof Error ? error.message : 'Sync failed',
-        });
-      }
-    }
-  }
-  
-  return results;
-}
-
-/**
- * Remove a booking from all configured platforms
- */
-export async function removeSyncedBooking(
-  booking: Booking,
-  defaultPrice?: number
-): Promise<SyncResult[]> {
-  const results: SyncResult[] = [];
-  
-  // Avito
-  if (isAvitoConfigured()) {
-    const avitoUserId = localStorage.getItem('avito_user_id');
-    const avitoItemId = localStorage.getItem(`avito_item_${booking.property_id}`);
-    
-    if (avitoUserId && avitoItemId) {
-      try {
-        await avitoApi.removeBookingFromAvito(
-          avitoUserId,
-          avitoItemId,
-          booking.check_in,
-          booking.check_out,
-          defaultPrice
-        );
-        results.push({
-          platform: 'Avito',
-          success: true,
-          message: 'Booking removed',
-        });
-      } catch (error) {
-        results.push({
-          platform: 'Avito',
-          success: false,
-          message: error instanceof Error ? error.message : 'Remove failed',
-        });
-      }
-    }
-  }
-  
+  devLog('🎉 Sync check completed');
   return results;
 }

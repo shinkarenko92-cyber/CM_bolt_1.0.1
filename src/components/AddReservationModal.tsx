@@ -1,8 +1,14 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Settings, AlertCircle, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { differenceInDays, parseISO } from 'date-fns';
+
 import { Property, supabase, Guest } from '@/lib/supabase';
+import {
+  calculateNights,
+  validateDateRange,
+  getPropertyConditions,
+  fetchCalculatedPrice,
+} from '@/utils/bookingUtils';
 import { ChangeConditionsModal } from '@/components/ChangeConditionsModal';
 import {
   Dialog,
@@ -93,9 +99,8 @@ export function AddReservationModal({
   const [currentDailyPrice, setCurrentDailyPrice] = useState<number>(0);
   const [currentMinStay, setCurrentMinStay] = useState<number>(1);
   const [guestPopoverOpen, setGuestPopoverOpen] = useState(false);
-  const isUpdatingFromPricePerNight = useRef(false);
-  const isUpdatingFromTotalPrice = useRef(false);
-  const isUpdatingFromConditions = useRef(false);
+  // 'perNight' | 'total' | null — tracks who last edited a price field to avoid sync loops
+  const [priceSource, setPriceSource] = useState<'perNight' | 'total' | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -138,6 +143,7 @@ export function AddReservationModal({
     }
   }, [formData.property_id, isOpen, properties, formData.price_per_night]);
 
+  // Apply prefilled dates once and trigger price fetch
   useEffect(() => {
     if (prefilledDates) {
       setFormData(prev => ({
@@ -146,186 +152,49 @@ export function AddReservationModal({
         check_in: prefilledDates.checkIn,
         check_out: prefilledDates.checkOut,
       }));
-      calculatePrice(prefilledDates.propertyId, prefilledDates.checkIn, prefilledDates.checkOut);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run only when prefilledDates change; calculatePrice identity intentionally omitted
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefilledDates]);
 
+  // Fetch price from DB when property or dates change
   useEffect(() => {
     if (formData.property_id && formData.check_in && formData.check_out) {
       calculatePrice(formData.property_id, formData.check_in, formData.check_out);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run only when property/dates change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.property_id, formData.check_in, formData.check_out]);
 
+  // price_per_night → total_price (user edited per-night rate)
   useEffect(() => {
-    if (
-      formData.property_id &&
-      formData.check_in &&
-      formData.check_out &&
-      !calculatingPrice
-    ) {
-      isUpdatingFromConditions.current = true;
-      getCurrentConditions(formData.property_id, formData.check_in, formData.check_out)
-        .then(conditions => {
-          setCurrentDailyPrice(conditions.dailyPrice);
-          setCurrentMinStay(conditions.minStay);
-          const nights = calculateNights(formData.check_in, formData.check_out);
-          if (nights > 0) {
-            const pricePerNight = Math.round(conditions.dailyPrice);
-            const extraServices = parseFloat(formData.extra_services_amount) || 0;
-            setFormData(prev => ({
-              ...prev,
-              price_per_night: pricePerNight.toString(),
-              total_price: Math.round(pricePerNight * nights + extraServices).toString(),
-            }));
-          }
-          isUpdatingFromConditions.current = false;
-        })
-        .catch(err => {
-          console.error(err);
-          const property = properties.find(p => p.id === formData.property_id);
-          if (property) {
-            setCurrentDailyPrice(property.base_price || 0);
-            setCurrentMinStay(property.minimum_booking_days || 1);
-            const nights = calculateNights(formData.check_in, formData.check_out);
-            if (nights > 0) {
-              const pricePerNight = Math.round(property.base_price || 0);
-              const extraServices = parseFloat(formData.extra_services_amount) || 0;
-              setFormData(prev => ({
-                ...prev,
-                price_per_night: pricePerNight.toString(),
-                total_price: Math.round(pricePerNight * nights + extraServices).toString(),
-              }));
-            }
-          }
-          isUpdatingFromConditions.current = false;
-        });
+    if (priceSource !== 'perNight' || calculatingPrice) return;
+    const nights = calculateNights(formData.check_in, formData.check_out);
+    if (nights <= 0) return;
+    const perNight = parseFloat(formData.price_per_night) || 0;
+    const extra = parseFloat(formData.extra_services_amount) || 0;
+    const newTotal = Math.round(perNight * nights + extra);
+    const current = parseFloat(formData.total_price) || 0;
+    if (Math.abs(newTotal - current) > 0.01) {
+      setFormData(prev => ({ ...prev, total_price: newTotal.toString() }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run only when property/dates change; getCurrentConditions, properties, etc. intentionally omitted to avoid extra runs
-  }, [formData.property_id, formData.check_in, formData.check_out]);
+    setPriceSource(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.price_per_night, formData.extra_services_amount, priceSource, calculatingPrice]);
 
+  // total_price → price_per_night (user edited total)
   useEffect(() => {
-    if (
-      !calculatingPrice &&
-      !isUpdatingFromTotalPrice.current &&
-      formData.price_per_night &&
-      formData.check_in &&
-      formData.check_out
-    ) {
-      const nights = calculateNights(formData.check_in, formData.check_out);
-      if (nights > 0) {
-        const pricePerNight = parseFloat(formData.price_per_night) || 0;
-        const extraServices = parseFloat(formData.extra_services_amount) || 0;
-        const newTotal = Math.round(pricePerNight * nights + extraServices);
-        const current = parseFloat(formData.total_price) || 0;
-        if (Math.abs(newTotal - current) > 0.01) {
-          isUpdatingFromPricePerNight.current = true;
-          setFormData(prev => ({ ...prev, total_price: newTotal.toString() }));
-          setTimeout(() => {
-            isUpdatingFromPricePerNight.current = false;
-          }, 0);
-        }
-      }
+    if (priceSource !== 'total' || calculatingPrice) return;
+    const nights = calculateNights(formData.check_in, formData.check_out);
+    if (nights <= 0) return;
+    const total = parseFloat(formData.total_price) || 0;
+    const extra = parseFloat(formData.extra_services_amount) || 0;
+    const newPerNight = Math.round((total - extra) / nights);
+    const current = Math.round(parseFloat(formData.price_per_night) || 0);
+    if (newPerNight !== current) {
+      setFormData(prev => ({ ...prev, price_per_night: newPerNight.toString() }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync total from price_per_night; omit formData.total_price to avoid loop
-  }, [
-    formData.price_per_night,
-    formData.check_in,
-    formData.check_out,
-    formData.extra_services_amount,
-    calculatingPrice,
-  ]);
-
-  useEffect(() => {
-    if (
-      !calculatingPrice &&
-      !isUpdatingFromConditions.current &&
-      !isUpdatingFromPricePerNight.current &&
-      formData.total_price &&
-      formData.check_in &&
-      formData.check_out
-    ) {
-      const nights = calculateNights(formData.check_in, formData.check_out);
-      if (nights > 0) {
-        const totalPrice = parseFloat(formData.total_price) || 0;
-        const extraServices = parseFloat(formData.extra_services_amount) || 0;
-        const newDaily = Math.round((totalPrice - extraServices) / nights);
-        const current = Math.round(parseFloat(formData.price_per_night) || 0);
-        if (newDaily !== current) {
-          isUpdatingFromTotalPrice.current = true;
-          setFormData(prev => ({ ...prev, price_per_night: newDaily.toString() }));
-          setTimeout(() => {
-            isUpdatingFromTotalPrice.current = false;
-          }, 0);
-        }
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync price_per_night from total; omit formData.price_per_night to avoid loop
-  }, [
-    formData.total_price,
-    formData.extra_services_amount,
-    formData.check_in,
-    formData.check_out,
-    calculatingPrice,
-  ]);
-
-  const calculateNights = (checkIn: string, checkOut: string): number => {
-    if (!checkIn || !checkOut) return 0;
-    const start = parseISO(checkIn);
-    const end = parseISO(checkOut);
-    if (end <= start) return 0;
-    return differenceInDays(end, start);
-  };
-
-  const getCurrentConditions = async (
-    propertyId: string,
-    checkIn: string,
-    checkOut: string
-  ): Promise<{ dailyPrice: number; minStay: number }> => {
-    const property = properties.find(p => p.id === propertyId);
-    if (!property)
-      return { dailyPrice: 0, minStay: 1 };
-    try {
-      const start = new Date(checkIn);
-      const end = new Date(checkOut);
-      const dates: string[] = [];
-      for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
-        dates.push(d.toISOString().split('T')[0]);
-      }
-      if (dates.length === 0)
-        return {
-          dailyPrice: property.base_price || 0,
-          minStay: property.minimum_booking_days || 1,
-        };
-      const { data: rates, error: ratesError } = await supabase
-        .from('property_rates')
-        .select('*')
-        .eq('property_id', propertyId);
-      if (ratesError) throw ratesError;
-      let totalPrice = 0;
-      let maxMinStay = property.minimum_booking_days || 1;
-      const filteredRates = rates?.filter(r => dates.includes(r.date)) || [];
-      for (const date of dates) {
-        const rate = filteredRates.find(r => r.date === date);
-        if (rate) {
-          totalPrice += Number(rate.daily_price) || 0;
-          maxMinStay = Math.max(maxMinStay, rate.min_stay || 1);
-        } else {
-          totalPrice += property.base_price || 0;
-        }
-      }
-      const averageDailyPrice =
-        dates.length > 0 ? totalPrice / dates.length : property.base_price || 0;
-      return { dailyPrice: averageDailyPrice, minStay: maxMinStay };
-    } catch (err) {
-      console.error(err);
-      return {
-        dailyPrice: property.base_price || 0,
-        minStay: property.minimum_booking_days || 1,
-      };
-    }
-  };
+    setPriceSource(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.total_price, priceSource, calculatingPrice]);
 
   const calculatePrice = async (
     propertyId: string,
@@ -333,34 +202,29 @@ export function AddReservationModal({
     checkOut: string
   ) => {
     if (!propertyId || !checkIn || !checkOut) return;
-    const checkOutDate = new Date(checkOut);
-    const checkInDate = new Date(checkIn);
-    if (checkOutDate <= checkInDate) return;
+    if (validateDateRange(checkIn, checkOut) !== null) return;
     setCalculatingPrice(true);
     isUpdatingFromConditions.current = true;
     try {
-      const { data, error } = await supabase.rpc('calculate_booking_price', {
-        p_property_id: propertyId,
-        p_check_in: checkIn,
-        p_check_out: checkOut,
-      });
-      if (error) throw error;
-      if (data !== null) {
+      const basePrice = await fetchCalculatedPrice(propertyId, checkIn, checkOut);
+      if (basePrice !== null) {
         const property = properties.find(p => p.id === propertyId);
         const nights = calculateNights(checkIn, checkOut);
         const extraServices = parseFloat(formData.extra_services_amount) || 0;
-        const totalPrice = data + extraServices;
-        const pricePerNight = nights > 0 ? data / nights : 0;
+        const pricePerNight = nights > 0 ? basePrice / nights : 0;
         setFormData(prev => ({
           ...prev,
-          total_price: Math.round(totalPrice).toString(),
+          total_price: Math.round(basePrice + extraServices).toString(),
           price_per_night: Math.round(pricePerNight).toString(),
           currency: property?.currency || 'RUB',
         }));
       }
-      const conditions = await getCurrentConditions(propertyId, checkIn, checkOut);
-      setCurrentDailyPrice(conditions.dailyPrice);
-      setCurrentMinStay(conditions.minStay);
+      const property = properties.find(p => p.id === propertyId);
+      if (property) {
+        const conditions = await getPropertyConditions(property, checkIn, checkOut);
+        setCurrentDailyPrice(conditions.dailyPrice);
+        setCurrentMinStay(conditions.minStay);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -375,21 +239,15 @@ export function AddReservationModal({
     setErrorType(null);
     setLoading(true);
     try {
-      if (
-        !formData.property_id ||
-        !formData.guest_name.trim() ||
-        !formData.check_in ||
-        !formData.check_out
-      ) {
+      if (!formData.property_id || !formData.guest_name.trim()) {
         setError(t('errors.fillAllFields'));
         setErrorType('fillAllFields');
         return;
       }
-      const checkInDate = parseISO(formData.check_in);
-      const checkOutDate = parseISO(formData.check_out);
-      if (checkOutDate <= checkInDate) {
-        setError(t('errors.checkOutBeforeCheckIn'));
-        setErrorType('checkOutBeforeCheckIn');
+      const dateError = validateDateRange(formData.check_in, formData.check_out);
+      if (dateError) {
+        setError(t(`errors.${dateError}`));
+        setErrorType(dateError);
         return;
       }
       await onAdd({
@@ -483,13 +341,10 @@ export function AddReservationModal({
                   calculatingPrice
                 }
                 onClick={async () => {
-                  if (
-                    formData.property_id &&
-                    formData.check_in &&
-                    formData.check_out
-                  ) {
-                    const conditions = await getCurrentConditions(
-                      formData.property_id,
+                  const property = properties.find(p => p.id === formData.property_id);
+                  if (property && formData.check_in && formData.check_out) {
+                    const conditions = await getPropertyConditions(
+                      property,
                       formData.check_in,
                       formData.check_out
                     );
@@ -694,7 +549,7 @@ export function AddReservationModal({
                         min={0}
                         step={1}
                         value={formData.total_price}
-                        onChange={e => setFormData(prev => ({ ...prev, total_price: e.target.value }))}
+                        onChange={e => { setFormData(prev => ({ ...prev, total_price: e.target.value })); setPriceSource('total'); }}
                         placeholder={t('modals.totalPricePlaceholder', { defaultValue: '0' })}
                         disabled={calculatingPrice}
                       />
@@ -713,12 +568,13 @@ export function AddReservationModal({
                         min={0}
                         step={1}
                         value={formData.price_per_night}
-                        onChange={e =>
+                        onChange={e => {
                           setFormData(prev => ({
                             ...prev,
                             price_per_night: String(Math.round(parseFloat(e.target.value) || 0)),
-                          }))
-                        }
+                          }));
+                          setPriceSource('perNight');
+                        }}
                         placeholder="0"
                         disabled={calculatingPrice}
                       />

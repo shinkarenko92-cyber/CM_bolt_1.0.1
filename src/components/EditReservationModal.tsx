@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Booking, Property, supabase, BookingLog } from '@/lib/supabase';
 import { PriceRecalculationModal } from '@/components/PriceRecalculationModal';
+import { calculateNights, validateDateRange, fetchCalculatedPrice } from '@/utils/bookingUtils';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import {
@@ -100,6 +101,7 @@ export function EditReservationModal({
     notes: '',
     extra_services_amount: '0',
   });
+  const [priceSource, setPriceSource] = useState<'perNight' | 'total' | null>(null);
   const [originalPropertyId, setOriginalPropertyId] = useState('');
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [calculatedPrice, setCalculatedPrice] = useState(0);
@@ -108,14 +110,6 @@ export function EditReservationModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  const calculateNights = (checkIn: string, checkOut: string): number => {
-    if (!checkIn || !checkOut) return 0;
-    const checkInDate = new Date(checkIn);
-    const checkOutDate = new Date(checkOut);
-    if (checkOutDate <= checkInDate) return 0;
-    return Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
-  };
 
   useEffect(() => {
     if (booking) {
@@ -174,19 +168,21 @@ export function EditReservationModal({
     }
   };
 
+  // price_per_night → total_price (user edited per-night rate)
   useEffect(() => {
-    if (formData.price_per_night && formData.check_in && formData.check_out) {
-      const nights = calculateNights(formData.check_in, formData.check_out);
-      if (nights > 0) {
-        const pricePerNight = parseFloat(formData.price_per_night) || 0;
-        const extraServices = parseFloat(formData.extra_services_amount) || 0;
-        setFormData(prev => ({
-          ...prev,
-          total_price: Math.round(pricePerNight * nights + extraServices).toString(),
-        }));
-      }
+    if (priceSource !== 'perNight') return;
+    const nights = calculateNights(formData.check_in, formData.check_out);
+    if (nights > 0) {
+      const perNight = parseFloat(formData.price_per_night) || 0;
+      const extra = parseFloat(formData.extra_services_amount) || 0;
+      setFormData(prev => ({
+        ...prev,
+        total_price: Math.round(perNight * nights + extra).toString(),
+      }));
     }
-  }, [formData.price_per_night, formData.check_in, formData.check_out, formData.extra_services_amount]);
+    setPriceSource(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.price_per_night, formData.extra_services_amount, priceSource]);
 
   const historyEvents = useMemo((): HistoryEvent[] => {
     if (!booking) return [];
@@ -227,23 +223,8 @@ export function EditReservationModal({
     checkIn: string,
     checkOut: string
   ): Promise<number> => {
-    const property = properties.find(p => p.id === propertyId);
-    if (!property) return 0;
-    const { data: rates } = await supabase
-      .from('property_rates')
-      .select('*')
-      .eq('property_id', propertyId);
-    const start = new Date(checkIn);
-    const end = new Date(checkOut);
-    let total = 0;
-    const current = new Date(start);
-    while (current < end) {
-      const dateStr = current.toISOString().split('T')[0];
-      const rate = rates?.find(r => r.date === dateStr);
-      total += rate?.daily_price ?? property.base_price ?? 0;
-      current.setDate(current.getDate() + 1);
-    }
-    return total;
+    const result = await fetchCalculatedPrice(propertyId, checkIn, checkOut);
+    return result ?? 0;
   };
 
   const handlePropertyChange = async (newPropertyId: string) => {
@@ -278,10 +259,9 @@ export function EditReservationModal({
     setError(null);
     setLoading(true);
     try {
-      const checkOutDate = new Date(formData.check_out);
-      const checkInDate = new Date(formData.check_in);
-      if (checkOutDate <= checkInDate) {
-        setError(t('errors.checkOutBeforeCheckIn'));
+      const dateError = validateDateRange(formData.check_in, formData.check_out);
+      if (dateError) {
+        setError(t(`errors.${dateError}`));
         return;
       }
       await onUpdate(booking.id, {
@@ -461,7 +441,7 @@ export function EditReservationModal({
                           type="number"
                           step="1"
                           value={formData.price_per_night}
-                          onChange={e => setFormData(prev => ({ ...prev, price_per_night: e.target.value }))}
+                          onChange={e => { setFormData(prev => ({ ...prev, price_per_night: e.target.value })); setPriceSource('perNight'); }}
                           placeholder="0"
                         />
                       </div>
@@ -471,7 +451,7 @@ export function EditReservationModal({
                           type="number"
                           step="1"
                           value={formData.total_price}
-                          onChange={e => setFormData(prev => ({ ...prev, total_price: e.target.value }))}
+                          onChange={e => { setFormData(prev => ({ ...prev, total_price: e.target.value })); setPriceSource('total'); }}
                         />
                       </div>
                     </div>

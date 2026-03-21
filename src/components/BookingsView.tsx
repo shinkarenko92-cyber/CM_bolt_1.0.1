@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, Calendar, MapPin, User, Phone, Mail, Upload } from 'lucide-react';
 import { Booking, Property } from '@/lib/supabase';
+import { calculateNights } from '@/utils/bookingUtils';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -107,13 +108,6 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
 
     return { total: bookings.length, upcoming, past };
   }, [bookings]);
-
-  const calculateNights = (checkIn: string, checkOut: string) => {
-    const start = new Date(checkIn);
-    const end = new Date(checkOut);
-    const diffTime = end.getTime() - start.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
 
   return (
     <div className="flex-1 overflow-auto p-4 md:p-6 bg-background">

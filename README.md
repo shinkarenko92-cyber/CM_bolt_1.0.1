@@ -292,7 +292,6 @@ CM_bolt_1.0.1/
 │   │   ├── AddReservationModal.tsx
 │   │   ├── AdminView.tsx
 │   │   ├── AnalyticsView.tsx
-│   │   ├── ApiIntegrationSettings.tsx
 │   │   ├── Auth.tsx
 │   │   ├── AvitoConnectModal.tsx
 │   │   ├── AvitoErrorModal.tsx
@@ -302,13 +301,20 @@ CM_bolt_1.0.1/
 │   │   ├── MessagesView.tsx
 │   │   ├── PropertiesView.tsx
 │   │   └── ...
+│   ├── config/                   # Конфигурация (константы, env)
 │   ├── contexts/                 # React контексты
 │   │   ├── AuthContext.tsx
 │   │   └── ThemeContext.tsx
+│   ├── hooks/                    # Пользовательские хуки
+│   │   ├── useDashboardData.ts   # Загрузка данных дашборда (properties, bookings, guests, profile)
+│   │   ├── useReservationForm.ts # Синхронизация цен в формах бронирования
+│   │   └── use-media-query.ts
 │   ├── stores/                   # Zustand stores
 │   │   ├── authStore.ts
 │   │   ├── themeStore.ts
 │   │   └── syncLogStore.ts
+│   ├── pages/                    # Страницы (Cleaning и др.)
+│   ├── schemas/                  # Zod схемы валидации
 │   ├── i18n/                     # Интернационализация
 │   │   ├── index.ts
 │   │   └── locales/
@@ -324,6 +330,7 @@ CM_bolt_1.0.1/
 │   ├── types/                    # TypeScript типы
 │   │   └── avito.ts
 │   ├── utils/                    # Утилиты
+│   │   ├── bookingUtils.ts       # Общие утилиты бронирований (calculateNights, validateDateRange, fetchCalculatedPrice)
 │   │   ├── dateParser.ts
 │   │   ├── excelParser.ts
 │   │   ├── fuzzyMatch.ts
@@ -577,6 +584,7 @@ npm run test:run
 - [x] **Zustand** для состояния (auth, theme, sync log)
 - [x] Абсолютные импорты `@/` и `@components/` для удобной разработки
 - [x] Юнит-тесты (Vitest) для парсеров и утилит; CI `test-and-build`
+- [x] **Рефакторинг (аудит кода)**: устранены дубли `calculateNights`/`calculatePrice` в 4 файлах → общий `src/utils/bookingUtils.ts`; гонка useRef-флагов в формах заменена на `priceSource` state; логика загрузки данных вынесена в `src/hooks/useDashboardData.ts`; удалён мёртвый `ApiIntegrationSettings.tsx`; структурированная обработка ошибок Avito (statusCode вместо string matching); исправлен фильтр `deleted_at` в Dashboard
 
 ### В разработке / планируется
 

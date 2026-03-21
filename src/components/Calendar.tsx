@@ -321,7 +321,7 @@ export function Calendar({
     return null;
   };
 
-  const updateDragOver = (x: number, y: number) => {
+  const updateDragOver = useCallback((x: number, y: number) => {
     const propertyInfo = getPropertyAtY(y);
     const dateIndex = Math.floor((x - 256) / CELL_WIDTH);
 
@@ -370,9 +370,10 @@ export function Calendar({
       setDragOverCell(null);
       setDragOverDates(new Set());
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dragState, dates, bookings, properties]);
 
-  const handleDrop = async (targetPropertyId: string, targetDateIndex: number) => {
+  const handleDrop = useCallback(async (targetPropertyId: string, targetDateIndex: number) => {
     if (!dragState.booking) return;
 
     const targetDate = dates[targetDateIndex];
@@ -439,7 +440,8 @@ export function Calendar({
     } finally {
       setTimeout(() => { justDroppedRef.current = false; }, 100);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dragState, dates, bookings, onBookingUpdate]);
 
   const loadPropertyRates = async (retryCount = 0): Promise<void> => {
     if (properties.length === 0) {
