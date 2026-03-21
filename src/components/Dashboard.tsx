@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Search, Bell, User, X } from 'lucide-react';
@@ -19,31 +19,32 @@ import { Calendar } from '@/components/Calendar';
 import { AddReservationModal } from '@/components/AddReservationModal';
 import { EditReservationModal } from '@/components/EditReservationModal';
 import { OverlapWarningModal } from '@/components/OverlapWarningModal';
-import { PropertiesView } from '@/components/PropertiesView';
-import { BookingsView } from '@/components/BookingsView';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { AnalyticsView } from '@/components/AnalyticsView';
-import { AnalyticsInsights } from '@/components/AnalyticsInsights';
 import { GuestModal } from '@/components/GuestModal';
-import { AdminView } from '@/components/AdminView';
-import { SettingsView } from '@/components/SettingsView';
 import { UserProfileModal } from '@/components/UserProfileModal';
-import { MessagesView } from '@/components/MessagesView';
-import { ChatPanel } from '@/components/ChatPanel';
+
+const PropertiesView = lazy(() => import('@/components/PropertiesView').then(m => ({ default: m.PropertiesView })));
+const BookingsView = lazy(() => import('@/components/BookingsView').then(m => ({ default: m.BookingsView })));
+const AnalyticsView = lazy(() => import('@/components/AnalyticsView').then(m => ({ default: m.AnalyticsView })));
+const AnalyticsInsights = lazy(() => import('@/components/AnalyticsInsights').then(m => ({ default: m.AnalyticsInsights })));
+const AdminView = lazy(() => import('@/components/AdminView').then(m => ({ default: m.AdminView })));
+const SettingsView = lazy(() => import('@/components/SettingsView').then(m => ({ default: m.SettingsView })));
+const MessagesView = lazy(() => import('@/components/MessagesView').then(m => ({ default: m.MessagesView })));
+const ChatPanel = lazy(() => import('@/components/ChatPanel').then(m => ({ default: m.ChatPanel })));
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { SkeletonCalendar } from '@/components/Skeleton';
 import { ViewSkeleton } from '@/components/ViewSkeleton';
 import { ErrorRetry } from '@/components/ErrorRetry';
 import { DashboardKPI } from '@/components/DashboardKPI';
-import { OnboardingWizard } from '@/components/OnboardingWizard';
+const OnboardingWizard = lazy(() => import('@/components/OnboardingWizard').then(m => ({ default: m.OnboardingWizard })));
 import { supabase, Property, Booking, Guest, Chat } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { getOAuthSuccess, getOAuthError } from '@/services/avito';
 import { useAvitoChats } from '@/hooks/useAvitoChats';
 import { syncWithExternalAPIs, syncAvitoIntegration } from '@/services/apiSync';
 import { showAvitoErrors, type AvitoErrorInfo } from '@/services/avitoErrors';
-import { DeletePropertyModal } from '@/components/DeletePropertyModal';
-import { ImportBookingsModal } from '@/components/ImportBookingsModal';
+const DeletePropertyModal = lazy(() => import('@/components/DeletePropertyModal').then(m => ({ default: m.DeletePropertyModal })));
+const ImportBookingsModal = lazy(() => import('@/components/ImportBookingsModal').then(m => ({ default: m.ImportBookingsModal })));
 import {
   Dialog,
   DialogContent,
@@ -54,8 +55,8 @@ import {
 } from '@/components/ui/dialog';
 import { logBookingChange, getBookingChanges } from '@/services/bookingLog';
 import { getPropertyLimit, getBookingLimit, isDemoExpired } from '@/utils/subscriptionLimits';
-import { CleaningAdminView } from '@/pages/Cleaning/AdminView';
-import { CleaningCleanerView } from '@/pages/Cleaning/CleanerView';
+const CleaningAdminView = lazy(() => import('@/pages/Cleaning/AdminView').then(m => ({ default: m.CleaningAdminView })));
+const CleaningCleanerView = lazy(() => import('@/pages/Cleaning/CleanerView').then(m => ({ default: m.CleaningCleanerView })));
 import { BottomNav } from '@/components/BottomNav';
 
 type NewReservation = {
@@ -1204,6 +1205,7 @@ export function Dashboard() {
           </div>
         )}
 
+        <Suspense fallback={<ViewSkeleton />}>
         {loading ? (
           currentView === 'bookings' ? <ViewSkeleton variant="cards" /> :
           currentView === 'properties' ? <ViewSkeleton variant="cards" /> :
@@ -1434,9 +1436,11 @@ export function Dashboard() {
             </div>
           </div>
         )}
+        </Suspense>
 
         {/* Delete Property Modal */}
         {propertyToDelete && (
+          <Suspense fallback={null}>
           <DeletePropertyModal
             isOpen={isDeletePropertyModalOpen}
             onClose={() => {
@@ -1448,17 +1452,22 @@ export function Dashboard() {
             bookings={bookingsForDelete}
             onConfirm={handleDeletePropertyConfirm}
           />
+          </Suspense>
         )}
 
         {/* Import Bookings Modal */}
-        <ImportBookingsModal
-          isOpen={isImportModalOpen}
-          onClose={() => setIsImportModalOpen(false)}
-          onSuccess={() => {
-            reloadDashboardData();
-            setCurrentView('bookings');
-          }}
-        />
+        {isImportModalOpen && (
+          <Suspense fallback={null}>
+          <ImportBookingsModal
+            isOpen={isImportModalOpen}
+            onClose={() => setIsImportModalOpen(false)}
+            onSuccess={() => {
+              reloadDashboardData();
+              setCurrentView('bookings');
+            }}
+          />
+          </Suspense>
+        )}
       </div>
     </div>
   );

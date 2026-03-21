@@ -1,22 +1,11 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
-import { Auth } from '@/components/Auth';
 import { AuthLayout } from '@/components/AuthLayout';
-import { Dashboard } from '@/components/Dashboard';
-import { SignupForm } from '@/components/SignupForm';
 import { YandexMetrika } from '@/components/YandexMetrika';
 import BoltChat, { type PlanType } from '@/components/BoltChat';
 import { isDemoExpired } from '@/utils/subscriptionLimits';
-import { TermsPage } from '@/pages/TermsPage';
-import { PrivacyPage } from '@/pages/PrivacyPage';
-import { OnboardingImport } from '@/pages/OnboardingImport';
-import { LoginPhonePage } from '@/pages/LoginPhonePage';
-import { AvitoCallbackPage } from '@/pages/AvitoCallbackPage';
-import { AvitoMessengerCallbackPage } from '@/pages/AvitoMessengerCallbackPage';
-import { VerifyPhonePage } from '@/pages/VerifyPhonePage';
-import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { CookieConsentBanner } from '@/components/CookieConsentBanner';
 import { AvitoErrorQueue } from '@/components/AvitoErrorQueue';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -24,6 +13,29 @@ import { SyncLogProvider } from '@/contexts/SyncLogContext';
 import { AvitoSyncErrorsHandler } from '@/components/AvitoSyncErrorsHandler';
 import { InstallPWA } from '@/components/InstallPWA';
 import { startQueueListener } from '@/lib/photoQueue';
+
+const Dashboard = lazy(() => import('@/components/Dashboard').then(m => ({ default: m.Dashboard })));
+const Auth = lazy(() => import('@/components/Auth').then(m => ({ default: m.Auth })));
+const SignupForm = lazy(() => import('@/components/SignupForm').then(m => ({ default: m.SignupForm })));
+const TermsPage = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })));
+const PrivacyPage = lazy(() => import('@/pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
+const OnboardingImport = lazy(() => import('@/pages/OnboardingImport').then(m => ({ default: m.OnboardingImport })));
+const LoginPhonePage = lazy(() => import('@/pages/LoginPhonePage').then(m => ({ default: m.LoginPhonePage })));
+const AvitoCallbackPage = lazy(() => import('@/pages/AvitoCallbackPage').then(m => ({ default: m.AvitoCallbackPage })));
+const AvitoMessengerCallbackPage = lazy(() => import('@/pages/AvitoMessengerCallbackPage').then(m => ({ default: m.AvitoMessengerCallbackPage })));
+const VerifyPhonePage = lazy(() => import('@/pages/VerifyPhonePage').then(m => ({ default: m.VerifyPhonePage })));
+const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
+
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <p className="text-sm text-muted-foreground">Загрузка...</p>
+      </div>
+    </div>
+  );
+}
 
 function MainOrRedirect() {
   const { user, loading } = useAuth();
@@ -75,6 +87,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 function AppContent() {
   return (
     <SyncLogProvider>
+      <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
@@ -94,6 +107,7 @@ function AppContent() {
       <BoltChatWidget />
       <CookieConsentBanner />
       <InstallPWA />
+      </Suspense>
     </SyncLogProvider>
   );
 }
