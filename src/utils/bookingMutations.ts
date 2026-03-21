@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
  */
 function isColumnError(e: unknown): boolean {
   const err = e as { code?: string; status?: number; message?: string };
-  return (
+  return !!(
     err?.code === 'PGRST204' ||
     err?.status === 400 ||
     err?.message?.includes('400') ||
@@ -58,7 +58,10 @@ const STRIP_GROUPS_UPDATE = [
 
 export async function insertBookingWithRetry(payload: Payload) {
   return retryStripping(
-    (p) => supabase.from('bookings').insert([p]).select() as Promise<SupabaseResult<unknown[]>>,
+    async (p) => {
+      const res = await supabase.from('bookings').insert([p]).select();
+      return { data: res.data as unknown[] | null, error: res.error };
+    },
     payload,
     STRIP_GROUPS_INSERT
   );
@@ -66,7 +69,10 @@ export async function insertBookingWithRetry(payload: Payload) {
 
 export async function updateBookingWithRetry(id: string, payload: Payload) {
   return retryStripping(
-    (p) => supabase.from('bookings').update(p).eq('id', id) as Promise<SupabaseResult<null>>,
+    async (p) => {
+      const res = await supabase.from('bookings').update(p).eq('id', id);
+      return { data: res.data as null, error: res.error };
+    },
     payload,
     STRIP_GROUPS_UPDATE
   );
