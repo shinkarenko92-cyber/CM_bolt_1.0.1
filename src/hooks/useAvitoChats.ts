@@ -526,7 +526,7 @@ export function useAvitoChats(
   }, [selectedChatId]);
 
   // -------------------------------------------------------------------------
-  // Load messages when chat selected
+  // Load messages when chat selected + reset unread count
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (!selectedChatId) {
@@ -537,6 +537,17 @@ export function useAvitoChats(
     setHasMoreMessages(true);
     loadMessagesRef.current(selectedChatId, 0, 50);
     const timer = setTimeout(() => syncMessagesFromAvitoRef.current(selectedChatId), 1000);
+
+    // Reset unread count immediately in state
+    setChats(prev => prev.map(c => c.id === selectedChatId && c.unread_count > 0 ? { ...c, unread_count: 0 } : c));
+    // Persist to DB (fire-and-forget)
+    supabase.from('chats').update({ unread_count: 0 }).eq('id', selectedChatId).then(({ error }) => {
+      if (error) console.error('Error resetting unread_count:', error);
+    });
+    supabase.from('messages').update({ is_read: true }).eq('chat_id', selectedChatId).eq('is_read', false).eq('sender_type', 'contact').then(({ error }) => {
+      if (error) console.error('Error marking messages as read:', error);
+    });
+
     return () => clearTimeout(timer);
   }, [selectedChatId]);
 

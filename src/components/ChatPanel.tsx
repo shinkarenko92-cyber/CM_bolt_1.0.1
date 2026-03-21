@@ -93,6 +93,7 @@ export function ChatPanel({
   const { t } = useTranslation();
   const [inputValue, setInputValue] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -100,15 +101,19 @@ export function ChatPanel({
   const messagesByDate = useMemo(() => groupMessagesByDate(messages), [messages]);
 
   const handleSend = async () => {
-    if (!inputValue.trim() && !uploading) return;
+    if (!inputValue.trim() || sending || uploading) return;
     const text = inputValue.trim();
-    setInputValue('');
+    setSending(true);
     try {
       await onSendMessage(text);
+      setInputValue('');
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch (e) {
       console.error('Failed to send message:', e);
       toast.error(t('messages.error.failedToSend'));
+      // input intentionally NOT cleared — user can retry
+    } finally {
+      setSending(false);
     }
   };
 
@@ -375,9 +380,13 @@ export function ChatPanel({
             size="icon"
             className="shrink-0 h-10 w-10 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground"
             onClick={handleSend}
-            disabled={(!inputValue.trim() && !uploading) || uploading}
+            disabled={!inputValue.trim() || sending || uploading}
           >
-            <Send className="h-5 w-5" />
+            {sending ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
+            ) : (
+              <Send className="h-5 w-5" />
+            )}
           </Button>
         </div>
         <div className="flex items-center justify-between mt-3 px-1">
