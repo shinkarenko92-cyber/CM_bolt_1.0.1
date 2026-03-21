@@ -6,6 +6,8 @@ interface Props {
   fallback?: ReactNode;
   /** Called when an error is caught — useful for logging services. */
   onError?: (error: Error, info: ErrorInfo) => void;
+  /** Compact inline error (for view panels) instead of full-screen overlay. */
+  inline?: boolean;
 }
 
 interface State {
@@ -40,6 +42,28 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.error) {
       if (this.props.fallback) return this.props.fallback;
+
+      if (this.props.inline) {
+        return (
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="max-w-sm w-full rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center">
+              <div className="text-2xl mb-3">⚠️</div>
+              <h3 className="text-base font-semibold text-foreground mb-1">
+                Ошибка загрузки
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                {this.state.error.message || 'Неизвестная ошибка'}
+              </p>
+              <button
+                onClick={this.handleReset}
+                className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                Попробовать снова
+              </button>
+            </div>
+          </div>
+        );
+      }
 
       return (
         <div className="min-h-screen flex items-center justify-center bg-background p-6">

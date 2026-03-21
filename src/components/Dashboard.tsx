@@ -39,6 +39,7 @@ import { DashboardKPI } from '@/components/DashboardKPI';
 const OnboardingWizard = lazy(() => import('@/components/OnboardingWizard').then(m => ({ default: m.OnboardingWizard })));
 import { supabase, Property, Booking, Guest, Chat } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { getOAuthSuccess, getOAuthError } from '@/services/avito';
 import { useAvitoChats } from '@/hooks/useAvitoChats';
 import { syncWithExternalAPIs, syncAvitoIntegration } from '@/services/apiSync';
@@ -316,6 +317,7 @@ export function Dashboard() {
   };
 
   const saveReservationToDatabase = async (reservation: NewReservation) => {
+    let tempId: string | null = null;
     try {
       const limit = getBookingLimit(userProfile);
       if (limit >= 0) {
@@ -330,6 +332,21 @@ export function Dashboard() {
           return;
         }
       }
+
+      // Optimistic: close modal and add temp booking immediately
+      tempId = `temp-${Date.now()}`;
+      const tempBooking = {
+        id: tempId,
+        ...reservation,
+        owner_id: user!.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as unknown as Booking;
+      setBookings(prev => [...prev, tempBooking]);
+      setFilteredBookings(prev => [...prev, tempBooking]);
+      setIsAddModalOpen(false);
+      setPrefilledDates(null);
+      toast.success(`${t('success.bookingCreated')}. ${t('success.changesSaved')}`);
 
       // Add created_by and updated_by fields only if user exists
       // Note: These fields may not exist if migration hasn't been applied yet
@@ -396,8 +413,9 @@ export function Dashboard() {
 
       if (data && data.length > 0) {
         const newBooking = data[0];
-        setBookings([...bookings, newBooking]);
-        setFilteredBookings([...bookings, newBooking]);
+        // Replace temp booking with real booking from DB
+        setBookings(prev => prev.map(b => b.id === tempId ? newBooking : b));
+        setFilteredBookings(prev => prev.map(b => b.id === tempId ? newBooking : b));
 
         // Log the creation
         await logBookingChange(
@@ -408,12 +426,6 @@ export function Dashboard() {
           reservation.source || 'manual'
         );
       }
-      setIsAddModalOpen(false);
-      setPrefilledDates(null);
-
-      toast.success(
-        `${t('success.bookingCreated')}. ${t('success.changesSaved')}`
-      );
 
       // Sync to Avito after successful booking creation
       const syncToastId = toast.loading('Синхронизация с Avito...');
@@ -476,6 +488,11 @@ export function Dashboard() {
         toast.error('Ошибка синхронизации с Avito');
       }
     } catch (error) {
+      // Rollback optimistic booking
+      if (tempId) {
+        setBookings(prev => prev.filter(b => b.id !== tempId));
+        setFilteredBookings(prev => prev.filter(b => b.id !== tempId));
+      }
       console.error('Error saving reservation:', error);
       toast.error(t('errors.somethingWentWrong'));
       throw error;
@@ -501,10 +518,16 @@ export function Dashboard() {
   };
 
   const handleUpdateReservation = async (id: string, data: Partial<Booking>) => {
-    try {
-      // Find the old booking to compare changes
-      const oldBooking = bookings.find((b) => b.id === id);
+    // Find the old booking to compare changes
+    const oldBooking = bookings.find((b) => b.id === id);
 
+    // Optimistic: update calendar immediately
+    const preUpdateBookings = bookings;
+    const preUpdateFiltered = filteredBookings;
+    setBookings(bookings.map(b => b.id === id ? { ...b, ...data } : b));
+    setFilteredBookings(filteredBookings.map(b => b.id === id ? { ...b, ...data } : b));
+
+    try {
       // Add updated_by field only if user exists
       // Note: This field may not exist if migration hasn't been applied yet
       const dataWithAudit: Partial<Booking> & { updated_by?: string | null } = {
@@ -634,6 +657,9 @@ export function Dashboard() {
         }
       }
     } catch (error) {
+      // Rollback optimistic update
+      setBookings(preUpdateBookings);
+      setFilteredBookings(preUpdateFiltered);
       console.error('Error updating reservation:', error);
       toast.error(t('errors.somethingWentWrong'));
       throw error;
@@ -641,24 +667,22 @@ export function Dashboard() {
   };
 
   const handleDeleteReservation = async (id: string) => {
+    // Capture data and optimistically remove from UI immediately
+    const booking = bookings.find(b => b.id === id);
+    const propertyId = booking?.property_id;
+    const bookingSource = booking?.source || 'manual';
+    const isAvitoBooking = bookingSource === 'avito';
+    const preDeleteBookings = bookings;
+    const preDeleteFiltered = filteredBookings;
+    setBookings(bookings.filter(b => b.id !== id));
+    setFilteredBookings(filteredBookings.filter(b => b.id !== id));
+    toast.success(t('success.bookingDeleted'));
+
     try {
-      // Сохраняем данные брони перед удалением для синхронизации
-      const booking = bookings.find(b => b.id === id);
-      const propertyId = booking?.property_id;
-      const bookingSource = booking?.source || 'manual';
-      const isAvitoBooking = bookingSource === 'avito';
-
       const { error } = await supabase.from('bookings').delete().eq('id', id);
-
       if (error) throw error;
 
-      const updatedBookings = bookings.filter((b) => b.id !== id);
-      setBookings(updatedBookings);
-      setFilteredBookings(updatedBookings);
-
       // Deletion is already logged by DB trigger trigger_log_booking_changes_before_delete
-
-      toast.success(t('success.bookingDeleted'));
 
       // Sync to Avito after successful booking deletion
       // For manual bookings: open dates in Avito (exclude deleted booking from sync)
@@ -768,6 +792,9 @@ export function Dashboard() {
         }
       }
     } catch (error) {
+      // Rollback optimistic delete
+      setBookings(preDeleteBookings);
+      setFilteredBookings(preDeleteFiltered);
       console.error('Error deleting reservation:', error);
       toast.error(t('errors.somethingWentWrong'));
       throw error;
@@ -1205,6 +1232,7 @@ export function Dashboard() {
           </div>
         )}
 
+        <ErrorBoundary inline>
         <Suspense fallback={<ViewSkeleton />}>
         {loading ? (
           currentView === 'bookings' ? <ViewSkeleton variant="cards" /> :
@@ -1437,6 +1465,7 @@ export function Dashboard() {
           </div>
         )}
         </Suspense>
+        </ErrorBoundary>
 
         {/* Delete Property Modal */}
         {propertyToDelete && (

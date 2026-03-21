@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, Calendar, MapPin, User, Phone, Mail, Upload } from 'lucide-react';
 import { Booking, Property } from '@/lib/supabase';
@@ -28,6 +28,10 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'upcoming' | 'past'>('all');
   const [sortBy, setSortBy] = useState<'date' | 'property' | 'source'>('date');
+  const [visibleCount, setVisibleCount] = useState(50);
+
+  // Reset visible count when filters change
+  useEffect(() => { setVisibleCount(50); }, [searchTerm, filterType, sortBy]);
 
   const getPropertyName = useCallback(
     (propertyId: string) => properties.find((p) => p.id === propertyId)?.name || t('common.unknown', { defaultValue: 'Неизвестно' }),
@@ -201,7 +205,7 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
           </Card>
         ) : (
           <div className="space-y-3">
-            {filteredAndSortedBookings.map((booking) => {
+            {filteredAndSortedBookings.slice(0, visibleCount).map((booking) => {
               const nights = calculateNights(booking.check_in, booking.check_out);
               const sourceLabel = getSourceLabel(booking.source);
               const statusLabel = getStatusLabel(booking.status);
@@ -301,6 +305,16 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
                 </Card>
               );
             })}
+            {filteredAndSortedBookings.length > visibleCount && (
+              <div className="flex justify-center pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setVisibleCount(c => c + 50)}
+                >
+                  {t('bookings.loadMore', { defaultValue: 'Загрузить ещё' })} ({filteredAndSortedBookings.length - visibleCount})
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
