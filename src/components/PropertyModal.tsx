@@ -1,35 +1,15 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
-import { X, Trash2, Upload, Image as ImageIcon, Loader2, Check } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { X, Trash2, Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Select as SelectRoot,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import toast from 'react-hot-toast';
-import { Property, PropertyIntegration, BookingLog } from '@/lib/supabase';
+import { Property, BookingLog } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
-import { AvitoConnectModal } from '@/components/AvitoConnectModal';
-import { getOAuthSuccess, getOAuthError, parseOAuthState } from '@/services/avito';
 import { syncAvitoIntegration, AvitoSyncError } from '@/services/apiSync';
 import { showAvitoErrors } from '@/services/avitoErrors';
 import { BookingLogsTable } from '@/components/BookingLogsTable';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Switch } from '@/components/ui/switch';
+import { AvitoIntegrationForm } from '@/components/AvitoIntegrationForm';
 
 interface PropertyModalProps {
   isOpen: boolean;
@@ -45,7 +25,6 @@ interface PropertyModalProps {
 
 export function PropertyModal({ isOpen, onClose, property, onSave, onDelete, initialShowAvitoForm = false, onAvitoConnectClose }: PropertyModalProps) {
   const { t } = useTranslation();
-  const location = useLocation();
   const [formData, setFormData] = useState({
     name: '',
     type: 'apartment',
@@ -64,66 +43,41 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete, ini
   const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [avitoIntegration, setAvitoIntegration] = useState<PropertyIntegration | null>(null);
-  const [isAvitoModalOpen, setIsAvitoModalOpen] = useState(false);
-  const [isEditMarkupModalOpen, setIsEditMarkupModalOpen] = useState(false);
-  const [newMarkup, setNewMarkup] = useState<number>(0);
-  const [newMarkupType, setNewMarkupType] = useState<'percent' | 'rub'>('percent');
-  const [isEditingItemId, setIsEditingItemId] = useState(false);
-  const [editingItemId, setEditingItemId] = useState<string>('');
-  const [apiIntegrationsOpen, setApiIntegrationsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('main');
   const [bookingLogs, setBookingLogs] = useState<BookingLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
-  const [confirmAvito, setConfirmAvito] = useState<'disconnect' | 'delete' | null>(null);
-  const [confirmAvitoLoading, setConfirmAvitoLoading] = useState(false);
 
-  const loadAvitoIntegration = useCallback(async () => {
-    if (!property) return;
 
-    const { data, error } = await supabase
-      .from('integrations')
-      .select('*')
-      .eq('property_id', property.id)
-      .eq('platform', 'avito')
-      .maybeSingle();
+  const loadBookingLogs = useCallback(async (propId: string) => {
+    if (!propId) return;
+    setLoadingLogs(true);
+    try {
+      const { data, error } = await supabase
+        .from('booking_logs')
+        .select('*')
+        .eq('property_id', propId)
+        .order('timestamp', { ascending: false })
+        .limit(100);
 
-    if (error) {
-      console.error('Error loading Avito integration:', error);
-    }
-    setAvitoIntegration(data);
-    if (data != null) {
-      const m = data.avito_markup;
-      if (m != null && m !== undefined) {
-        if (m < 0) {
-          setNewMarkupType('rub');
-          setNewMarkup(Math.abs(m));
-        } else {
-          setNewMarkupType('percent');
-          setNewMarkup(m);
+      if (error) {
+        // Таблица booking_logs может отсутствовать (миграции не применены) — 404 / PGRST205 / PGRST301
+        const err = error as { code?: string; status?: number; message?: string };
+        if (err.code === 'PGRST205' || err.status === 404 || err.message?.includes('404') || err.code === 'PGRST301') {
+          setBookingLogs([]);
+          return;
         }
-      } else {
-        setNewMarkupType('percent');
-        setNewMarkup(0);
+        throw error;
       }
-    } else {
-      setNewMarkupType('percent');
-      setNewMarkup(0);
+      setBookingLogs(data || []);
+    } catch (err) {
+      console.error('Error loading booking logs:', err);
+      // Не показывать toast при 404 (таблица отсутствует)
+      const is404 = err && typeof err === 'object' && ((err as { status?: number }).status === 404 || (err as Error).message?.includes('404'));
+      if (!is404) toast.error('Ошибка загрузки истории');
+    } finally {
+      setLoadingLogs(false);
     }
-
-    // Show warning if old integration (missing avito_item_id)
-    if (data && data.is_active && !data.avito_item_id) {
-      // Old integration detected - missing avito_item_id
-      // Warning will be shown in UI
-    }
-  }, [property]);
-
-  // Сбрасываем модалку Авито при закрытии редактирования объекта, чтобы при повторном открытии не показывалась сразу
-  useEffect(() => {
-    if (!isOpen) {
-      setIsAvitoModalOpen(false);
-    }
-  }, [isOpen]);
+  }, []);
 
   useEffect(() => {
     if (property) {
@@ -157,43 +111,10 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete, ini
     }
     setShowDeleteConfirm(false);
     setError(null);
-    loadAvitoIntegration();
     if (property) {
       loadBookingLogs(property.id);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [property, isOpen, loadAvitoIntegration]);
-
-  const loadBookingLogs = useCallback(async (propId: string) => {
-    if (!propId) return;
-    setLoadingLogs(true);
-    try {
-      const { data, error } = await supabase
-        .from('booking_logs')
-        .select('*')
-        .eq('property_id', propId)
-        .order('timestamp', { ascending: false })
-        .limit(100);
-
-      if (error) {
-        // Таблица booking_logs может отсутствовать (миграции не применены) — 404 / PGRST205 / PGRST301
-        const err = error as { code?: string; status?: number; message?: string };
-        if (err.code === 'PGRST205' || err.status === 404 || err.message?.includes('404') || err.code === 'PGRST301') {
-          setBookingLogs([]);
-          return;
-        }
-        throw error;
-      }
-      setBookingLogs(data || []);
-    } catch (err) {
-      console.error('Error loading booking logs:', err);
-      // Не показывать toast при 404 (таблица отсутствует)
-      const is404 = err && typeof err === 'object' && ((err as { status?: number }).status === 404 || (err as Error).message?.includes('404'));
-      if (!is404) toast.error('Ошибка загрузки истории');
-    } finally {
-      setLoadingLogs(false);
-    }
-  }, []);
+  }, [property, isOpen, loadBookingLogs]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -237,190 +158,6 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete, ini
     }
   };
 
-  // Автоматически открываем модальное окно Avito, если есть OAuth callback или возврат с полного редиректа
-  useEffect(() => {
-    if (!property || !isOpen) {
-      return;
-    }
-
-    if (initialShowAvitoForm) {
-      setIsAvitoModalOpen(true);
-      return;
-    }
-
-    const state = location.state as { avitoConnected?: boolean; propertyId?: string } | null;
-    if (state?.avitoConnected && state?.propertyId === property.id) {
-      setIsAvitoModalOpen(true);
-    }
-
-    // Check localStorage FIRST before any work (старый поток)
-    const oauthSuccess = getOAuthSuccess();
-    const oauthError = getOAuthError();
-
-    // Early exit if no OAuth callback
-    if (!oauthSuccess && !oauthError) {
-      return;
-    }
-
-    // Early exit if Avito modal is already open (avoid unnecessary processing)
-    if (isAvitoModalOpen) {
-      return;
-    }
-
-    // Check for OAuth callback
-    if (oauthSuccess) {
-      // Проверяем, что state соответствует текущему property
-      try {
-        const stateData = parseOAuthState(oauthSuccess.state);
-
-        if (stateData && stateData.property_id === property.id) {
-          // OAuth callback detected for property, opening Avito modal
-          setIsAvitoModalOpen(true);
-        } else if (stateData && stateData.property_id !== property.id) {
-          // OAuth callback is for different property
-        }
-      } catch (error) {
-        console.error('PropertyModal: Error parsing OAuth state:', error);
-      }
-    } else if (oauthError) {
-      // Если есть ошибка OAuth, тоже открываем модальное окно, чтобы показать ошибку
-      setIsAvitoModalOpen(true);
-    }
-  }, [property, isOpen, isAvitoModalOpen, location.state, initialShowAvitoForm]); // Include isAvitoModalOpen with early exit to prevent unnecessary processing
-
-  const runDisconnectAvito = async () => {
-    if (!avitoIntegration) return;
-    setConfirmAvitoLoading(true);
-    try {
-      await supabase
-        .from('integrations')
-        .update({ is_active: false })
-        .eq('id', avitoIntegration.id);
-      await supabase
-        .from('avito_sync_queue')
-        .delete()
-        .eq('integration_id', avitoIntegration.id);
-      toast.success('Avito отключён');
-      loadAvitoIntegration();
-      setConfirmAvito(null);
-    } finally {
-      setConfirmAvitoLoading(false);
-    }
-  };
-
-  const runDeleteAvito = async () => {
-    if (!avitoIntegration) return;
-    setConfirmAvitoLoading(true);
-    try {
-      const { error } = await supabase
-        .from('integrations')
-        .delete()
-        .eq('id', avitoIntegration.id);
-      if (error) {
-        toast.error('Ошибка при удалении: ' + error.message);
-        return;
-      }
-      toast.success('Интеграция Avito удалена');
-      loadAvitoIntegration();
-      setConfirmAvito(null);
-    } finally {
-      setConfirmAvitoLoading(false);
-    }
-  };
-
-  const handleDisconnectAvito = () => setConfirmAvito('disconnect');
-  const handleDeleteAvito = () => setConfirmAvito('delete');
-
-  const handleEditMarkup = () => {
-    setIsEditMarkupModalOpen(true);
-  };
-
-  const handleSaveMarkup = async () => {
-    if (!avitoIntegration) return;
-
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('integrations')
-        .update({ avito_markup: newMarkupType === 'rub' ? -newMarkup : newMarkup })
-        .eq('id', avitoIntegration.id);
-
-      if (error) throw error;
-
-      toast.success(t('avito.integration.markupUpdated'));
-      setIsEditMarkupModalOpen(false);
-      loadAvitoIntegration();
-    } catch (error) {
-      console.error('Failed to update markup:', error);
-      toast.error('Ошибка при обновлении наценки: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEditItemId = () => {
-    const currentItemId = avitoIntegration?.avito_item_id != null ? String(avitoIntegration.avito_item_id) : '';
-    setEditingItemId(currentItemId);
-    setIsEditingItemId(true);
-  };
-
-  const handleSaveItemId = async () => {
-    if (!avitoIntegration || !editingItemId || !/^[0-9]{10,11}$/.test(String(editingItemId).trim())) {
-      toast.error('ID объявления должен содержать 10-11 цифр');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('integrations')
-        .update({
-          avito_item_id: String(editingItemId).trim(),
-          is_active: true  // Активируем, если была деактивирована миграцией
-        })
-        .eq('id', avitoIntegration.id);
-
-      if (error) throw error;
-
-      toast.success('ID объявления обновлён');
-      setIsEditingItemId(false);
-      setEditingItemId('');
-      loadAvitoIntegration();
-    } catch (error) {
-      console.error('Failed to update item_id:', error);
-      toast.error('Ошибка при обновлении ID объявления');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Memoize token expiration check to avoid recalculating on every render
-  const isTokenExpired = useMemo(() => {
-    if (!avitoIntegration?.token_expires_at) {
-      return false; // If no expiration date, assume token is valid
-    }
-
-    // Если строка без 'Z' или часового пояса, добавляем 'Z' чтобы явно указать UTC
-    // Это важно, так как Supabase может сохранять timestamp без 'Z', и браузер интерпретирует его как локальное время
-    let expiresAtString = avitoIntegration.token_expires_at;
-    if (!expiresAtString.endsWith('Z') && !expiresAtString.includes('+') && !expiresAtString.includes('-', 10)) {
-      expiresAtString = expiresAtString + 'Z';
-    }
-
-    const expiresAt = new Date(expiresAtString);
-    const now = new Date();
-    const expired = expiresAt.getTime() <= now.getTime();
-
-    // Check if token is expired
-    return expired;
-  }, [avitoIntegration?.token_expires_at]);
-
-  const avitoSynced = useMemo(() => {
-    const isActive = avitoIntegration?.is_active;
-    const tokenValid = !isTokenExpired;
-    const hasItemId = avitoIntegration?.avito_item_id && String(avitoIntegration.avito_item_id).length >= 10;
-    return !!(isActive && tokenValid && hasItemId);
-  }, [avitoIntegration, isTokenExpired]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -461,8 +198,8 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete, ini
         property?.bedrooms !== newBedrooms ||
         property?.minimum_booking_days !== newMinimumBookingDays;
 
-      // Note: We don't check isTokenExpired here because Edge Function will automatically refresh the token if needed
-      if (property && avitoIntegration?.is_active && hasRelevantChanges) {
+      // syncAvitoIntegration handles no-integration case gracefully (returns skipUserError: true)
+      if (property && hasRelevantChanges) {
         try {
           const syncResult = await syncAvitoIntegration(property.id);
           if (syncResult.pushSuccess) {
@@ -833,151 +570,13 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete, ini
                       </div>
 
                       {/* API интеграции */}
-                      {property && (
-                        <div className="border-t border-slate-700 pt-6 min-w-0">
-                          <h3 className="text-lg font-medium text-white mb-4">{t('avito.integration.apiIntegrations')}</h3>
-
-                          <div className="bg-slate-700/50 rounded-lg p-4 min-w-0 overflow-hidden">
-                            {!avitoIntegration ? (
-                              <Button type="button" onClick={() => setIsAvitoModalOpen(true)}>
-                                {t('avito.integration.connectAvito')}
-                              </Button>
-                            ) : (
-                              <Collapsible open={apiIntegrationsOpen} onOpenChange={setApiIntegrationsOpen}>
-                                <div className="flex items-center justify-between gap-2 min-w-0">
-                                  <div className="flex items-center gap-3 min-w-0 shrink">
-                                    <span className="text-white font-medium shrink-0">Avito</span>
-                                    {avitoSynced ? (
-                                      <span className="flex items-center gap-1.5 text-green-400 text-sm shrink-0">
-                                        <Check className="h-4 w-4" />
-                                        {t('avito.integration.synced')}
-                                      </span>
-                                    ) : (
-                                      <span className="text-slate-400 text-sm shrink-0">{t('avito.integration.disabled')}</span>
-                                    )}
-                                  </div>
-                                  <CollapsibleTrigger asChild>
-                                    <Button
-                                      size="sm"
-                                      className="shrink-0"
-                                      type="button"
-                                    >
-                                      {apiIntegrationsOpen ? t('avito.integration.collapse') : t('avito.integration.expand')}
-                                    </Button>
-                                  </CollapsibleTrigger>
-                                </div>
-                                <CollapsibleContent>
-                                  <div className="mt-4 space-y-4">
-                                    {!avitoIntegration.is_active && (
-                                      <Button type="button" onClick={() => setIsAvitoModalOpen(true)}>
-                                        {t('avito.integration.reconnect')}
-                                      </Button>
-                                    )}
-                                    {/* Warnings inside expanded block */}
-                                    {avitoIntegration.avito_item_id && String(avitoIntegration.avito_item_id).length < 10 && (
-                                      <div className="bg-yellow-500/20 border border-yellow-500/50 rounded p-3">
-                                        <p className="text-yellow-300 text-sm font-medium mb-1">{t('avito.integration.warningUpdateItemId')}</p>
-                                        <p className="text-yellow-200 text-xs">{t('avito.integration.warningUpdateItemIdHint')}</p>
-                                      </div>
-                                    )}
-                                    {!avitoIntegration.avito_item_id && (
-                                      <div className="bg-yellow-500/20 border border-yellow-500/50 rounded p-3">
-                                        <p className="text-yellow-300 text-sm font-medium mb-1">{t('avito.integration.warningUpdateItemId')}</p>
-                                        <p className="text-yellow-200 text-xs">{t('avito.integration.warningUpdateItemIdHint')}</p>
-                                      </div>
-                                    )}
-
-                                    {/* ID объявления */}
-                                    <div className="min-w-0">
-                                      <label className="block text-sm text-slate-400 mb-1">{t('avito.integration.itemId')}</label>
-                                      {isEditingItemId ? (
-                                        <div className="p-3 bg-slate-600/50 rounded border border-slate-500 space-y-2">
-                                          <Input
-                                            placeholder={t('avito.integration.itemIdPlaceholder')}
-                                            value={editingItemId}
-                                            onChange={(e) => {
-                                              const value = e.target.value.replace(/\D/g, '').slice(0, 11);
-                                              setEditingItemId(value);
-                                            }}
-                                            maxLength={11}
-                                            className="min-w-0"
-                                          />
-                                          {editingItemId && !/^[0-9]{10,11}$/.test(editingItemId) && (
-                                            <p className="text-xs text-red-400">{t('avito.integration.itemIdInvalid')}</p>
-                                          )}
-                                          <div className="flex flex-wrap gap-2">
-                                            <Button type="button" size="sm" onClick={handleSaveItemId} disabled={!editingItemId || !/^[0-9]{10,11}$/.test(editingItemId) || loading}>
-                                              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                                              {t('avito.integration.save')}
-                                            </Button>
-                                            <Button type="button" size="sm" variant="outline" onClick={() => { setIsEditingItemId(false); setEditingItemId(''); }} disabled={loading}>
-                                              {t('avito.integration.cancel')}
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <div className="flex items-center gap-2 min-w-0">
-                                          <span className="text-white truncate min-w-0" title={avitoIntegration.avito_item_id || ''}>
-                                            {avitoIntegration.avito_item_id || '—'}
-                                          </span>
-                                          <Button type="button" size="sm" variant="outline" onClick={handleEditItemId} disabled={loading}>
-                                            {t('avito.integration.editItemId')}
-                                          </Button>
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    {/* Наценка */}
-                                    <div>
-                                      <label className="block text-sm text-slate-400 mb-1">{t('avito.integration.markup')}</label>
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-white">
-                                          {avitoIntegration.avito_markup != null && avitoIntegration.avito_markup < 0
-                                            ? `${Math.abs(avitoIntegration.avito_markup)} руб`
-                                            : `${avitoIntegration.avito_markup ?? 0}%`}
-                                        </span>
-                                        <Button type="button" size="sm" variant="outline" onClick={handleEditMarkup}>{t('avito.integration.editMarkup')}</Button>
-                                      </div>
-                                    </div>
-
-                                    {/* Отключить (Switch) */}
-                                    {avitoIntegration.is_active && (
-                                      <div className="flex items-center justify-between gap-2">
-                                        <span className="text-sm text-slate-300">{t('avito.integration.disable')}</span>
-                                        <Switch
-                                          checked={!!avitoIntegration.is_active}
-                                          onCheckedChange={(checked) => { if (!checked) handleDisconnectAvito(); }}
-                                        />
-                                      </div>
-                                    )}
-
-                                    {/* Удалить интеграцию */}
-                                    <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-slate-600">
-                                      <Button
-                                        type="button"
-                                        variant="destructive"
-                                        onClick={handleDeleteAvito}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                        {t('avito.integration.delete')}
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </CollapsibleContent>
-                              </Collapsible>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {!property && (
-                        <div className="border-t border-slate-700 pt-6">
-                          <h3 className="text-lg font-medium text-white mb-2">{t('avito.integration.apiIntegrations')}</h3>
-                          <p className="text-sm text-slate-400">
-                            {t('avito.integration.saveFirst')}
-                          </p>
-                        </div>
-                      )}
+                      <AvitoIntegrationForm
+                        property={property}
+                        isOpen={isOpen}
+                        initialShowAvitoForm={initialShowAvitoForm}
+                        onAvitoConnectClose={onAvitoConnectClose}
+                        basePrice={parseFloat(formData.base_price) || 0}
+                      />
 
                       {/* Кнопки */}
                       <div className="flex gap-3 justify-between pt-4 border-t border-slate-700">
@@ -1033,112 +632,6 @@ export function PropertyModal({ isOpen, onClose, property, onSave, onDelete, ini
           </div>
         )}
 
-        {/* Avito Connect Modal */}
-        {property && (
-          <AvitoConnectModal
-            isOpen={isAvitoModalOpen}
-            onClose={() => {
-              setIsAvitoModalOpen(false);
-              onAvitoConnectClose?.();
-            }}
-            property={property}
-            onSuccess={() => {
-              loadAvitoIntegration();
-            }}
-            initialShowAvitoSuccess={initialShowAvitoForm || Boolean((location.state as { avitoConnected?: boolean; propertyId?: string })?.avitoConnected && (location.state as { propertyId?: string })?.propertyId === property.id)}
-          />
-        )}
-
-        {/* Confirm Avito disconnect / delete */}
-        <Dialog open={!!confirmAvito} onOpenChange={(open) => !open && setConfirmAvito(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {confirmAvito === 'disconnect' ? t('avito.integration.disconnectConfirmTitle') : t('avito.integration.deleteConfirmTitle')}
-              </DialogTitle>
-              <DialogDescription className="sr-only">
-                {confirmAvito === 'disconnect' ? t('avito.integration.disconnectConfirmContent') : t('avito.integration.deleteConfirmContent')}
-              </DialogDescription>
-            </DialogHeader>
-            <p className="text-muted-foreground">
-              {confirmAvito === 'disconnect' ? t('avito.integration.disconnectConfirmContent') : t('avito.integration.deleteConfirmContent')}
-            </p>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setConfirmAvito(null)} disabled={confirmAvitoLoading}>
-                {t('avito.integration.cancel')}
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={confirmAvito === 'disconnect' ? runDisconnectAvito : runDeleteAvito}
-                disabled={confirmAvitoLoading}
-              >
-                {confirmAvitoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {confirmAvito === 'disconnect' ? t('avito.integration.disable') : t('avito.integration.delete')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Edit Markup Modal */}
-        <Dialog open={isEditMarkupModalOpen} onOpenChange={setIsEditMarkupModalOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('avito.integration.editMarkup')}</DialogTitle>
-              <DialogDescription className="sr-only">{t('avito.integration.markup')}</DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-              <label className="block text-sm text-muted-foreground mb-2">{t('avito.integration.markup')}</label>
-              <div className="flex gap-2 mb-2">
-                <SelectRoot value={newMarkupType} onValueChange={(v) => v && setNewMarkupType(v as 'percent' | 'rub')}>
-                  <SelectTrigger className="w-[100px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="percent">%</SelectItem>
-                    <SelectItem value="rub">Руб</SelectItem>
-                  </SelectContent>
-                </SelectRoot>
-                <Input
-                  type="number"
-                  min={0}
-                  max={newMarkupType === 'percent' ? 100 : undefined}
-                  value={newMarkup}
-                  onChange={(e) => setNewMarkup(parseFloat(e.target.value) || 0)}
-                  className="flex-1"
-                />
-              </div>
-              <div className="mt-3 p-3 rounded-md border border-border bg-muted/30">
-                <p className="text-sm text-muted-foreground">
-                  {(() => {
-                    const basePrice = property?.base_price ?? parseFloat(formData.base_price) ?? 0;
-                    const withMarkup = newMarkupType === 'percent'
-                      ? Math.round(basePrice * (1 + newMarkup / 100))
-                      : Math.round(basePrice + newMarkup);
-                    return (
-                      <>
-                        <span className="text-muted-foreground">База {basePrice}</span>
-                        {newMarkupType === 'percent' ? (
-                          <span> + {newMarkup}% = <span className="font-semibold text-foreground">{withMarkup}</span></span>
-                        ) : (
-                          <span> + {newMarkup} руб = <span className="font-semibold text-foreground">{withMarkup}</span></span>
-                        )}
-                      </>
-                    );
-                  })()}
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditMarkupModalOpen(false)}>
-                {t('avito.integration.cancel')}
-              </Button>
-              <Button onClick={handleSaveMarkup} disabled={loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {t('avito.integration.save')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   );
