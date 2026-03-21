@@ -96,26 +96,6 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'index.html'),
       },
-      output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) return;
-          if (id.includes('react-dom') || id.includes('react-router') || id.includes('/react/') || id.includes('/react@')) {
-            return 'react-vendor';
-          }
-          if (id.includes('@radix-ui')) {
-            return 'ui-vendor';
-          }
-          if (id.includes('i18next') || id.includes('react-i18next')) {
-            return 'i18n-vendor';
-          }
-          if (id.includes('@supabase')) {
-            return 'supabase-vendor';
-          }
-          if (id.includes('canvas-confetti') || id.includes('confetti')) {
-            return 'confetti-vendor';
-          }
-        },
-      },
     },
   },
 });
