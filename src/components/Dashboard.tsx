@@ -43,7 +43,8 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { getOAuthSuccess, getOAuthError } from '@/services/avito';
 import { useAvitoChats } from '@/hooks/useAvitoChats';
 import { syncWithExternalAPIs, syncAvitoIntegration } from '@/services/apiSync';
-import { showAvitoErrors, type AvitoErrorInfo } from '@/services/avitoErrors';
+import { syncAvitoWithNotify } from '@/services/avitoSyncNotify';
+import { insertBookingWithRetry, updateBookingWithRetry } from '@/utils/bookingMutations';
 const DeletePropertyModal = lazy(() => import('@/components/DeletePropertyModal').then(m => ({ default: m.DeletePropertyModal })));
 const ImportBookingsModal = lazy(() => import('@/components/ImportBookingsModal').then(m => ({ default: m.ImportBookingsModal })));
 import {
@@ -348,71 +349,18 @@ export function Dashboard() {
       setPrefilledDates(null);
       toast.success(`${t('success.bookingCreated')}. ${t('success.changesSaved')}`);
 
-      // Add created_by and updated_by fields only if user exists
-      // Note: These fields may not exist if migration hasn't been applied yet
-      const reservationWithAudit: NewReservation & { created_by?: string; updated_by?: string } = {
-        ...reservation,
-      };
-
-      // Only add audit fields if user exists (migration applied)
+      const insertPayload: Record<string, unknown> = { ...reservation };
       if (user?.id) {
-        reservationWithAudit.created_by = user.id;
-        reservationWithAudit.updated_by = user.id;
+        insertPayload.created_by = user.id;
+        insertPayload.updated_by = user.id;
       }
 
-      type BookingInsertPayload = NewReservation & { created_by?: string; updated_by?: string };
-      let payload: BookingInsertPayload = reservationWithAudit;
-      let { data, error } = await supabase.from('bookings').insert([payload]).select();
-
-      const is400OrColumnError = (e: unknown) => {
-        const err = e as { code?: string; status?: number; message?: string };
-        return err?.code === 'PGRST204' || err?.status === 400 || err?.message?.includes('400') || err?.message?.includes('Could not find the') || err?.message?.includes('created_by') || err?.message?.includes('deposit_received') || err?.message?.includes('deposit_returned') || err?.message?.includes('deposit_amount') || err?.message?.includes('guest_id') || err?.message?.includes('extra_services');
-      };
-
-      // Retry without audit fields (created_by, updated_by)
-      if (error && is400OrColumnError(error)) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { created_by, updated_by, ...rest } = payload;
-        payload = rest as typeof payload;
-        const retryResult = await supabase.from('bookings').insert([payload]).select();
-        data = retryResult.data;
-        error = retryResult.error;
-      }
-
-      // Retry without deposit_received, deposit_returned
-      if (error && is400OrColumnError(error)) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { deposit_received, deposit_returned, ...rest } = payload;
-        payload = rest as typeof payload;
-        const retryDeposit = await supabase.from('bookings').insert([payload]).select();
-        data = retryDeposit.data;
-        error = retryDeposit.error;
-      }
-
-      // Retry without deposit_amount
-      if (error && is400OrColumnError(error)) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { deposit_amount, ...rest } = payload;
-        payload = rest as typeof payload;
-        const retryDepositAmount = await supabase.from('bookings').insert([payload]).select();
-        data = retryDepositAmount.data;
-        error = retryDepositAmount.error;
-      }
-
-      // Retry without guest_id, extra_services_amount (older schemas may not have them)
-      if (error && is400OrColumnError(error)) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { guest_id, extra_services_amount, ...rest } = payload as typeof payload & { guest_id?: string | null; extra_services_amount?: number };
-        payload = rest as typeof payload;
-        const retryExtra = await supabase.from('bookings').insert([payload]).select();
-        data = retryExtra.data;
-        error = retryExtra.error;
-      }
-
-      if (error) throw error;
+      const { result: insertResult, finalPayload: _fp } = await insertBookingWithRetry(insertPayload);
+      if (insertResult.error) throw insertResult.error;
+      const data = insertResult.data as unknown[] | null;
 
       if (data && data.length > 0) {
-        const newBooking = data[0];
+        const newBooking = data[0] as Booking;
         // Replace temp booking with real booking from DB
         setBookings(prev => prev.map(b => b.id === tempId ? newBooking : b));
         setFilteredBookings(prev => prev.map(b => b.id === tempId ? newBooking : b));
@@ -427,66 +375,8 @@ export function Dashboard() {
         );
       }
 
-      // Sync to Avito after successful booking creation
-      const syncToastId = toast.loading('Синхронизация с Avito...');
-
-      try {
-        const syncResult = await syncAvitoIntegration(reservation.property_id);
-
-        // PRIORITY: Check hasError === false first (from Edge Function response)
-        // If syncResult.success === true, it means hasError was false or not present
-        if (syncResult.success) {
-          toast.dismiss(syncToastId);
-          // Show success message - check if pushSuccess (prices/intervals) for specific message
-          if (syncResult.pushSuccess) {
-            toast.success('Синхронизация успешна! Цены и даты обновлены в Avito');
-          } else if (syncResult.pricesSuccess && syncResult.intervalsFailed) {
-            toast.success(t('avito.sync.pricesUpdated', { defaultValue: 'Цены обновлены в Avito' }));
-            toast(t('avito.sync.partialCalendarWarning', { defaultValue: 'Часть календаря Avito пока не обновлена. Повтори синхронизацию позже.' }), {
-              icon: '⚠️',
-              duration: 6000,
-            });
-          } else {
-            toast.success('Синхронизация успешна! Цены и даты обновлены в Avito');
-          }
-          if (syncResult.warnings?.length || syncResult.warningMessage) {
-            toast(syncResult.warningMessage || syncResult.warnings?.map(w => w.message).join(' ') || 'Есть предупреждения по Avito', {
-              icon: '⚠️',
-              duration: 6000,
-            });
-          }
-        } else {
-          // Sync failed - show error only when integration was active (not skipUserError)
-          toast.dismiss(syncToastId);
-          if (syncResult.skipUserError) {
-            // Integration not found/inactive or not configured - don't show error to user
-          } else if (syncResult.errors && syncResult.errors.length > 0) {
-            const errorMessages = syncResult.errors.map(e => e.message || 'Ошибка').join(', ');
-            toast.error(`Ошибка синхронизации: ${errorMessages}`);
-            showAvitoErrors(syncResult.errors, t).catch((err) => {
-              console.error('Error showing Avito error modals:', err);
-            });
-          } else {
-            toast.error(syncResult.message || 'Ошибка синхронизации с Avito');
-          }
-          if (!syncResult.skipUserError) {
-            console.error('Dashboard: Avito sync failed after booking creation', syncResult);
-            if (syncResult.errors?.length) {
-              syncResult.errors.forEach((e, i) => {
-                console.error(`Dashboard: Avito error ${i + 1}/${syncResult.errors!.length}`, {
-                  operation: e.operation,
-                  statusCode: e.statusCode,
-                  message: e.message,
-                });
-              });
-            }
-          }
-        }
-      } catch (error) {
-        toast.dismiss(syncToastId);
-        console.error('Dashboard: Unexpected error during Avito sync after booking creation:', error);
-        toast.error('Ошибка синхронизации с Avito');
-      }
+      // Sync to Avito (fire-and-forget — modal is already closed)
+      syncAvitoWithNotify(reservation.property_id, t, { context: 'booking create' });
     } catch (error) {
       // Rollback optimistic booking
       if (tempId) {
@@ -528,133 +418,30 @@ export function Dashboard() {
     setFilteredBookings(filteredBookings.map(b => b.id === id ? { ...b, ...data } : b));
 
     try {
-      // Add updated_by field only if user exists
-      // Note: This field may not exist if migration hasn't been applied yet
-      const dataWithAudit: Partial<Booking> & { updated_by?: string | null } = {
-        ...data,
-      };
+      const updatePayload: Record<string, unknown> = { ...data };
+      if (user?.id) updatePayload.updated_by = user.id;
 
-      // Only add updated_by if user exists (migration applied)
-      if (user?.id) {
-        dataWithAudit.updated_by = user.id;
-      }
+      const { result: updateResult, finalPayload } = await updateBookingWithRetry(id, updatePayload);
+      if (updateResult.error) throw updateResult.error;
 
-      let { error } = await supabase.from('bookings').update(dataWithAudit).eq('id', id);
+      const finalData = finalPayload as Partial<Booking>;
+      const updatedBookings = bookings.map(b => b.id === id ? { ...b, ...finalData } : b);
 
-      const is400OrColumnErrorUpdate = (e: unknown) => {
-        const err = e as { code?: string; status?: number; message?: string };
-        return err?.code === 'PGRST204' || err?.status === 400 || err?.message?.includes('400') || err?.message?.includes('Could not find the') || err?.message?.includes('updated_by') || err?.message?.includes('deposit_received') || err?.message?.includes('deposit_returned') || err?.message?.includes('deposit_amount') || err?.message?.includes('guest_id') || err?.message?.includes('extra_services');
-      };
-
-      let finalData: Partial<Booking> = dataWithAudit;
-
-      // Retry without updated_by
-      if (error && is400OrColumnErrorUpdate(error)) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { updated_by, ...dataWithoutAudit } = dataWithAudit;
-        finalData = dataWithoutAudit;
-        const retryResult = await supabase.from('bookings').update(dataWithoutAudit).eq('id', id);
-        error = retryResult.error;
-      }
-
-      // Retry without deposit_received, deposit_returned
-      if (error && is400OrColumnErrorUpdate(error)) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { deposit_received, deposit_returned, ...dataWithoutDeposit } = finalData as typeof finalData & { deposit_received?: boolean; deposit_returned?: boolean };
-        finalData = dataWithoutDeposit;
-        const retryDeposit = await supabase.from('bookings').update(dataWithoutDeposit).eq('id', id);
-        error = retryDeposit.error;
-      }
-
-      // Retry without deposit_amount
-      if (error && is400OrColumnErrorUpdate(error)) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { deposit_amount, ...dataWithoutDepositAmount } = finalData as typeof finalData & { deposit_amount?: number | null };
-        finalData = dataWithoutDepositAmount;
-        const retryDepositAmount = await supabase.from('bookings').update(dataWithoutDepositAmount).eq('id', id);
-        error = retryDepositAmount.error;
-      }
-
-      // Retry without guest_id, extra_services_amount
-      if (error && is400OrColumnErrorUpdate(error)) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { guest_id, extra_services_amount, ...dataWithoutExtra } = finalData as typeof finalData & { guest_id?: string | null; extra_services_amount?: number };
-        finalData = dataWithoutExtra;
-        const retryExtra = await supabase.from('bookings').update(dataWithoutExtra).eq('id', id);
-        error = retryExtra.error;
-      }
-
-      if (error) throw error;
-
-      const updatedBookings = bookings.map((b) =>
-        b.id === id ? { ...b, ...finalData } : b
-      );
-
-      // Log the update if we have the old booking
+      // Log the update
       if (oldBooking) {
         const changes = getBookingChanges(oldBooking, finalData);
         if (Object.keys(changes).length > 0) {
-          await logBookingChange(
-            id,
-            oldBooking.property_id,
-            'updated',
-            changes,
-            oldBooking.source || 'manual'
-          );
+          await logBookingChange(id, oldBooking.property_id, 'updated', changes, oldBooking.source || 'manual');
         }
       }
       setBookings(updatedBookings);
       setFilteredBookings(updatedBookings);
+      toast.success(`${t('success.bookingUpdated')}. ${t('success.changesSaved')}`);
 
-      toast.success(
-        `${t('success.bookingUpdated')}. ${t('success.changesSaved')}`
-      );
-
-      // Sync to Avito after successful booking update (both old and new property when booking moved)
-      const propertyIdsToSync: string[] = [];
-      if (oldBooking?.property_id) propertyIdsToSync.push(oldBooking.property_id);
-      if (data.property_id && !propertyIdsToSync.includes(data.property_id)) propertyIdsToSync.push(data.property_id);
-      if (propertyIdsToSync.length > 0) {
-        const syncToastId = toast.loading('Синхронизация с Avito...');
-
-        try {
-          let anySuccess = false;
-          let lastError: { success?: boolean; message?: string; errors?: Array<{ message?: string }>; skipUserError?: boolean; warnings?: Array<{ message?: string }>; warningMessage?: string } | null = null;
-          for (const propertyId of propertyIdsToSync) {
-            const syncResult = await syncAvitoIntegration(propertyId);
-            if (syncResult.success) anySuccess = true;
-            else lastError = syncResult;
-          }
-          // PRIORITY: Check hasError === false first (from Edge Function response)
-          if (anySuccess) {
-            toast.dismiss(syncToastId);
-            toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
-            if (lastError?.warnings?.length || lastError?.warningMessage) {
-              toast(lastError.warningMessage || lastError.warnings?.map(w => w.message).join(' ') || 'Есть предупреждения по Avito', {
-                icon: '⚠️',
-                duration: 6000,
-              });
-            }
-          } else if (lastError && !lastError.skipUserError) {
-            toast.dismiss(syncToastId);
-            if (lastError.errors && lastError.errors.length > 0) {
-              const errorMessages = lastError.errors.map(e => e.message || 'Ошибка').join(', ');
-              toast.error(`Ошибка синхронизации: ${errorMessages}`);
-              showAvitoErrors(lastError.errors as AvitoErrorInfo[], t).catch((err) => {
-                console.error('Error showing Avito error modals:', err);
-              });
-            } else {
-              toast.error(lastError.message || 'Ошибка синхронизации с Avito');
-            }
-            console.error('Dashboard: Avito sync failed after booking update', lastError);
-          } else {
-            toast.dismiss(syncToastId);
-          }
-        } catch (error) {
-          toast.dismiss(syncToastId);
-          console.error('Dashboard: Unexpected error during Avito sync after booking update:', error);
-          toast.error('Ошибка синхронизации с Avito');
-        }
+      // Sync to Avito for old + new property (covers booking moved between properties)
+      const uniqueIds = [...new Set([oldBooking?.property_id, data.property_id].filter(Boolean))] as string[];
+      if (uniqueIds.length > 0) {
+        syncAvitoWithNotify(uniqueIds, t, { context: 'booking update' });
       }
     } catch (error) {
       // Rollback optimistic update
@@ -684,112 +471,12 @@ export function Dashboard() {
 
       // Deletion is already logged by DB trigger trigger_log_booking_changes_before_delete
 
-      // Sync to Avito after successful booking deletion
-      // For manual bookings: open dates in Avito (exclude deleted booking from sync)
-      // For Avito bookings: cancel booking + open dates
+      // Sync to Avito (fire-and-forget — syncAvitoIntegration handles missing integration silently)
       if (propertyId) {
-        try {
-          // Check if Avito integration has valid item_id and account_id before syncing
-          const { data: integration } = await supabase
-            .from('integrations')
-            .select('avito_item_id, is_active')
-            .eq('property_id', propertyId)
-            .eq('platform', 'avito')
-            .eq('is_active', true)
-            .maybeSingle();
-
-          if (!integration) {
-            return; // Skip sync if no integration - don't show error to user
-          }
-
-          if (!integration.avito_item_id) {
-            return; // Skip sync if no valid item_id - don't show error to user
-          }
-
-          // Validate item_id format (10-11 digits)
-          const itemIdStr = String(integration.avito_item_id).trim();
-          if (itemIdStr.length < 10 || itemIdStr.length > 11 || !/^\d+$/.test(itemIdStr)) {
-            return; // Skip sync if invalid format - don't show error to user
-          }
-
-          // If manual booking, exclude it from sync to open dates in Avito
-          // If Avito booking, full sync will handle cancellation
-          const syncToastId = toast.loading('Синхронизация с Avito...');
-
-          try {
-            const syncResult = await syncAvitoIntegration(propertyId, isAvitoBooking ? undefined : id);
-
-            // PRIORITY: Check hasError === false first (from Edge Function response)
-            // If syncResult.success === true, it means hasError was false or not present
-            if (syncResult.success) {
-              toast.dismiss(syncToastId);
-              toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
-              if (syncResult.warnings?.length || syncResult.warningMessage) {
-                toast(syncResult.warningMessage || syncResult.warnings?.map(w => w.message).join(' ') || 'Есть предупреждения по Avito', {
-                  icon: '⚠️',
-                  duration: 6000,
-                });
-              }
-              if (import.meta.env.DEV) console.log('Dashboard: Avito sync completed successfully after booking deletion', {
-                bookingId: id,
-                source: bookingSource,
-                isAvitoBooking,
-                syncResult,
-              });
-            } else {
-              // Sync failed - show error only when integration was active (not skipUserError)
-              toast.dismiss(syncToastId);
-              if (syncResult.skipUserError) {
-                // Integration not found/inactive or not configured - don't show error to user
-              } else if (syncResult.errors && syncResult.errors.length > 0) {
-                // Check for 404 errors
-                const has404 = syncResult.errors.some(e => e.statusCode === 404);
-                if (has404) {
-                  toast.error('Объявление не найдено в Avito. Проверь ID объявления — должен быть длинный номер вроде 2336174775');
-                } else {
-                  // Check for 409 paid conflict
-                  const hasPaidConflict = syncResult.errors.some(e => e.statusCode === 409);
-                  if (hasPaidConflict) {
-                    toast.error('Конфликт с оплаченной бронью в Avito — проверь вручную');
-                  } else {
-                    const errorMessages = syncResult.errors.map(e => e.message || 'Ошибка').join(', ');
-                    toast.error(`Ошибка синхронизации: ${errorMessages}`);
-                  }
-                }
-
-                showAvitoErrors(syncResult.errors, t).catch((err) => {
-                  console.error('Error showing Avito error modals:', err);
-                });
-              } else {
-                toast.error(syncResult.message || 'Ошибка синхронизации с Avito');
-              }
-              if (!syncResult.skipUserError) {
-                console.error('Dashboard: Avito sync failed after booking deletion', {
-                  bookingId: id,
-                  source: bookingSource,
-                  isAvitoBooking,
-                  syncResult,
-                });
-                if (syncResult.errors?.length) {
-                  syncResult.errors.forEach((e, i) => {
-                    console.error(`Dashboard: Avito error ${i + 1}/${syncResult.errors!.length}`, {
-                      operation: e.operation,
-                      statusCode: e.statusCode,
-                      message: e.message,
-                    });
-                  });
-                }
-              }
-            }
-          } catch (error) {
-            toast.dismiss(syncToastId);
-            console.error('Dashboard: Unexpected error during Avito sync after booking deletion:', error);
-            toast.error('Ошибка синхронизации с Avito');
-          }
-        } catch (error) {
-          console.error('Dashboard: Unexpected error during Avito sync after booking deletion:', error);
-          toast.error('Ошибка синхронизации с Avito');
-        }
+        syncAvitoWithNotify(propertyId, t, {
+          excludeBookingId: isAvitoBooking ? undefined : id,
+          context: 'booking delete',
+        });
       }
     } catch (error) {
       // Rollback optimistic delete
