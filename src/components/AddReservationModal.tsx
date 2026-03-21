@@ -58,6 +58,7 @@ interface AddReservationModalProps {
   }) => Promise<void>;
   selectedProperties?: string[];
   prefilledDates?: { propertyId: string; checkIn: string; checkOut: string } | null;
+  prefilledBooking?: import('@/lib/supabase').Booking | null;
   guests?: Guest[];
 }
 
@@ -68,6 +69,7 @@ export function AddReservationModal({
   onAdd,
   selectedProperties = [],
   prefilledDates = null,
+  prefilledBooking = null,
   guests = [],
 }: AddReservationModalProps) {
   const { t } = useTranslation();
@@ -154,6 +156,31 @@ export function AddReservationModal({
       }));
     }
   }, [prefilledDates]);
+
+  // Apply duplicate booking prefill (all fields)
+  useEffect(() => {
+    if (!prefilledBooking) return;
+    const nights = calculateNights(prefilledBooking.check_in, prefilledBooking.check_out);
+    const extra = prefilledBooking.extra_services_amount ?? 0;
+    const base = (prefilledBooking.total_price ?? 0) - extra;
+    const pricePerNight = nights > 0 && base > 0 ? Math.round(base / nights).toString() : '';
+    setFormData(prev => ({
+      ...prev,
+      property_id: prefilledBooking.property_id,
+      guest_name: prefilledBooking.guest_name,
+      guest_email: prefilledBooking.guest_email || '',
+      guest_phone: prefilledBooking.guest_phone || '',
+      check_in: prefilledBooking.check_in,
+      check_out: prefilledBooking.check_out,
+      price_per_night: pricePerNight,
+      total_price: prefilledBooking.total_price?.toString() ?? '',
+      currency: prefilledBooking.currency,
+      status: prefilledBooking.status,
+      guests_count: prefilledBooking.guests_count?.toString() ?? '1',
+      notes: prefilledBooking.notes || '',
+      extra_services_amount: extra.toString(),
+    }));
+  }, [prefilledBooking]);
 
   // Fetch price from DB when property or dates change
   useEffect(() => {

@@ -120,6 +120,7 @@ export function Dashboard() {
   const [pendingOpenAddPropertyModal, setPendingOpenAddPropertyModal] = useState(false);
   const [isGuestModalOpen, setIsGuestModalOpen] = useState(false);
   const [isBookingLimitModalOpen, setIsBookingLimitModalOpen] = useState(false);
+  const [duplicateBooking, setDuplicateBooking] = useState<Booking | null>(null);
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const oauthProcessedRef = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -409,10 +410,22 @@ export function Dashboard() {
     setPendingReservation(null);
   };
 
-  const handleEditReservation = (booking: Booking) => {
+  const handleEditReservation = useCallback((booking: Booking) => {
     setSelectedBooking(booking);
     setIsEditModalOpen(true);
-  };
+  }, []);
+
+  const handleCalendarBookingUpdate = useCallback((id: string, updates: Partial<Booking>) => {
+    setBookings(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+    setFilteredBookings(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+  }, []);
+
+  const handleCalendarDateSelectionReset = useCallback(() => {}, []);
+
+  const handleDuplicateBooking = useCallback((booking: Booking) => {
+    setDuplicateBooking(booking);
+    setIsAddModalOpen(true);
+  }, []);
 
   const handleUpdateReservation = async (id: string, data: Partial<Booking>) => {
     // Find the old booking to compare changes
@@ -1053,22 +1066,12 @@ export function Dashboard() {
             )}
             <Calendar
               properties={properties}
-              bookings={filteredBookings}
+              bookings={bookings}
               onAddReservation={handleAddReservation}
               onEditReservation={handleEditReservation}
-              onBookingUpdate={(id, updates) => {
-                const updatedBookings = bookings.map(b =>
-                  b.id === id ? { ...b, ...updates } : b
-                );
-                setBookings(updatedBookings);
-                setFilteredBookings(updatedBookings);
-              }}
-              onPropertiesUpdate={(updatedProperties) => {
-                setProperties(updatedProperties);
-              }}
-              onDateSelectionReset={() => {
-                // Callback for date selection reset (optional)
-              }}
+              onBookingUpdate={handleCalendarBookingUpdate}
+              onPropertiesUpdate={setProperties}
+              onDateSelectionReset={handleCalendarDateSelectionReset}
               refreshIntegrationsTrigger={refreshIntegrationsTrigger}
             />
             <AddReservationModal
@@ -1077,6 +1080,7 @@ export function Dashboard() {
                 setIsAddModalOpen(false);
                 setSelectedPropertyIds([]);
                 setPrefilledDates(null);
+                setDuplicateBooking(null);
                 // Reset date selection in Calendar via window function
                 const resetFn = (window as Window & { __calendarResetDateSelection?: () => void }).__calendarResetDateSelection;
                 if (resetFn) {
@@ -1086,6 +1090,7 @@ export function Dashboard() {
               properties={properties}
               selectedProperties={selectedPropertyIds}
               prefilledDates={prefilledDates}
+              prefilledBooking={duplicateBooking}
               onAdd={handleSaveReservation}
               guests={guests}
             />
@@ -1110,6 +1115,7 @@ export function Dashboard() {
               properties={properties}
               onUpdate={handleUpdateReservation}
               onDelete={handleDeleteReservation}
+              onDuplicate={handleDuplicateBooking}
             />
             <OverlapWarningModal
               isOpen={isOverlapWarningOpen}

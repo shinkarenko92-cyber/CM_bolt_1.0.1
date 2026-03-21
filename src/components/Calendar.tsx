@@ -142,6 +142,26 @@ export function Calendar({
     return dates[Math.floor(daysToShow / 2)] || new Date(currentDateTimestamp);
   }, [dates, daysToShow, currentDateTimestamp]);
 
+  /** Bookings grouped by property, filtered to visible date range — O(n) once per bookings/dates change */
+  const bookingsByProperty = useMemo(() => {
+    if (!dates.length) return new Map<string, Booking[]>();
+    const first = dates[0];
+    const firstVisible = new Date(first.getFullYear(), first.getMonth(), first.getDate(), 0, 0, 0, 0);
+    const last = dates[dates.length - 1];
+    const lastVisible = new Date(last.getFullYear(), last.getMonth(), last.getDate(), 23, 59, 59, 999);
+    const map = new Map<string, Booking[]>();
+    for (const b of bookings) {
+      const ciDate = new Date(b.check_in);
+      const ci = new Date(ciDate.getFullYear(), ciDate.getMonth(), ciDate.getDate());
+      const coDate = new Date(b.check_out);
+      const co = new Date(coDate.getFullYear(), coDate.getMonth(), coDate.getDate());
+      if (co <= firstVisible || ci > lastVisible) continue;
+      if (!map.has(b.property_id)) map.set(b.property_id, []);
+      map.get(b.property_id)!.push(b);
+    }
+    return map;
+  }, [bookings, dates]);
+
   const [visibleDate, setVisibleDate] = useState<Date>(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -1011,21 +1031,7 @@ export function Calendar({
                 <div className="relative" style={{ minHeight: '100%' }}>
                   {sortedProperties.map((property) => {
                     try {
-                      const propFirst = new Date(dates[0]);
-                      const propFirstVisibleDate = new Date(propFirst.getFullYear(), propFirst.getMonth(), propFirst.getDate(), 0, 0, 0, 0);
-                      const propLast = new Date(dates[dates.length - 1]);
-                      const propLastVisibleDate = new Date(propLast.getFullYear(), propLast.getMonth(), propLast.getDate(), 23, 59, 59, 999);
-
-                      const propBookings = bookings.filter((b) => {
-                        if (b.property_id !== property.id) return false;
-
-                        const checkInDate = new Date(b.check_in);
-                        const checkIn = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
-                        const checkOutDate = new Date(b.check_out);
-                        const checkOut = new Date(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate());
-
-                        return checkOut > propFirstVisibleDate && checkIn <= propLastVisibleDate;
-                      });
+                      const propBookings = bookingsByProperty.get(property.id) ?? [];
 
                       const isExpanded = expandedProperties.has(property.id);
                       const bookingLayers = getBookingLayers(propBookings);

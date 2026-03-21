@@ -34,6 +34,7 @@ interface EditReservationModalProps {
   properties: Property[];
   onUpdate: (id: string, data: Partial<Booking>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onDuplicate?: (booking: Booking) => void;
 }
 
 type HistoryEvent = {
@@ -50,6 +51,7 @@ export function EditReservationModal({
   properties,
   onUpdate,
   onDelete,
+  onDuplicate,
 }: EditReservationModalProps) {
   const { t } = useTranslation();
 
@@ -534,6 +536,17 @@ export function EditReservationModal({
                         {t('common.delete')}
                       </Button>
                       <div className="flex gap-3">
+                        {onDuplicate && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => { onClose(); onDuplicate(booking); }}
+                            disabled={loading}
+                            title={t('bookings.duplicate', { defaultValue: 'Создать похожую бронь' })}
+                          >
+                            {t('bookings.duplicate', { defaultValue: 'Копировать' })}
+                          </Button>
+                        )}
                         <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                           {t('common.cancel')}
                         </Button>
