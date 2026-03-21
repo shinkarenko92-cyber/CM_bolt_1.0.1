@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Search, MessageCircle, User } from 'lucide-react';
+import { Search, MessageCircle, User, Bell } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useNotificationPermission } from '@/hooks/useNotificationPermission';
 import { Chat, Property } from '@/lib/supabase';
 import {
   Dialog,
@@ -36,6 +37,7 @@ export function MessagesView({
   onGoToProperties,
 }: MessagesViewProps) {
   const { t } = useTranslation();
+  const { permission, requestPermission, supported: notifSupported } = useNotificationPermission();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPropertyId, setFilterPropertyId] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'in_progress' | 'closed'>('all');
@@ -119,6 +121,20 @@ export function MessagesView({
             >
               <MessageCircle className="w-4 h-4 mr-1.5" />
               {t('messages.messengerCta.button')}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {notifSupported && permission === 'default' && (
+        <div className="px-3 py-2 border-b border-border">
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2">
+            <p className="text-xs text-muted-foreground leading-snug">
+              {t('messages.notifBanner', { defaultValue: 'Включите уведомления — узнавайте о новых сообщениях, даже когда вкладка свёрнута' })}
+            </p>
+            <Button size="sm" variant="outline" className="shrink-0 h-7 text-xs" onClick={requestPermission}>
+              <Bell className="h-3.5 w-3.5 mr-1" />
+              {t('messages.enableNotif', { defaultValue: 'Включить' })}
             </Button>
           </div>
         </div>

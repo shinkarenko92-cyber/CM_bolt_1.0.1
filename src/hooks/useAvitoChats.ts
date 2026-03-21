@@ -13,6 +13,7 @@ import { supabase, Property, Chat, Message } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { generateMessengerOAuthUrl } from '@/services/avito';
 import type { IntegrationForMessenger } from '@/components/MessagesView';
+import { showBrowserNotification } from '@/hooks/useNotificationPermission';
 
 // ---------------------------------------------------------------------------
 // Avito API response shapes
@@ -140,6 +141,7 @@ export function useAvitoChats(
   const [avitoIntegrationsForMessages, setAvitoIntegrationsForMessages] = useState<IntegrationForMessenger[]>([]);
   const [messengerOauthInProgress, setMessengerOauthInProgress] = useState(false);
 
+  const chatsRef = useRef<Chat[]>([]);
   const lastAvitoReauthToastRef = useRef(0);
   const avito403SkipRef = useRef<{ ids: Set<string>; until: number }>({ ids: new Set(), until: 0 });
   const messengerOauthPopupRef = useRef<Window | null>(null);
@@ -414,6 +416,8 @@ export function useAvitoChats(
     loadMessagesRef.current = loadMessages;
   }, [syncChatsFromAvito, loadChats, syncMessagesFromAvito, loadMessages]);
 
+  useEffect(() => { chatsRef.current = chats; }, [chats]);
+
   // -------------------------------------------------------------------------
   // Load chats + sync when entering Messages tab
   // -------------------------------------------------------------------------
@@ -579,9 +583,19 @@ export function useAvitoChats(
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `chat_id=eq.${selectedChatId}` }, (payload) => {
         if (import.meta.env.DEV) console.log('Message change:', payload);
         if (payload.eventType === 'INSERT') {
-          setMessages(prev => [...prev, payload.new as Message]);
-          if ((payload.new as Message).sender_type === 'contact') {
-            supabase.from('messages').update({ is_read: true }).eq('id', (payload.new as Message).id);
+          const newMsg = payload.new as Message;
+          setMessages(prev => [...prev, newMsg]);
+          if (newMsg.sender_type === 'contact') {
+            supabase.from('messages').update({ is_read: true }).eq('id', newMsg.id);
+            // Browser notification when tab is hidden
+            if (document.hidden) {
+              const chat = chatsRef.current.find(c => c.id === newMsg.chat_id);
+              showBrowserNotification(
+                chat?.contact_name || 'Avito',
+                newMsg.text || '📷 Фото',
+                newMsg.chat_id
+              );
+            }
           }
         } else if (payload.eventType === 'UPDATE') {
           setMessages(prev => prev.map(m => m.id === payload.new.id ? payload.new as Message : m));
