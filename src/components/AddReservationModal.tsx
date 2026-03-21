@@ -203,7 +203,6 @@ export function AddReservationModal({
     if (!propertyId || !checkIn || !checkOut) return;
     if (validateDateRange(checkIn, checkOut) !== null) return;
     setCalculatingPrice(true);
-    isUpdatingFromConditions.current = true;
     try {
       const basePrice = await fetchCalculatedPrice(propertyId, checkIn, checkOut);
       if (basePrice !== null) {
@@ -228,7 +227,6 @@ export function AddReservationModal({
       console.error(err);
     } finally {
       setCalculatingPrice(false);
-      isUpdatingFromConditions.current = false;
     }
   };
 

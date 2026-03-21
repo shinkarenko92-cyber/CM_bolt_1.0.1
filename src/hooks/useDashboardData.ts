@@ -97,18 +97,19 @@ export function useDashboardData(): UseDashboardDataReturn {
 
       // Properties
       const { data: propertiesData, error: propsError } = await retryQuery<Property[]>(
-        () =>
-          supabase
+        async () => {
+          const r = await supabase
             .from('properties')
             .select('*')
             .eq('owner_id', user.id)
-            .is('deleted_at', null)
-            .then(r => ({
-              data: r.data,
-              error: r.error
-                ? { message: r.error.message, details: r.error.details, hint: r.error.hint, code: r.error.code }
-                : null,
-            }))
+            .is('deleted_at', null);
+          return {
+            data: r.data,
+            error: r.error
+              ? { message: r.error.message, details: r.error.details, hint: r.error.hint, code: r.error.code }
+              : null,
+          };
+        }
       );
 
       if (propsError) {
@@ -123,19 +124,20 @@ export function useDashboardData(): UseDashboardDataReturn {
         if (propertyIds.length > 0) {
           // Bookings (confirmed + paid only)
           const { data: bookingsData, error: bookingsError } = await retryQuery<Booking[]>(
-            () =>
-              supabase
+            async () => {
+              const r = await supabase
                 .from('bookings')
                 .select('*')
                 .in('property_id', propertyIds)
                 .in('status', ['confirmed', 'paid'])
-                .order('check_in')
-                .then(r => ({
-                  data: r.data,
-                  error: r.error
-                    ? { message: r.error.message, details: r.error.details, hint: r.error.hint, code: r.error.code }
-                    : null,
-                }))
+                .order('check_in');
+              return {
+                data: r.data,
+                error: r.error
+                  ? { message: r.error.message, details: r.error.details, hint: r.error.hint, code: r.error.code }
+                  : null,
+              };
+            }
           );
 
           if (bookingsError) {
@@ -151,18 +153,19 @@ export function useDashboardData(): UseDashboardDataReturn {
 
       // Profile
       const { data: profileData } = await retryQuery<Profile>(
-        () =>
-          supabase
+        async () => {
+          const r = await supabase
             .from('profiles')
             .select('*')
             .eq('id', user.id)
-            .maybeSingle()
-            .then(r => ({
-              data: r.data,
-              error: r.error
-                ? { message: r.error.message, details: r.error.details, hint: r.error.hint, code: r.error.code }
-                : null,
-            }))
+            .maybeSingle();
+          return {
+            data: r.data,
+            error: r.error
+              ? { message: r.error.message, details: r.error.details, hint: r.error.hint, code: r.error.code }
+              : null,
+          };
+        }
       );
 
       if (profileData) {
@@ -172,18 +175,19 @@ export function useDashboardData(): UseDashboardDataReturn {
 
       // Guests
       const { data: guestsData } = await retryQuery<Guest[]>(
-        () =>
-          supabase
+        async () => {
+          const r = await supabase
             .from('guests')
             .select('*')
             .eq('owner_id', user.id)
-            .order('name')
-            .then(r => ({
-              data: r.data,
-              error: r.error
-                ? { message: r.error.message, details: r.error.details, hint: r.error.hint, code: r.error.code }
-                : null,
-            }))
+            .order('name');
+          return {
+            data: r.data,
+            error: r.error
+              ? { message: r.error.message, details: r.error.details, hint: r.error.hint, code: r.error.code }
+              : null,
+          };
+        }
       );
 
       if (guestsData) setGuests(guestsData);

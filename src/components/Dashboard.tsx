@@ -836,7 +836,7 @@ export function Dashboard() {
           }
 
           // Refresh bookings
-          loadDataRef.current();
+          reloadDashboardData();
         }
       )
       .subscribe();
@@ -844,7 +844,7 @@ export function Dashboard() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, reloadDashboardData]);
 
   // Realtime subscription for chats
   useEffect(() => {
