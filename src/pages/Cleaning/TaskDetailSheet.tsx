@@ -27,10 +27,14 @@ import {
   saveInventoryCheck,
   getSupplyUsageList,
   saveSupplyUsage,
+  deleteSupplyUsage,
 } from '@/services/cleaning';
 import toast from 'react-hot-toast';
-import { Camera, Loader2, WifiOff } from 'lucide-react';
+import { Camera, Loader2, Trash2, WifiOff } from 'lucide-react';
 import { enqueuePhoto, getPendingCount } from '@/lib/photoQueue';
+
+type SavedSupply = { id: string; supply_name: string; amount_used: number; unit: string };
+type NewSupply = { supply_name: string; amount_used: number; unit: string };
 
 type TaskDetailSheetProps = {
   task: CleaningTask | null;
@@ -47,8 +51,8 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [checks, setChecks] = useState<Record<string, { actual_count: number | null; is_ok: boolean | null; note: string }>>({});
   const [checksSaving, setChecksSaving] = useState(false);
-  const [existingSupplies, setExistingSupplies] = useState<{ supply_name: string; amount_used: number; unit: string }[]>([]);
-  const [newSupplies, setNewSupplies] = useState<{ supply_name: string; amount_used: number; unit: string }[]>([]);
+  const [existingSupplies, setExistingSupplies] = useState<SavedSupply[]>([]);
+  const [newSupplies, setNewSupplies] = useState<NewSupply[]>([]);
   const [supplyName, setSupplyName] = useState('');
   const [supplyAmount, setSupplyAmount] = useState('');
   const [supplyUnit, setSupplyUnit] = useState('ml');
@@ -71,11 +75,11 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
       );
       setPhotos(withUrls);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load photos');
+      toast.error(e instanceof Error ? e.message : t('common.loadError'));
     } finally {
       setPhotosLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const loadInventory = useCallback(async (taskId: string, propertyId: string) => {
     try {
@@ -95,15 +99,16 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
       });
       setChecks(map);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load inventory');
+      toast.error(e instanceof Error ? e.message : t('common.loadError'));
     }
-  }, []);
+  }, [t]);
 
   const loadSupplyUsage = useCallback(async (taskId: string) => {
     try {
       const list = await getSupplyUsageList(taskId);
       setExistingSupplies(
         list.map((s) => ({
+          id: s.id,
           supply_name: s.supply_name ?? '',
           amount_used: s.amount_used != null ? Number(s.amount_used) : 0,
           unit: s.unit ?? 'ml',
@@ -111,9 +116,9 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
       );
       setNewSupplies([]);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load supply usage');
+      toast.error(e instanceof Error ? e.message : t('common.loadError'));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!open || !task) return;
@@ -130,6 +135,7 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
       if (!navigator.onLine) {
         await enqueuePhoto(task.id, file, type);
         const count = await getPendingCount();
+        setPendingQueueCount(count);
         toast.success(
           t('cleaning.cleaner.photoQueued', {
             defaultValue: `Фото сохранено офлайн (в очереди: ${count})`,
@@ -140,14 +146,18 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
       } else {
         await uploadPhoto(task.id, file, type);
         await loadPhotos(task.id);
+        const count = await getPendingCount();
+        setPendingQueueCount(count);
         toast.success(t('cleaning.cleaner.photoUploaded', { defaultValue: 'Фото загружено' }));
       }
     } catch (e) {
       try {
         await enqueuePhoto(task.id, file, type);
+        const count = await getPendingCount();
+        setPendingQueueCount(count);
         toast(t('cleaning.cleaner.photoQueuedFallback', { defaultValue: 'Ошибка сети — фото загрузится позже' }), { icon: '⏳' });
       } catch {
-        toast.error(e instanceof Error ? e.message : 'Upload failed');
+        toast.error(e instanceof Error ? e.message : t('common.loadError'));
       }
     } finally {
       setUploading(null);
@@ -168,7 +178,7 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
       toast.success(t('common.save'));
       onTaskUpdated?.();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Save failed');
+      toast.error(e instanceof Error ? e.message : t('common.loadError'));
     } finally {
       setChecksSaving(false);
     }
@@ -197,13 +207,22 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
       void loadSupplyUsage(task.id);
       onTaskUpdated?.();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Save failed');
+      toast.error(e instanceof Error ? e.message : t('common.loadError'));
     } finally {
       setSuppliesSaving(false);
     }
   };
 
-  const allSupplies = [...existingSupplies, ...newSupplies];
+  const handleDeleteSupply = async (supplyId: string) => {
+    if (!task) return;
+    try {
+      await deleteSupplyUsage(supplyId);
+      void loadSupplyUsage(task.id);
+      onTaskUpdated?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('common.loadError'));
+    }
+  };
 
   if (!task) return null;
 
@@ -237,68 +256,66 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
                   {t('common.loading')}
                 </div>
               ) : (
-                <>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">{t('cleaning.cleaner.before', { defaultValue: 'До' })}</p>
-                      <div className="flex flex-wrap gap-2">
-                        {beforePhotos.map((p) => (
-                          <div key={p.id} className="w-20 h-20 rounded overflow-hidden bg-muted">
-                            {p.url ? (
-                              <img src={p.url} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-xs">—</div>
-                            )}
-                          </div>
-                        ))}
-                        <label className="w-20 h-20 rounded border-2 border-dashed flex items-center justify-center cursor-pointer hover:bg-muted/50 touch-manipulation">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            capture="environment"
-                            className="hidden"
-                            disabled={uploading !== null}
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f) handlePhotoUpload('before', f);
-                              e.target.value = '';
-                            }}
-                          />
-                          {uploading === 'before' ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6 text-muted-foreground" />}
-                        </label>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">{t('cleaning.cleaner.after', { defaultValue: 'После' })}</p>
-                      <div className="flex flex-wrap gap-2">
-                        {afterPhotos.map((p) => (
-                          <div key={p.id} className="w-20 h-20 rounded overflow-hidden bg-muted">
-                            {p.url ? (
-                              <img src={p.url} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-xs">—</div>
-                            )}
-                          </div>
-                        ))}
-                        <label className="w-20 h-20 rounded border-2 border-dashed flex items-center justify-center cursor-pointer hover:bg-muted/50 touch-manipulation">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            capture="environment"
-                            className="hidden"
-                            disabled={uploading !== null}
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f) handlePhotoUpload('after', f);
-                              e.target.value = '';
-                            }}
-                          />
-                          {uploading === 'after' ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6 text-muted-foreground" />}
-                        </label>
-                      </div>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">{t('cleaning.cleaner.before', { defaultValue: 'До' })}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {beforePhotos.map((p) => (
+                        <div key={p.id} className="w-20 h-20 rounded overflow-hidden bg-muted">
+                          {p.url ? (
+                            <img src={p.url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xs">—</div>
+                          )}
+                        </div>
+                      ))}
+                      <label className="w-20 h-20 rounded border-2 border-dashed flex items-center justify-center cursor-pointer hover:bg-muted/50 touch-manipulation">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          disabled={uploading !== null}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handlePhotoUpload('before', f);
+                            e.target.value = '';
+                          }}
+                        />
+                        {uploading === 'before' ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6 text-muted-foreground" />}
+                      </label>
                     </div>
                   </div>
-                </>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">{t('cleaning.cleaner.after', { defaultValue: 'После' })}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {afterPhotos.map((p) => (
+                        <div key={p.id} className="w-20 h-20 rounded overflow-hidden bg-muted">
+                          {p.url ? (
+                            <img src={p.url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xs">—</div>
+                          )}
+                        </div>
+                      ))}
+                      <label className="w-20 h-20 rounded border-2 border-dashed flex items-center justify-center cursor-pointer hover:bg-muted/50 touch-manipulation">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          disabled={uploading !== null}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handlePhotoUpload('after', f);
+                            e.target.value = '';
+                          }}
+                        />
+                        {uploading === 'after' ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6 text-muted-foreground" />}
+                      </label>
+                    </div>
+                  </div>
+                </div>
               )}
             </Card>
 
@@ -367,10 +384,29 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
             <Card className="p-4">
               <h3 className="font-medium mb-3">{t('cleaning.cleaner.supplies', { defaultValue: 'Расход средств' })}</h3>
               <div className="space-y-2">
-                {allSupplies.map((s, i) => (
-                  <div key={i} className="text-sm flex justify-between items-center">
+                {existingSupplies.map((s) => (
+                  <div key={s.id} className="text-sm flex justify-between items-center">
                     <span>{s.supply_name}</span>
-                    <span className="text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">
+                        {s.amount_used} {s.unit}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={() => handleDeleteSupply(s.id)}
+                        title={t('common.delete')}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {newSupplies.map((s, i) => (
+                  <div key={`new-${i}`} className="text-sm flex justify-between items-center text-muted-foreground">
+                    <span>{s.supply_name}</span>
+                    <span>
                       {s.amount_used} {s.unit}
                     </span>
                   </div>

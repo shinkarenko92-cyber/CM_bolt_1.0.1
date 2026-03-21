@@ -137,7 +137,8 @@
       "addressFromProperty": "Из объекта",
       "doorCode": "Код двери",
       "notes": "Заметки",
-      "taskCreated": "Уборка создана"
+      "taskCreated": "Уборка создана",
+      "dragScheduleError": "Не удалось перенести уборку"
     },
     "cleaner": {
       "title": "Мои уборки",
@@ -163,6 +164,8 @@
       "before": "До",
       "after": "После",
       "photoUploaded": "Фото загружено",
+      "photoQueued": "Фото сохранено офлайн (в очереди: {{count}})",
+      "photoQueuedFallback": "Ошибка сети — фото загрузится позже",
       "inventory": "Инвентаризация",
       "noInventory": "Нет списка предметов для этого объекта",
       "note": "Заметка",

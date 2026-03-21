@@ -133,7 +133,8 @@
       "addressFromProperty": "From property",
       "doorCode": "Door code",
       "notes": "Notes",
-      "taskCreated": "Cleaning created"
+      "taskCreated": "Cleaning created",
+      "dragScheduleError": "Failed to reschedule cleaning"
     },
     "cleaner": {
       "title": "My cleanings",
@@ -157,6 +158,8 @@
       "before": "Before",
       "after": "After",
       "photoUploaded": "Photo uploaded",
+      "photoQueued": "Photo saved offline (queued: {{count}})",
+      "photoQueuedFallback": "Network error — photo will upload later",
       "inventory": "Inventory",
       "noInventory": "No inventory list for this property",
       "note": "Note",

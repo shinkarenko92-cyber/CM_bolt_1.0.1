@@ -6,23 +6,32 @@ import {
   useDraggable,
   useDroppable,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import type { CleaningTask, Cleaner } from '@/types/cleaning';
+import type { CleaningTask, Cleaner, CleaningStatus } from '@/types/cleaning';
 import { updateTaskSchedule } from '@/services/cleaning';
 import { cn } from '@/lib/utils';
 import { MapPin, Clock } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const HOURS = Array.from({ length: 17 }, (_, i) => i + 8);
 const DAYS = 7;
+
+const STATUS_DOT: Record<CleaningStatus, string> = {
+  pending: 'bg-yellow-400',
+  in_progress: 'bg-blue-500',
+  done: 'bg-green-500',
+  cancelled: 'bg-gray-400',
+};
 
 function slotId(dayIndex: number, hour: number): string {
   return `slot-${dayIndex}-${hour}`;
 }
 
 function parseSlotId(id: string): { dayIndex: number; hour: number } | null {
-  const m = id.match(/^slot-(\d)-(\d+)$/);
+  const m = id.match(/^slot-(\d+)-(\d+)$/);
   if (!m) return null;
   return { dayIndex: parseInt(m[1], 10), hour: parseInt(m[2], 10) };
 }
@@ -94,9 +103,15 @@ function DraggableTaskCard({
       )}
       style={{ borderLeft: `3px solid ${color}` }}
     >
-      <div className="flex items-center gap-1 text-muted-foreground mb-0.5">
-        <Clock className="h-2.5 w-2.5" />
-        <span>{time}</span>
+      <div className="flex items-center justify-between gap-1 mb-0.5">
+        <div className="flex items-center gap-1 text-muted-foreground">
+          <Clock className="h-2.5 w-2.5" />
+          <span>{time}</span>
+        </div>
+        <span
+          className={cn('w-2 h-2 rounded-full shrink-0', STATUS_DOT[task.status])}
+          title={task.status}
+        />
       </div>
       {task.address && (
         <div className="flex items-start gap-1">
@@ -124,7 +139,7 @@ export function WeeklyCalendar({
   cleaners,
   onRefresh,
 }: WeeklyCalendarProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const weekDays = getWeekDays(weekStart);
   const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -146,14 +161,19 @@ export function WeeklyCalendar({
         await updateTaskSchedule(task.id, dateStr, timeStr);
         onRefresh();
       } catch (e) {
-        console.error('Failed to move task', e);
+        toast.error(
+          e instanceof Error
+            ? e.message
+            : t('cleaning.admin.dragScheduleError', { defaultValue: 'Не удалось перенести уборку' }),
+        );
       }
     },
-    [weekStart, tasks, onRefresh],
+    [weekStart, tasks, onRefresh, t],
   );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
   );
 
   const tasksBySlot = new Map<string, CleaningTask[]>();
@@ -165,6 +185,8 @@ export function WeeklyCalendar({
       tasksBySlot.set(key, list);
     }
   }
+
+  const locale = i18n.language || 'ru-RU';
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
@@ -187,7 +209,7 @@ export function WeeklyCalendar({
                     )}
                   >
                     <div className="text-[11px] text-muted-foreground uppercase tracking-wider">
-                      {d.toLocaleDateString('ru-RU', { weekday: 'short' })}
+                      {d.toLocaleDateString(locale, { weekday: 'short' })}
                     </div>
                     <div
                       className={cn(

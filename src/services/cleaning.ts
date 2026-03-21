@@ -302,6 +302,15 @@ export async function saveSupplyUsage(taskId: string, supplies: SupplyUsageInput
   return (data ?? []) as SupplyUsage[];
 }
 
+export async function deleteSupplyUsage(supplyId: string): Promise<void> {
+  const { error } = await supabase
+    .from('supply_usage')
+    .delete()
+    .eq('id', supplyId);
+
+  if (error) throw error;
+}
+
 export async function getCleaners(): Promise<Cleaner[]> {
   const { data, error } = await supabase
     .from('cleaners')

@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, useRef } from 'react';
+import { useEffect, useCallback, useState, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,12 +11,14 @@ import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 import { Loader2 } from 'lucide-react';
 
-const today = () => new Date().toISOString().slice(0, 10);
-const tomorrow = () => {
+function getTodayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+function getTomorrowStr() {
   const d = new Date();
   d.setDate(d.getDate() + 1);
   return d.toISOString().slice(0, 10);
-};
+}
 
 export function CleaningCleanerView() {
   const { t } = useTranslation();
@@ -65,8 +67,8 @@ export function CleaningCleanerView() {
     void fetchTasks();
   }, [fetchTasks, setSelectedWeekStart]);
 
-  const todayStr = today();
-  const tomorrowStr = tomorrow();
+  const todayStr = useMemo(getTodayStr, []);
+  const tomorrowStr = useMemo(getTomorrowStr, []);
   const todayTasks = tasks.filter((x) => x.scheduled_date === todayStr);
   const tomorrowTasks = tasks.filter((x) => x.scheduled_date === tomorrowStr);
   const otherTasks = tasks.filter(
@@ -114,19 +116,6 @@ export function CleaningCleanerView() {
           {t('cleaning.cleaner.subtitle', { defaultValue: 'Задачи на сегодня и завтра' })}
         </p>
       </header>
-
-      <div className="flex gap-2 mb-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setSelectedWeekStart(new Date());
-            void fetchTasks();
-          }}
-        >
-          {t('cleaning.cleaner.today', { defaultValue: 'К текущей неделе' })}
-        </Button>
-      </div>
 
       {loading && tasks.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
