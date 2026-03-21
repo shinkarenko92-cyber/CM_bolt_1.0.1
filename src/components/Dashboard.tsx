@@ -419,7 +419,7 @@ export function Dashboard() {
   const handleCalendarBookingUpdate = useCallback((id: string, updates: Partial<Booking>) => {
     setBookings(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
     setFilteredBookings(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
-  }, []);
+  }, [setBookings, setFilteredBookings]);
 
   const handleCalendarDateSelectionReset = useCallback(() => {}, []);
 

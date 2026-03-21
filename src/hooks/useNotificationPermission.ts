@@ -32,6 +32,5 @@ export function showBrowserNotification(title: string, body: string, chatId: str
     body,
     icon: '/icon-192x192.png',
     tag: `avito-msg-${chatId}`,
-    renotify: true,
   });
 }
