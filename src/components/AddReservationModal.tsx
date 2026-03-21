@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Settings, AlertCircle, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { Property, supabase, Guest } from '@/lib/supabase';
+import { Property, Guest } from '@/lib/supabase';
 import {
   calculateNights,
   validateDateRange,
@@ -153,7 +153,6 @@ export function AddReservationModal({
         check_out: prefilledDates.checkOut,
       }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefilledDates]);
 
   // Fetch price from DB when property or dates change

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Search, Bell, User, X } from 'lucide-react';
@@ -36,7 +36,7 @@ import { ViewSkeleton } from '@/components/ViewSkeleton';
 import { ErrorRetry } from '@/components/ErrorRetry';
 import { DashboardKPI } from '@/components/DashboardKPI';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
-import { supabase, Property, Booking, Profile, Guest, Chat, Message } from '@/lib/supabase';
+import { supabase, Property, Booking, Guest, Chat, Message } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { getOAuthSuccess, getOAuthError, generateMessengerOAuthUrl } from '@/services/avito';
 import { syncWithExternalAPIs, syncAvitoIntegration } from '@/services/apiSync';
@@ -159,7 +159,7 @@ type AvitoMessageRow = {
 
 export function Dashboard() {
   const { t } = useTranslation();
-  const { user, isAdmin, refreshProfile, profile: authProfile } = useAuth();
+  const { user, isAdmin, profile: authProfile } = useAuth();
   const isCleaner = authProfile?.role === 'cleaner';
   const location = useLocation();
   const navigate = useNavigate();
@@ -169,7 +169,7 @@ export function Dashboard() {
     bookings, setBookings,
     filteredBookings, setFilteredBookings,
     guests, setGuests,
-    userProfile, setUserProfile,
+    userProfile,
     loading,
     loadError,
     reload: reloadDashboardData,
@@ -935,7 +935,7 @@ export function Dashboard() {
       setSearchResults(filtered);
       setShowSearchDropdown(true);
     }
-  }, [searchQuery, bookings]);
+  }, [searchQuery, bookings, setFilteredBookings]);
 
   const handleAddReservation = (propertyIdOrIds: string | string[], checkIn?: string, checkOut?: string) => {
     if (typeof propertyIdOrIds === 'string' && checkIn && checkOut) {

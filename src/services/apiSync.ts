@@ -1,5 +1,5 @@
 import { isAvitoConfigured } from '@/services/avitoApi';
-import { supabase, Booking, PropertyIntegration } from '@/lib/supabase';
+import { supabase, PropertyIntegration } from '@/lib/supabase';
 import type { AvitoErrorInfo } from '@/services/avitoErrors';
 
 const devLog = (...args: unknown[]) => { if (import.meta.env.DEV) console.log(...args); };

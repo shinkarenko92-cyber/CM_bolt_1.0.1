@@ -440,7 +440,6 @@ export function Calendar({
     } finally {
       setTimeout(() => { justDroppedRef.current = false; }, 100);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dragState, dates, bookings, onBookingUpdate]);
 
   const loadPropertyRates = async (retryCount = 0): Promise<void> => {
