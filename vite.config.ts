@@ -109,9 +109,6 @@ export default defineConfig({
           if (id.includes('@supabase')) {
             return 'supabase-vendor';
           }
-          if (id.includes('recharts') || id.includes('d3-') || id.includes('d3/')) {
-            return 'chart-vendor';
-          }
           if (id.includes('canvas-confetti') || id.includes('confetti')) {
             return 'confetti-vendor';
           }
