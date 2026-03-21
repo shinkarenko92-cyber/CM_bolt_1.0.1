@@ -22,7 +22,8 @@ export async function syncAvitoWithNotify(
   const ids = Array.isArray(propertyIds) ? propertyIds : [propertyIds];
   if (ids.length === 0) return;
 
-  const toastId = toast.loading('Синхронизация с Avito...');
+  const TOAST_ID = 'avito-sync';
+  toast.loading('Синхронизация с Avito...', { id: TOAST_ID });
 
   try {
     let anySuccess = false;
@@ -34,44 +35,44 @@ export async function syncAvitoWithNotify(
       if (result.success) anySuccess = true;
     }
 
-    toast.dismiss(toastId);
-
     if (anySuccess && lastResult) {
       if (lastResult.pricesSuccess && lastResult.intervalsFailed) {
-        toast.success(t('avito.sync.pricesUpdated', { defaultValue: 'Цены обновлены в Avito' }));
+        toast.success(t('avito.sync.pricesUpdated', { defaultValue: 'Цены обновлены в Avito' }), { id: TOAST_ID });
         toast(t('avito.sync.partialCalendarWarning', { defaultValue: 'Часть календаря Avito пока не обновлена. Повтори синхронизацию позже.' }), {
+          id: 'avito-sync-warn',
           icon: '⚠️',
           duration: 6000,
         });
       } else {
-        toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀');
+        toast.success('Синхронизация с Avito успешна! Даты, цены и брони обновлены 🚀', { id: TOAST_ID });
       }
       if (lastResult.warnings?.length || lastResult.warningMessage) {
         toast(
           lastResult.warningMessage ||
           lastResult.warnings?.map(w => w.message).join(' ') ||
           'Есть предупреждения по Avito',
-          { icon: '⚠️', duration: 6000 }
+          { id: 'avito-sync-warn', icon: '⚠️', duration: 6000 }
         );
       }
     } else if (lastResult && !lastResult.skipUserError) {
       if (lastResult.errors && lastResult.errors.length > 0) {
         const errorMessages = lastResult.errors.map(e => e.message || 'Ошибка').join(', ');
-        toast.error(`Ошибка синхронизации: ${errorMessages}`);
+        toast.error(`Ошибка синхронизации: ${errorMessages}`, { id: TOAST_ID });
         showAvitoErrors(lastResult.errors as AvitoErrorInfo[], t).catch(err => {
           console.error('Error showing Avito error modals:', err);
         });
       } else {
-        toast.error(lastResult.message || 'Ошибка синхронизации с Avito');
+        toast.error(lastResult.message || 'Ошибка синхронизации с Avito', { id: TOAST_ID });
       }
       if (options.context) {
         console.error(`${options.context}: Avito sync failed`, lastResult);
       }
+    } else {
+      // skipUserError — silent, no integration configured
+      toast.dismiss(TOAST_ID);
     }
-    // else: skipUserError — silent, no integration configured
   } catch (error) {
-    toast.dismiss(toastId);
     console.error(`${options.context ?? 'syncAvitoWithNotify'}: Unexpected error`, error);
-    toast.error('Ошибка синхронизации с Avito');
+    toast.error('Ошибка синхронизации с Avito', { id: TOAST_ID });
   }
 }

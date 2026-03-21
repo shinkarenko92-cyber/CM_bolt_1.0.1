@@ -20,6 +20,7 @@ import { AddReservationModal } from '@/components/AddReservationModal';
 import { EditReservationModal } from '@/components/EditReservationModal';
 import { OverlapWarningModal } from '@/components/OverlapWarningModal';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { GuestModal } from '@/components/GuestModal';
 import { UserProfileModal } from '@/components/UserProfileModal';
 
@@ -121,6 +122,7 @@ export function Dashboard() {
   const [isBookingLimitModalOpen, setIsBookingLimitModalOpen] = useState(false);
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const oauthProcessedRef = useRef(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const {
     chats, setChats,
     messages,
@@ -135,6 +137,11 @@ export function Dashboard() {
     handleSendMessage,
     handleAvitoMessengerAuth,
   } = useAvitoChats(properties, currentView);
+
+  useKeyboardShortcuts({
+    onNewBooking: () => setIsAddModalOpen(true),
+    searchInputRef,
+  });
 
   // Open Messages tab when returning from Avito Messenger OAuth callback; open Properties when no integration or after Avito OAuth
   useEffect(() => {
@@ -803,6 +810,7 @@ export function Dashboard() {
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
               <Input
+                ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
