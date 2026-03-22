@@ -44,7 +44,7 @@ export function AnalyticsInsights({ bookings, properties }: AnalyticsInsightsPro
   });
 
   const months = useMemo(() => {
-    const result = [];
+    const result: { value: string; label: string }[] = [];
     const now = new Date();
     for (let i = 11; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
