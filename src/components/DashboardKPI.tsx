@@ -102,7 +102,7 @@ export function DashboardKPI({ bookings, properties }: DashboardKPIProps) {
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 {card.label}
               </span>
-              <card.icon className={`h-4 w-4 ${card.color}`} />
+              <card.icon className={`h-5 w-5 ${card.color}`} />
             </div>
             <p className="text-2xl font-bold text-foreground">{card.value}</p>
             {'subtitle' in card && card.subtitle && (

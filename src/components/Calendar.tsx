@@ -8,6 +8,8 @@ import { CalendarHeader } from '@/components/CalendarHeader';
 import { BookingBlock } from '@/components/BookingBlock';
 import { ChangeConditionsModal } from '@/components/ChangeConditionsModal';
 import { SortablePropertyRow } from '@/components/SortablePropertyRow';
+import { cn } from '@/lib/utils';
+import { syncAvitoIntegration } from '@/services/apiSync';
 import {
   DndContext,
   closestCenter,
@@ -100,6 +102,7 @@ export function Calendar({
   const [dragOverCell, setDragOverCell] = useState<{ propertyId: string; dateIndex: number } | null>(null);
   const [dragOverDates, setDragOverDates] = useState<Set<string>>(new Set());
   const [isDragValid, setIsDragValid] = useState(true);
+  const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
   const [showConditionsModal, setShowConditionsModal] = useState(false);
   const [conditionsModalData, setConditionsModalData] = useState<{
     propertyId: string;
@@ -267,6 +270,7 @@ export function Calendar({
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (dragState.booking && scrollContainerRef.current && calendarRef.current) {
+        setGhostPos({ x: e.clientX, y: e.clientY });
         const scrollEl = scrollContainerRef.current;
         const scrollRect = scrollEl.getBoundingClientRect();
         const x = e.clientX - scrollRect.left + scrollEl.scrollLeft;
@@ -283,11 +287,13 @@ export function Calendar({
       setDragOverCell(null);
       setDragOverDates(new Set());
       setIsDragValid(true);
+      setGhostPos(null);
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       if (dragState.booking && scrollContainerRef.current && e.touches[0]) {
         const touch = e.touches[0];
+        setGhostPos({ x: touch.clientX, y: touch.clientY });
         const scrollEl = scrollContainerRef.current;
         const scrollRect = scrollEl.getBoundingClientRect();
         const x = touch.clientX - scrollRect.left + scrollEl.scrollLeft;
@@ -305,6 +311,7 @@ export function Calendar({
       setDragOverCell(null);
       setDragOverDates(new Set());
       setIsDragValid(true);
+      setGhostPos(null);
     };
 
     if (dragState.booking) {
@@ -452,7 +459,22 @@ export function Calendar({
           check_in: data.check_in,
           check_out: data.check_out,
         });
-        toast.success('Бронь перенесена');
+        const sourcePropertyId = dragState.originalPropertyId!;
+        const toastId = toast.loading('Синхронизация с Авито...');
+        void (async () => {
+          try {
+            const result = await syncAvitoIntegration(sourcePropertyId);
+            if (targetPropertyId !== sourcePropertyId) {
+              await syncAvitoIntegration(targetPropertyId);
+            }
+            toast.success(
+              result.success ? 'Бронь перенесена, Авито обновлён' : 'Бронь перенесена',
+              { id: toastId }
+            );
+          } catch {
+            toast.success('Бронь перенесена', { id: toastId });
+          }
+        })();
       }
     } catch (error) {
       console.error('Error moving booking:', error);
@@ -1000,14 +1022,16 @@ export function Calendar({
                   return (
                     <div
                       key={i}
-                      className={`w-16 flex-shrink-0 border-r border-border relative ${isToday ? 'bg-today-cell-bg' : isWeekend ? 'bg-slate-700/50' : ''
-                        }`}
+                      className={cn(
+                        'w-16 flex-shrink-0 border-r border-border relative',
+                        isToday ? 'bg-today-cell-bg border-t-2 border-t-brand' : isWeekend ? 'bg-slate-700/50' : ''
+                      )}
                     >
                       <div className="px-2 py-2 text-center relative z-10">
-                        <div className={`text-sm font-medium ${isToday ? 'text-foreground' : 'text-slate-300'}`}>
+                        <div className={`text-sm font-bold ${isToday ? 'text-brand' : 'text-slate-300'}`}>
                           {date.getDate()}
                         </div>
-                        <div className={`text-xs ${isToday ? 'text-foreground' : 'text-slate-400'}`}>
+                        <div className={`text-xs ${isToday ? 'text-brand/80' : 'text-slate-400'}`}>
                           {date.toLocaleDateString('ru-RU', { weekday: 'short' })}
                         </div>
                       </div>
@@ -1091,9 +1115,14 @@ export function Calendar({
                                     return (
                                       <div
                                         key={i}
-                                        className={`w-16 flex-shrink-0 border-r border-border cursor-pointer transition-all relative flex flex-col overflow-hidden ${isToday ? 'bg-today-cell-bg' : isWeekend ? 'bg-slate-700/50' : ''
-                                          } ${isSelected ? 'bg-booking/30' : ''
-                                          } ${isInRange || isHoverRange ? 'bg-booking/20 shadow-[inset_0_0_15px_rgba(135,221,245,0.3)] ring-1 ring-booking/40 ring-inset' : ''} ${isDragOverThisCell ? dragOverColor : ''} ${!isOccupied ? 'hover:bg-slate-800/30 hover:ring-2 hover:ring-booking/30' : ''}`}
+                                        className={cn(
+                                          'w-16 flex-shrink-0 border-r border-border cursor-pointer transition-all relative flex flex-col overflow-hidden',
+                                          isToday ? 'bg-today-cell-bg border-t-2 border-t-brand' : isWeekend ? 'bg-slate-700/50' : '',
+                                          isSelected ? 'bg-booking/30' : '',
+                                          isInRange || isHoverRange ? 'bg-booking/20 shadow-[inset_0_0_15px_rgba(135,221,245,0.3)] ring-1 ring-booking/40 ring-inset' : '',
+                                          isDragOverThisCell ? dragOverColor : '',
+                                          !isOccupied ? 'hover:bg-slate-800/30 hover:ring-2 hover:ring-booking/30' : ''
+                                        )}
                                         title={isDragOverOtherProperty ? t('calendar.dragToOtherObject', { defaultValue: 'Перенести на другой объект' }) : undefined}
                                         onClick={() => !isOccupied && handleCellClick(property.id, date)}
                                         onMouseEnter={() => {
@@ -1244,6 +1273,26 @@ export function Calendar({
           currency={conditionsModalData.currency}
           properties={properties}
         />
+      )}
+
+      {/* Ghost drag element — follows cursor */}
+      {dragState.booking && ghostPos && (
+        <div
+          className="fixed pointer-events-none select-none z-[9999]"
+          style={{ left: ghostPos.x - 60, top: ghostPos.y - 14, transform: 'rotate(-2deg) scale(1.05)' }}
+        >
+          <div
+            className={cn(
+              'px-3 py-1.5 rounded-md text-xs font-semibold text-white shadow-2xl opacity-90 flex items-center gap-1.5 whitespace-nowrap',
+              isDragValid ? 'ring-2 ring-emerald-400' : 'ring-2 ring-rose-400',
+              dragState.booking.status === 'pending' || dragState.booking.status === 'waiting'
+                ? 'bg-amber-400'
+                : 'bg-teal-500'
+            )}
+          >
+            {dragState.booking.guest_name?.trim() || '—'}
+          </div>
+        </div>
       )}
 
       {/* Группы объявлений удалены */}
