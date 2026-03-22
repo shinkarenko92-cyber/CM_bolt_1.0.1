@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, CreditCard, CheckCircle, XCircle, Sun, Moon, Globe } from 'lucide-react';
+import { X, CreditCard, CheckCircle, XCircle, Sun, Moon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { Profile, supabase } from '@/lib/supabase';
@@ -18,7 +18,7 @@ type UserProfileModalProps = {
 
 export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalProps) {
   const { theme, toggleTheme } = useTheme();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { refreshProfile } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name ?? '');
   const [email, setEmail] = useState(profile?.email ?? '');
@@ -32,15 +32,6 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
   }, [profile]);
 
   if (!isOpen || !profile) return null;
-
-  const handleLanguageChange = (langCode: string) => {
-    i18n.changeLanguage(langCode);
-    try {
-      localStorage.setItem('language', langCode);
-    } catch {
-      // ignore
-    }
-  };
 
   const handleSaveProfile = async () => {
     if (!profile?.id) return;
@@ -91,16 +82,16 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
     : false;
 
   const tierLabels: Record<string, string> = {
-    free: 'Demo 5 дней',
-    basic: 'Demo 5 дней',
-    demo: 'Demo 5 дней',
-    trial: 'Demo 5 дней',
-    start: 'Start',
-    starter: 'Start',
-    pro: 'Pro',
-    business: 'Business',
-    premium: 'Premium',
-    enterprise: 'Enterprise',
+    free: t('subscription.tiers.demo', { defaultValue: 'Demo 5 дней' }),
+    basic: t('subscription.tiers.demo', { defaultValue: 'Demo 5 дней' }),
+    demo: t('subscription.tiers.demo', { defaultValue: 'Demo 5 дней' }),
+    trial: t('subscription.tiers.demo', { defaultValue: 'Demo 5 дней' }),
+    start: t('subscription.tiers.standard', { defaultValue: 'Standard' }),
+    starter: t('subscription.tiers.standard', { defaultValue: 'Standard' }),
+    pro: t('subscription.tiers.pro', { defaultValue: 'Pro' }),
+    business: t('subscription.tiers.business', { defaultValue: 'Business' }),
+    premium: t('subscription.tiers.business', { defaultValue: 'Business' }),
+    enterprise: t('subscription.tiers.enterprise', { defaultValue: 'Enterprise' }),
   };
 
   const tierPrice = TIER_PRICE_RUB[tier] ?? null;
@@ -123,7 +114,7 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-slate-800 rounded-lg shadow-xl w-full max-w-md mx-4">
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
-          <h2 className="text-xl font-semibold text-white">My Profile</h2>
+          <h2 className="text-xl font-semibold text-white">{t('settings.myProfile', { defaultValue: 'Мой профиль' })}</h2>
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-white transition-colors"
@@ -133,34 +124,6 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
         </div>
 
         <div className="p-6 space-y-6">
-          <div className="space-y-2">
-            <Label className="text-slate-300">
-              {t('settings.language', { defaultValue: 'Язык' })}
-            </Label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => handleLanguageChange('ru')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  i18n.language === 'ru' ? 'bg-teal-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                }`}
-              >
-                <Globe className="w-4 h-4" />
-                Русский
-              </button>
-              <button
-                type="button"
-                onClick={() => handleLanguageChange('en')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  i18n.language === 'en' ? 'bg-teal-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                }`}
-              >
-                <Globe className="w-4 h-4" />
-                English
-              </button>
-            </div>
-          </div>
-
           <div className="space-y-2">
             <Label htmlFor="profile-full-name" className="text-slate-300">
               {t('settings.fullName', { defaultValue: 'ФИО' })}
@@ -199,7 +162,7 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
           {profile.phone && (
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
-                Phone
+                {t('settings.phone', { defaultValue: 'Телефон' })}
               </label>
               <div className="text-white font-medium">{profile.phone}</div>
             </div>
@@ -209,7 +172,7 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
             <div className="flex items-center justify-between mb-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">
-                  Тариф
+                  {t('settings.planTitle', { defaultValue: 'Тариф' })}
                 </label>
                 <div className="flex items-center gap-2">
                   <span className="text-lg font-bold text-white">
@@ -229,13 +192,15 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
                 )}
               </div>
               <div className="text-right">
-                <div className="text-sm text-slate-400">Статус</div>
+                <div className="text-sm text-slate-400">{t('settings.status', { defaultValue: 'Статус' })}</div>
                 <div
                   className={`text-sm font-semibold ${
                     isPaid && !isExpired ? 'text-green-500' : 'text-slate-500'
                   }`}
                 >
-                  {isPaid && !isExpired ? 'Оплачен' : 'Не оплачен'}
+                  {isPaid && !isExpired
+                    ? t('settings.planStatusPaid', { defaultValue: 'Оплачен' })
+                    : t('settings.planStatusUnpaid', { defaultValue: 'Не оплачен' })}
                 </div>
               </div>
             </div>
@@ -243,7 +208,7 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
             {profile.subscription_expires_at && (
               <div className="mb-4">
                 <label className="block text-sm font-medium text-slate-300 mb-1">
-                  Действует до
+                  {t('settings.planExpiresLabel', { defaultValue: 'Действует до' })}
                 </label>
                 <div
                   className={`text-sm ${
@@ -251,7 +216,7 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
                   }`}
                 >
                   {formatDate(profile.subscription_expires_at)}
-                  {isExpired && ' (Истекла)'}
+                  {isExpired && ` (${t('settings.planExpiredLabel', { defaultValue: 'Истекла' })})`}
                 </div>
               </div>
             )}
@@ -259,14 +224,14 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
             {(!isPaid || isExpired) && (
               <div className="space-y-2">
                 <p className="text-sm text-slate-400">
-                  Оплата по счёту: свяжитесь с нами для выставления счёта и подключения тарифа.
+                  {t('settings.paymentInfo', { defaultValue: 'Оплата по счёту: свяжитесь с нами для выставления счёта и подключения тарифа.' })}
                 </p>
                 <a
                   href={paymentMailto}
                   className="w-full px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                 >
                   <CreditCard className="w-5 h-5" />
-                  Запросить счёт / Подключить тариф
+                  {t('settings.requestInvoice', { defaultValue: 'Запросить счёт / Подключить тариф' })}
                 </a>
               </div>
             )}
@@ -275,44 +240,44 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
           <div className="border-t border-slate-700 pt-6">
             <div className="mb-4">
               <label className="block text-sm font-medium text-slate-300 mb-3">
-                Тема оформления
+                {t('settings.theme', { defaultValue: 'Тема оформления' })}
               </label>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={toggleTheme}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
-                >
-                  {theme === 'dark' ? (
-                    <>
-                      <Moon className="w-5 h-5 text-slate-300" />
-                      <span className="text-white font-medium">Темная тема</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sun className="w-5 h-5 text-yellow-400" />
-                      <span className="text-white font-medium">Светлая тема</span>
-                    </>
-                  )}
-                </button>
-              </div>
+              <button
+                onClick={toggleTheme}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors w-full"
+              >
+                {theme === 'dark' ? (
+                  <>
+                    <Moon className="w-5 h-5 text-slate-300" />
+                    <span className="text-white font-medium">{t('settings.themeDark', { defaultValue: 'Тёмная тема' })}</span>
+                  </>
+                ) : (
+                  <>
+                    <Sun className="w-5 h-5 text-yellow-400" />
+                    <span className="text-white font-medium">{t('settings.themeLight', { defaultValue: 'Светлая тема' })}</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
           <div className="border-t border-slate-700 pt-4">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-400">Account Status</span>
+              <span className="text-slate-400">{t('settings.accountStatus', { defaultValue: 'Статус аккаунта' })}</span>
               <span
                 className={`font-medium ${
                   profile.is_active ? 'text-green-500' : 'text-red-500'
                 }`}
               >
-                {profile.is_active ? 'Active' : 'Inactive'}
+                {profile.is_active
+                  ? t('settings.statusActive', { defaultValue: 'Активен' })
+                  : t('settings.statusInactive', { defaultValue: 'Неактивен' })}
               </span>
             </div>
             {profile.role === 'admin' && (
               <div className="flex items-center justify-between text-sm mt-2">
-                <span className="text-slate-400">Role</span>
-                <span className="font-medium text-teal-400">Administrator</span>
+                <span className="text-slate-400">{t('settings.role', { defaultValue: 'Роль' })}</span>
+                <span className="font-medium text-teal-400">{t('settings.roleAdmin', { defaultValue: 'Администратор' })}</span>
               </div>
             )}
           </div>
@@ -323,7 +288,7 @@ export function UserProfileModal({ isOpen, onClose, profile }: UserProfileModalP
             onClick={onClose}
             className="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors"
           >
-            Close
+            {t('common.close', { defaultValue: 'Закрыть' })}
           </button>
         </div>
       </div>
