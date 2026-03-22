@@ -183,7 +183,6 @@ export function EditReservationModal({
       }));
     }
     setPriceSource(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.price_per_night, formData.extra_services_amount, formData.check_in, formData.check_out, priceSource]);
 
   const historyEvents = useMemo((): HistoryEvent[] => {

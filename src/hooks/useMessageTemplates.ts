@@ -24,14 +24,14 @@ export function useMessageTemplates() {
       const stored = localStorage.getItem(storageKey);
       if (stored) return JSON.parse(stored) as MessageTemplate[];
     } catch {
-      // ignore parse errors
+      return DEFAULT_TEMPLATES;
     }
     return DEFAULT_TEMPLATES;
   });
 
   const save = useCallback((next: MessageTemplate[]) => {
     setTemplates(next);
-    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* ignore */ }
+    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch (_e) { void _e; }
   }, [storageKey]);
 
   const addTemplate = useCallback((label: string, text: string) => {
