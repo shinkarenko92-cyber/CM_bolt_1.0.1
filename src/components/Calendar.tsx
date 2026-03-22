@@ -320,6 +320,7 @@ export function Calendar({
       document.addEventListener('mouseup', handleMouseUp);
       document.addEventListener('touchmove', handleTouchMove, { passive: false });
       document.addEventListener('touchend', handleTouchEnd);
+      document.body.style.userSelect = 'none';
     }
 
     return () => {
@@ -327,6 +328,7 @@ export function Calendar({
       document.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleTouchEnd);
+      document.body.style.userSelect = '';
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dragState, dragOverCell]);
@@ -1314,15 +1316,13 @@ export function Calendar({
         >
           <div
             className={cn(
-              'px-3 py-1.5 rounded-md text-xs font-semibold text-white shadow-2xl opacity-90 flex items-center gap-1.5 whitespace-nowrap',
+              'w-16 h-5 rounded-md shadow-2xl opacity-90',
               isDragValid ? 'ring-2 ring-emerald-400' : 'ring-2 ring-rose-400',
               dragState.booking.status === 'pending' || dragState.booking.status === 'waiting'
                 ? 'bg-amber-400'
                 : 'bg-teal-500'
             )}
-          >
-            {dragState.booking.guest_name?.trim() || '—'}
-          </div>
+          />
         </div>
       )}
 
