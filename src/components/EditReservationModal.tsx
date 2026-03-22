@@ -170,7 +170,7 @@ export function EditReservationModal({
     }
   };
 
-  // price_per_night → total_price (user edited per-night rate)
+  // price_per_night → total_price (user edited per-night rate OR dates changed)
   useEffect(() => {
     if (priceSource !== 'perNight') return;
     const nights = calculateNights(formData.check_in, formData.check_out);
@@ -184,7 +184,7 @@ export function EditReservationModal({
     }
     setPriceSource(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.price_per_night, formData.extra_services_amount, priceSource]);
+  }, [formData.price_per_night, formData.extra_services_amount, formData.check_in, formData.check_out, priceSource]);
 
   const historyEvents = useMemo((): HistoryEvent[] => {
     if (!booking) return [];
@@ -414,7 +414,7 @@ export function EditReservationModal({
                         <Input
                           type="date"
                           value={formData.check_in}
-                          onChange={e => setFormData(prev => ({ ...prev, check_in: e.target.value }))}
+                          onChange={e => { setFormData(prev => ({ ...prev, check_in: e.target.value })); setPriceSource('perNight'); }}
                           required
                         />
                       </div>
@@ -423,7 +423,7 @@ export function EditReservationModal({
                         <Input
                           type="date"
                           value={formData.check_out}
-                          onChange={e => setFormData(prev => ({ ...prev, check_out: e.target.value }))}
+                          onChange={e => { setFormData(prev => ({ ...prev, check_out: e.target.value })); setPriceSource('perNight'); }}
                           required
                         />
                       </div>

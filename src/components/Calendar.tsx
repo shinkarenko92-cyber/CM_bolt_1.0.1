@@ -1022,16 +1022,13 @@ export function Calendar({
                   return (
                     <div
                       key={i}
-                      className={cn(
-                        'w-16 flex-shrink-0 border-r border-border relative',
-                        isToday ? 'bg-today-cell-bg border-t-2 border-t-brand' : isWeekend ? 'bg-slate-700/50' : ''
-                      )}
+                      className={`w-16 flex-shrink-0 border-r border-border relative ${isToday ? 'bg-today-cell-bg' : isWeekend ? 'bg-slate-700/50' : ''}`}
                     >
                       <div className="px-2 py-2 text-center relative z-10">
-                        <div className={`text-sm font-bold ${isToday ? 'text-brand' : 'text-slate-300'}`}>
+                        <div className={`text-sm font-medium ${isToday ? 'text-foreground' : 'text-slate-300'}`}>
                           {date.getDate()}
                         </div>
-                        <div className={`text-xs ${isToday ? 'text-brand/80' : 'text-slate-400'}`}>
+                        <div className={`text-xs ${isToday ? 'text-foreground' : 'text-slate-400'}`}>
                           {date.toLocaleDateString('ru-RU', { weekday: 'short' })}
                         </div>
                       </div>
@@ -1117,7 +1114,7 @@ export function Calendar({
                                         key={i}
                                         className={cn(
                                           'w-16 flex-shrink-0 border-r border-border cursor-pointer transition-all relative flex flex-col overflow-hidden',
-                                          isToday ? 'bg-today-cell-bg border-t-2 border-t-brand' : isWeekend ? 'bg-slate-700/50' : '',
+                                          isToday ? 'bg-today-cell-bg' : isWeekend ? 'bg-slate-700/50' : '',
                                           isSelected ? 'bg-booking/30' : '',
                                           isInRange || isHoverRange ? 'bg-booking/20 shadow-[inset_0_0_15px_rgba(135,221,245,0.3)] ring-1 ring-booking/40 ring-inset' : '',
                                           isDragOverThisCell ? dragOverColor : '',
