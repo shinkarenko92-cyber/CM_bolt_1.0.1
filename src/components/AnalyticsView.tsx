@@ -28,6 +28,7 @@ import {
   Legend,
 } from 'recharts';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
+import { convertToRUB } from '@/lib/currency';
 
 const CHART_HEIGHT = 256;
 
@@ -64,15 +65,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
   const [bookingsDynamicsPeriod, setBookingsDynamicsPeriod] = useState<'month' | 'halfYear'>('month');
   const [openTooltip, setOpenTooltip] = useState<'revenue' | 'adr' | 'revpar' | 'occupancy' | null>(null);
   const [showAllProperties, setShowAllProperties] = useState(false);
-
-  const convertToRUB = (amount: number, currency: string) => {
-    const rates: { [key: string]: number } = {
-      RUB: 1,
-      EUR: 100,
-      USD: 92,
-    };
-    return amount * (rates[currency] || 1);
-  };
+  const [selectedPropertyId, setSelectedPropertyId] = useState('');
 
   // Полный месяц: 1-е число — последний день месяца (все брони, включая будущие)
   const dateRange = useMemo(() => {
@@ -89,11 +82,21 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     return { start, end };
   }, [dateRangeType, selectedMonth, customStartDate, customEndDate]);
 
+  const filteredBookings = useMemo(
+    () => (selectedPropertyId ? bookings.filter((b) => b.property_id === selectedPropertyId) : bookings),
+    [bookings, selectedPropertyId],
+  );
+
+  const filteredProperties = useMemo(
+    () => (selectedPropertyId ? properties.filter((p) => p.id === selectedPropertyId) : properties),
+    [properties, selectedPropertyId],
+  );
+
   const analytics = useMemo(() => {
     const { start: currentStart, end: currentEnd } = dateRange;
 
     // Только подтверждённые/оплаченные/завершённые брони
-    const activeBookings = bookings.filter((b) =>
+    const activeBookings = filteredBookings.filter((b) =>
       ANALYTICS_BOOKING_STATUSES.has((b.status || '').toLowerCase())
     );
 
@@ -160,7 +163,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     const currentBookings = filterBookingsByDateRange(currentStart, currentEnd);
     const currentRevenue = calculateRevenue(currentBookings, currentStart, currentEnd);
     const occupiedNights = calculateOccupiedNights(currentBookings, currentStart, currentEnd);
-    const totalPossibleNights = properties.length > 0 ? properties.length * daysInPeriod : daysInPeriod;
+    const totalPossibleNights = filteredProperties.length > 0 ? filteredProperties.length * daysInPeriod : daysInPeriod;
     const occupancyRate = totalPossibleNights > 0 ? (occupiedNights / totalPossibleNights) * 100 : 0;
 
     const adr = occupiedNights > 0 ? currentRevenue / occupiedNights : 0;
@@ -191,7 +194,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
       comparisonRevenue = previousRevenue;
       const compOccupied = calculateOccupiedNights(comparisonBookings, comparisonStart, comparisonEnd);
       const compDays = Math.ceil((comparisonEnd.getTime() - comparisonStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-      const compPossible = properties.length * compDays;
+      const compPossible = filteredProperties.length * compDays;
       comparisonOccupancyRate = compPossible > 0 ? (compOccupied / compPossible) * 100 : 0;
     }
 
@@ -223,9 +226,21 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     }, {} as { [key: string]: number });
 
     const topProperties = Object.entries(propertyBreakdown)
-      .map(([id, revenue]) => ({ property: properties.find((p) => p.id === id), revenue }))
+      .map(([id, revenue]) => ({ property: filteredProperties.find((p) => p.id === id), revenue }))
       .filter((item) => item.property)
       .sort((a, b) => b.revenue - a.revenue);
+
+    // Повторные гости: гости текущего периода с >1 бронированием в истории
+    const guestIdsInPeriod = currentBookings
+      .map((b) => b.guest_id)
+      .filter((id): id is string => !!id);
+    const uniqueGuestIds = new Set(guestIdsInPeriod);
+    const repeatGuestCount = [...uniqueGuestIds].filter(
+      (gid) => activeBookings.filter((b) => b.guest_id === gid).length > 1,
+    ).length;
+    const repeatGuestRate = uniqueGuestIds.size > 0
+      ? Math.round((repeatGuestCount / uniqueGuestIds.size) * 100)
+      : -1; // -1 = нет данных по guest_id
 
     return {
       currentRevenue,
@@ -247,8 +262,10 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
       comparisonBookings,
       comparisonRevenue,
       comparisonOccupancyRate,
+      repeatGuestRate,
+      guestsWithIdCount: uniqueGuestIds.size,
     };
-  }, [bookings, properties, dateRange, comparisonMode]);
+  }, [filteredBookings, filteredProperties, dateRange, comparisonMode]);
 
   // Helper function to calculate proportional revenue for a single booking
   const getProportionalRevenue = useCallback((booking: Booking, start: Date, end: Date): number => {
@@ -276,15 +293,17 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
   }, []);
 
   const monthlyRevenueData = useMemo(() => {
+    // Anchor: месяц выбранного периода (последние 6 месяцев включительно)
+    const { start: rangeStart } = dateRange;
+    const anchor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
     const data: { month: string; revenue: number; bookings: number }[] = [];
-    const now = new Date();
 
     for (let i = 5; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const date = new Date(anchor.getFullYear(), anchor.getMonth() - i, 1);
       const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
       const monthLabel = date.toLocaleDateString('ru-RU', { month: 'short' });
 
-      const monthBookings = bookings.filter((booking) => {
+      const monthBookings = filteredBookings.filter((booking) => {
         const checkIn = new Date(booking.check_in);
         const checkOut = new Date(booking.check_out);
         return (
@@ -304,17 +323,18 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     }
 
     return data;
-  }, [bookings, getProportionalRevenue]);
+  }, [filteredBookings, dateRange, getProportionalRevenue]);
 
   // Data for bookings dynamics chart (month by days or half year by months)
   const bookingsDynamicsData = useMemo(() => {
-    const now = new Date();
+    const { start: rangeStart } = dateRange;
+    const anchor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
     const data: { month: string; date: string; revenue: number; bookings: number }[] = [];
 
     if (bookingsDynamicsPeriod === 'month') {
-      // Show data by days for current month
-      const currentMonth = now.getMonth();
-      const currentYear = now.getFullYear();
+      // Показываем по дням для выбранного месяца
+      const currentMonth = anchor.getMonth();
+      const currentYear = anchor.getFullYear();
       const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
       for (let day = 1; day <= daysInMonth; day++) {
@@ -323,7 +343,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
         const dayLabel = `${day}`;
         const dateLabel = dayStart.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 
-        const dayBookings = bookings.filter((booking) => {
+        const dayBookings = filteredBookings.filter((booking) => {
           const checkIn = new Date(booking.check_in);
           const checkOut = new Date(booking.check_out);
           return (
@@ -343,13 +363,13 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
         });
       }
     } else {
-      // Show data by months for last 6 months
+      // Показываем по месяцам — 6 месяцев до выбранного (включительно)
       for (let i = 5; i >= 0; i--) {
-        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const date = new Date(anchor.getFullYear(), anchor.getMonth() - i, 1);
         const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
         const monthLabel = date.toLocaleDateString('ru-RU', { month: 'short' });
 
-        const monthBookings = bookings.filter((booking) => {
+        const monthBookings = filteredBookings.filter((booking) => {
           const checkIn = new Date(booking.check_in);
           const checkOut = new Date(booking.check_out);
           return (
@@ -371,7 +391,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     }
 
     return data;
-  }, [bookings, bookingsDynamicsPeriod, getProportionalRevenue]);
+  }, [filteredBookings, dateRange, bookingsDynamicsPeriod, getProportionalRevenue]);
 
   const getSourceLabel = useCallback((source: string) => {
     const labels: { [key: string]: string } = {
@@ -395,8 +415,8 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     const { start: monthStart, end: monthEnd } = dateRange;
     const daysInPeriod = Math.ceil((monthEnd.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-    return properties.map((property) => {
-      const propertyBookings = bookings.filter((b) => {
+    return filteredProperties.map((property) => {
+      const propertyBookings = filteredBookings.filter((b) => {
         if (b.property_id !== property.id) return false;
         const checkIn = new Date(b.check_in);
         const checkOut = new Date(b.check_out);
@@ -430,7 +450,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
         revenue: Math.round(revenue),
       };
     });
-  }, [bookings, properties, dateRange, getProportionalRevenue]);
+  }, [filteredBookings, filteredProperties, dateRange, getProportionalRevenue]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ru-RU').format(Math.round(amount));
@@ -557,6 +577,18 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                 />
               </div>
             )}
+
+            <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
+              <SelectTrigger className="w-[180px] h-10">
+                <SelectValue placeholder={t('analytics.allProperties')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">{t('analytics.allProperties')}</SelectItem>
+                {properties.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             <Select value={comparisonMode} onValueChange={(v) => setComparisonMode(v as ComparisonMode)}>
               <SelectTrigger className="w-[220px] h-10" aria-label={t('analytics.compareWith')}>
@@ -693,7 +725,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
         </div>
         </TooltipProvider>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <div className="rounded-lg border border-border bg-card px-4 py-3">
             <p className="text-xs text-muted-foreground">{t('analytics.avgDailyRevenue')}</p>
             <p className="text-base font-semibold mt-0.5">{formatCurrency(analytics.dailyAvgRevenue)} ₽</p>
@@ -709,6 +741,12 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
           <div className="rounded-lg border border-border bg-card px-4 py-3">
             <p className="text-xs text-muted-foreground">{t('analytics.totalBookings')}</p>
             <p className="text-base font-semibold mt-0.5">{analytics.currentBookings}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card px-4 py-3">
+            <p className="text-xs text-muted-foreground">{t('analytics.repeatGuests')}</p>
+            <p className="text-base font-semibold mt-0.5">
+              {analytics.repeatGuestRate >= 0 ? `${analytics.repeatGuestRate}%` : '—'}
+            </p>
           </div>
         </div>
 

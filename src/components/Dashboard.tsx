@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, Bell, User, X } from 'lucide-react';
+import { Search, Bell, User, X, Plug2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -48,6 +48,7 @@ import { syncAvitoWithNotify } from '@/services/avitoSyncNotify';
 import { insertBookingWithRetry, updateBookingWithRetry } from '@/utils/bookingMutations';
 const DeletePropertyModal = lazy(() => import('@/components/DeletePropertyModal').then(m => ({ default: m.DeletePropertyModal })));
 const ImportBookingsModal = lazy(() => import('@/components/ImportBookingsModal').then(m => ({ default: m.ImportBookingsModal })));
+const AccountsModal = lazy(() => import('@/components/AccountsModal').then(m => ({ default: m.AccountsModal })));
 import {
   Dialog,
   DialogContent,
@@ -122,6 +123,7 @@ export function Dashboard() {
   const [isBookingLimitModalOpen, setIsBookingLimitModalOpen] = useState(false);
   const [duplicateBooking, setDuplicateBooking] = useState<Booking | null>(null);
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
+  const [accountsModalOpen, setAccountsModalOpen] = useState(false);
   const oauthProcessedRef = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const {
@@ -985,6 +987,9 @@ export function Dashboard() {
           <div className="flex-1 flex flex-col overflow-hidden min-w-0">
             <header className="h-16 border-b border-border flex items-center justify-between px-6 shrink-0">
               <h2 className="text-lg font-bold">{t('messages.title', 'Сообщения')}</h2>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setAccountsModalOpen(true)}>
+                <Plug2 className="h-4 w-4" />
+              </Button>
             </header>
             <div className="flex-1 flex overflow-hidden min-h-0">
               <div className="w-80 shrink-0 border-r border-border flex flex-col min-h-0">
@@ -1186,6 +1191,16 @@ export function Dashboard() {
           />
           </Suspense>
         )}
+
+        {/* Accounts Modal */}
+        <Suspense fallback={null}>
+          <AccountsModal
+            open={accountsModalOpen}
+            onOpenChange={setAccountsModalOpen}
+            properties={properties}
+            onRequestMessengerAuth={handleAvitoMessengerAuth}
+          />
+        </Suspense>
 
         {/* Import Bookings Modal */}
         {isImportModalOpen && (

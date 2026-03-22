@@ -6,6 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   AreaChart,
   Area,
   XAxis,
@@ -16,19 +23,12 @@ import {
   Bar,
 } from 'recharts';
 import type { Booking, Property } from '@/lib/supabase';
+import { convertToRUB } from '@/lib/currency';
 
 const ROOMI_PRIMARY = '#0066FF';
 const ROOMI_SUCCESS = 'hsl(var(--brand))';
 
 const ANALYTICS_STATUSES = new Set(['confirmed', 'paid', 'completed']);
-
-function convertToRUB(amount: number, currency: string): number {
-  switch (currency?.toUpperCase()) {
-    case 'EUR': return amount * 100;
-    case 'USD': return amount * 92;
-    default: return amount;
-  }
-}
 
 export interface AnalyticsInsightsProps {
   bookings: Booking[];
@@ -38,6 +38,22 @@ export interface AnalyticsInsightsProps {
 export function AnalyticsInsights({ bookings, properties }: AnalyticsInsightsProps) {
   const { t } = useTranslation();
   const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'year'>('month');
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  const months = useMemo(() => {
+    const result = [];
+    const now = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const label = date.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+      result.push({ value, label });
+    }
+    return result;
+  }, []);
 
   const analytics = useMemo(() => {
     const now = new Date();
@@ -67,11 +83,14 @@ export function AnalyticsInsights({ bookings, properties }: AnalyticsInsightsPro
         prevStart = new Date(now.getFullYear() - 1, 0, 1);
         prevEnd = new Date(now.getFullYear(), 0, 1);
         break;
-      default:
-        periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        prevEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+      default: {
+        // month — используем selectedMonth
+        const [y, m] = selectedMonth.split('-').map(Number);
+        periodStart = new Date(y, m - 1, 1);
+        periodEnd = new Date(y, m, 0);
+        prevStart = new Date(y, m - 2, 1);
+        prevEnd = new Date(y, m - 1, 0);
+      }
     }
 
     const pStartStr = periodStart.toISOString().slice(0, 10);
@@ -164,7 +183,7 @@ export function AnalyticsInsights({ bookings, properties }: AnalyticsInsightsPro
     }));
 
     return { occupancy, adr, revpar, revenue: Math.round(revenue), revenueChange, weeklyData, propertyData };
-  }, [bookings, properties, period]);
+  }, [bookings, properties, period, selectedMonth]);
 
   const formatRevenue = (value: number) =>
     new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(value);

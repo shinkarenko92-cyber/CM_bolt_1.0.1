@@ -12,6 +12,7 @@ import {
   RefreshCw,
   CalendarCheck,
   Zap,
+  Settings2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { format, isToday, isYesterday } from 'date-fns';
@@ -24,8 +25,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useMessageTemplates } from '@/hooks/useMessageTemplates';
+import { QuickRepliesModal } from '@/components/QuickRepliesModal';
 
 interface ChatPanelProps {
   chat: Chat | null;
@@ -42,21 +46,6 @@ interface ChatPanelProps {
   onRefresh?: () => void;
 }
 
-const TEMPLATES = [
-  { key: 'greeting', label: 'Приветствие' },
-  { key: 'availability', label: 'Доступность' },
-  { key: 'price', label: 'Цена' },
-  { key: 'details', label: 'Детали' },
-  { key: 'booking', label: 'Бронирование' },
-];
-
-const TEMPLATE_TEXTS: Record<string, string> = {
-  greeting: 'Здравствуйте! Спасибо за интерес к нашему объявлению.',
-  availability: 'Да, объект свободен на эти даты. Могу забронировать для вас.',
-  price: 'Цена за ночь составляет {{price}} {{currency}}. Итоговая стоимость зависит от количества ночей.',
-  details: 'Могу предоставить дополнительную информацию об объекте. Что именно вас интересует?',
-  booking: 'Для бронирования мне нужны следующие данные: даты заезда и выезда, количество гостей, контактный телефон.',
-};
 
 function groupMessagesByDate(messages: Message[]): { date: string; messages: Message[] }[] {
   const groups = new Map<string, Message[]>();
@@ -99,6 +88,8 @@ export function ChatPanel({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { templates, addTemplate, updateTemplate, deleteTemplate } = useMessageTemplates();
+  const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
 
   const messagesByDate = useMemo(() => groupMessagesByDate(messages), [messages]);
 
@@ -119,10 +110,10 @@ export function ChatPanel({
     }
   };
 
-  const handleTemplateSelect = (templateKey: string) => {
-    const template = TEMPLATE_TEXTS[templateKey];
+  const handleTemplateSelect = (templateId: string) => {
+    const template = templates.find(t => t.id === templateId);
     if (!template) return;
-    let text = template;
+    let text = template.text;
     if (property) {
       text = text.replace('{{price}}', property.base_price.toString());
       text = text.replace('{{currency}}', property.currency);
@@ -424,11 +415,21 @@ export function ChatPanel({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56">
-              {TEMPLATES.map((tpl) => (
-                <DropdownMenuItem key={tpl.key} onClick={() => handleTemplateSelect(tpl.key)}>
+              {templates.length === 0 && (
+                <DropdownMenuItem disabled className="text-muted-foreground text-xs">
+                  Нет шаблонов
+                </DropdownMenuItem>
+              )}
+              {templates.map((tpl) => (
+                <DropdownMenuItem key={tpl.id} onClick={() => handleTemplateSelect(tpl.id)}>
                   {tpl.label}
                 </DropdownMenuItem>
               ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setQuickRepliesOpen(true)}>
+                <Settings2 className="w-4 h-4 mr-2" />
+                Управлять шаблонами
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <p className="text-[10px] text-muted-foreground font-medium">
@@ -436,6 +437,14 @@ export function ChatPanel({
           </p>
         </div>
       </div>
+      <QuickRepliesModal
+        open={quickRepliesOpen}
+        onOpenChange={setQuickRepliesOpen}
+        templates={templates}
+        onAdd={addTemplate}
+        onUpdate={updateTemplate}
+        onDelete={deleteTemplate}
+      />
     </div>
   );
 }
