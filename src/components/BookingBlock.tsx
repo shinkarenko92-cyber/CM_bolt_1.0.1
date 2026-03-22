@@ -14,6 +14,7 @@ type BookingBlockProps = {
   onDragStart: (booking: Booking) => void;
   onDragEnd: () => void;
   isDragging: boolean;
+  isJustDropped?: boolean;
   isStartTruncated?: boolean;
   isEndTruncated?: boolean;
   hasConflict?: boolean;
@@ -65,6 +66,7 @@ export function BookingBlock({
   onDragStart,
   onDragEnd,
   isDragging,
+  isJustDropped = false,
   isStartTruncated = false,
   isEndTruncated = false,
   hasConflict = false,
@@ -152,6 +154,7 @@ export function BookingBlock({
         } ${colorConfig.hover} ${isStartTruncated ? '' : 'rounded-l-md'
         } ${isEndTruncated ? '' : 'rounded-r-md'
         } ${isDragging ? 'opacity-50 cursor-grabbing' : ''
+        } ${isJustDropped ? 'booking-snap' : ''
         }`}
       style={{
         left: `${leftPosition}px`,

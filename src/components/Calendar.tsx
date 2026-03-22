@@ -103,6 +103,7 @@ export function Calendar({
   const [dragOverDates, setDragOverDates] = useState<Set<string>>(new Set());
   const [isDragValid, setIsDragValid] = useState(true);
   const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
+  const [droppedBookingId, setDroppedBookingId] = useState<string | null>(null);
   const [showConditionsModal, setShowConditionsModal] = useState(false);
   const [conditionsModalData, setConditionsModalData] = useState<{
     propertyId: string;
@@ -459,6 +460,8 @@ export function Calendar({
           check_in: data.check_in,
           check_out: data.check_out,
         });
+        setDroppedBookingId(data.id);
+        setTimeout(() => setDroppedBookingId(null), 500);
         const sourcePropertyId = dragState.originalPropertyId!;
         const toastId = toast.loading('Синхронизация с Авито...');
         void (async () => {
@@ -1117,7 +1120,7 @@ export function Calendar({
                                           isToday ? 'bg-today-cell-bg' : isWeekend ? 'bg-slate-700/50' : '',
                                           isSelected ? 'bg-booking/30' : '',
                                           isInRange || isHoverRange ? 'bg-booking/20 shadow-[inset_0_0_15px_rgba(135,221,245,0.3)] ring-1 ring-booking/40 ring-inset' : '',
-                                          isDragOverThisCell ? dragOverColor : '',
+                                          isDragOverThisCell && !dragState.booking ? dragOverColor : '',
                                           !isOccupied ? 'hover:bg-slate-800/30 hover:ring-2 hover:ring-booking/30' : ''
                                         )}
                                         title={isDragOverOtherProperty ? t('calendar.dragToOtherObject', { defaultValue: 'Перенести на другой объект' }) : undefined}
@@ -1144,6 +1147,36 @@ export function Calendar({
                                     );
                                   })}
                                 </div>
+
+                                {/* Drop preview block */}
+                                {dragState.booking && dragOverCell?.propertyId === property.id && (() => {
+                                  const b = dragState.booking;
+                                  const duration = Math.ceil(
+                                    (new Date(b.check_out).getTime() - new Date(b.check_in).getTime()) / 86400000
+                                  );
+                                  const previewSpan = Math.min(duration, dates.length - dragOverCell.dateIndex);
+                                  if (previewSpan <= 0) return null;
+                                  const halfCell = CELL_WIDTH / 2;
+                                  const left = dragOverCell.dateIndex * CELL_WIDTH + halfCell + 2;
+                                  const width = Math.max(previewSpan * CELL_WIDTH - 4, 20);
+                                  const top = ROW_HEIGHT - 4 - 20; // layerIndex 0, bottom-anchored
+                                  const previewColor =
+                                    b.status === 'pending' || b.status === 'waiting'
+                                      ? 'bg-amber-400'
+                                      : 'bg-teal-500';
+                                  const ringColor = isDragValid ? 'ring-emerald-400' : 'ring-rose-400';
+                                  return (
+                                    <div
+                                      key="drag-preview"
+                                      className={`absolute rounded-md pointer-events-none ${previewColor} opacity-50 ring-2 ${ringColor} flex items-center px-2 overflow-hidden`}
+                                      style={{ left, width, top, height: 20, zIndex: 6 }}
+                                    >
+                                      <span className="text-[10px] font-medium text-white truncate">
+                                        {b.guest_name?.trim() || '—'}
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
 
                                 {bookingLayers.map((layer, layerIndex) =>
                                   layer.map((booking) => {
@@ -1173,6 +1206,7 @@ export function Calendar({
                                         onDragStart={(b) => setDragState({ booking: b, originalPropertyId: property.id })}
                                         onDragEnd={() => setDragState({ booking: null, originalPropertyId: null })}
                                         isDragging={dragState.booking?.id === booking.id}
+                                        isJustDropped={droppedBookingId === booking.id}
                                         isStartTruncated={isStartTruncated}
                                         isEndTruncated={isEndTruncated}
                                       />
