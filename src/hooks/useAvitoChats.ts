@@ -313,15 +313,29 @@ export function useAvitoChats(
     if (!user) return;
     setIsSyncing(true);
     try {
-      const chat = chats.find(c => c.id === chatId);
-      if (!chat?.integration_id) return;
+      // Use ref to avoid stale closure when called from intervals/refs
+      const chat = chatsRef.current.find(c => c.id === chatId);
+      if (!chat?.integration_id) {
+        await loadMessages(chatId, 0, 50);
+        return;
+      }
 
       const { data: avitoResponse, error: fnError } = await supabase.functions.invoke(
         'avito-messenger',
         { body: { action: 'getMessages', integration_id: chat.integration_id, chat_id: chat.avito_chat_id, limit: 50, offset: 0 } }
       );
       if (fnError) {
-        console.error('Error fetching messages from Avito:', fnError);
+        const err = fnError as { message?: string; context?: { status?: number }; status?: number };
+        const status = err?.context?.status ?? err?.status ?? (err?.message?.includes('403') ? 403 : err?.message?.includes('401') ? 401 : 0);
+        if (status === 401 || status === 403) {
+          const now = Date.now();
+          if (now - lastAvitoReauthToastRef.current > 120000) {
+            lastAvitoReauthToastRef.current = now;
+            toast.error(t('messages.avito.reauthRequired', { defaultValue: 'Требуется повторная авторизация Avito. Нажмите «Авторизоваться в Avito» в разделе Сообщения.' }));
+          }
+        } else {
+          console.error('Error fetching messages from Avito:', fnError);
+        }
         await loadMessages(chatId, 0, 50);
         return;
       }
@@ -366,7 +380,7 @@ export function useAvitoChats(
     } finally {
       setIsSyncing(false);
     }
-  }, [user, chats, loadMessages]);
+  }, [user, loadMessages, t]);
 
   // -------------------------------------------------------------------------
   // Send message
