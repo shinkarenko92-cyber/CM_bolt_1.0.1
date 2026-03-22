@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Percent, Home, BedDouble, Calendar } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Percent, Home, BedDouble, Calendar, Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Booking, Property } from '@/lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,7 +62,8 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
   });
   const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('sply');
   const [bookingsDynamicsPeriod, setBookingsDynamicsPeriod] = useState<'month' | 'halfYear'>('month');
-  const [openTooltip, setOpenTooltip] = useState<'revenue' | 'adr' | 'daily' | 'occupancy' | null>(null);
+  const [openTooltip, setOpenTooltip] = useState<'revenue' | 'adr' | 'revpar' | 'occupancy' | null>(null);
+  const [showAllProperties, setShowAllProperties] = useState(false);
 
   const convertToRUB = (amount: number, currency: string) => {
     const rates: { [key: string]: number } = {
@@ -224,8 +225,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     const topProperties = Object.entries(propertyBreakdown)
       .map(([id, revenue]) => ({ property: properties.find((p) => p.id === id), revenue }))
       .filter((item) => item.property)
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
+      .sort((a, b) => b.revenue - a.revenue);
 
     return {
       currentRevenue,
@@ -475,6 +475,38 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     </div>
   );
 
+  const handleExportCsv = useCallback(() => {
+    const periodLabel = dateRangeType === 'month'
+      ? new Date(selectedMonth + '-01').toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
+      : `${customStartDate} — ${customEndDate}`;
+
+    const rows: (string | number)[][] = [
+      ['Период', periodLabel],
+      ['Выручка (₽)', Math.round(analytics.currentRevenue)],
+      ['ADR (₽)', Math.round(analytics.adr)],
+      ['RevPAR (₽)', Math.round(analytics.revPar)],
+      ['Загруженность (%)', analytics.occupancyRate.toFixed(1)],
+      ['Бронирований', analytics.currentBookings],
+      ['Средний чек (₽)', Math.round(analytics.avgBookingValue)],
+      ['Среднее пребывание (ночей)', analytics.avgLengthOfStay.toFixed(1)],
+      [],
+      ['Объект', 'Загруженность (%)', 'Выручка (₽)', 'Ночей'],
+      ...propertyOccupancyData.map((p) => [p.name, p.occupancy, p.revenue, p.nights]),
+      [],
+      ['Источник', 'Выручка (₽)'],
+      ...Object.entries(analytics.sourceBreakdown).map(([src, rev]) => [getSourceLabel(src), Math.round(rev)]),
+    ];
+
+    const csv = rows.map((row) => row.join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `analytics_${selectedMonth || customStartDate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [analytics, dateRangeType, selectedMonth, customStartDate, customEndDate, propertyOccupancyData, getSourceLabel]);
+
   return (
     <div className="flex-1 overflow-auto p-4 md:p-6 bg-background">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -536,6 +568,15 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                 <SelectItem value="none">{t('analytics.compareNone')}</SelectItem>
               </SelectContent>
             </Select>
+
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="flex items-center gap-2 h-10 px-4 rounded-md border border-border bg-background hover:bg-muted text-sm font-medium transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              {t('analytics.exportCsv')}
+            </button>
           </div>
         </div>
 
@@ -605,21 +646,21 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{t('analytics.avgDailyRevenue')}</CardTitle>
-              <Tooltip open={openTooltip === 'daily'} onOpenChange={(open) => setOpenTooltip(open ? 'daily' : null)}>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t('analytics.revpar')}</CardTitle>
+              <Tooltip open={openTooltip === 'revpar'} onOpenChange={(open) => setOpenTooltip(open ? 'revpar' : null)}>
                 <TooltipTrigger asChild>
-                  <button type="button" onClick={() => setOpenTooltip((p) => (p === 'daily' ? null : 'daily'))} className="p-2 rounded-lg bg-purple-500/10 cursor-pointer hover:bg-purple-500/20 focus:outline-none focus:ring-2 focus:ring-purple-500/50" aria-label={t('analytics.avgDailyRevenueTooltip')}>
+                  <button type="button" onClick={() => setOpenTooltip((p) => (p === 'revpar' ? null : 'revpar'))} className="p-2 rounded-lg bg-purple-500/10 cursor-pointer hover:bg-purple-500/20 focus:outline-none focus:ring-2 focus:ring-purple-500/50" aria-label={t('analytics.revParTooltip')}>
                     <Home className="h-5 w-5 md:h-6 md:w-6 text-purple-500" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-[280px]">
-                  {t('analytics.avgDailyRevenueTooltip')}
+                  {t('analytics.revParTooltip')}
                 </TooltipContent>
               </Tooltip>
             </CardHeader>
             <CardContent>
-              <p className="text-lg md:text-2xl font-bold">{formatCurrency(analytics.dailyAvgRevenue)} ₽</p>
-              <span className="text-xs text-purple-500 font-medium">₽/день</span>
+              <p className="text-lg md:text-2xl font-bold">{formatCurrency(analytics.revPar)} ₽</p>
+              <span className="text-xs text-purple-500 font-medium">RevPAR</span>
             </CardContent>
           </Card>
 
@@ -651,6 +692,25 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
           </Card>
         </div>
         </TooltipProvider>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="rounded-lg border border-border bg-card px-4 py-3">
+            <p className="text-xs text-muted-foreground">{t('analytics.avgDailyRevenue')}</p>
+            <p className="text-base font-semibold mt-0.5">{formatCurrency(analytics.dailyAvgRevenue)} ₽</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card px-4 py-3">
+            <p className="text-xs text-muted-foreground">{t('analytics.avgBookingValue')}</p>
+            <p className="text-base font-semibold mt-0.5">{formatCurrency(analytics.avgBookingValue)} ₽</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card px-4 py-3">
+            <p className="text-xs text-muted-foreground">{t('analytics.avgLengthOfStay')}</p>
+            <p className="text-base font-semibold mt-0.5">{analytics.avgLengthOfStay.toFixed(1)} {t('common.nights')}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card px-4 py-3">
+            <p className="text-xs text-muted-foreground">{t('analytics.totalBookings')}</p>
+            <p className="text-base font-semibold mt-0.5">{analytics.currentBookings}</p>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
@@ -765,7 +825,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
               <p className="text-muted-foreground text-center py-8">{t('analytics.noDataForPeriod')}</p>
             ) : (
               <div className="space-y-3">
-                {analytics.topProperties.map((item, idx) => {
+                {analytics.topProperties.slice(0, showAllProperties ? undefined : 5).map((item, idx) => {
                   const percentage = analytics.currentRevenue > 0 ? (item.revenue / analytics.currentRevenue) * 100 : 0;
                   return (
                     <div key={item.property!.id} className="flex items-center gap-3">
@@ -791,6 +851,15 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                     </div>
                   );
                 })}
+                {analytics.topProperties.length > 5 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllProperties((p) => !p)}
+                    className="text-sm text-primary hover:underline w-full text-center pt-1"
+                  >
+                    {showAllProperties ? t('analytics.showLess') : t('analytics.showAll', { count: analytics.topProperties.length })}
+                  </button>
+                )}
               </div>
             )}
             </CardContent>
