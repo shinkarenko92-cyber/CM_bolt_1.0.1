@@ -23,7 +23,7 @@ export function useMessageTemplates() {
     try {
       const stored = localStorage.getItem(storageKey);
       if (stored) return JSON.parse(stored) as MessageTemplate[];
-    } catch (_e) {
+    } catch {
       // ignore parse errors
     }
     return DEFAULT_TEMPLATES;
@@ -31,7 +31,7 @@ export function useMessageTemplates() {
 
   const save = useCallback((next: MessageTemplate[]) => {
     setTemplates(next);
-    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch (_e) { /* ignore */ }
+    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* ignore */ }
   }, [storageKey]);
 
   const addTemplate = useCallback((label: string, text: string) => {
