@@ -247,7 +247,7 @@ export function useAvitoChats(
               integration_id: integration.id,
               contact_name: contactUser?.name || null,
               contact_avatar_url: contactUser?.avatar?.url ?? contactUser?.public_user_profile?.avatar?.default ?? null,
-              status: 'new' as const,
+              // status intentionally omitted — DB default 'new' on INSERT, preserved on UPDATE
               unread_count: avitoChat.unread_count || 0,
               last_message_text: getLastMessagePreview(avitoChat.last_message) ?? avitoChat.last_message?.text ?? null,
               last_message_at: toIsoDate(avitoChat.last_message?.created ?? avitoChat.updated ?? avitoChat.created),
