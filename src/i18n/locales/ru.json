@@ -310,7 +310,9 @@
     "totalBookings": "Бронирований",
     "showAll": "Показать все ({{count}})",
     "showLess": "Свернуть",
-    "exportCsv": "Экспорт CSV"
+    "exportCsv": "Экспорт CSV",
+    "repeatGuests": "Повторные гости",
+    "allProperties": "Все объекты"
   },
   "admin": {
     "title": "Панель администратора",

@@ -303,7 +303,9 @@
     "totalBookings": "Bookings",
     "showAll": "Show all ({{count}})",
     "showLess": "Show less",
-    "exportCsv": "Export CSV"
+    "exportCsv": "Export CSV",
+    "repeatGuests": "Repeat Guests",
+    "allProperties": "All Properties"
   },
   "admin": {
     "title": "Admin Panel",

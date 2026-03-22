@@ -223,6 +223,20 @@ export function AnalyticsInsights({ bookings, properties }: AnalyticsInsightsPro
               ))}
             </TabsList>
           </Tabs>
+          {period === 'month' && (
+            <div className="px-4 pt-2 pb-1">
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="w-full h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {months.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       </header>
 
