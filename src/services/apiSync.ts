@@ -418,9 +418,9 @@ export async function syncWithExternalAPIs(): Promise<SyncResult[]> {
       success: avitoConfigured,
       message: avitoConfigured ? 'Use per-property sync via settings' : 'Not configured',
     },
-    { platform: 'Airbnb', success: true, message: 'Integration coming soon' },
-    { platform: 'CIAN', success: true, message: 'Integration coming soon' },
-    { platform: 'Booking.com', success: true, message: 'Integration coming soon' },
+    { platform: 'Airbnb', success: true, message: 'Интеграция скоро появится' },
+    { platform: 'CIAN', success: true, message: 'Интеграция скоро появится' },
+    { platform: 'Booking.com', success: true, message: 'Интеграция скоро появится' },
   ];
 
   devLog('🎉 Sync check completed');
