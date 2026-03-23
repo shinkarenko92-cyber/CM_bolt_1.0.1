@@ -65,7 +65,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
   const [bookingsDynamicsPeriod, setBookingsDynamicsPeriod] = useState<'month' | 'halfYear'>('month');
   const [openTooltip, setOpenTooltip] = useState<'revenue' | 'adr' | 'revpar' | 'occupancy' | null>(null);
   const [showAllProperties, setShowAllProperties] = useState(false);
-  const [selectedPropertyId, setSelectedPropertyId] = useState('');
+  const [selectedPropertyId, setSelectedPropertyId] = useState('all');
 
   // Полный месяц: 1-е число — последний день месяца (все брони, включая будущие)
   const dateRange = useMemo(() => {
@@ -83,12 +83,12 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
   }, [dateRangeType, selectedMonth, customStartDate, customEndDate]);
 
   const filteredBookings = useMemo(
-    () => (selectedPropertyId ? bookings.filter((b) => b.property_id === selectedPropertyId) : bookings),
+    () => (selectedPropertyId !== 'all' ? bookings.filter((b) => b.property_id === selectedPropertyId) : bookings),
     [bookings, selectedPropertyId],
   );
 
   const filteredProperties = useMemo(
-    () => (selectedPropertyId ? properties.filter((p) => p.id === selectedPropertyId) : properties),
+    () => (selectedPropertyId !== 'all' ? properties.filter((p) => p.id === selectedPropertyId) : properties),
     [properties, selectedPropertyId],
   );
 
@@ -583,7 +583,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                 <SelectValue placeholder={t('analytics.allProperties')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">{t('analytics.allProperties')}</SelectItem>
+                <SelectItem value="all">{t('analytics.allProperties')}</SelectItem>
                 {properties.map((p) => (
                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}
