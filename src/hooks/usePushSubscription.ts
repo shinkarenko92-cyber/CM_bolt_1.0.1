@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
-const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string;
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -34,20 +34,25 @@ export function usePushSubscription() {
   }, [supported, user]);
 
   const subscribe = useCallback(async (): Promise<boolean> => {
-    if (!supported || !user) return false;
+    if (!supported || !user || !VAPID_PUBLIC_KEY) return false;
     try {
       const reg = await navigator.serviceWorker.ready;
+      const appServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        applicationServerKey: appServerKey.buffer as ArrayBuffer,
       });
       const json = sub.toJSON();
+      const keys = json.keys as Record<string, string> | undefined;
+      if (!json.endpoint || !keys?.p256dh || !keys?.auth) {
+        throw new Error('Invalid push subscription response');
+      }
       const { error } = await supabase.from('push_subscriptions').upsert(
         {
           user_id: user.id,
-          endpoint: json.endpoint!,
-          p256dh: (json.keys as { p256dh: string; auth: string }).p256dh,
-          auth: (json.keys as { p256dh: string; auth: string }).auth,
+          endpoint: json.endpoint,
+          p256dh: keys.p256dh,
+          auth: keys.auth,
         },
         { onConflict: 'user_id,endpoint' }
       );
