@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Search, MessageCircle, User, Bell, BellOff } from 'lucide-react';
+import { Search, MessageCircle, User, Bell } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNotificationPermission } from '@/hooks/useNotificationPermission';
 import { usePushSubscription } from '@/hooks/usePushSubscription';
