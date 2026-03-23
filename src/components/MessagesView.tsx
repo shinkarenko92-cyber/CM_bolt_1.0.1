@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Search, MessageCircle, User, Bell } from 'lucide-react';
+import { Search, MessageCircle, User, Bell, BellOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNotificationPermission } from '@/hooks/useNotificationPermission';
+import { usePushSubscription } from '@/hooks/usePushSubscription';
 import { Chat, Property } from '@/lib/supabase';
 import {
   Dialog,
@@ -38,6 +39,7 @@ export function MessagesView({
 }: MessagesViewProps) {
   const { t } = useTranslation();
   const { permission, requestPermission, supported: notifSupported } = useNotificationPermission();
+  const { supported: pushSupported, status: pushStatus, subscribe: subscribePush } = usePushSubscription();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPropertyId, setFilterPropertyId] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'in_progress' | 'closed'>('all');
@@ -132,9 +134,33 @@ export function MessagesView({
             <p className="text-xs text-muted-foreground leading-snug">
               {t('messages.notifBanner', { defaultValue: 'Включите уведомления — узнавайте о новых сообщениях, даже когда вкладка свёрнута' })}
             </p>
-            <Button size="sm" variant="outline" className="shrink-0 h-7 text-xs" onClick={requestPermission}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0 h-7 text-xs"
+              onClick={async () => {
+                const result = await requestPermission();
+                if (result === 'granted' && pushSupported && pushStatus !== 'subscribed') {
+                  await subscribePush();
+                }
+              }}
+            >
               <Bell className="h-3.5 w-3.5 mr-1" />
               {t('messages.enableNotif', { defaultValue: 'Включить' })}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {notifSupported && permission === 'granted' && pushSupported && pushStatus === 'idle' && (
+        <div className="px-3 py-2 border-b border-border">
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+            <p className="text-xs text-muted-foreground leading-snug">
+              {'Включите Push-уведомления, чтобы получать сообщения когда приложение закрыто'}
+            </p>
+            <Button size="sm" variant="outline" className="shrink-0 h-7 text-xs" onClick={subscribePush}>
+              <Bell className="h-3.5 w-3.5 mr-1" />
+              Push
             </Button>
           </div>
         </div>

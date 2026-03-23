@@ -253,6 +253,31 @@ async function saveMessage(
   }
 
   console.log("Message saved", { messageId: message.id, chatId });
+
+  // Send Web Push if message is from contact (not the owner)
+  if (senderType === "contact") {
+    // Find owner_id for this chat
+    const { data: chatOwner } = await supabase
+      .from("chats")
+      .select("owner_id, contact_name")
+      .eq("id", chatId)
+      .single();
+
+    if (chatOwner?.owner_id) {
+      // Fire-and-forget — don't block webhook response
+      supabase.functions
+        .invoke("send-push", {
+          body: {
+            user_id: chatOwner.owner_id,
+            title: chatOwner.contact_name ?? "Новое сообщение от Avito",
+            body: content.text ?? "📷 Фото",
+            tag: `avito-msg-${chatId}`,
+            url: "/?view=messages",
+          },
+        })
+        .catch((e: unknown) => console.error("send-push invoke failed:", e));
+    }
+  }
 }
 
 /**
