@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Percent, Home, BedDouble, Calendar, Download } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Percent, Home, BedDouble, Calendar, Download, Users, Clock, XCircle, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Booking, Property } from '@/lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
+  ComposedChart,
   BarChart,
   Bar,
   XAxis,
@@ -242,6 +243,35 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
       ? Math.round((repeatGuestCount / uniqueGuestIds.size) * 100)
       : -1; // -1 = нет данных по guest_id
 
+    // Cancellation metrics — consider all bookings (any status) with check_in in period
+    const allBookingsInPeriod = filteredBookings.filter((b) => {
+      const checkIn = new Date(b.check_in);
+      return checkIn >= currentStart && checkIn <= currentEnd;
+    });
+    const cancelledInPeriod = allBookingsInPeriod.filter((b) =>
+      ['cancelled', 'no_show'].includes((b.status || '').toLowerCase()),
+    );
+    const cancellationRate =
+      allBookingsInPeriod.length > 0
+        ? Math.round((cancelledInPeriod.length / allBookingsInPeriod.length) * 100)
+        : 0;
+    const cancellationCount = cancelledInPeriod.length;
+
+    // Lead time: avg days from booking creation to check-in
+    const leadTimes = currentBookings
+      .filter((b) => b.created_at)
+      .map((b) =>
+        Math.max(0, Math.round((new Date(b.check_in).getTime() - new Date(b.created_at).getTime()) / 86400000)),
+      );
+    const avgLeadTime =
+      leadTimes.length > 0 ? Math.round(leadTimes.reduce((a, v) => a + v, 0) / leadTimes.length) : 0;
+
+    // Avg guests per booking
+    const avgGuestsPerBooking =
+      currentBookings.length > 0
+        ? +(currentBookings.reduce((sum, b) => sum + (b.guests_count || 0), 0) / currentBookings.length).toFixed(1)
+        : 0;
+
     return {
       currentRevenue,
       previousRevenue,
@@ -264,6 +294,10 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
       comparisonOccupancyRate,
       repeatGuestRate,
       guestsWithIdCount: uniqueGuestIds.size,
+      cancellationRate,
+      cancellationCount,
+      avgLeadTime,
+      avgGuestsPerBooking,
     };
   }, [filteredBookings, filteredProperties, dateRange, comparisonMode]);
 
@@ -296,7 +330,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     // Anchor: месяц выбранного периода (последние 6 месяцев включительно)
     const { start: rangeStart } = dateRange;
     const anchor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
-    const data: { month: string; revenue: number; bookings: number }[] = [];
+    const data: { month: string; revenue: number; bookings: number; revpar: number }[] = [];
 
     for (let i = 5; i >= 0; i--) {
       const date = new Date(anchor.getFullYear(), anchor.getMonth() - i, 1);
@@ -315,10 +349,13 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
 
       const revenue = monthBookings.reduce((sum, b) => sum + getProportionalRevenue(b, date, monthEnd), 0);
 
+      const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+      const revpar = Math.round(revenue / Math.max(1, filteredProperties.length * daysInMonth));
       data.push({
         month: monthLabel,
         revenue: Math.round(revenue),
         bookings: monthBookings.length,
+        revpar,
       });
     }
 
@@ -452,6 +489,63 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     });
   }, [filteredBookings, filteredProperties, dateRange, getProportionalRevenue]);
 
+  const weekdayOccupancyData = useMemo(() => {
+    const { start: periodStart, end: periodEnd } = dateRange;
+    const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+    const propCount = Math.max(1, filteredProperties.length);
+    const totalDaysPerWeekday = new Array(7).fill(0);
+    const occupiedNightsPerWeekday = new Array(7).fill(0);
+
+    // Count available room-nights per weekday in period
+    const cursor = new Date(periodStart);
+    while (cursor <= periodEnd) {
+      totalDaysPerWeekday[cursor.getDay()] += propCount;
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    // Count occupied nights per weekday
+    const activeBookings = filteredBookings.filter((b) =>
+      ANALYTICS_BOOKING_STATUSES.has((b.status || '').toLowerCase()),
+    );
+    for (const b of activeBookings) {
+      const checkIn = new Date(b.check_in);
+      const checkOut = new Date(b.check_out);
+      const effectiveStart = checkIn > periodStart ? checkIn : new Date(periodStart);
+      const effectiveEnd = checkOut < periodEnd ? checkOut : new Date(periodEnd);
+      const night = new Date(effectiveStart);
+      while (night < effectiveEnd) {
+        occupiedNightsPerWeekday[night.getDay()]++;
+        night.setDate(night.getDate() + 1);
+      }
+    }
+
+    // Return Mon–Sun order
+    return [1, 2, 3, 4, 5, 6, 0].map((dow) => ({
+      day: dayNames[dow],
+      occupancy:
+        totalDaysPerWeekday[dow] > 0
+          ? Math.round((occupiedNightsPerWeekday[dow] / totalDaysPerWeekday[dow]) * 100)
+          : 0,
+    }));
+  }, [filteredBookings, filteredProperties, dateRange]);
+
+  const forecastNextMonth = useMemo(() => {
+    const now = new Date();
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const nextMonthEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59);
+    const confirmedNext = filteredBookings.filter((b) => {
+      if (!ANALYTICS_BOOKING_STATUSES.has((b.status || '').toLowerCase())) return false;
+      const checkIn = new Date(b.check_in);
+      return checkIn >= nextMonthStart && checkIn <= nextMonthEnd;
+    });
+    const revenue = confirmedNext.reduce((sum, b) => sum + convertToRUB(b.total_price, b.currency), 0);
+    return {
+      revenue: Math.round(revenue),
+      bookings: confirmedNext.length,
+      month: nextMonthStart.toLocaleDateString('ru-RU', { month: 'long' }),
+    };
+  }, [filteredBookings]);
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ru-RU').format(Math.round(amount));
   };
@@ -467,22 +561,6 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     }
     return result;
   }, []);
-
-  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string }>; label?: string }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="rounded-md border border-border bg-popover p-3 shadow-md">
-          <p className="text-muted-foreground text-sm mb-1">{label}</p>
-          {payload.map((entry, index) => (
-            <p key={index} className="text-foreground text-sm font-medium">
-              {entry.name}: {formatCurrency(entry.value)} {entry.name === 'revenue' ? '₽' : ''}
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
 
   const renderCustomLegend = () => (
     <div className="flex flex-wrap justify-center gap-3 mt-4">
@@ -750,6 +828,50 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
           </div>
         </div>
 
+        {/* Insight metrics row */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="rounded-lg border border-border bg-card px-4 py-3">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <XCircle className="h-3.5 w-3.5 text-destructive" />
+              <p className="text-xs text-muted-foreground">{t('analytics.cancellationRate')}</p>
+            </div>
+            <p className="text-base font-semibold">
+              {analytics.cancellationCount > 0
+                ? `${analytics.cancellationRate}% (${analytics.cancellationCount})`
+                : '0%'}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border bg-card px-4 py-3">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <Clock className="h-3.5 w-3.5 text-blue-500" />
+              <p className="text-xs text-muted-foreground">{t('analytics.avgLeadTime')}</p>
+            </div>
+            <p className="text-base font-semibold">
+              {analytics.avgLeadTime > 0 ? `${analytics.avgLeadTime} ${t('common.days')}` : '—'}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border bg-card px-4 py-3">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <Users className="h-3.5 w-3.5 text-purple-500" />
+              <p className="text-xs text-muted-foreground">{t('analytics.avgGuests')}</p>
+            </div>
+            <p className="text-base font-semibold">
+              {analytics.avgGuestsPerBooking > 0 ? analytics.avgGuestsPerBooking : '—'}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border bg-card px-4 py-3">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+              <p className="text-xs text-muted-foreground">{t('analytics.forecastNextMonth', { month: forecastNextMonth.month })}</p>
+            </div>
+            <p className="text-base font-semibold">
+              {forecastNextMonth.bookings > 0
+                ? `${formatCurrency(forecastNextMonth.revenue)} ₽`
+                : '—'}
+            </p>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
@@ -761,13 +883,32 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             ) : (
               <div className="w-full min-w-0" style={{ minHeight: CHART_HEIGHT }}>
                 <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-                  <BarChart data={monthlyRevenueData}>
+                  <ComposedChart data={monthlyRevenueData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                     <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
-                    <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                    <RechartsTooltip content={<CustomTooltip />} />
-                    <Bar dataKey="revenue" name={t('analytics.revenue')} fill="hsl(var(--brand))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
+                    <YAxis yAxisId="left" stroke="#9ca3af" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                    <YAxis yAxisId="right" orientation="right" stroke="#9ca3af" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                    <RechartsTooltip
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="rounded-md border border-border bg-popover p-3 shadow-md">
+                              <p className="text-muted-foreground text-sm mb-1">{label}</p>
+                              {payload.map((entry, index) => (
+                                <p key={index} className="text-foreground text-sm font-medium">
+                                  {entry.name}: {formatCurrency(entry.value as number)} ₽
+                                </p>
+                              ))}
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Legend />
+                    <Bar yAxisId="left" dataKey="revenue" name={t('analytics.revenue')} fill="hsl(var(--brand))" radius={[4, 4, 0, 0]} />
+                    <Line yAxisId="right" type="monotone" dataKey="revpar" name="RevPAR" stroke="#8b5cf6" strokeWidth={2} dot={{ fill: '#8b5cf6', r: 3 }} />
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             )}
@@ -903,6 +1044,37 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             </CardContent>
           </Card>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">{t('analytics.weekdayOccupancy')}</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">{t('analytics.weekdayOccupancySubtitle')}</p>
+          </CardHeader>
+          <CardContent>
+            {weekdayOccupancyData.every((d) => d.occupancy === 0) ? (
+              <p className="text-muted-foreground text-center py-8">{t('analytics.noDataForPeriod')}</p>
+            ) : (
+              <div className="w-full min-w-0" style={{ minHeight: CHART_HEIGHT }}>
+                <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+                  <BarChart data={weekdayOccupancyData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis dataKey="day" stroke="#9ca3af" fontSize={12} />
+                    <YAxis stroke="#9ca3af" fontSize={12} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                    <RechartsTooltip
+                      formatter={(value: number | undefined) => [`${value ?? 0}%`, t('analytics.occupancyRate')]}
+                      contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                    />
+                    <Bar dataKey="occupancy" name={t('analytics.occupancyRate')} fill="#3b82f6" radius={[4, 4, 0, 0]}>
+                      {weekdayOccupancyData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.occupancy >= 70 ? 'hsl(var(--brand))' : entry.occupancy >= 40 ? '#3b82f6' : '#6b7280'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">

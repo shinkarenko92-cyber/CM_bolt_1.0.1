@@ -15,6 +15,7 @@
     "all": "All",
     "today": "Today",
     "nights": "nights",
+    "days": "d.",
     "night": "night",
     "nights_few": "nights",
     "guests": "guests",
@@ -305,7 +306,13 @@
     "showLess": "Show less",
     "exportCsv": "Export CSV",
     "repeatGuests": "Repeat Guests",
-    "allProperties": "All Properties"
+    "allProperties": "All Properties",
+    "cancellationRate": "Cancellations",
+    "avgLeadTime": "Booking Lead Time",
+    "avgGuests": "Guests/Booking",
+    "forecastNextMonth": "Forecast: {{month}}",
+    "weekdayOccupancy": "Occupancy by Day of Week",
+    "weekdayOccupancySubtitle": "Average occupancy rate per weekday for the selected period"
   },
   "admin": {
     "title": "Admin Panel",

@@ -15,6 +15,7 @@
     "all": "Все",
     "today": "Сегодня",
     "nights": "ночей",
+    "days": "дн.",
     "night": "ночь",
     "nights_few": "ночи",
     "guests": "гостей",
@@ -312,7 +313,13 @@
     "showLess": "Свернуть",
     "exportCsv": "Экспорт CSV",
     "repeatGuests": "Повторные гости",
-    "allProperties": "Все объекты"
+    "allProperties": "Все объекты",
+    "cancellationRate": "Отмены",
+    "avgLeadTime": "Заблаговременность",
+    "avgGuests": "Гостей/бронь",
+    "forecastNextMonth": "Прогноз: {{month}}",
+    "weekdayOccupancy": "Загрузка по дням недели",
+    "weekdayOccupancySubtitle": "Средняя загруженность по каждому дню недели за период"
   },
   "admin": {
     "title": "Панель администратора",
