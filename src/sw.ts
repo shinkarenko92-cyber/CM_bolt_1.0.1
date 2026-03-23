@@ -13,6 +13,16 @@ clientsClaim();
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
+// After a new SW activates and claims clients, tell all open tabs to reload
+// so they pick up the fresh index.html with updated asset hashes.
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window' }).then((clients) => {
+      clients.forEach((client) => client.postMessage({ type: 'SW_UPDATED' }));
+    })
+  );
+});
+
 // Navigation fallback to index.html
 registerRoute(
   new NavigationRoute(

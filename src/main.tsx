@@ -12,6 +12,15 @@ window.addEventListener('vite:preloadError', (event) => {
   window.location.reload();
 });
 
+// When the SW updates and claims this client, reload to pick up new asset hashes.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data?.type === 'SW_UPDATED') {
+      window.location.reload();
+    }
+  });
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
