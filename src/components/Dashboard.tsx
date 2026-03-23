@@ -197,6 +197,16 @@ export function Dashboard() {
     }
   }, [t, setChats]);
 
+  const handleMarkAllRead = useCallback(async () => {
+    const unreadChatIds = chats.filter(c => c.unread_count > 0).map(c => c.id);
+    if (!unreadChatIds.length) return;
+    // Update state immediately
+    setChats(prev => prev.map(c => c.unread_count > 0 ? { ...c, unread_count: 0 } : c));
+    // Persist to DB
+    await supabase.from('chats').update({ unread_count: 0 }).in('id', unreadChatIds);
+    await supabase.from('messages').update({ is_read: true }).in('chat_id', unreadChatIds).eq('is_read', false).eq('sender_type', 'contact');
+  }, [chats, setChats]);
+
   // Проверяем OAuth callback и автоматически переключаемся на Properties
   useEffect(() => {
     const oauthSuccess = getOAuthSuccess();
@@ -985,25 +995,33 @@ export function Dashboard() {
           />
         ) : currentView === 'messages' ? (
           <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-            <header className="h-16 border-b border-border flex items-center justify-between px-6 shrink-0">
-              <h2 className="text-lg font-bold">{t('messages.title', 'Сообщения')}</h2>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setAccountsModalOpen(true)}>
-                <Plug2 className="h-4 w-4" />
-              </Button>
-            </header>
+            {/* Header - hide on mobile when chat is open */}
+            {(!isMobile || !selectedChatId) && (
+              <header className="h-16 border-b border-border flex items-center justify-between px-6 shrink-0">
+                <h2 className="text-lg font-bold">{t('messages.title', 'Сообщения')}</h2>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setAccountsModalOpen(true)}>
+                  <Plug2 className="h-4 w-4" />
+                </Button>
+              </header>
+            )}
             <div className="flex-1 flex overflow-hidden min-h-0">
-              <div className="w-80 shrink-0 border-r border-border flex flex-col min-h-0">
-                <MessagesView
-                  chats={chats}
-                  properties={properties}
-                  selectedChatId={selectedChatId}
-                  onSelectChat={setSelectedChatId}
-                  hasMessengerAccess={hasMessengerAccess}
-                  integrationsForMessenger={avitoIntegrationsForMessages}
-                  onRequestMessengerAuth={handleAvitoMessengerAuth}
-                  onGoToProperties={() => setCurrentView('properties')}
-                />
-              </div>
+              {/* Chat list - full width on mobile, hidden when chat is open on mobile */}
+              {(!isMobile || !selectedChatId) && (
+                <div className={`${isMobile ? 'flex-1' : 'w-80 shrink-0 border-r border-border'} flex flex-col min-h-0`}>
+                  <MessagesView
+                    chats={chats}
+                    properties={properties}
+                    selectedChatId={selectedChatId}
+                    onSelectChat={setSelectedChatId}
+                    hasMessengerAccess={hasMessengerAccess}
+                    integrationsForMessenger={avitoIntegrationsForMessages}
+                    onRequestMessengerAuth={handleAvitoMessengerAuth}
+                    onGoToProperties={() => setCurrentView('properties')}
+                    onMarkAllRead={handleMarkAllRead}
+                  />
+                </div>
+              )}
+              {/* Chat panel - full width on mobile */}
               {selectedChatId ? (
                 <div className="flex-1 flex flex-col min-w-0">
                   <ChatPanel
@@ -1024,15 +1042,16 @@ export function Dashboard() {
                     onCreateBooking={handleCreateBookingFromChat}
                     onStatusChange={handleChatStatusChange}
                     onRefresh={selectedChatId ? () => syncMessagesFromAvitoRef.current(selectedChatId) : undefined}
+                    onBack={isMobile ? () => setSelectedChatId(null) : undefined}
                   />
                 </div>
-              ) : (
+              ) : !isMobile ? (
                 <div className="flex-1 flex items-center justify-center bg-muted/30 border-l border-border">
                   <div className="text-center px-6">
                     <p className="text-muted-foreground">{t('messages.selectChat', 'Выберите чат')}</p>
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         ) : currentView === 'analytics' ? (

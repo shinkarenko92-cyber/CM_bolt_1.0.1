@@ -13,6 +13,9 @@ import {
   CalendarCheck,
   Zap,
   Settings2,
+  ArrowLeft,
+  Search,
+  X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { format, isToday, isYesterday } from 'date-fns';
@@ -44,6 +47,7 @@ interface ChatPanelProps {
   onStatusChange?: (chat: Chat, status: Chat['status']) => void;
   onViewBooking?: (bookingId: string) => void;
   onRefresh?: () => void;
+  onBack?: () => void;
 }
 
 
@@ -80,11 +84,14 @@ export function ChatPanel({
   onStatusChange,
   onViewBooking,
   onRefresh,
+  onBack,
 }: ChatPanelProps) {
   const { t } = useTranslation();
   const [inputValue, setInputValue] = useState('');
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [chatSearch, setChatSearch] = useState('');
+  const [chatSearchOpen, setChatSearchOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -150,6 +157,18 @@ export function ChatPanel({
     [hasMore, isLoading, onLoadMore]
   );
 
+  const highlightText = (text: string) => {
+    if (!chatSearch || !text) return text;
+    const regex = new RegExp(`(${chatSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+    if (parts.length === 1) return text;
+    return parts.map((part, i) =>
+      regex.test(part)
+        ? <mark key={i} className="bg-yellow-300/50 dark:bg-yellow-500/30 rounded-sm px-0.5">{part}</mark>
+        : part
+    );
+  };
+
   if (!chat) {
     return (
       <div className="flex-1 flex items-center justify-center bg-muted/20 border-l border-border">
@@ -167,6 +186,11 @@ export function ChatPanel({
       {/* Header — design: avatar, name, property • Booking ID, View Booking, Details, more_vert */}
       <div className="h-16 border-b border-border flex items-center justify-between px-6 shrink-0">
         <div className="flex items-center gap-3 overflow-hidden min-w-0">
+          {onBack && (
+            <Button variant="ghost" size="icon" className="h-8 w-8 mr-1 shrink-0" onClick={onBack}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
           <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-muted flex items-center justify-center">
             {chat.contact_avatar_url ? (
               <img src={chat.contact_avatar_url} alt={chat.contact_name || ''} className="w-full h-full object-cover" />
@@ -203,6 +227,9 @@ export function ChatPanel({
               {t('messages.viewBooking', { defaultValue: 'Бронь' })}
             </Button>
           )}
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setChatSearchOpen(!chatSearchOpen)}>
+            <Search className="h-4 w-4" />
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -229,6 +256,28 @@ export function ChatPanel({
           </DropdownMenu>
         </div>
       </div>
+
+      {chatSearchOpen && (
+        <div className="px-4 py-2 border-b border-border bg-muted/30 flex items-center gap-2">
+          <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+          <input
+            autoFocus
+            type="text"
+            placeholder="Поиск по сообщениям..."
+            value={chatSearch}
+            onChange={(e) => setChatSearch(e.target.value)}
+            className="flex-1 bg-transparent border-0 focus:ring-0 focus:outline-none text-sm"
+          />
+          {chatSearch && (
+            <span className="text-xs text-muted-foreground shrink-0">
+              {messages.filter(m => m.text?.toLowerCase().includes(chatSearch.toLowerCase())).length} совпадений
+            </span>
+          )}
+          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => { setChatSearch(''); setChatSearchOpen(false); }}>
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
 
       {/* Messages with date separators */}
       <div
@@ -311,7 +360,7 @@ export function ChatPanel({
                             : 'bg-card border border-border p-3 rounded-xl rounded-tl-none shadow-sm'
                         }
                       >
-                        {msg.text && <p className="text-sm leading-relaxed">{msg.text}</p>}
+                        {msg.text && <p className="text-sm leading-relaxed">{highlightText(msg.text)}</p>}
                         {msg.attachments?.length > 0 && (
                           <div className="space-y-2 mt-2">
                             {msg.attachments.map((att: { type: string; url: string; name?: string }, idx: number) => (

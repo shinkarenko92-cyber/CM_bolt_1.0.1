@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Search, MessageCircle, User, Bell } from 'lucide-react';
+import { Search, MessageCircle, User, Bell, CheckCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNotificationPermission } from '@/hooks/useNotificationPermission';
 import { usePushSubscription } from '@/hooks/usePushSubscription';
@@ -25,6 +25,7 @@ interface MessagesViewProps {
   integrationsForMessenger?: IntegrationForMessenger[];
   onRequestMessengerAuth?: (integrationId: string | null) => void;
   onGoToProperties?: () => void;
+  onMarkAllRead?: () => void;
 }
 
 export function MessagesView({
@@ -36,6 +37,7 @@ export function MessagesView({
   integrationsForMessenger = [],
   onRequestMessengerAuth,
   onGoToProperties,
+  onMarkAllRead,
 }: MessagesViewProps) {
   const { t } = useTranslation();
   const { permission, requestPermission, supported: notifSupported } = useNotificationPermission();
@@ -252,6 +254,17 @@ export function MessagesView({
             <option value="in_progress">{t('messages.status.in_progress')}</option>
             <option value="closed">{t('messages.status.closed')}</option>
           </select>
+          {onMarkAllRead && chats.some(c => c.unread_count > 0) && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-[30px] w-[30px] shrink-0"
+              onClick={onMarkAllRead}
+              title={t('messages.markAllRead', { defaultValue: 'Прочитать всё' })}
+            >
+              <CheckCheck className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </div>
 
