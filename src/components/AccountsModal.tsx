@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
+import { CheckCircle2, XCircle, RefreshCw, Bell, BellOff, Send } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePushSubscription } from '@/hooks/usePushSubscription';
+import { useNotificationPermission } from '@/hooks/useNotificationPermission';
 
 interface AvitoIntegration {
   id: string;
@@ -42,6 +44,9 @@ export function AccountsModal({
   const { user } = useAuth();
   const [avitoIntegrations, setAvitoIntegrations] = useState<AvitoIntegration[]>([]);
   const [loading, setLoading] = useState(false);
+  const { supported: pushSupported, status: pushStatus, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushSubscription();
+  const { permission, requestPermission, supported: notifSupported } = useNotificationPermission();
+  const [testingSend, setTestingSend] = useState(false);
 
   useEffect(() => {
     if (!open || !user || !properties.length) return;
@@ -140,6 +145,100 @@ export function AccountsModal({
                 </div>
               );
             })()}
+          </div>
+
+          {/* Push notifications section */}
+          <div className="rounded-lg border border-border overflow-hidden">
+            <div className="flex items-center gap-3 px-4 py-3 bg-muted/40 border-b border-border">
+              <div className="w-8 h-8 rounded-lg bg-violet-500 flex items-center justify-center shrink-0">
+                <Bell className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold">Push-уведомления</p>
+                <p className="text-xs text-muted-foreground">Сообщения при закрытом приложении</p>
+              </div>
+            </div>
+            <div className="px-4 py-3">
+              {!notifSupported || !pushSupported ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <BellOff className="w-4 h-4 shrink-0" />
+                  <span className="text-xs">Не поддерживается в этом браузере</span>
+                </div>
+              ) : permission === 'denied' ? (
+                <div className="flex items-center gap-2 text-destructive">
+                  <BellOff className="w-4 h-4 shrink-0" />
+                  <span className="text-xs">Уведомления заблокированы в настройках браузера</span>
+                </div>
+              ) : pushStatus === 'subscribed' ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                      <span className="text-xs text-green-600 dark:text-green-400">Включены</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs shrink-0"
+                        disabled={testingSend}
+                        onClick={async () => {
+                          setTestingSend(true);
+                          try {
+                            const { error } = await supabase.functions.invoke('send-push', {
+                              body: {
+                                user_id: user?.id,
+                                title: 'Тестовое уведомление',
+                                body: 'Push-уведомления работают!',
+                                tag: 'test-push',
+                                url: '/?view=messages',
+                              },
+                            });
+                            if (error) console.error('Test push error:', error);
+                          } catch (e) {
+                            console.error('Test push failed:', e);
+                          } finally {
+                            setTestingSend(false);
+                          }
+                        }}
+                      >
+                        <Send className="h-3 w-3 mr-1" />
+                        {testingSend ? '...' : 'Тест'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs shrink-0 text-destructive hover:text-destructive"
+                        onClick={unsubscribePush}
+                      >
+                        <BellOff className="h-3 w-3 mr-1" />
+                        Отключить
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <BellOff className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-xs text-muted-foreground">Отключены</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs shrink-0"
+                    onClick={async () => {
+                      if (permission !== 'granted') {
+                        await requestPermission();
+                      }
+                      await subscribePush();
+                    }}
+                  >
+                    <Bell className="h-3 w-3 mr-1" />
+                    Включить
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Coming soon platforms */}
