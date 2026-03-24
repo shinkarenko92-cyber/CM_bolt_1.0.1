@@ -47,6 +47,7 @@ export function AccountsModal({
   const { supported: pushSupported, status: pushStatus, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushSubscription();
   const { permission, requestPermission, supported: notifSupported } = useNotificationPermission();
   const [testingSend, setTestingSend] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !user || !properties.length) return;
@@ -184,8 +185,32 @@ export function AccountsModal({
                         disabled={testingSend}
                         onClick={async () => {
                           setTestingSend(true);
+                          setTestResult(null);
                           try {
-                            const { error } = await supabase.functions.invoke('send-push', {
+                            // Step 1: Ensure subscription is in DB
+                            const reg = await navigator.serviceWorker.ready;
+                            const sub = await reg.pushManager.getSubscription();
+                            if (!sub) {
+                              setTestResult('Нет подписки в браузере. Нажмите "Отключить" и снова "Включить".');
+                              return;
+                            }
+                            const json = sub.toJSON();
+                            const keys = json.keys as Record<string, string> | undefined;
+                            if (!json.endpoint || !keys?.p256dh || !keys?.auth) {
+                              setTestResult('Ошибка: невалидная подписка браузера');
+                              return;
+                            }
+                            // Save to DB
+                            const { error: dbErr } = await supabase.from('push_subscriptions').upsert(
+                              { user_id: user!.id, endpoint: json.endpoint, p256dh: keys.p256dh, auth: keys.auth },
+                              { onConflict: 'user_id,endpoint' }
+                            );
+                            if (dbErr) {
+                              setTestResult(`Ошибка сохранения: ${dbErr.message}`);
+                              return;
+                            }
+                            // Step 2: Send test push
+                            const { data, error } = await supabase.functions.invoke('send-push', {
                               body: {
                                 user_id: user?.id,
                                 title: 'Тестовое уведомление',
@@ -194,9 +219,15 @@ export function AccountsModal({
                                 url: '/?view=messages',
                               },
                             });
-                            if (error) console.error('Test push error:', error);
+                            if (error) {
+                              setTestResult(`Ошибка отправки: ${error.message}`);
+                            } else {
+                              const result = typeof data === 'object' ? data : {};
+                              const sent = (result as Record<string, unknown>).sent ?? 0;
+                              setTestResult(sent > 0 ? `Отправлено (${sent})` : 'Нет подписок в БД — попробуйте переподключить');
+                            }
                           } catch (e) {
-                            console.error('Test push failed:', e);
+                            setTestResult(`Ошибка: ${e instanceof Error ? e.message : String(e)}`);
                           } finally {
                             setTestingSend(false);
                           }
@@ -216,6 +247,11 @@ export function AccountsModal({
                       </Button>
                     </div>
                   </div>
+                  {testResult && (
+                    <p className={`text-[11px] mt-1 ${testResult.startsWith('Отправлено') ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                      {testResult}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="flex items-center justify-between gap-3">
