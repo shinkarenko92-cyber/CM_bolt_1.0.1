@@ -319,18 +319,15 @@ export function MessagesView({
                         {formatTime(chat.last_message_at)}
                       </span>
                     </div>
-                    <p
-                      className={`text-xs font-semibold truncate mb-0.5 ${
-                        isSelected ? 'text-primary' : 'text-muted-foreground'
-                      }`}
-                    >
-                      {chat.property_id ? getPropertyName(chat.property_id) : '—'}
-                    </p>
                     {(chat.avito_item_title || chat.avito_item_id) ? (
-                      <p className="text-xs text-gray-400 truncate mb-1">
-                        {chat.avito_item_title ?? `№ ${chat.avito_item_id}`}
+                      <p className={`text-xs font-semibold truncate mb-0.5 ${isSelected ? 'text-primary' : 'text-primary/70'}`}>
+                        {chat.avito_item_title ?? `Объявление № ${chat.avito_item_id}`}
                       </p>
-                    ) : null}
+                    ) : (
+                      <p className={`text-xs font-semibold truncate mb-0.5 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
+                        {chat.property_id ? getPropertyName(chat.property_id) : '—'}
+                      </p>
+                    )}
                     <p className={`text-xs truncate ${chat.unread_count > 0 ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>
                       {chat.last_message_text ?? ''}
                     </p>

@@ -200,6 +200,11 @@ export function ChatPanel({
           </div>
           <div className="min-w-0">
             <h3 className="text-sm font-bold truncate">{chat.contact_name || t('messages.contact')}</h3>
+            {(chat.avito_item_title || chat.avito_item_id) && (
+              <p className="text-[11px] text-primary/80 font-medium truncate">
+                {chat.avito_item_title ?? `Объявление № ${chat.avito_item_id}`}
+              </p>
+            )}
             <p className="text-[11px] text-muted-foreground flex items-center gap-1 truncate">
               <MapPin className="w-3 h-3 shrink-0" />
               {property?.name ?? '—'}

@@ -100,41 +100,46 @@ export function AccountsModal({
                   Подключить
                 </Button>
               </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {avitoIntegrations.map(integration => {
-                  const hasMessenger = (integration.scope ?? '').includes('messenger:read');
-                  return (
-                    <div key={integration.id} className="px-4 py-3 flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{integration.property_name ?? 'Объект'}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          {hasMessenger ? (
-                            <>
-                              <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
-                              <span className="text-xs text-green-600 dark:text-green-400">Мессенджер подключён</span>
-                            </>
-                          ) : (
-                            <>
-                              <XCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                              <span className="text-xs text-amber-600 dark:text-amber-400">Нет доступа к мессенджеру</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant={hasMessenger ? 'outline' : 'default'}
-                        className="h-7 text-xs shrink-0"
-                        onClick={() => { onOpenChange(false); onRequestMessengerAuth(integration.id); }}
-                      >
-                        {hasMessenger ? 'Переподключить' : 'Авторизовать'}
-                      </Button>
+            ) : (() => {
+              // Group integrations by avito_user_id (one Avito account)
+              const hasMessenger = avitoIntegrations.some(i => (i.scope ?? '').includes('messenger:read'));
+              const firstIntegration = avitoIntegrations[0];
+              return (
+                <div className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      {hasMessenger ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                          <span className="text-xs text-green-600 dark:text-green-400">Мессенджер подключён</span>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span className="text-xs text-amber-600 dark:text-amber-400">Нет доступа к мессенджеру</span>
+                        </>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                    <Button
+                      size="sm"
+                      variant={hasMessenger ? 'outline' : 'default'}
+                      className="h-7 text-xs shrink-0"
+                      onClick={() => { onOpenChange(false); onRequestMessengerAuth(firstIntegration.id); }}
+                    >
+                      {hasMessenger ? 'Переподключить' : 'Авторизовать'}
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mb-1">Объекты ({avitoIntegrations.length}):</p>
+                  <div className="space-y-0.5">
+                    {avitoIntegrations.map(i => (
+                      <p key={i.id} className="text-xs text-foreground truncate pl-2 border-l-2 border-border">
+                        {i.property_name ?? 'Объект'}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Coming soon platforms */}
