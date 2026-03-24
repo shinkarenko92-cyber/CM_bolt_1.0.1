@@ -64,7 +64,7 @@ jobs:
         run: npx --yes supabase@latest --version
 
       - name: Deploy Supabase Edge Functions
-        run: npx --yes supabase@latest functions deploy --project-ref "$SUPABASE_PROJECT_REF" --all
+        run: npx --yes supabase@latest functions deploy --project-ref "$SUPABASE_PROJECT_REF" --use-api
 
   generate-with-claude:
     needs: test-and-build
