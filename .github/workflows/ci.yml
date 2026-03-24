@@ -60,8 +60,11 @@ jobs:
         with:
           node-version: 24
 
-      - name: Install Supabase CLI
-        run: npm install -g supabase
+      - name: Check Supabase CLI
+        run: npx --yes supabase@latest --version
+
+      - name: Deploy Supabase Edge Functions
+        run: npx --yes supabase@latest functions deploy --project-ref "$SUPABASE_PROJECT_REF" --all
 
   generate-with-claude:
     needs: test-and-build
