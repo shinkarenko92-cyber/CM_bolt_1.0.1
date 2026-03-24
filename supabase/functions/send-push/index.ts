@@ -130,20 +130,16 @@ async function encryptPayload(
     256
   );
 
-  // HKDF pseudo-random key using auth
-  const authKey = await crypto.subtle.importKey("raw", auth, "HKDF", false, ["deriveBits"]);
+  // HKDF pseudo-random key: IKM = sharedSecret, salt = auth (per RFC 8291)
+  const sharedSecretKey = await crypto.subtle.importKey("raw", sharedSecret, "HKDF", false, ["deriveBits"]);
   const prk = await crypto.subtle.deriveBits(
     {
       name: "HKDF",
       hash: "SHA-256",
-      salt: new Uint8Array(sharedSecret),
-      info: (() => {
-        const enc = new TextEncoder();
-        const label = enc.encode("Content-Encoding: auth\0");
-        return label;
-      })(),
+      salt: auth,
+      info: new TextEncoder().encode("Content-Encoding: auth\0"),
     },
-    authKey,
+    sharedSecretKey,
     256
   );
 
