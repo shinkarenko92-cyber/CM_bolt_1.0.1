@@ -72,7 +72,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
               <img
                 src="/favicon-v2.png"
                 alt="Roomi logo"
-                className="h-8 w-8 object-contain"
+                className="h-9 w-9 object-contain"
                 loading="eager"
                 decoding="async"
               />
