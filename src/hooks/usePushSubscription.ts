@@ -23,13 +23,35 @@ export function usePushSubscription() {
     'PushManager' in window &&
     !!VAPID_PUBLIC_KEY;
 
-  // On mount: check if already subscribed
+  // On mount: check if already subscribed in browser, and ensure DB row exists
   useEffect(() => {
     if (!supported || !user) return;
-    navigator.serviceWorker.ready.then((reg) => {
-      reg.pushManager.getSubscription().then((sub) => {
-        setStatus(sub ? 'subscribed' : 'idle');
-      });
+    navigator.serviceWorker.ready.then(async (reg) => {
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        setStatus('idle');
+        return;
+      }
+      setStatus('subscribed');
+      // Ensure subscription is persisted in DB (may have been lost)
+      const json = sub.toJSON();
+      const keys = json.keys as Record<string, string> | undefined;
+      if (json.endpoint && keys?.p256dh && keys?.auth) {
+        const { error } = await supabase.from('push_subscriptions').upsert(
+          {
+            user_id: user.id,
+            endpoint: json.endpoint,
+            p256dh: keys.p256dh,
+            auth: keys.auth,
+          },
+          { onConflict: 'user_id,endpoint' }
+        );
+        if (error) {
+          console.error('[push] DB re-sync failed:', error.message, error.details);
+        } else {
+          console.log('[push] subscription synced to DB');
+        }
+      }
     });
   }, [supported, user]);
 
@@ -47,16 +69,22 @@ export function usePushSubscription() {
       if (!json.endpoint || !keys?.p256dh || !keys?.auth) {
         throw new Error('Invalid push subscription response');
       }
+      const payload = {
+        user_id: user.id,
+        endpoint: json.endpoint,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+      };
+      console.log('[push] saving subscription to DB...', { endpoint: json.endpoint.slice(0, 50) });
       const { error } = await supabase.from('push_subscriptions').upsert(
-        {
-          user_id: user.id,
-          endpoint: json.endpoint,
-          p256dh: keys.p256dh,
-          auth: keys.auth,
-        },
+        payload,
         { onConflict: 'user_id,endpoint' }
       );
-      if (error) throw error;
+      if (error) {
+        console.error('[push] DB upsert failed:', error.message, error.details, error.hint);
+        throw error;
+      }
+      console.log('[push] subscription saved successfully');
       setStatus('subscribed');
       return true;
     } catch (err) {
