@@ -360,7 +360,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
     }
 
     return data;
-  }, [filteredBookings, dateRange, getProportionalRevenue]);
+  }, [filteredBookings, dateRange, getProportionalRevenue, filteredProperties.length]);
 
   // Data for bookings dynamics chart (month by days or half year by months)
   const bookingsDynamicsData = useMemo(() => {

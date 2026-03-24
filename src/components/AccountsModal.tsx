@@ -222,8 +222,14 @@ export function AccountsModal({
                             if (error) {
                               setTestResult(`Ошибка отправки: ${error.message}`);
                             } else {
-                              const result = typeof data === 'object' ? data : {};
-                              const sent = (result as Record<string, unknown>).sent ?? 0;
+                              const result = typeof data === 'object' && data !== null ? data : {};
+                              const sentRaw = (result as Record<string, unknown>).sent;
+                              const sent =
+                                typeof sentRaw === 'number'
+                                  ? sentRaw
+                                  : typeof sentRaw === 'string'
+                                    ? Number(sentRaw) || 0
+                                    : 0;
                               setTestResult(sent > 0 ? `Отправлено (${sent})` : 'Нет подписок в БД — попробуйте переподключить');
                             }
                           } catch (e) {
