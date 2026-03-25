@@ -26,17 +26,17 @@ export function CalendarHeader({
 
   return (
     <div className="sticky top-0 z-20 bg-secondary border-b border-border backdrop-blur-md">
-      <div className="flex items-center justify-between px-6 py-3 border-b border-border">
-        <div className="flex items-center gap-4">
-          <h2 className="text-lg font-semibold text-foreground">
+      <div className="flex items-center justify-between px-3 sm:px-6 py-2 sm:py-3 border-b border-border">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <h2 className="text-sm sm:text-lg font-semibold text-foreground">
             {formatMonthYear(currentDate)}
           </h2>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           <button
             onClick={onPrevMonth}
-            className="p-2 hover:bg-accent rounded-lg transition-all duration-200 hover:scale-105 text-muted-foreground hover:text-foreground"
+            className="hidden sm:flex p-2 hover:bg-accent rounded-lg transition-all duration-200 hover:scale-105 text-muted-foreground hover:text-foreground"
             title="Previous month"
           >
             <ChevronsLeft className="w-4 h-4" />
@@ -50,7 +50,7 @@ export function CalendarHeader({
           </button>
           <button
             onClick={onToday}
-            className="px-4 py-2 bg-brand hover:opacity-90 text-brand-foreground rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95"
+            className="px-2 sm:px-4 py-1.5 sm:py-2 bg-brand hover:opacity-90 text-brand-foreground rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95"
           >
             Сегодня
           </button>
@@ -63,12 +63,12 @@ export function CalendarHeader({
           </button>
           <button
             onClick={onNextMonth}
-            className="p-2 hover:bg-accent rounded-lg transition-all duration-200 hover:scale-105 text-muted-foreground hover:text-foreground"
+            className="hidden sm:flex p-2 hover:bg-accent rounded-lg transition-all duration-200 hover:scale-105 text-muted-foreground hover:text-foreground"
             title="Next month"
           >
             <ChevronsRight className="w-4 h-4" />
           </button>
-          <div className="w-px h-6 bg-border mx-1" />
+          <div className="w-px h-6 bg-border mx-0.5 sm:mx-1" />
           <MiniCalendarPicker onDateSelect={onDateSelect} currentDate={currentDate} />
         </div>
       </div>

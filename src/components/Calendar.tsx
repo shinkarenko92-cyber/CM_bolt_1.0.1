@@ -126,7 +126,15 @@ export function Calendar({
   const seenPropertyIds = useRef<Set<string>>(new Set());
   const justDroppedRef = useRef(false);
 
-  const CELL_WIDTH = 64;
+  const [cellWidth, setCellWidth] = useState(() => window.innerWidth < 640 ? 48 : 64);
+
+  useEffect(() => {
+    const handleResize = () => setCellWidth(window.innerWidth < 640 ? 48 : 64);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const CELL_WIDTH = cellWidth;
   const ROW_HEIGHT = 56;
   /** Высота строки с датами (sticky header) внутри scroll-контейнера — для корректного расчёта Y при перетаскивании */
   const DATES_HEADER_HEIGHT = 56;
@@ -966,14 +974,15 @@ export function Calendar({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-background">
-      <div className="bg-slate-800 border-b border-slate-700 px-6 py-3 flex items-center justify-between">
+      <div className="bg-slate-800 border-b border-slate-700 px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button
             onClick={() => onAddReservation('', '', '')}
-            className="px-4 py-2 bg-add-booking-bg hover:bg-add-booking-bg-hover text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            className="px-2 sm:px-4 py-2 bg-add-booking-bg hover:bg-add-booking-bg-hover text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            title="Добавить бронь"
           >
             <Plus className="w-4 h-4" />
-            Добавить бронь
+            <span className="hidden sm:inline">Добавить бронь</span>
           </button>
           <button
             onClick={() => {
@@ -987,10 +996,11 @@ export function Calendar({
               });
               setShowConditionsModal(true);
             }}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            className="px-2 sm:px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            title="Изменить условия"
           >
             <Settings className="w-4 h-4" />
-            Изменить условия
+            <span className="hidden sm:inline">Изменить условия</span>
           </button>
         </div>
       </div>
@@ -1011,9 +1021,9 @@ export function Calendar({
           <div className="flex-1 overflow-auto" ref={scrollContainerRef}>
             {/* Dates header row: lives inside the same scroll container as the grid to avoid scroll-sync lag */}
             <div className="flex border-b border-slate-700 bg-slate-800 sticky top-0 z-20 min-w-max">
-              <div className="w-64 flex-shrink-0 sticky left-0 z-30 border-r border-slate-700 bg-slate-800">
+              <div className="w-28 sm:w-64 flex-shrink-0 sticky left-0 z-30 border-r border-slate-700 bg-slate-800">
                 <div className="h-14 flex items-center justify-center">
-                  <span className="text-sm text-black">Объекты</span>
+                  <span className="text-sm text-slate-400">Объекты</span>
                 </div>
               </div>
               <div className="flex" style={{ width: `${dates.length * CELL_WIDTH}px` }}>
@@ -1027,9 +1037,10 @@ export function Calendar({
                   return (
                     <div
                       key={i}
-                      className={`w-16 flex-shrink-0 border-r border-border relative ${isToday ? 'bg-today-cell-bg' : isWeekend ? 'bg-slate-700/50' : ''}`}
+                      className={`flex-shrink-0 border-r border-border relative ${isToday ? 'bg-today-cell-bg' : isWeekend ? 'bg-slate-700/50' : ''}`}
+                      style={{ width: `${CELL_WIDTH}px` }}
                     >
-                      <div className="px-2 py-2 text-center relative z-10">
+                      <div className="px-1 py-2 text-center relative z-10">
                         <div className={`text-sm font-medium ${isToday ? 'text-foreground' : 'text-slate-300'}`}>
                           {date.getDate()}
                         </div>
@@ -1117,8 +1128,9 @@ export function Calendar({
                                     return (
                                       <div
                                         key={i}
+                                        style={{ width: `${CELL_WIDTH}px` }}
                                         className={cn(
-                                          'w-16 flex-shrink-0 border-r border-border cursor-pointer transition-all relative flex flex-col overflow-hidden',
+                                          'flex-shrink-0 border-r border-border cursor-pointer transition-all relative flex flex-col overflow-hidden',
                                           isToday ? 'bg-today-cell-bg' : isWeekend ? 'bg-slate-700/50' : '',
                                           isSelected ? 'bg-booking/30' : '',
                                           isInRange || isHoverRange ? 'bg-booking/20 shadow-[inset_0_0_15px_rgba(135,221,245,0.3)] ring-1 ring-booking/40 ring-inset' : '',
