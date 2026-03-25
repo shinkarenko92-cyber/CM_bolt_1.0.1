@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import { FadeIn } from "@/components/ui/fade-in";
@@ -6,7 +7,8 @@ import { cn } from "@/lib/utils";
 const plans = [
   {
     name: "Start",
-    monthlyPrice: 2990,
+    monthlyPrice: 1990,
+    yearlyPrice: 1650,
     description: "Для 1–3 квартир",
     features: [
       "До 3 апартаментов",
@@ -19,7 +21,8 @@ const plans = [
   },
   {
     name: "Pro",
-    monthlyPrice: 4990,
+    monthlyPrice: 3000,
+    yearlyPrice: 2490,
     description: "Для 4–8 квартир",
     features: [
       "До 8 апартаментов",
@@ -32,7 +35,8 @@ const plans = [
   },
   {
     name: "Business",
-    monthlyPrice: 9990,
+    monthlyPrice: 5500,
+    yearlyPrice: 4560,
     description: "Для 8–15 квартир",
     features: [
       "До 15 апартаментов",
@@ -46,6 +50,7 @@ const plans = [
   {
     name: "Enterprise",
     monthlyPrice: null,
+    yearlyPrice: null,
     description: "15+ объектов",
     features: [
       "Неограниченно объектов",
@@ -63,6 +68,8 @@ function formatPrice(price: number): string {
 }
 
 export const Pricing = () => {
+  const [isYearly, setIsYearly] = useState(false);
+
   return (
     <div className="py-24 bg-muted/20">
       <div className="container mx-auto px-4">
@@ -76,11 +83,37 @@ export const Pricing = () => {
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto font-light mb-8">
             Выберите план, который подходит вашему бизнесу
           </p>
+
+          <div className="inline-flex items-center gap-3 bg-muted rounded-full p-1">
+            <button
+              onClick={() => setIsYearly(false)}
+              className={cn(
+                "px-4 py-1.5 rounded-full text-sm font-medium transition-all",
+                !isYearly
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Ежемесячно
+            </button>
+            <button
+              onClick={() => setIsYearly(true)}
+              className={cn(
+                "px-4 py-1.5 rounded-full text-sm font-medium transition-all",
+                isYearly
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Ежегодно
+              <span className="ml-1.5 text-xs text-primary font-semibold">−17%</span>
+            </button>
+          </div>
         </FadeIn>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5 max-w-6xl mx-auto">
           {plans.map((plan, index) => {
-            const displayPrice = plan.monthlyPrice;
+            const displayPrice = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
             return (
               <FadeIn key={index} delay={index * 80}>
                 <div
