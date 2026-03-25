@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Plus, Settings, Moon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import { parseISO, format, isBefore, isSameDay, differenceInDays } from 'date-fns';
-import { Property, Booking, PropertyRate, supabase } from '@/lib/supabase';
+import { parseISO, format, isBefore, isSameDay, differenceInDays, addDays } from 'date-fns';
+import { Property, Booking, PropertyRate, DateBlock, supabase } from '@/lib/supabase';
 import { CalendarHeader } from '@/components/CalendarHeader';
 import { BookingBlock } from '@/components/BookingBlock';
 import { ChangeConditionsModal } from '@/components/ChangeConditionsModal';
@@ -40,9 +40,11 @@ import { Button } from '@/components/ui/button';
 type CalendarProps = {
   properties: Property[];
   bookings: Booking[];
+  dateBlocks?: DateBlock[];
   onAddReservation: (propertyId: string, checkIn: string, checkOut: string) => void;
   onEditReservation: (booking: Booking) => void;
   onBookingUpdate: (bookingId: string, updates: Partial<Booking>) => void;
+  onBlockDates?: (propertyId: string, startDate: string, endDate: string) => void;
   onPropertiesUpdate?: (properties: Property[]) => void;
   onDateSelectionReset?: () => void;
   /** Called when user performs pull-to-refresh gesture */
@@ -67,9 +69,11 @@ type DragState = {
 export function Calendar({
   properties,
   bookings,
+  dateBlocks = [],
   onAddReservation,
   onEditReservation,
   onBookingUpdate,
+  onBlockDates,
   onPropertiesUpdate,
   onDateSelectionReset,
   onRefresh,
@@ -859,6 +863,15 @@ export function Calendar({
     resetDateSelection();
   }, [rangeChoiceData, onAddReservation, resetDateSelection]);
 
+  const handleRangeChoiceBlockDates = useCallback(() => {
+    if (rangeChoiceData && onBlockDates) {
+      onBlockDates(rangeChoiceData.propertyId, rangeChoiceData.startDate, rangeChoiceData.endDate);
+    }
+    setShowRangeChoiceModal(false);
+    setRangeChoiceData(null);
+    resetDateSelection();
+  }, [rangeChoiceData, onBlockDates, resetDateSelection]);
+
   const handleRangeChoiceChangeConditions = useCallback(() => {
     if (!rangeChoiceData) return;
     const property = properties.find(p => p.id === rangeChoiceData.propertyId);
@@ -871,6 +884,7 @@ export function Calendar({
       ? Math.round(basePrice + Math.abs(markup))
       : Math.round(basePrice * (1 + markup / 100));
     const displayMinStay = rate?.min_stay ?? property.minimum_booking_days;
+    // endDate = день выезда (не ночует), как в диалоге выбора диапазона
     setConditionsModalData({
       propertyId: rangeChoiceData.propertyId,
       startDate: rangeChoiceData.startDate,
@@ -1047,10 +1061,11 @@ export function Calendar({
           </button>
           <button
             onClick={() => {
+              const today = new Date();
               setConditionsModalData({
                 propertyId: properties[0]?.id || '',
-                startDate: format(new Date(), 'yyyy-MM-dd'),
-                endDate: format(new Date(), 'yyyy-MM-dd'),
+                startDate: format(today, 'yyyy-MM-dd'),
+                endDate: format(addDays(today, 1), 'yyyy-MM-dd'),
                 price: properties[0]?.base_price || 0,
                 minStay: properties[0]?.minimum_booking_days || 1,
                 currency: properties[0]?.currency || 'RUB',

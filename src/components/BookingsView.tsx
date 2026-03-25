@@ -51,8 +51,12 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
 
   const getStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
-      confirmed: t('bookings.confirmed', { defaultValue: 'Подтверждено' }),
+      inquiry: t('bookings.inquiry', { defaultValue: 'Запрос' }),
       pending: t('bookings.pending', { defaultValue: 'Ожидание' }),
+      confirmed: t('bookings.confirmed', { defaultValue: 'Подтверждено' }),
+      checked_in: t('bookings.checked_in', { defaultValue: 'Заселён' }),
+      checked_out: t('bookings.checked_out', { defaultValue: 'Выселен' }),
+      no_show: t('bookings.no_show', { defaultValue: 'Неявка' }),
       cancelled: t('bookings.cancelled', { defaultValue: 'Отменено' }),
     };
     return labels[status] ?? status;

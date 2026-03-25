@@ -95,6 +95,8 @@ export function EditReservationModal({
     guest_phone: '',
     check_in: '',
     check_out: '',
+    check_in_time: '14:00',
+    check_out_time: '12:00',
     price_per_night: '',
     total_price: '',
     currency: 'RUB',
@@ -130,6 +132,8 @@ export function EditReservationModal({
         guest_phone: booking.guest_phone || '',
         check_in: booking.check_in || '',
         check_out: booking.check_out || '',
+        check_in_time: booking.check_in_time || '14:00',
+        check_out_time: booking.check_out_time || '12:00',
         price_per_night: correctedPricePerNight,
         total_price: booking.total_price?.toString() || '',
         currency: booking.currency || 'RUB',
@@ -273,6 +277,8 @@ export function EditReservationModal({
         notes: formData.notes || null,
         check_in: formData.check_in,
         check_out: formData.check_out,
+        check_in_time: formData.check_in_time || '14:00',
+        check_out_time: formData.check_out_time || '12:00',
         total_price: Math.round(parseFloat(formData.total_price) || 0),
         currency: formData.currency,
         status: formData.status,
@@ -410,21 +416,39 @@ export function EditReservationModal({
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>{t('modals.checkIn')}</Label>
-                        <Input
-                          type="date"
-                          value={formData.check_in}
-                          onChange={e => { setFormData(prev => ({ ...prev, check_in: e.target.value })); setPriceSource('perNight'); }}
-                          required
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            type="date"
+                            value={formData.check_in}
+                            onChange={e => { setFormData(prev => ({ ...prev, check_in: e.target.value })); setPriceSource('perNight'); }}
+                            required
+                            className="flex-1"
+                          />
+                          <Input
+                            type="time"
+                            value={formData.check_in_time}
+                            onChange={e => setFormData(prev => ({ ...prev, check_in_time: e.target.value }))}
+                            className="w-24"
+                          />
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <Label>{t('modals.checkOut')}</Label>
-                        <Input
-                          type="date"
-                          value={formData.check_out}
-                          onChange={e => { setFormData(prev => ({ ...prev, check_out: e.target.value })); setPriceSource('perNight'); }}
-                          required
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            type="date"
+                            value={formData.check_out}
+                            onChange={e => { setFormData(prev => ({ ...prev, check_out: e.target.value })); setPriceSource('perNight'); }}
+                            required
+                            className="flex-1"
+                          />
+                          <Input
+                            type="time"
+                            value={formData.check_out_time}
+                            onChange={e => setFormData(prev => ({ ...prev, check_out_time: e.target.value }))}
+                            className="w-24"
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -506,8 +530,12 @@ export function EditReservationModal({
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="confirmed">{t('bookings.confirmed')}</SelectItem>
+                            <SelectItem value="inquiry">{t('bookings.inquiry', { defaultValue: 'Запрос' })}</SelectItem>
                             <SelectItem value="pending">{t('bookings.pending')}</SelectItem>
+                            <SelectItem value="confirmed">{t('bookings.confirmed')}</SelectItem>
+                            <SelectItem value="checked_in">{t('bookings.checked_in', { defaultValue: 'Заселён' })}</SelectItem>
+                            <SelectItem value="checked_out">{t('bookings.checked_out', { defaultValue: 'Выселен' })}</SelectItem>
+                            <SelectItem value="no_show">{t('bookings.no_show', { defaultValue: 'Неявка' })}</SelectItem>
                             <SelectItem value="cancelled">{t('bookings.cancelled')}</SelectItem>
                           </SelectContent>
                         </Select>

@@ -23,6 +23,8 @@ export type Property = {
   status: string;
   minimum_booking_days: number;
   image_url?: string | null;
+  default_check_in_time?: string | null;
+  default_check_out_time?: string | null;
   deleted_at: string | null;
   sort_order: number;
   created_at: string;
@@ -41,6 +43,8 @@ export type Guest = {
   updated_at: string;
 };
 
+export type BookingStatus = 'inquiry' | 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'no_show' | 'cancelled';
+
 export type Booking = {
   id: string;
   property_id: string;
@@ -52,16 +56,23 @@ export type Booking = {
   guest_phone: string | null;
   check_in: string;
   check_out: string;
+  check_in_time?: string | null;
+  check_out_time?: string | null;
   guests_count: number;
   total_price: number;
   currency: string;
-  status: string;
+  status: BookingStatus | string;
   notes: string | null;
   extra_services_amount?: number; // Additional services cost in rubles (integer)
   guest_id?: string | null; // Link to the guests table
   deposit_amount?: number | null; // Deposit amount in the same currency as total_price (integer)
   deposit_received?: boolean | null; // Whether the deposit has been received
   deposit_returned?: boolean | null; // Whether the deposit has been returned
+  cancellation_reason?: string | null;
+  cancellation_date?: string | null;
+  cancellation_penalty?: number | null;
+  refund_amount?: number | null;
+  refund_status?: 'none' | 'pending' | 'completed' | null;
   created_by?: string | null; // User ID who created the booking
   updated_by?: string | null; // User ID who last updated the booking
   chat_id?: string | null; // Link to the chats table
@@ -130,6 +141,31 @@ export type PropertyRate = {
   currency: string;
   created_at: string;
   updated_at: string;
+};
+
+export type DateBlock = {
+  id: string;
+  property_id: string;
+  start_date: string;
+  end_date: string;
+  reason: 'repair' | 'personal' | 'cleaning' | 'other';
+  notes: string | null;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BookingPayment = {
+  id: string;
+  booking_id: string;
+  payment_type: 'prepayment' | 'full_payment' | 'deposit' | 'deposit_return' | 'refund';
+  amount: number;
+  currency: string;
+  payment_method: 'cash' | 'card' | 'transfer' | 'other' | null;
+  payment_date: string;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
 };
 
 export type PropertyIntegration = {

@@ -48,6 +48,46 @@ const getBookingColors = (status: string, hasConflict?: boolean) => {
     };
   }
 
+  if (statusLower === 'inquiry') {
+    return {
+      bg: 'bg-slate-400',
+      hover: 'hover:bg-slate-500',
+      text: 'text-white',
+    };
+  }
+
+  if (statusLower === 'checked_in') {
+    return {
+      bg: 'bg-emerald-500',
+      hover: 'hover:bg-emerald-600',
+      text: 'text-white',
+    };
+  }
+
+  if (statusLower === 'checked_out') {
+    return {
+      bg: 'bg-slate-500',
+      hover: 'hover:bg-slate-600',
+      text: 'text-white',
+    };
+  }
+
+  if (statusLower === 'no_show') {
+    return {
+      bg: 'bg-orange-500',
+      hover: 'hover:bg-orange-600',
+      text: 'text-white',
+    };
+  }
+
+  if (statusLower === 'cancelled') {
+    return {
+      bg: 'bg-red-400',
+      hover: 'hover:bg-red-500',
+      text: 'text-white',
+    };
+  }
+
   // По умолчанию: забронировано (booked/reserved)
   return {
     bg: 'bg-booking/90',
@@ -199,11 +239,11 @@ export function BookingBlock({
         <div className="text-slate-300 text-xs space-y-1">
           <div>
             <span className="text-slate-400">Заезд:</span>{' '}
-            {formatDate(booking.check_in)}
+            {formatDate(booking.check_in)}{booking.check_in_time ? ` ${booking.check_in_time}` : ''}
           </div>
           <div>
             <span className="text-slate-400">Выезд:</span>{' '}
-            {formatDate(booking.check_out)}
+            {formatDate(booking.check_out)}{booking.check_out_time ? ` ${booking.check_out_time}` : ''}
           </div>
           <div>
             <span className="text-slate-400">Ночей:</span>{' '}

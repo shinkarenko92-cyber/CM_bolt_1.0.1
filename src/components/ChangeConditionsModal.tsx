@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { addDays, differenceInCalendarDays, format, parse } from 'date-fns';
 import toast from 'react-hot-toast';
 import { supabase, Property } from '@/lib/supabase';
 import { syncAvitoIntegration, AvitoSyncError } from '@/services/apiSync';
@@ -76,8 +77,10 @@ export function ChangeConditionsModal({
         return;
       }
 
-      if (new Date(formData.startDate) > new Date(formData.endDate)) {
-        setError('Дата начала не может быть позже даты окончания');
+      const startParsed = parse(formData.startDate, 'yyyy-MM-dd', new Date());
+      const endParsed = parse(formData.endDate, 'yyyy-MM-dd', new Date());
+      if (differenceInCalendarDays(endParsed, startParsed) <= 0) {
+        setError(t('errors.checkOutBeforeCheckIn'));
         setLoading(false);
         return;
       }
@@ -97,12 +100,10 @@ export function ChangeConditionsModal({
       const selectedProperty = properties.find(p => p.id === formData.selectedPropertyId);
       const propertyCurrency = selectedProperty?.currency || currency;
 
-      const start = new Date(formData.startDate);
-      const end = new Date(formData.endDate);
+      const nights = differenceInCalendarDays(endParsed, startParsed);
       const dates: string[] = [];
-
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        dates.push(d.toISOString().split('T')[0]);
+      for (let i = 0; i < nights; i++) {
+        dates.push(format(addDays(startParsed, i), 'yyyy-MM-dd'));
       }
 
       const rateRecords = dates.map((date) => ({
@@ -191,14 +192,16 @@ export function ChangeConditionsModal({
 
   if (!isOpen) return null;
 
-  const getDaysCount = () => {
+  /** Ночи: дата выезда не включается (как в календаре при выборе диапазона). */
+  const getNightsCount = () => {
     if (!formData.startDate || !formData.endDate) return 0;
-    return Math.ceil(
-      (new Date(formData.endDate).getTime() - new Date(formData.startDate).getTime()) / (1000 * 60 * 60 * 24)
-    ) + 1;
+    const start = parse(formData.startDate, 'yyyy-MM-dd', new Date());
+    const end = parse(formData.endDate, 'yyyy-MM-dd', new Date());
+    const n = differenceInCalendarDays(end, start);
+    return n > 0 ? n : 0;
   };
 
-  const daysCount = getDaysCount();
+  const nightsCount = getNightsCount();
   const selectedProperty = properties.find(p => p.id === formData.selectedPropertyId);
   const displayCurrency = selectedProperty?.currency || currency;
 
@@ -271,7 +274,7 @@ export function ChangeConditionsModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Дата начала
+                Дата заезда
               </label>
               <input
                 type="date"
@@ -283,7 +286,7 @@ export function ChangeConditionsModal({
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Дата окончания
+                Дата выезда
               </label>
               <input
                 type="date"
@@ -295,9 +298,17 @@ export function ChangeConditionsModal({
             </div>
           </div>
 
-          {daysCount > 0 && (
+          {nightsCount > 0 && (
             <div className="text-sm text-slate-400">
-              Период: {daysCount} {daysCount === 1 ? 'день' : daysCount < 5 ? 'дня' : 'дней'}
+              {t('modals.changeConditionsPeriod', {
+                count: nightsCount,
+                nightsWord:
+                  nightsCount === 1
+                    ? t('common.night')
+                    : nightsCount >= 2 && nightsCount <= 4
+                      ? t('common.nights_few')
+                      : t('common.nights'),
+              })}
             </div>
           )}
 
