@@ -39,6 +39,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
 
   const [activeTab, setActiveTab] = useState<Tab>('subscription');
   const [exportDateRange, setExportDateRange] = useState('all');
+  const [testPushLoading, setTestPushLoading] = useState(false);
   const [deleteNowModalOpen, setDeleteNowModalOpen] = useState(false);
   const [deleteNowLoading, setDeleteNowLoading] = useState(false);
   const [deletionReason, setDeletionReason] = useState('');
@@ -267,6 +268,34 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
     }
   };
 
+  const handleSendTestPush = async () => {
+    if (!user) return;
+    setTestPushLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-push', {
+        body: {
+          user_id: user.id,
+          title: 'Тестовое уведомление Roomi',
+          body: 'Если вы видите это сообщение, значит Web Push настроен верно! 🚀',
+          url: '/?view=settings',
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.sent > 0) {
+        toast.success(t('settings.testPushSent', { defaultValue: 'Тестовый пуш отправлен!' }));
+      } else {
+        toast.error(t('settings.testPushNoSubs', { defaultValue: 'Активные подписки не найдены. Сначала включите уведомления.' }));
+      }
+    } catch (error) {
+      console.error('Test push error:', error);
+      toast.error(t('settings.testPushError', { defaultValue: 'Ошибка при отправке пуша' }));
+    } finally {
+      setTestPushLoading(false);
+    }
+  };
+
   const handleChangePassword = async () => {
     if (!newPassword) {
       toast.error(t('settings.passwordEmpty', { defaultValue: 'Введите новый пароль' }));
@@ -466,10 +495,20 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
                 <div className="p-2 bg-green-100 rounded-lg shrink-0">
                   <Bell className="w-5 h-5 text-green-600" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="text-sm font-medium text-slate-800">{t('settings.notificationsEnabled', { defaultValue: 'Уведомления включены' })}</p>
                   <p className="text-xs text-slate-500 mt-0.5">{t('settings.notificationsEnabledHint', { defaultValue: 'Вы будете получать уведомления о новых сообщениях.' })}</p>
                 </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSendTestPush}
+                  disabled={testPushLoading}
+                  className="shrink-0"
+                >
+                  {testPushLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Bell className="w-3.5 h-3.5 mr-1.5" />}
+                  {t('settings.sendTestPush', { defaultValue: 'Тест' })}
+                </Button>
               </div>
             ) : notifPermission === 'denied' ? (
               <div className="flex items-center gap-3">

@@ -1,4 +1,4 @@
-import { Sparkles, Settings, LogOut } from 'lucide-react';
+import { Calendar, Home, MessageCircle, BarChart3, Settings, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -10,12 +10,21 @@ type BottomNavProps = {
 
 export function BottomNav({ currentView, onViewChange }: BottomNavProps) {
   const { t } = useTranslation();
-  const { signOut } = useAuth();
+  const { profile, isAdmin } = useAuth();
+  const isCleaner = profile?.role === 'cleaner';
 
   const items = [
+    { id: 'calendar', icon: Calendar, label: t('nav.calendar') },
+    { id: 'properties', icon: Home, label: t('nav.properties') },
+    { id: 'messages', icon: MessageCircle, label: t('nav.messages') },
     { id: 'cleaning', icon: Sparkles, label: t('nav.cleaning', { defaultValue: 'Уборка' }) },
+    { id: 'analytics', icon: BarChart3, label: t('nav.analytics') },
     { id: 'settings', icon: Settings, label: t('nav.settings') },
-  ];
+  ].filter(item => {
+    if (isCleaner) return ['cleaning', 'settings'].includes(item.id);
+    if (item.id === 'cleaning' && !isAdmin) return false;
+    return true;
+  });
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-50 bg-card/95 backdrop-blur-md border-t border-border shadow-lg safe-area-bottom">
@@ -38,14 +47,6 @@ export function BottomNav({ currentView, onViewChange }: BottomNavProps) {
             </button>
           );
         })}
-        <button
-          type="button"
-          onClick={() => signOut()}
-          className="flex flex-col items-center justify-center gap-0.5 flex-1 min-h-[56px] py-2 text-muted-foreground transition-colors"
-        >
-          <LogOut className="h-5 w-5" />
-          <span className="text-[11px] font-medium leading-tight">{t('auth.signOut')}</span>
-        </button>
       </div>
     </nav>
   );

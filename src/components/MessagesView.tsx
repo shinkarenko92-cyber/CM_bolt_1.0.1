@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from 'react';
-import { Search, MessageCircle, User, Bell } from 'lucide-react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { Search, MessageCircle, User, Bell, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNotificationPermission } from '@/hooks/useNotificationPermission';
 import { usePushSubscription } from '@/hooks/usePushSubscription';
@@ -25,6 +25,8 @@ interface MessagesViewProps {
   integrationsForMessenger?: IntegrationForMessenger[];
   onRequestMessengerAuth?: (integrationId: string | null) => void;
   onGoToProperties?: () => void;
+  onRefresh?: () => void;
+  isSyncing?: boolean;
 }
 
 export function MessagesView({
@@ -36,6 +38,8 @@ export function MessagesView({
   integrationsForMessenger = [],
   onRequestMessengerAuth,
   onGoToProperties,
+  onRefresh,
+  isSyncing = false,
 }: MessagesViewProps) {
   const { t } = useTranslation();
   const { permission, requestPermission, supported: notifSupported } = useNotificationPermission();
@@ -87,6 +91,34 @@ export function MessagesView({
     });
     return filtered;
   }, [chats, searchTerm, filterPropertyId, filterStatus]);
+
+  // Pull-to-refresh implementation
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [pulling, setPulling] = useState(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const scrollContainer = e.currentTarget;
+    if (scrollContainer.scrollTop === 0) {
+      setTouchStart(e.touches[0].clientY);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStart === null) return;
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - touchStart;
+    if (diff > 50) {
+      setPulling(true);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (pulling && onRefresh) {
+      onRefresh();
+    }
+    setTouchStart(null);
+    setPulling(false);
+  };
 
   const formatTime = (dateString: string | null) => {
     if (!dateString) return '';
@@ -255,7 +287,17 @@ export function MessagesView({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
+      <div
+        className="flex-1 overflow-y-auto custom-scrollbar min-h-0 relative"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {pulling && (
+          <div className="absolute top-0 inset-x-0 h-10 flex items-center justify-center bg-muted/50 z-10">
+            <RefreshCw className="w-4 h-4 animate-spin text-primary" />
+          </div>
+        )}
         {filteredAndSortedChats.length === 0 ? (
           <div className="text-center py-8 px-4">
             <MessageCircle className="w-10 h-10 text-muted-foreground mx-auto mb-2" />

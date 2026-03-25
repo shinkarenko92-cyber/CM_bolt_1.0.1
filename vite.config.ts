@@ -16,13 +16,46 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'icon-192x192.png', 'icon-512x512.png', 'offline.html'],
       manifest: {
-        name: 'Roomi Pro — Управление уборками',
+        name: 'Roomi Pro — Управление бронированиями',
         short_name: 'Roomi',
-        description: 'Управление уборками для уборщиц и администраторов',
+        description: 'Система управления бронированиями и синхронизации с Avito',
         theme_color: '#0f172a',
-        background_color: '#ffffff',
+        background_color: '#0f172a',
         display: 'standalone',
         start_url: '/',
+        categories: ['business', 'productivity', 'travel'],
+        shortcuts: [
+          {
+            name: 'Календарь',
+            short_name: 'Календарь',
+            description: 'Открыть календарь бронирований',
+            url: '/?view=calendar',
+            icons: [{ src: '/icon-192x192.png', sizes: '192x192' }]
+          },
+          {
+            name: 'Сообщения',
+            short_name: 'Чаты',
+            description: 'Открыть сообщения Avito',
+            url: '/?view=messages',
+            icons: [{ src: '/icon-192x192.png', sizes: '192x192' }]
+          }
+        ],
+        screenshots: [
+          {
+            src: '/icon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            form_factor: 'wide',
+            label: 'Roomi Dashboard'
+          },
+          {
+            src: '/icon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'Roomi Mobile'
+          }
+        ],
         icons: [
           { src: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icon-512x512.png', sizes: '512x512', type: 'image/png' },

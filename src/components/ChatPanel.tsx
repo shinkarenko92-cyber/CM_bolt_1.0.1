@@ -4,6 +4,7 @@ import {
   Send,
   Paperclip,
   MoreVertical,
+  ChevronLeft,
   Calendar,
   User,
   MapPin,
@@ -44,6 +45,7 @@ interface ChatPanelProps {
   onStatusChange?: (chat: Chat, status: Chat['status']) => void;
   onViewBooking?: (bookingId: string) => void;
   onRefresh?: () => void;
+  onBack?: () => void;
 }
 
 
@@ -80,6 +82,7 @@ export function ChatPanel({
   onStatusChange,
   onViewBooking,
   onRefresh,
+  onBack,
 }: ChatPanelProps) {
   const { t } = useTranslation();
   const [inputValue, setInputValue] = useState('');
@@ -165,8 +168,13 @@ export function ChatPanel({
   return (
     <div className="flex flex-col h-full bg-background border-l border-border">
       {/* Header — design: avatar, name, property • Booking ID, View Booking, Details, more_vert */}
-      <div className="h-16 border-b border-border flex items-center justify-between px-6 shrink-0">
-        <div className="flex items-center gap-3 overflow-hidden min-w-0">
+      <div className="h-16 border-b border-border flex items-center justify-between px-4 md:px-6 shrink-0">
+        <div className="flex items-center gap-2 md:gap-3 overflow-hidden min-w-0">
+          {onBack && (
+            <Button variant="ghost" size="icon" className="h-8 w-8 md:hidden shrink-0" onClick={onBack}>
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+          )}
           <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-muted flex items-center justify-center">
             {chat.contact_avatar_url ? (
               <img src={chat.contact_avatar_url} alt={chat.contact_name || ''} className="w-full h-full object-cover" />

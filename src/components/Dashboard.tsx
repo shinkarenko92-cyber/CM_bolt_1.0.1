@@ -814,15 +814,25 @@ export function Dashboard() {
 
   return (
     <div className="flex h-screen bg-background text-foreground">
-      {isCleaner && isMobile ? (
+      {isMobile ? (
         <BottomNav currentView={currentView} onViewChange={setCurrentView} />
       ) : (
         <Sidebar currentView={currentView} onViewChange={setCurrentView} />
       )}
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="relative z-40 backdrop-blur-md bg-card/90 border-b border-border px-3 md:px-6 py-3 md:py-4 shadow-lg transition-shadow duration-200">
+        <header className="relative z-40 backdrop-blur-md bg-card/90 border-b border-border px-3 md:px-6 py-1.5 md:py-4 shadow-md transition-shadow duration-200">
           <div className="flex items-center justify-between gap-2">
+            {!isMobile && (
+              <div className="md:hidden flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand text-brand-foreground mr-2">
+                <Calendar className="h-5 w-5" />
+              </div>
+            )}
+            {isMobile && (
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand text-brand-foreground mr-0.5 ml-0.5">
+                <Calendar className="h-4 w-4" />
+              </div>
+            )}
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
               <Input
@@ -911,8 +921,8 @@ export function Dashboard() {
                     data-testid="button-profile"
                   >
                     <div className="text-right hidden sm:block">
-                      <div className="text-sm font-medium">{t('properties.title')}</div>
-                      <div className="text-xs text-muted-foreground">{user?.email}</div>
+                      <div className="text-sm font-bold text-black">{t('properties.title')}</div>
+                      <div className="text-[10px] text-muted-foreground truncate max-w-[120px]">{user?.email}</div>
                     </div>
                     <Avatar className="h-8 w-8 md:h-10 md:w-10 rounded-lg">
                       <AvatarFallback className="rounded-lg bg-brand text-brand-foreground">
@@ -933,12 +943,12 @@ export function Dashboard() {
         </header>
 
         {userProfile && isDemoExpired(userProfile) && (
-          <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 flex items-center justify-center gap-2 flex-wrap">
-            <span className="text-amber-800 dark:text-amber-200 text-sm font-medium">
-              {t('subscription.demoExpired', { defaultValue: 'Демо закончилось. Выберите тариф в профиле для продолжения работы.' })}
+          <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-1.5 flex items-center justify-center gap-2 flex-wrap">
+            <span className="text-amber-800 dark:text-amber-200 text-[10px] md:text-sm font-medium">
+              {t('subscription.demoExpired', { defaultValue: 'Демо закончилось' })}
             </span>
-            <Button variant="outline" size="sm" onClick={() => setIsProfileModalOpen(true)} className="border-amber-500/50 text-amber-800 dark:text-amber-200">
-              {t('subscription.openProfile', { defaultValue: 'Профиль и тариф' })}
+            <Button variant="outline" size="xs" onClick={() => setIsProfileModalOpen(true)} className="h-6 text-[10px] border-amber-500/50 text-amber-800 dark:text-amber-200">
+              {t('subscription.openProfile', { defaultValue: 'Тариф' })}
             </Button>
           </div>
         )}
@@ -992,7 +1002,10 @@ export function Dashboard() {
               </Button>
             </header>
             <div className="flex-1 flex overflow-hidden min-h-0">
-              <div className="w-80 shrink-0 border-r border-border flex flex-col min-h-0">
+              <div className={cn(
+                "flex flex-col min-h-0 transition-all duration-300",
+                isMobile ? (selectedChatId ? "w-0 opacity-0 pointer-events-none" : "flex-1") : "w-80 shrink-0 border-r border-border"
+              )}>
                 <MessagesView
                   chats={chats}
                   properties={properties}
@@ -1002,6 +1015,8 @@ export function Dashboard() {
                   integrationsForMessenger={avitoIntegrationsForMessages}
                   onRequestMessengerAuth={handleAvitoMessengerAuth}
                   onGoToProperties={() => setCurrentView('properties')}
+                  onRefresh={() => syncChatsFromAvitoRef.current()}
+                  isSyncing={isSyncing}
                 />
               </div>
               {selectedChatId ? (
@@ -1024,9 +1039,10 @@ export function Dashboard() {
                     onCreateBooking={handleCreateBookingFromChat}
                     onStatusChange={handleChatStatusChange}
                     onRefresh={selectedChatId ? () => syncMessagesFromAvitoRef.current(selectedChatId) : undefined}
+                    onBack={isMobile ? () => setSelectedChatId(null) : undefined}
                   />
                 </div>
-              ) : (
+              ) : !isMobile && (
                 <div className="flex-1 flex items-center justify-center bg-muted/30 border-l border-border">
                   <div className="text-center px-6">
                     <p className="text-muted-foreground">{t('messages.selectChat', 'Выберите чат')}</p>

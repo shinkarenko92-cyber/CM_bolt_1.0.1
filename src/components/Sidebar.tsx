@@ -18,21 +18,20 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
 
   const isCleaner = profile?.role === 'cleaner';
 
-  const menuItems = isCleaner
-    ? [
-        { id: 'cleaning', icon: Sparkles, label: t('nav.cleaning', { defaultValue: 'Уборка' }) },
-        { id: 'settings', icon: Settings, label: t('nav.settings') },
-      ]
-    : [
-        { id: 'calendar', icon: Calendar, label: t('nav.calendar') },
-        { id: 'properties', icon: Home, label: t('nav.properties') },
-        { id: 'bookings', icon: Users, label: t('nav.bookings') },
-        { id: 'messages', icon: MessageCircle, label: t('nav.messages') },
-        ...(isAdmin ? [{ id: 'cleaning', icon: Sparkles, label: t('nav.cleaning', { defaultValue: 'Уборка' }) }] : []),
-        { id: 'analytics', icon: BarChart3, label: t('nav.analytics') },
-        { id: 'settings', icon: Settings, label: t('nav.settings') },
-        ...(isAdmin ? [{ id: 'admin', icon: Shield, label: t('nav.admin') }] : []),
-      ];
+  const menuItems = [
+    { id: 'calendar', icon: Calendar, label: t('nav.calendar') },
+    { id: 'properties', icon: Home, label: t('nav.properties') },
+    { id: 'bookings', icon: Users, label: t('nav.bookings') },
+    { id: 'messages', icon: MessageCircle, label: t('nav.messages') },
+    { id: 'cleaning', icon: Sparkles, label: t('nav.cleaning', { defaultValue: 'Уборка' }) },
+    { id: 'analytics', icon: BarChart3, label: t('nav.analytics') },
+    { id: 'settings', icon: Settings, label: t('nav.settings') },
+    ...(isAdmin ? [{ id: 'admin', icon: Shield, label: t('nav.admin') }] : []),
+  ].filter(item => {
+    if (isCleaner) return ['cleaning', 'settings'].includes(item.id);
+    if (item.id === 'cleaning' && !isAdmin) return false;
+    return true;
+  });
 
   const handleNavClick = (id: string) => {
     onViewChange(id);
@@ -41,16 +40,6 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
 
   return (
     <>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="md:hidden fixed top-3 left-3 z-50 backdrop-blur-md bg-card/95 border border-border shadow-lg hover:scale-105 transition-transform duration-200"
-        onClick={() => setIsOpen(!isOpen)}
-        data-testid="button-mobile-menu"
-      >
-        {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-      </Button>
-
       {isOpen && (
         <div
           className="md:hidden fixed inset-0 bg-black/40 z-40 backdrop-blur-md"

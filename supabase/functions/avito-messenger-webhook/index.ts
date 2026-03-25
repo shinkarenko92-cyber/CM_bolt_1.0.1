@@ -78,40 +78,44 @@ Deno.serve(async (req: Request) => {
     if (webhookSecret) {
       const signature = req.headers.get("X-Avito-Signature");
       if (!signature) {
+        console.error("Signature verification failed: X-Avito-Signature header is missing");
         return new Response(JSON.stringify({ error: "Missing signature" }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      } else {
+        const encoder = new TextEncoder();
+        const key = await crypto.subtle.importKey(
+          "raw",
+          encoder.encode(webhookSecret),
+          { name: "HMAC", hash: "SHA-256" },
+          false,
+          ["sign"],
+        );
+        const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(rawBody));
+        const expected = Array.from(new Uint8Array(sig))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        if (signature !== expected) {
+          console.error("Invalid webhook signature", { received: signature, expected });
+          return new Response(JSON.stringify({ error: "Invalid signature" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
-      const encoder = new TextEncoder();
-      const key = await crypto.subtle.importKey(
-        "raw",
-        encoder.encode(webhookSecret),
-        { name: "HMAC", hash: "SHA-256" },
-        false,
-        ["sign"],
-      );
-      const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(rawBody));
-      const expected = Array.from(new Uint8Array(sig))
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
-      if (signature !== expected) {
-        console.warn("Invalid webhook signature");
-        return new Response(JSON.stringify({ error: "Invalid signature" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    } else {
+      console.warn("AVITO_WEBHOOK_SECRET is not set. Webhook signature verification is skipped.");
     }
 
     const payload: AvitoMessengerWebhookPayload = JSON.parse(rawBody);
 
     console.log("Avito Messenger webhook received", {
       event: payload.event,
-      chat_id: payload.chat_id,
-      message_id: payload.message_id,
+      chat_id: payload.chat_id || payload.chat?.id,
+      message_id: payload.message_id || payload.message?.id,
       user_id: payload.user_id,
-      item_id: payload.item_id,
+      item_id: payload.item_id || payload.chat?.item_id,
     });
 
     // Handle different event types
@@ -168,19 +172,29 @@ async function handleNewMessage(
   }
 
   const message = payload.message;
-  const chatId = payload.chat_id;
+  const chatId = payload.chat_id || payload.chat?.id;
+
+  if (!chatId) {
+    console.error("Missing chatId in message.new payload");
+    return;
+  }
 
   // Find chat by avito_chat_id
   const { data: chat, error: chatError } = await supabase
     .from("chats")
     .select("id, owner_id, avito_user_id")
     .eq("avito_chat_id", chatId)
-    .single();
+    .maybeSingle();
 
-  if (chatError || !chat) {
-    console.error("Chat not found", { chatId, error: chatError });
+  if (chatError) {
+    console.error("Database error looking up chat", { chatId, error: chatError });
+    return;
+  }
+
+  if (!chat) {
+    console.warn("Chat not found, attempting to create from message payload", { chatId });
     // Try to create chat if it doesn't exist
-    if (payload.chat && payload.user_id) {
+    if (payload.chat || payload.user_id || payload.account_id) {
       await handleNewChat(payload, supabase);
       // Retry finding chat
       const { data: retryChat } = await supabase
@@ -264,6 +278,7 @@ async function saveMessage(
       .single();
 
     if (chatOwner?.owner_id) {
+      console.log("Invoking send-push for user", chatOwner.owner_id, "for chat", chatId);
       // Fire-and-forget — don't block webhook response
       supabase.functions
         .invoke("send-push", {
@@ -272,10 +287,16 @@ async function saveMessage(
             title: chatOwner.contact_name ?? "Новое сообщение от Avito",
             body: content.text ?? "📷 Фото",
             tag: `avito-msg-${chatId}`,
-            url: "/?view=messages",
+            url: `/?view=messages&chatId=${chatId}`,
           },
         })
+        .then((res) => {
+          console.log("send-push response:", res.data);
+          if (res.error) console.error("send-push error:", res.error);
+        })
         .catch((e: unknown) => console.error("send-push invoke failed:", e));
+    } else {
+      console.warn("Could not find owner_id for chat to send push notification", { chatId });
     }
   }
 }
@@ -287,30 +308,40 @@ async function handleNewChat(
   payload: AvitoMessengerWebhookPayload,
   supabase: ReturnType<typeof createClient>
 ): Promise<void> {
-  if (!payload.chat || !payload.user_id) {
-    console.error("Missing chat or user_id in payload");
+  const chat = payload.chat;
+  const avitoUserId = String(payload.user_id || payload.account_id);
+
+  if (!chat && !payload.chat_id) {
+    console.error("Missing chat data in payload for handleNewChat");
     return;
   }
 
-  const chat = payload.chat;
-  const avitoUserId = String(payload.user_id);
+  if (!avitoUserId || avitoUserId === "undefined" || avitoUserId === "null") {
+    console.error("Missing valid user_id/account_id in payload for handleNewChat", { avitoUserId });
+    return;
+  }
+
+  const itemId = payload.item_id || chat?.item_id;
 
   // Find integration by avito_user_id; when item_id is present, filter by avito_item_id for correct property
+  // We use BIGINT in DB, so we pass as string to avoid precision issues in JSON/JS if large.
   let query = supabase
     .from("integrations")
     .select("id, property_id, avito_user_id")
-    .eq("avito_user_id", avitoUserId)
+    .or(`avito_user_id.eq.${avitoUserId},avito_account_id.eq.${avitoUserId}`)
     .eq("platform", "avito")
     .eq("is_active", true);
-  if (payload.item_id != null && payload.item_id !== "") {
-    query = query.eq("avito_item_id", String(payload.item_id));
+
+  // Avito item IDs can be stored as numbers in some places and strings in others, but BIGINT in DB.
+  if (itemId != null && itemId !== "" && itemId !== "0") {
+    query = query.eq("avito_item_id", String(itemId));
   }
   const { data: integration, error: integrationError } = await query.maybeSingle();
 
   if (integrationError || !integration) {
-    console.error("Integration not found", {
+    console.error("Integration not found for handleNewChat", {
       avitoUserId,
-      itemId: payload.item_id,
+      itemId,
       error: integrationError,
     });
     return;
@@ -329,18 +360,19 @@ async function handleNewChat(
   }
 
   // Find contact user (not the owner)
-  const contactUser = chat.users?.find((u) => u.user_id !== avitoUserId);
+  const contactUser = chat?.users?.find((u) => String(u.user_id) !== avitoUserId);
+  const avitoChatId = chat?.id || payload.chat_id;
 
   // Check if chat already exists
   const { data: existingChat } = await supabase
     .from("chats")
     .select("id")
-    .eq("avito_chat_id", chat.id)
+    .eq("avito_chat_id", avitoChatId)
     .eq("owner_id", property.owner_id)
     .maybeSingle();
 
   if (existingChat) {
-    console.log("Chat already exists", { chatId: chat.id });
+    console.log("Chat already exists", { chatId: avitoChatId });
     return;
   }
 
@@ -348,15 +380,15 @@ async function handleNewChat(
   const { error } = await supabase.from("chats").insert({
     owner_id: property.owner_id,
     property_id: integration.property_id,
-    avito_chat_id: chat.id,
+    avito_chat_id: avitoChatId,
     avito_user_id: avitoUserId,
-    avito_item_id: payload.item_id ? String(payload.item_id) : null,
+    avito_item_id: itemId ? String(itemId) : null,
     integration_id: integration.id,
     contact_name: contactUser?.name || null,
     contact_avatar_url: contactUser?.avatar?.url || null,
     status: "new",
     unread_count: 0,
-    last_message_at: toIsoDate(chat.updated ?? chat.created),
+    last_message_at: toIsoDate(chat?.updated ?? chat?.created),
   });
 
   if (error) {
@@ -364,7 +396,7 @@ async function handleNewChat(
     throw error;
   }
 
-  console.log("Chat saved", { chatId: chat.id, ownerId: property.owner_id });
+  console.log("Chat saved", { chatId: avitoChatId, ownerId: property.owner_id });
 }
 
 /**
