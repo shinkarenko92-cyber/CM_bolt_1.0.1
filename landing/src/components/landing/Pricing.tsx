@@ -67,14 +67,16 @@ export const Pricing = () => {
     <div className="py-24 bg-muted/20">
       <div className="container mx-auto px-4">
         <FadeIn className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1.5 rounded-full text-sm font-medium mb-4 border border-primary/20">
-            Тарифы
+          <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-700 px-3 py-1.5 rounded-full text-sm font-bold mb-4 border border-amber-200">
+            Спецпредложение
           </div>
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            Прозрачные тарифы
+            Начните на особых условиях
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto font-light mb-8">
-            Выберите план, который подходит вашему бизнесу
+            Для первых 10 пользователей мы подготовили специальное предложение.
+            <br />
+            <span className="font-bold text-foreground">Любой тариф за 500₽ в первый месяц.</span>
           </p>
         </FadeIn>
 

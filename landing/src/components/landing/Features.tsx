@@ -137,12 +137,6 @@ function FeatureCardWide({ feature }: { feature: typeof features[number] }) {
           <h3 className="text-2xl font-bold mb-2">{feature.title}</h3>
           <p className="text-muted-foreground leading-relaxed">{feature.description}</p>
         </div>
-        <div className="md:ml-auto flex-shrink-0">
-          <div className={`${feature.iconBg} ${feature.iconColor} rounded-xl px-5 py-3 text-center`}>
-            <div className="text-3xl font-bold">−80%</div>
-            <div className="text-xs font-medium mt-0.5 opacity-80">времени на рутину</div>
-          </div>
-        </div>
       </div>
     </div>
   );

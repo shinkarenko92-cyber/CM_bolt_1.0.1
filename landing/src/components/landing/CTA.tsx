@@ -16,12 +16,11 @@ export const CTA = () => {
 
             <div className="relative z-10 px-8 py-14 md:px-16 md:py-16 text-center">
               <h2 className="text-4xl md:text-5xl font-bold text-white mb-5 leading-tight">
-                Готовы увеличить доход
-                <br className="hidden md:block" /> от апартаментов?
+                Готовы автоматизировать
+                <br className="hidden md:block" /> свой бизнес?
               </h2>
               <p className="text-xl text-white/85 mb-10 max-w-2xl mx-auto font-light leading-relaxed">
-                Присоединяйтесь к тысячам владельцев апартаментов, которые уже
-                автоматизировали бизнес с Roomi
+                Станьте одним из первых 10 пользователей Roomi и закрепите за собой лучшие условия.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
@@ -31,7 +30,7 @@ export const CTA = () => {
                   asChild
                 >
                   <a href="https://app.roomi.pro" target="_blank" rel="noopener noreferrer">
-                    Начать бесплатно
+                    Начать за 500₽
                     <ArrowRight className="ml-2 w-5 h-5" />
                   </a>
                 </Button>

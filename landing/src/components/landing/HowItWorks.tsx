@@ -26,7 +26,7 @@ const steps = [
     icon: TrendingUp,
     step: "03",
     title: "Растите доход",
-    description: "Отслеживайте аналитику и оптимизируйте стратегию. Увеличьте доход до 40%.",
+    description: "Отслеживайте аналитику и оптимизируйте стратегию вашего бизнеса.",
     time: "с первого дня",
     color: "from-emerald-500 to-emerald-600",
     bgLight: "bg-emerald-500/10",

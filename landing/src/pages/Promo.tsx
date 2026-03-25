@@ -1,24 +1,28 @@
 import { Navbar } from "@/components/landing/Navbar";
-import { Hero } from "@/components/landing/Hero";
-import { Features } from "@/components/landing/Features";
+import { PromoHero } from "@/components/landing/PromoHero";
+import { PromoFeatures } from "@/components/landing/PromoFeatures";
 import { HowItWorks } from "@/components/landing/HowItWorks";
-import { Pricing } from "@/components/landing/Pricing";
+import { WhyEarly } from "@/components/landing/WhyEarly";
+import { PromoPricing } from "@/components/landing/PromoPricing";
 import { CTA } from "@/components/landing/CTA";
 import { Footer } from "@/components/landing/Footer";
 
-const Index = () => {
+const Promo = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      <Hero />
+      <PromoHero />
       <section id="features">
-        <Features />
+        <PromoFeatures />
+      </section>
+      <section id="why-early">
+        <WhyEarly />
       </section>
       <section id="how-it-works">
         <HowItWorks />
       </section>
       <section id="pricing">
-        <Pricing />
+        <PromoPricing />
       </section>
       <CTA />
       <Footer />
@@ -26,4 +30,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default Promo;
