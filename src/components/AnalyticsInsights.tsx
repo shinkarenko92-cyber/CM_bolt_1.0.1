@@ -306,7 +306,8 @@ export function AnalyticsInsights({ bookings, properties }: AnalyticsInsightsPro
                     <XAxis dataKey="week" tick={{ fontSize: 11 }} stroke="currentColor" className="text-muted-foreground" />
                     <YAxis hide />
                     <RechartsTooltip
-                      formatter={(value: number | undefined) => [value != null ? `${value}K ₽` : '', t('analytics.revenue')]}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      formatter={(value: any) => [value != null ? `${value}K ₽` : '', t('analytics.revenue')]}
                       contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
                     />
                     <Area
@@ -339,7 +340,8 @@ export function AnalyticsInsights({ bookings, properties }: AnalyticsInsightsPro
                     <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="currentColor" className="text-muted-foreground" />
                     <YAxis hide />
                     <RechartsTooltip
-                      formatter={(value: number | undefined) => [value ?? 0, t('analytics.bookingsCount')]}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      formatter={(value: any) => [value ?? 0, t('analytics.bookingsCount')]}
                       contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
                     />
                     <Bar dataKey="bookings" radius={[4, 4, 0, 0]} fill={ROOMI_PRIMARY} />

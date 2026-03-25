@@ -187,6 +187,8 @@ export function AddReservationModal({
       guests_count: prefilledBooking.guests_count?.toString() ?? '1',
       notes: prefilledBooking.notes || '',
       extra_services_amount: extra.toString(),
+      check_in_time: prefilledBooking.check_in_time || '14:00',
+      check_out_time: prefilledBooking.check_out_time || '12:00',
     }));
   }, [prefilledBooking]);
 
@@ -313,6 +315,8 @@ export function AddReservationModal({
         guest_phone: '',
         check_in: '',
         check_out: '',
+        check_in_time: '14:00',
+        check_out_time: '12:00',
         price_per_night: '',
         total_price: '',
         extra_services_amount: '0',

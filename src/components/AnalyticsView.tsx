@@ -942,7 +942,10 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <RechartsTooltip formatter={(value: number | undefined) => value !== undefined ? [`${formatCurrency(value)} ₽`, t('analytics.revenue')] : ['', '']} />
+                      <RechartsTooltip
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        formatter={(value: any) => value !== undefined ? [`${formatCurrency(Number(value))} ₽`, t('analytics.revenue')] : ['', '']}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -1061,7 +1064,8 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                     <XAxis dataKey="day" stroke="#9ca3af" fontSize={12} />
                     <YAxis stroke="#9ca3af" fontSize={12} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                     <RechartsTooltip
-                      formatter={(value: number | undefined) => [`${value ?? 0}%`, t('analytics.occupancyRate')]}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      formatter={(value: any) => [`${value ?? 0}%`, t('analytics.occupancyRate')]}
                       contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
                     />
                     <Bar dataKey="occupancy" name={t('analytics.occupancyRate')} fill="#3b82f6" radius={[4, 4, 0, 0]}>
