@@ -31,7 +31,25 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[ErrorBoundary] Uncaught error:', error, info.componentStack);
+    const context = {
+      message: error.message,
+      stack: error.stack,
+      componentStack: info.componentStack,
+      url: window.location.href,
+      userAgent: navigator.userAgent,
+      timestamp: new Date().toISOString(),
+    };
+    console.error('[ErrorBoundary] Uncaught error:', context);
+
+    // Отправляем ошибку в фоне (beacon не блокирует UI)
+    // Для подключения Sentry: Sentry.captureException(error, { extra: context })
+    try {
+      const payload = JSON.stringify(context);
+      navigator.sendBeacon?.('/api/errors', new Blob([payload], { type: 'application/json' }));
+    } catch {
+      // sendBeacon может быть недоступен — игнорируем
+    }
+
     this.props.onError?.(error, info);
   }
 

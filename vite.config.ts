@@ -20,7 +20,7 @@ export default defineConfig({
         short_name: 'Roomi',
         description: 'Управление уборками для уборщиц и администраторов',
         theme_color: '#0f172a',
-        background_color: '#ffffff',
+        background_color: '#0f172a',
         display: 'standalone',
         start_url: '/',
         icons: [

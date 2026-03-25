@@ -1098,6 +1098,7 @@ export function Dashboard() {
               onBookingUpdate={handleCalendarBookingUpdate}
               onPropertiesUpdate={setProperties}
               onDateSelectionReset={handleCalendarDateSelectionReset}
+              onRefresh={reloadDashboardData}
               refreshIntegrationsTrigger={refreshIntegrationsTrigger}
             />
             <AddReservationModal

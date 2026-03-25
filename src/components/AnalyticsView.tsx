@@ -614,11 +614,11 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             <p className="text-muted-foreground text-sm md:text-base mt-1">{t('analytics.subtitle')}</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
             <Tabs value={dateRangeType} onValueChange={(v) => setDateRangeType(v as DateRangeType)}>
-              <TabsList className="bg-muted">
-                <TabsTrigger value="month">Месяц</TabsTrigger>
-                <TabsTrigger value="custom" className="gap-1">
+              <TabsList className="bg-muted w-full sm:w-auto">
+                <TabsTrigger value="month" className="flex-1 sm:flex-none">Месяц</TabsTrigger>
+                <TabsTrigger value="custom" className="gap-1 flex-1 sm:flex-none">
                   <Calendar className="h-4 w-4" />
                   Период
                 </TabsTrigger>
@@ -627,7 +627,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
 
             {dateRangeType === 'month' ? (
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="w-[200px] h-10" data-testid="select-month">
+                <SelectTrigger className="w-full sm:w-[200px] h-10" data-testid="select-month">
                   <SelectValue placeholder="Месяц" />
                 </SelectTrigger>
                 <SelectContent>
@@ -644,20 +644,20 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
                   type="date"
                   value={customStartDate}
                   onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="h-10 w-[140px]"
+                  className="h-10 flex-1 sm:w-[140px]"
                 />
                 <span className="text-muted-foreground">—</span>
                 <Input
                   type="date"
                   value={customEndDate}
                   onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="h-10 w-[140px]"
+                  className="h-10 flex-1 sm:w-[140px]"
                 />
               </div>
             )}
 
             <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
-              <SelectTrigger className="w-[180px] h-10">
+              <SelectTrigger className="w-full sm:w-[180px] h-10">
                 <SelectValue placeholder={t('analytics.allProperties')} />
               </SelectTrigger>
               <SelectContent>
@@ -669,7 +669,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             </Select>
 
             <Select value={comparisonMode} onValueChange={(v) => setComparisonMode(v as ComparisonMode)}>
-              <SelectTrigger className="w-[220px] h-10" aria-label={t('analytics.compareWith')}>
+              <SelectTrigger className="w-full sm:w-[220px] h-10" aria-label={t('analytics.compareWith')}>
                 <SelectValue placeholder={t('analytics.compareWith')} />
               </SelectTrigger>
               <SelectContent>
@@ -682,7 +682,7 @@ export function AnalyticsView({ bookings, properties }: AnalyticsViewProps) {
             <button
               type="button"
               onClick={handleExportCsv}
-              className="flex items-center gap-2 h-10 px-4 rounded-md border border-border bg-background hover:bg-muted text-sm font-medium transition-colors"
+              className="flex items-center justify-center gap-2 h-10 px-4 rounded-md border border-border bg-background hover:bg-muted text-sm font-medium transition-colors"
             >
               <Download className="h-4 w-4" />
               {t('analytics.exportCsv')}
