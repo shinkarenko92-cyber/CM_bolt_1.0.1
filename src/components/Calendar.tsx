@@ -1050,16 +1050,18 @@ export function Calendar({
       )}
 
       <div className="bg-slate-800 border-b border-slate-700 px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
+            type="button"
             onClick={() => onAddReservation('', '', '')}
-            className="px-2 sm:px-4 py-2 bg-add-booking-bg hover:bg-add-booking-bg-hover text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-            title="Добавить бронь"
+            className="min-h-[44px] px-3 sm:px-4 py-2 bg-add-booking-bg hover:bg-add-booking-bg-hover text-white rounded-lg text-xs sm:text-sm font-medium transition-colors inline-flex items-center gap-2"
+            title={t('calendar.addBooking')}
           >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Добавить бронь</span>
+            <Plus className="w-4 h-4 shrink-0" />
+            <span>{t('calendar.addBooking')}</span>
           </button>
           <button
+            type="button"
             onClick={() => {
               const today = new Date();
               setConditionsModalData({
@@ -1072,11 +1074,11 @@ export function Calendar({
               });
               setShowConditionsModal(true);
             }}
-            className="px-2 sm:px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-            title="Изменить условия"
+            className="min-h-[44px] px-3 sm:px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs sm:text-sm font-medium transition-colors inline-flex items-center gap-2"
+            title={t('calendar.changeConditions')}
           >
-            <Settings className="w-4 h-4" />
-            <span className="hidden sm:inline">Изменить условия</span>
+            <Settings className="w-4 h-4 shrink-0" />
+            <span>{t('calendar.changeConditions')}</span>
           </button>
         </div>
       </div>

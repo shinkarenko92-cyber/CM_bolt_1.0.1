@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X } from 'lucide-react';
+import { User, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import { Booking, Property, supabase, BookingLog } from '@/lib/supabase';
+import { Booking, Guest, Property, supabase, BookingLog } from '@/lib/supabase';
+import { getBookingsForGuestDisplay, resolveGuestFromBooking } from '@/utils/guestResolve';
+import { GuestBookingHistoryList } from '@/components/GuestBookingHistoryList';
 import { PriceRecalculationModal } from '@/components/PriceRecalculationModal';
 import { calculateNights, validateDateRange, fetchCalculatedPrice } from '@/utils/bookingUtils';
 import { format } from 'date-fns';
@@ -26,6 +29,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 interface EditReservationModalProps {
   isOpen: boolean;
@@ -35,6 +40,11 @@ interface EditReservationModalProps {
   onUpdate: (id: string, data: Partial<Booking>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onDuplicate?: (booking: Booking) => void;
+  guests?: Guest[];
+  allBookings?: Booking[];
+  onOpenGuestProfile?: (guest: Guest) => void;
+  onCreateGuestAndLink?: (data: { name: string; email: string | null; phone: string | null }) => Promise<void>;
+  onLinkGuestId?: (guestId: string) => Promise<void>;
 }
 
 type HistoryEvent = {
@@ -52,6 +62,11 @@ export function EditReservationModal({
   onUpdate,
   onDelete,
   onDuplicate,
+  guests = [],
+  allBookings = [],
+  onOpenGuestProfile,
+  onCreateGuestAndLink,
+  onLinkGuestId,
 }: EditReservationModalProps) {
   const { t } = useTranslation();
 
@@ -114,6 +129,7 @@ export function EditReservationModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [guestActionLoading, setGuestActionLoading] = useState<'link' | 'create' | null>(null);
 
   useEffect(() => {
     if (booking) {
@@ -221,6 +237,17 @@ export function EditReservationModal({
     return events;
   }, [booking, bookingLogs]);
 
+  const resolvedGuest = useMemo(
+    () => (booking ? resolveGuestFromBooking(booking, guests) : null),
+    [booking, guests]
+  );
+
+  const guestHistoryBookings = useMemo(
+    () =>
+      booking && resolvedGuest ? getBookingsForGuestDisplay(booking, resolvedGuest, allBookings) : [],
+    [booking, resolvedGuest, allBookings]
+  );
+
   if (!booking) return null;
 
   const calculateNewPrice = async (
@@ -306,6 +333,43 @@ export function EditReservationModal({
     }
   };
 
+  const needsGuestLink = Boolean(resolvedGuest && !booking.guest_id);
+
+  const handleLinkGuest = async () => {
+    if (!resolvedGuest || !onLinkGuestId) return;
+    setGuestActionLoading('link');
+    try {
+      await onLinkGuestId(resolvedGuest.id);
+    } catch (e) {
+      console.error(e);
+      toast.error(t('errors.somethingWentWrong'));
+    } finally {
+      setGuestActionLoading(null);
+    }
+  };
+
+  const handleCreateGuestAndLinkClick = async () => {
+    if (!onCreateGuestAndLink) return;
+    const name = formData.guest_name.trim();
+    if (!name) {
+      toast.error(t('guests.nameRequiredForLink', { defaultValue: 'Укажите имя гостя на вкладке «Основное»' }));
+      return;
+    }
+    setGuestActionLoading('create');
+    try {
+      await onCreateGuestAndLink({
+        name,
+        email: formData.guest_email.trim() || null,
+        phone: formData.guest_phone.trim() || null,
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error(t('errors.somethingWentWrong'));
+    } finally {
+      setGuestActionLoading(null);
+    }
+  };
+
   const propertyName =
     properties.find(p => p.id === booking.property_id)?.name || t('common.unknown');
 
@@ -313,7 +377,7 @@ export function EditReservationModal({
     <>
       <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
         <DialogContent
-          className="max-w-lg w-[calc(100%-2rem)] max-h-[90vh] flex flex-col p-0 overflow-hidden"
+          className="max-w-xl w-[calc(100%-2rem)] max-h-[90vh] flex flex-col p-0 overflow-hidden"
           onPointerDownOutside={e => e.preventDefault()}
         >
           <DialogHeader className="p-6 pb-4 border-b border-border">
@@ -343,8 +407,12 @@ export function EditReservationModal({
             </div>
           ) : (
             <Tabs defaultValue="main" className="flex-1 flex flex-col min-h-0 overflow-hidden">
-              <TabsList className="mx-6 mt-2 w-auto shrink-0">
+              <TabsList className="mx-6 mt-2 w-auto shrink-0 flex-wrap h-auto gap-1">
                 <TabsTrigger value="main">{t('bookings.basicTab', { defaultValue: 'Основное' })}</TabsTrigger>
+                <TabsTrigger value="guest" className="gap-1.5">
+                  <User className="h-3.5 w-3.5" aria-hidden />
+                  {t('guests.tab', { defaultValue: 'Гость' })}
+                </TabsTrigger>
                 <TabsTrigger value="history">{t('history.tab', { defaultValue: 'История' })}</TabsTrigger>
               </TabsList>
               <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
@@ -583,6 +651,99 @@ export function EditReservationModal({
                       </div>
                     </div>
                   </form>
+                </TabsContent>
+                <TabsContent value="guest" className="mt-0 p-6 pt-4 space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" aria-hidden />
+                      {t('guests.cardTitle', { defaultValue: 'Карточка клиента' })}
+                    </h3>
+
+                    {resolvedGuest ? (
+                      <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                          <div className="space-y-1 min-w-0">
+                            <p className="font-semibold text-base truncate">{resolvedGuest.name}</p>
+                            {resolvedGuest.phone && (
+                              <p className="text-sm text-muted-foreground">{resolvedGuest.phone}</p>
+                            )}
+                            {resolvedGuest.email && (
+                              <p className="text-sm text-muted-foreground truncate">{resolvedGuest.email}</p>
+                            )}
+                            {resolvedGuest.tags && resolvedGuest.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 pt-1">
+                                {resolvedGuest.tags.map((tag) => (
+                                  <Badge key={tag} variant="secondary">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-2 shrink-0">
+                            {onOpenGuestProfile && (
+                              <Button type="button" variant="outline" size="sm" onClick={() => onOpenGuestProfile(resolvedGuest)}>
+                                {t('guests.openFullProfile', { defaultValue: 'Редактировать профиль' })}
+                              </Button>
+                            )}
+                            {needsGuestLink && onLinkGuestId && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={handleLinkGuest}
+                                disabled={guestActionLoading !== null}
+                              >
+                                {guestActionLoading === 'link' ? t('common.loading', { defaultValue: 'Загрузка...' }) : t('guests.linkBooking', { defaultValue: 'Привязать бронь к профилю' })}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        {needsGuestLink && (
+                          <p className="text-xs text-amber-600 dark:text-amber-500">
+                            {t('guests.matchedHint', { defaultValue: 'Профиль найден по телефону или email — привяжите бронь, чтобы данные совпадали.' })}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-border p-4 space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                          {t('guests.notLinked', { defaultValue: 'К брони не привязан профиль гостя из справочника.' })}
+                        </p>
+                        {onCreateGuestAndLink && (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleCreateGuestAndLinkClick}
+                            disabled={guestActionLoading !== null}
+                          >
+                            {guestActionLoading === 'create'
+                              ? t('common.loading', { defaultValue: 'Загрузка...' })
+                              : t('guests.createAndLinkCta', { defaultValue: 'Создать профиль и привязать' })}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <h3 className="text-sm font-medium mb-3">{t('guests.pastBookings', { defaultValue: 'Бронирования клиента' })}</h3>
+                    {resolvedGuest ? (
+                      <GuestBookingHistoryList
+                        bookings={guestHistoryBookings}
+                        properties={properties}
+                        currentBookingId={booking.id}
+                        emptyMessage={t('guests.noBookingHistory', { defaultValue: 'Нет истории бронирований' })}
+                        maxHeightClass="h-[220px]"
+                      />
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-2">
+                        {t('guests.historyNeedsProfile', { defaultValue: 'История появится после создания или привязки профиля гостя.' })}
+                      </p>
+                    )}
+                  </div>
                 </TabsContent>
                 <TabsContent value="history" className="mt-0 p-6 pt-4">
                   <h3 className="text-sm font-medium mb-4">{t('history.title', { defaultValue: 'История изменений' })}</h3>

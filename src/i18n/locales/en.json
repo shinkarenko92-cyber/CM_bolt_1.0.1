@@ -237,7 +237,20 @@
     "noGuests": "No guests yet",
     "noGuestsDesc": "Guests will appear here after adding bookings with name and contacts.",
     "noResults": "No results found. Try a different search.",
-    "shownCount": "Showing {{count}} of {{total}}. Refine search to filter."
+    "shownCount": "Showing {{count}} of {{total}}. Refine search to filter.",
+    "tab": "Guest",
+    "cardTitle": "Guest profile",
+    "openFullProfile": "Edit full profile",
+    "linkBooking": "Link booking to profile",
+    "matchedHint": "Profile matched by phone or email — link the booking to keep data in sync.",
+    "notLinked": "This booking is not linked to a guest in your directory.",
+    "createAndLinkCta": "Create profile and link",
+    "pastBookings": "Guest bookings",
+    "noBookingHistory": "No booking history",
+    "historyNeedsProfile": "History will appear after you create or link a guest profile.",
+    "propertyDeleted": "Property removed",
+    "currentBookingBadge": "This booking",
+    "nameRequiredForLink": "Enter the guest name on the Basic tab"
   },
   "properties": {
     "title": "Properties",
