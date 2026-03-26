@@ -822,6 +822,30 @@ export function Dashboard() {
     }
   };
 
+  const handleOpenGuestProfile = (guest: Guest) => {
+    setSelectedGuest(guest);
+    setIsGuestModalOpen(true);
+  };
+
+  const handleLinkGuestToBooking = async (guestId: string) => {
+    if (!selectedBooking) return;
+    await handleUpdateReservation(selectedBooking.id, { guest_id: guestId });
+    setSelectedBooking((prev) => (prev ? { ...prev, guest_id: guestId } : null));
+  };
+
+  const handleCreateGuestAndLink = async (data: { name: string; email: string | null; phone: string | null }) => {
+    if (!user || !selectedBooking) return;
+    const { data: newGuest, error } = await supabase
+      .from('guests')
+      .insert([{ name: data.name, email: data.email, phone: data.phone, owner_id: user.id }])
+      .select()
+      .single();
+    if (error) throw error;
+    setGuests((prev) => [...prev, newGuest]);
+    await handleUpdateReservation(selectedBooking.id, { guest_id: newGuest.id });
+    setSelectedBooking((prev) => (prev ? { ...prev, guest_id: newGuest.id } : null));
+  };
+
   return (
     <div className="flex h-screen bg-background text-foreground">
       {isCleaner && isMobile ? (
@@ -831,9 +855,14 @@ export function Dashboard() {
       )}
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="relative z-40 backdrop-blur-md bg-card/90 border-b border-border px-3 md:px-6 py-3 md:py-4 shadow-lg transition-shadow duration-200">
+        <header
+          className={cn(
+            'relative z-40 backdrop-blur-md bg-card/90 border-b border-border py-3 md:py-4 shadow-lg transition-shadow duration-200',
+            isMobile && !isCleaner ? 'pl-14 pr-3 md:px-6' : 'px-3 md:px-6'
+          )}
+        >
           <div className="flex items-center justify-between gap-2">
-            <div className="relative flex-1 max-w-md">
+            <div className="relative flex-1 min-w-0 max-w-[min(100%,11rem)] sm:max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
               <Input
                 ref={searchInputRef}
@@ -1160,6 +1189,11 @@ export function Dashboard() {
               onUpdate={handleUpdateReservation}
               onDelete={handleDeleteReservation}
               onDuplicate={handleDuplicateBooking}
+              guests={guests}
+              allBookings={bookings}
+              onOpenGuestProfile={handleOpenGuestProfile}
+              onCreateGuestAndLink={handleCreateGuestAndLink}
+              onLinkGuestId={handleLinkGuestToBooking}
             />
             <OverlapWarningModal
               isOpen={isOverlapWarningOpen}
