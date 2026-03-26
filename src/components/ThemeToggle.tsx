@@ -13,6 +13,7 @@ export function ThemeToggle() {
       size="icon"
       onClick={toggleTheme}
       title={theme === 'dark' ? t('settings.lightTheme') : t('settings.darkTheme')}
+      aria-label={theme === 'dark' ? t('settings.lightTheme') : t('settings.darkTheme')}
       className="rounded-full border border-slate-200 bg-white/80 text-slate-600 shadow-sm hover:bg-white hover:text-slate-800 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white"
     >
       {theme === 'dark' ? (

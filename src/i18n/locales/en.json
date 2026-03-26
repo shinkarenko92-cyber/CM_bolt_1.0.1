@@ -24,6 +24,7 @@
     "unknown": "Unknown",
     "underDevelopment": "This section is under development",
     "retry": "Retry",
+    "sync": "Synchronization",
     "justNow": "Just now",
     "minutesAgo": "min ago",
     "hoursAgo": "h ago",

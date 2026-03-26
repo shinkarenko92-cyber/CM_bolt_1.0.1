@@ -841,10 +841,25 @@ export function Dashboard() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => searchQuery && setShowSearchDropdown(true)}
-                placeholder={t('common.search')}
-                className="pl-9 md:pl-10 h-10"
+                placeholder={`${t('common.search')} [/]`}
+                aria-label={t('common.search')}
+                className="pl-9 md:pl-10 h-10 pr-9"
                 data-testid="input-search"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setShowSearchDropdown(false);
+                    searchInputRef.current?.focus();
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-accent text-muted-foreground transition-colors"
+                  aria-label={t('common.close')}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
               {showSearchDropdown && searchResults.length > 0 && (
                 <div className="absolute top-full mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-96 overflow-y-auto z-[100]">
                   <div className="px-3 py-2 border-b border-border text-xs text-muted-foreground">
@@ -901,16 +916,18 @@ export function Dashboard() {
             <div className="flex items-center gap-2 md:gap-4">
               <ThemeToggle />
 
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={handleSync}
-                className="p-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors relative"
-                title="Синхронизация с внешними API"
+                className="relative"
+                title={t('common.sync', { defaultValue: 'Синхронизация' })}
+                aria-label={t('common.sync', { defaultValue: 'Синхронизация' })}
                 data-testid="button-sync"
               >
                 <Bell className="h-4 w-4 md:h-5 md:w-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-brand rounded-full" />
-              </button>
+                <span className="absolute top-2 right-2 w-2 h-2 bg-brand rounded-full" />
+              </Button>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
