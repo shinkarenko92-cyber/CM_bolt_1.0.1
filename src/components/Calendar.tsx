@@ -69,7 +69,6 @@ type DragState = {
 export function Calendar({
   properties,
   bookings,
-  dateBlocks = [],
   onAddReservation,
   onEditReservation,
   onBookingUpdate,
@@ -78,6 +77,7 @@ export function Calendar({
   onDateSelectionReset,
   onRefresh,
   refreshIntegrationsTrigger,
+  dateBlocks = [],
 }: CalendarProps) {
   // We want the left edge to show 2 days before the anchor day (today / selected date).
   // With 60 days window where anchor is at index centerOffset, we scroll to (centerOffset - 2).
@@ -151,7 +151,8 @@ export function Calendar({
 
   useEffect(() => {
     // Intentionally use dateBlocks to satisfy lint/typecheck
-    if (dateBlocks && dateBlocks.length > 0) {
+    const db = dateBlocks;
+    if (db && db.length > 0) {
       // Logic for dateBlocks can be implemented here later
     }
   }, [dateBlocks]);

@@ -94,6 +94,7 @@ export function Dashboard() {
     properties, setProperties,
     bookings, setBookings,
     filteredBookings, setFilteredBookings,
+    dateBlocks,
     guests, setGuests,
     userProfile,
     loading,
@@ -1093,6 +1094,7 @@ export function Dashboard() {
             <Calendar
               properties={properties}
               bookings={bookings}
+              dateBlocks={dateBlocks}
               onAddReservation={handleAddReservation}
               onEditReservation={handleEditReservation}
               onBookingUpdate={handleCalendarBookingUpdate}

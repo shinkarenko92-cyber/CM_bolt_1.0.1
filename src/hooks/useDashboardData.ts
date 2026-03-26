@@ -9,7 +9,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { supabase, Property, Booking, Profile, Guest } from '@/lib/supabase';
+import { supabase, Property, Booking, Profile, Guest, DateBlock } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { retryQuery } from '@/utils/retryQuery';
 
@@ -21,6 +21,7 @@ export interface UseDashboardDataReturn {
   properties: Property[];
   bookings: Booking[];
   filteredBookings: Booking[];
+  dateBlocks: DateBlock[];
   guests: Guest[];
   userProfile: Profile | null;
   loading: boolean;
@@ -28,6 +29,7 @@ export interface UseDashboardDataReturn {
   setProperties: React.Dispatch<React.SetStateAction<Property[]>>;
   setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
   setFilteredBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
+  setDateBlocks: React.Dispatch<React.SetStateAction<DateBlock[]>>;
   setGuests: React.Dispatch<React.SetStateAction<Guest[]>>;
   setUserProfile: React.Dispatch<React.SetStateAction<Profile | null>>;
   reload: () => void;
@@ -40,6 +42,7 @@ export function useDashboardData(): UseDashboardDataReturn {
   const [properties, setProperties] = useState<Property[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
+  const [dateBlocks, setDateBlocks] = useState<DateBlock[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -109,6 +112,26 @@ export function useDashboardData(): UseDashboardDataReturn {
             setBookings(bookingsData);
             setFilteredBookings(bookingsData);
           }
+
+          // Date Blocks
+          const { data: dateBlocksData } = await retryQuery<DateBlock[]>(
+            async () => {
+              const r = await supabase
+                .from('date_blocks')
+                .select('*')
+                .in('property_id', propertyIds);
+              return {
+                data: r.data,
+                error: r.error
+                  ? { message: r.error.message, details: r.error.details, hint: r.error.hint, code: r.error.code }
+                  : null,
+              };
+            }
+          );
+
+          if (dateBlocksData) {
+            setDateBlocks(dateBlocksData);
+          }
         }
       }
 
@@ -177,6 +200,7 @@ export function useDashboardData(): UseDashboardDataReturn {
     properties,
     bookings,
     filteredBookings,
+    dateBlocks,
     guests,
     userProfile,
     loading,
@@ -184,6 +208,7 @@ export function useDashboardData(): UseDashboardDataReturn {
     setProperties,
     setBookings,
     setFilteredBookings,
+    setDateBlocks,
     setGuests,
     setUserProfile,
     reload: () => loadDataRef.current(),
