@@ -151,11 +151,11 @@ export function Calendar({
 
   useEffect(() => {
     // Intentionally use dateBlocks to satisfy lint/typecheck
-    // but without causing any functional changes if they are not yet fully implemented
     if (dateBlocks && dateBlocks.length > 0) {
-      console.debug('dateBlocks provided', dateBlocks.length);
+      // Logic for dateBlocks can be implemented here later
     }
   }, [dateBlocks]);
+
   /** Высота строки с датами (sticky header) внутри scroll-контейнера — для корректного расчёта Y при перетаскивании */
   const DATES_HEADER_HEIGHT = 56;
 

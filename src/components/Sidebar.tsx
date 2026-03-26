@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, Home, Settings, BarChart3, Users, LogOut, Shield, Menu, X, MessageCircle, Sparkles } from 'lucide-react';
+import { Calendar, Home, Settings, BarChart3, Users, LogOut, Shield, MessageCircle, Sparkles, Menu, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
