@@ -44,7 +44,6 @@ type CalendarProps = {
   onAddReservation: (propertyId: string, checkIn: string, checkOut: string) => void;
   onEditReservation: (booking: Booking) => void;
   onBookingUpdate: (bookingId: string, updates: Partial<Booking>) => void;
-  onBlockDates?: (propertyId: string, startDate: string, endDate: string) => void;
   onPropertiesUpdate?: (properties: Property[]) => void;
   onDateSelectionReset?: () => void;
   /** Called when user performs pull-to-refresh gesture */
@@ -72,7 +71,6 @@ export function Calendar({
   onAddReservation,
   onEditReservation,
   onBookingUpdate,
-  onBlockDates,
   onPropertiesUpdate,
   onDateSelectionReset,
   onRefresh,

@@ -313,6 +313,8 @@ export function AddReservationModal({
         guest_phone: '',
         check_in: '',
         check_out: '',
+        check_in_time: '14:00',
+        check_out_time: '12:00',
         price_per_night: '',
         total_price: '',
         extra_services_amount: '0',
