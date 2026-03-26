@@ -44,6 +44,8 @@ interface AddReservationModalProps {
     guest_phone: string;
     check_in: string;
     check_out: string;
+    check_in_time?: string | null;
+    check_out_time?: string | null;
     total_price: number;
     currency: string;
     status: string;
@@ -80,6 +82,8 @@ export function AddReservationModal({
     guest_phone: '',
     check_in: '',
     check_out: '',
+    check_in_time: '14:00',
+    check_out_time: '12:00',
     price_per_night: '',
     total_price: '',
     extra_services_amount: '0',
@@ -113,6 +117,8 @@ export function AddReservationModal({
         guest_phone: '',
         check_in: '',
         check_out: '',
+        check_in_time: '14:00',
+        check_out_time: '12:00',
         price_per_night: '',
         total_price: '',
         extra_services_amount: '0',
@@ -140,6 +146,8 @@ export function AddReservationModal({
           ...prev,
           price_per_night: Math.round(property.base_price || 0).toString(),
           currency: property.currency || 'RUB',
+          check_in_time: property.default_check_in_time || '14:00',
+          check_out_time: property.default_check_out_time || '12:00',
         }));
       }
     }
@@ -281,6 +289,8 @@ export function AddReservationModal({
         guest_phone: formData.guest_phone || '',
         check_in: formData.check_in,
         check_out: formData.check_out,
+        check_in_time: formData.check_in_time || '14:00',
+        check_out_time: formData.check_out_time || '12:00',
         total_price: Math.round(parseFloat(formData.total_price) || 0),
         currency: formData.currency,
         status: formData.status,
@@ -303,6 +313,8 @@ export function AddReservationModal({
         guest_phone: '',
         check_in: '',
         check_out: '',
+        check_in_time: '14:00',
+        check_out_time: '12:00',
         price_per_night: '',
         total_price: '',
         extra_services_amount: '0',
@@ -526,35 +538,53 @@ export function AddReservationModal({
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>{t('modals.checkIn')} *</Label>
-                      <Input
-                        type="date"
-                        value={formData.check_in}
-                        onChange={e => {
-                          setFormData(prev => ({ ...prev, check_in: e.target.value }));
-                          setError(null);
-                          setErrorType(null);
-                        }}
-                        required
-                        className={cn(
-                          invalidRequired && !formData.check_in && 'border-destructive ring-2 ring-destructive/50'
-                        )}
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          type="date"
+                          value={formData.check_in}
+                          onChange={e => {
+                            setFormData(prev => ({ ...prev, check_in: e.target.value }));
+                            setError(null);
+                            setErrorType(null);
+                          }}
+                          required
+                          className={cn(
+                            'flex-1',
+                            invalidRequired && !formData.check_in && 'border-destructive ring-2 ring-destructive/50'
+                          )}
+                        />
+                        <Input
+                          type="time"
+                          value={formData.check_in_time}
+                          onChange={e => setFormData(prev => ({ ...prev, check_in_time: e.target.value }))}
+                          className="w-24"
+                        />
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label>{t('modals.checkOut')} *</Label>
-                      <Input
-                        type="date"
-                        value={formData.check_out}
-                        onChange={e => {
-                          setFormData(prev => ({ ...prev, check_out: e.target.value }));
-                          setError(null);
-                          setErrorType(null);
-                        }}
-                        required
-                        className={cn(
-                          invalidRequired && !formData.check_out && 'border-destructive ring-2 ring-destructive/50'
-                        )}
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          type="date"
+                          value={formData.check_out}
+                          onChange={e => {
+                            setFormData(prev => ({ ...prev, check_out: e.target.value }));
+                            setError(null);
+                            setErrorType(null);
+                          }}
+                          required
+                          className={cn(
+                            'flex-1',
+                            invalidRequired && !formData.check_out && 'border-destructive ring-2 ring-destructive/50'
+                          )}
+                        />
+                        <Input
+                          type="time"
+                          value={formData.check_out_time}
+                          onChange={e => setFormData(prev => ({ ...prev, check_out_time: e.target.value }))}
+                          className="w-24"
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -646,8 +676,12 @@ export function AddReservationModal({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="confirmed">{t('bookings.confirmed')}</SelectItem>
+                          <SelectItem value="inquiry">{t('bookings.inquiry', { defaultValue: 'Запрос' })}</SelectItem>
                           <SelectItem value="pending">{t('bookings.pending')}</SelectItem>
+                          <SelectItem value="confirmed">{t('bookings.confirmed')}</SelectItem>
+                          <SelectItem value="checked_in">{t('bookings.checked_in', { defaultValue: 'Заселён' })}</SelectItem>
+                          <SelectItem value="checked_out">{t('bookings.checked_out', { defaultValue: 'Выселен' })}</SelectItem>
+                          <SelectItem value="no_show">{t('bookings.no_show', { defaultValue: 'Неявка' })}</SelectItem>
                           <SelectItem value="cancelled">{t('bookings.cancelled')}</SelectItem>
                         </SelectContent>
                       </Select>
@@ -763,32 +797,27 @@ export function AddReservationModal({
       {showConditionsModal &&
         formData.property_id &&
         formData.check_in &&
-        formData.check_out && (() => {
-          const checkOutDate = new Date(formData.check_out);
-          checkOutDate.setDate(checkOutDate.getDate() - 1);
-          const endDateForConditions = checkOutDate.toISOString().split('T')[0];
-          return (
-            <ChangeConditionsModal
-              isOpen={showConditionsModal}
-              onClose={() => setShowConditionsModal(false)}
-              onSuccess={async () => {
-                await calculatePrice(
-                  formData.property_id,
-                  formData.check_in,
-                  formData.check_out
-                );
-                setShowConditionsModal(false);
-              }}
-              propertyId={formData.property_id}
-              startDate={formData.check_in}
-              endDate={endDateForConditions}
-              currentPrice={currentDailyPrice}
-              currentMinStay={currentMinStay}
-              currency={formData.currency}
-              properties={properties}
-            />
-          );
-        })()}
+        formData.check_out && (
+          <ChangeConditionsModal
+            isOpen={showConditionsModal}
+            onClose={() => setShowConditionsModal(false)}
+            onSuccess={async () => {
+              await calculatePrice(
+                formData.property_id,
+                formData.check_in,
+                formData.check_out
+              );
+              setShowConditionsModal(false);
+            }}
+            propertyId={formData.property_id}
+            startDate={formData.check_in}
+            endDate={formData.check_out}
+            currentPrice={currentDailyPrice}
+            currentMinStay={currentMinStay}
+            currency={formData.currency}
+            properties={properties}
+          />
+        )}
     </>
   );
 }

@@ -2,7 +2,6 @@
  * Парсинг Excel файлов для импорта броней
  */
 
-import * as XLSX from 'xlsx';
 import { parseDate } from '@/utils/dateParser';
 import { parseGuestContacts } from '@/utils/guestParser';
 
@@ -28,7 +27,9 @@ export interface ParseResult {
 /**
  * Парсит Excel файл и возвращает массив броней
  */
-export function parseExcelFile(file: File): Promise<ParseResult> {
+export async function parseExcelFile(file: File): Promise<ParseResult> {
+  const XLSX = await import('xlsx');
+
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 

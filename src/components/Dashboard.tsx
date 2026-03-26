@@ -197,6 +197,16 @@ export function Dashboard() {
     }
   }, [t, setChats]);
 
+  const handleMarkAllRead = useCallback(async () => {
+    const unreadChatIds = chats.filter(c => c.unread_count > 0).map(c => c.id);
+    if (!unreadChatIds.length) return;
+    // Update state immediately
+    setChats(prev => prev.map(c => c.unread_count > 0 ? { ...c, unread_count: 0 } : c));
+    // Persist to DB
+    await supabase.from('chats').update({ unread_count: 0 }).in('id', unreadChatIds);
+    await supabase.from('messages').update({ is_read: true }).in('chat_id', unreadChatIds).eq('is_read', false).eq('sender_type', 'contact');
+  }, [chats, setChats]);
+
   // Проверяем OAuth callback и автоматически переключаемся на Properties
   useEffect(() => {
     const oauthSuccess = getOAuthSuccess();
@@ -812,6 +822,30 @@ export function Dashboard() {
     }
   };
 
+  const handleOpenGuestProfile = (guest: Guest) => {
+    setSelectedGuest(guest);
+    setIsGuestModalOpen(true);
+  };
+
+  const handleLinkGuestToBooking = async (guestId: string) => {
+    if (!selectedBooking) return;
+    await handleUpdateReservation(selectedBooking.id, { guest_id: guestId });
+    setSelectedBooking((prev) => (prev ? { ...prev, guest_id: guestId } : null));
+  };
+
+  const handleCreateGuestAndLink = async (data: { name: string; email: string | null; phone: string | null }) => {
+    if (!user || !selectedBooking) return;
+    const { data: newGuest, error } = await supabase
+      .from('guests')
+      .insert([{ name: data.name, email: data.email, phone: data.phone, owner_id: user.id }])
+      .select()
+      .single();
+    if (error) throw error;
+    setGuests((prev) => [...prev, newGuest]);
+    await handleUpdateReservation(selectedBooking.id, { guest_id: newGuest.id });
+    setSelectedBooking((prev) => (prev ? { ...prev, guest_id: newGuest.id } : null));
+  };
+
   return (
     <div className="flex h-screen bg-background text-foreground">
       {isMobile ? (
@@ -821,19 +855,14 @@ export function Dashboard() {
       )}
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="relative z-40 backdrop-blur-md bg-card/90 border-b border-border px-3 md:px-6 py-1.5 md:py-4 shadow-md transition-shadow duration-200">
+        <header
+          className={cn(
+            'relative z-40 backdrop-blur-md bg-card/90 border-b border-border py-3 md:py-4 shadow-lg transition-shadow duration-200',
+            isMobile && !isCleaner ? 'pl-14 pr-3 md:px-6' : 'px-3 md:px-6'
+          )}
+        >
           <div className="flex items-center justify-between gap-2">
-            {!isMobile && (
-              <div className="md:hidden flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand text-brand-foreground mr-2">
-                <Calendar className="h-5 w-5" />
-              </div>
-            )}
-            {isMobile && (
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand text-brand-foreground mr-0.5 ml-0.5">
-                <Calendar className="h-4 w-4" />
-              </div>
-            )}
-            <div className="relative flex-1 max-w-md">
+            <div className="relative flex-1 min-w-0 max-w-[min(100%,11rem)] sm:max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
               <Input
                 ref={searchInputRef}
@@ -995,30 +1024,33 @@ export function Dashboard() {
           />
         ) : currentView === 'messages' ? (
           <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-            <header className="h-16 border-b border-border flex items-center justify-between px-6 shrink-0">
-              <h2 className="text-lg font-bold">{t('messages.title', 'Сообщения')}</h2>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setAccountsModalOpen(true)}>
-                <Plug2 className="h-4 w-4" />
-              </Button>
-            </header>
+            {/* Header - hide on mobile when chat is open */}
+            {(!isMobile || !selectedChatId) && (
+              <header className="h-16 border-b border-border flex items-center justify-between px-6 shrink-0">
+                <h2 className="text-lg font-bold">{t('messages.title', 'Сообщения')}</h2>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setAccountsModalOpen(true)}>
+                  <Plug2 className="h-4 w-4" />
+                </Button>
+              </header>
+            )}
             <div className="flex-1 flex overflow-hidden min-h-0">
-              <div className={cn(
-                "flex flex-col min-h-0 transition-all duration-300",
-                isMobile ? (selectedChatId ? "w-0 opacity-0 pointer-events-none" : "flex-1") : "w-80 shrink-0 border-r border-border"
-              )}>
-                <MessagesView
-                  chats={chats}
-                  properties={properties}
-                  selectedChatId={selectedChatId}
-                  onSelectChat={setSelectedChatId}
-                  hasMessengerAccess={hasMessengerAccess}
-                  integrationsForMessenger={avitoIntegrationsForMessages}
-                  onRequestMessengerAuth={handleAvitoMessengerAuth}
-                  onGoToProperties={() => setCurrentView('properties')}
-                  onRefresh={() => syncChatsFromAvitoRef.current()}
-                  isSyncing={isSyncing}
-                />
-              </div>
+              {/* Chat list - full width on mobile, hidden when chat is open on mobile */}
+              {(!isMobile || !selectedChatId) && (
+                <div className={`${isMobile ? 'flex-1' : 'w-80 shrink-0 border-r border-border'} flex flex-col min-h-0`}>
+                  <MessagesView
+                    chats={chats}
+                    properties={properties}
+                    selectedChatId={selectedChatId}
+                    onSelectChat={setSelectedChatId}
+                    hasMessengerAccess={hasMessengerAccess}
+                    integrationsForMessenger={avitoIntegrationsForMessages}
+                    onRequestMessengerAuth={handleAvitoMessengerAuth}
+                    onGoToProperties={() => setCurrentView('properties')}
+                    onMarkAllRead={handleMarkAllRead}
+                  />
+                </div>
+              )}
+              {/* Chat panel - full width on mobile */}
               {selectedChatId ? (
                 <div className="flex-1 flex flex-col min-w-0">
                   <ChatPanel
@@ -1042,13 +1074,13 @@ export function Dashboard() {
                     onBack={isMobile ? () => setSelectedChatId(null) : undefined}
                   />
                 </div>
-              ) : !isMobile && (
+              ) : !isMobile ? (
                 <div className="flex-1 flex items-center justify-center bg-muted/30 border-l border-border">
                   <div className="text-center px-6">
                     <p className="text-muted-foreground">{t('messages.selectChat', 'Выберите чат')}</p>
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         ) : currentView === 'analytics' ? (
@@ -1095,6 +1127,7 @@ export function Dashboard() {
               onBookingUpdate={handleCalendarBookingUpdate}
               onPropertiesUpdate={setProperties}
               onDateSelectionReset={handleCalendarDateSelectionReset}
+              onRefresh={reloadDashboardData}
               refreshIntegrationsTrigger={refreshIntegrationsTrigger}
             />
             <AddReservationModal
@@ -1139,6 +1172,11 @@ export function Dashboard() {
               onUpdate={handleUpdateReservation}
               onDelete={handleDeleteReservation}
               onDuplicate={handleDuplicateBooking}
+              guests={guests}
+              allBookings={bookings}
+              onOpenGuestProfile={handleOpenGuestProfile}
+              onCreateGuestAndLink={handleCreateGuestAndLink}
+              onLinkGuestId={handleLinkGuestToBooking}
             />
             <OverlapWarningModal
               isOpen={isOverlapWarningOpen}

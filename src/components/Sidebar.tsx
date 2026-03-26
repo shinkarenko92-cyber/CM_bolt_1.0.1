@@ -57,8 +57,14 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
       >
         <div className="p-4 md:p-5 border-b border-border">
           <div className="flex items-center gap-3 pl-8 md:pl-0">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand text-brand-foreground">
-              <Calendar className="h-5 w-5" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white overflow-hidden">
+              <img
+                src="/favicon-v2.png"
+                alt="Roomi logo"
+                className="h-9 w-9 object-contain"
+                loading="eager"
+                decoding="async"
+              />
             </div>
             <div>
               <h1 className="font-bold text-base md:text-lg tracking-tight text-black">Roomi</h1>

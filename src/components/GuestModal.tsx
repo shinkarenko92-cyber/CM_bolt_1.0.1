@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { History, Loader2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -13,8 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Guest, Booking, Property } from '@/lib/supabase';
+import { GuestBookingHistoryList } from '@/components/GuestBookingHistoryList';
 
 interface GuestModalProps {
     isOpen: boolean;
@@ -26,6 +27,7 @@ interface GuestModalProps {
 }
 
 export function GuestModal({ isOpen, onClose, guest, bookings, properties, onSave }: GuestModalProps) {
+    const { t } = useTranslation();
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -56,9 +58,13 @@ export function GuestModal({ isOpen, onClose, guest, bookings, properties, onSav
         }
     }, [guest, isOpen]);
 
-    const guestBookings = bookings
-        .filter(b => b.guest_id === guest?.id)
-        .sort((a, b) => new Date(b.check_in).getTime() - new Date(a.check_in).getTime());
+    const guestBookings = useMemo(
+        () =>
+            bookings
+                .filter((b) => b.guest_id === guest?.id)
+                .sort((a, b) => new Date(b.check_in).getTime() - new Date(a.check_in).getTime()),
+        [bookings, guest?.id]
+    );
 
     const handleAddTag = () => {
         if (newTag && !formData.tags.includes(newTag)) {
@@ -87,8 +93,6 @@ export function GuestModal({ isOpen, onClose, guest, bookings, properties, onSav
             setLoading(false);
         }
     };
-
-    const getPropertyName = (id: string) => properties.find(p => p.id === id)?.name || 'Объект удален';
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -170,32 +174,11 @@ export function GuestModal({ isOpen, onClose, guest, bookings, properties, onSav
                             <History size={18} />
                             История бронирований
                         </h3>
-                        {guestBookings.length === 0 ? (
-                            <p className="text-muted-foreground text-center py-4">Нет истории бронирований</p>
-                        ) : (
-                            <ScrollArea className="h-[200px] rounded-md border border-border">
-                                <ul className="divide-y divide-border p-0 m-0 list-none">
-                                    {guestBookings.map(booking => (
-                                        <li key={booking.id} className="py-3 px-0">
-                                            <div className="w-full flex items-center justify-between">
-                                                <div>
-                                                    <div className="font-medium">{getPropertyName(booking.property_id)}</div>
-                                                    <div className="text-xs text-muted-foreground">
-                                                        {new Date(booking.check_in).toLocaleDateString('ru-RU')} — {new Date(booking.check_out).toLocaleDateString('ru-RU')}
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="text-primary font-semibold">{booking.total_price.toLocaleString()} ₽</div>
-                                                    <Badge variant={booking.status === 'confirmed' ? 'success' : 'secondary'}>
-                                                        {booking.status}
-                                                    </Badge>
-                                                </div>
-                                            </div>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </ScrollArea>
-                        )}
+                        <GuestBookingHistoryList
+                            bookings={guestBookings}
+                            properties={properties}
+                            emptyMessage={t('guests.noBookingHistory', { defaultValue: 'Нет истории бронирований' })}
+                        />
                     </div>
 
                     <div className="flex justify-end gap-3 pt-4 border-t border-border">

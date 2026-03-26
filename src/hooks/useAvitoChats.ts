@@ -566,8 +566,8 @@ export function useAvitoChats(
 
     // Reset unread count immediately in state
     setChats(prev => prev.map(c => c.id === selectedChatId && c.unread_count > 0 ? { ...c, unread_count: 0 } : c));
-    // Persist to DB (fire-and-forget)
-    supabase.from('chats').update({ unread_count: 0 }).eq('id', selectedChatId).then(({ error }) => {
+    // Persist to DB (fire-and-forget) — also reset last_push_unread so poller can re-notify next time
+    supabase.from('chats').update({ unread_count: 0, last_push_unread: 0 }).eq('id', selectedChatId).then(({ error }) => {
       if (error) console.error('Error resetting unread_count:', error);
     });
     supabase.from('messages').update({ is_read: true }).eq('chat_id', selectedChatId).eq('is_read', false).eq('sender_type', 'contact').then(({ error }) => {

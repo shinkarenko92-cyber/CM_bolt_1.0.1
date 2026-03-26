@@ -13,7 +13,7 @@ import {
 import type { CleaningTask, Cleaner, CleaningStatus } from '@/types/cleaning';
 import { updateTaskSchedule } from '@/services/cleaning';
 import { cn } from '@/lib/utils';
-import { MapPin, Clock } from 'lucide-react';
+import { MapPin, Clock, GripVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const HOURS = Array.from({ length: 17 }, (_, i) => i + 8);
@@ -82,10 +82,13 @@ function DroppableSlot({
 function DraggableTaskCard({
   task,
   cleaners,
+  onOpenDetail,
 }: {
   task: CleaningTask;
   cleaners: Cleaner[];
+  onOpenDetail?: (task: CleaningTask) => void;
 }) {
+  const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
   const cleaner = task.cleaner_id ? cleaners.find((c) => c.id === task.cleaner_id) : null;
   const color = cleaner?.color || '#94a3b8';
@@ -94,34 +97,53 @@ function DraggableTaskCard({
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
       className={cn(
-        'text-[11px] leading-tight rounded-md px-2 py-1.5 cursor-grab active:cursor-grabbing',
+        'flex text-[11px] leading-tight rounded-md overflow-hidden',
         'bg-white dark:bg-card border shadow-sm hover:shadow transition-shadow',
         isDragging && 'opacity-40 shadow-lg',
       )}
       style={{ borderLeft: `3px solid ${color}` }}
     >
-      <div className="flex items-center justify-between gap-1 mb-0.5">
-        <div className="flex items-center gap-1 text-muted-foreground">
-          <Clock className="h-2.5 w-2.5" />
-          <span>{time}</span>
+      <button
+        type="button"
+        {...listeners}
+        {...attributes}
+        className={cn(
+          'shrink-0 px-1 py-1.5 cursor-grab active:cursor-grabbing touch-none',
+          'text-muted-foreground hover:bg-muted/60 border-r border-border/40',
+        )}
+        title={t('cleaning.admin.dragToMove', { defaultValue: 'Перенести' })}
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        className={cn(
+          'flex-1 min-w-0 text-left px-2 py-1.5 cursor-pointer',
+          'hover:bg-muted/40 transition-colors',
+        )}
+        onClick={() => onOpenDetail?.(task)}
+      >
+        <div className="flex items-center justify-between gap-1 mb-0.5">
+          <div className="flex items-center gap-1 text-muted-foreground">
+            <Clock className="h-2.5 w-2.5" />
+            <span>{time}</span>
+          </div>
+          <span
+            className={cn('w-2 h-2 rounded-full shrink-0', STATUS_DOT[task.status])}
+            title={task.status}
+          />
         </div>
-        <span
-          className={cn('w-2 h-2 rounded-full shrink-0', STATUS_DOT[task.status])}
-          title={task.status}
-        />
-      </div>
-      {task.address && (
-        <div className="flex items-start gap-1">
-          <MapPin className="h-2.5 w-2.5 mt-0.5 shrink-0 text-muted-foreground" />
-          <span className="font-medium truncate">{task.address}</span>
+        {task.address && (
+          <div className="flex items-start gap-1">
+            <MapPin className="h-2.5 w-2.5 mt-0.5 shrink-0 text-muted-foreground" />
+            <span className="font-medium truncate">{task.address}</span>
+          </div>
+        )}
+        <div className="text-muted-foreground truncate mt-0.5" style={{ color }}>
+          {cleaner?.full_name ?? '—'}
         </div>
-      )}
-      <div className="text-muted-foreground truncate mt-0.5" style={{ color }}>
-        {cleaner?.full_name ?? '—'}
-      </div>
+      </button>
     </div>
   );
 }
@@ -131,6 +153,7 @@ type WeeklyCalendarProps = {
   tasks: CleaningTask[];
   cleaners: Cleaner[];
   onRefresh: () => void;
+  onTaskClick?: (task: CleaningTask) => void;
 };
 
 export function WeeklyCalendar({
@@ -138,6 +161,7 @@ export function WeeklyCalendar({
   tasks,
   cleaners,
   onRefresh,
+  onTaskClick,
 }: WeeklyCalendarProps) {
   const { t, i18n } = useTranslation();
   const weekDays = getWeekDays(weekStart);
@@ -257,6 +281,7 @@ export function WeeklyCalendar({
                               key={task.id}
                               task={task}
                               cleaners={cleaners}
+                              onOpenDetail={onTaskClick}
                             />
                           ))}
                         </div>

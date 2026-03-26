@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Plus, Settings, Moon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import { parseISO, format, isBefore, isSameDay, differenceInDays } from 'date-fns';
-import { Property, Booking, PropertyRate, supabase } from '@/lib/supabase';
+import { parseISO, format, isBefore, isSameDay, differenceInDays, addDays } from 'date-fns';
+import { Property, Booking, PropertyRate, DateBlock, supabase } from '@/lib/supabase';
 import { CalendarHeader } from '@/components/CalendarHeader';
 import { BookingBlock } from '@/components/BookingBlock';
 import { ChangeConditionsModal } from '@/components/ChangeConditionsModal';
@@ -40,11 +40,14 @@ import { Button } from '@/components/ui/button';
 type CalendarProps = {
   properties: Property[];
   bookings: Booking[];
+  dateBlocks?: DateBlock[];
   onAddReservation: (propertyId: string, checkIn: string, checkOut: string) => void;
   onEditReservation: (booking: Booking) => void;
   onBookingUpdate: (bookingId: string, updates: Partial<Booking>) => void;
   onPropertiesUpdate?: (properties: Property[]) => void;
   onDateSelectionReset?: () => void;
+  /** Called when user performs pull-to-refresh gesture */
+  onRefresh?: () => void;
   /** Increment to refresh Avito markup (e.g. after editing markup in PropertyModal) */
   refreshIntegrationsTrigger?: number;
 };
@@ -70,6 +73,7 @@ export function Calendar({
   onBookingUpdate,
   onPropertiesUpdate,
   onDateSelectionReset,
+  onRefresh,
   refreshIntegrationsTrigger,
 }: CalendarProps) {
   // We want the left edge to show 2 days before the anchor day (today / selected date).
@@ -126,7 +130,21 @@ export function Calendar({
   const seenPropertyIds = useRef<Set<string>>(new Set());
   const justDroppedRef = useRef(false);
 
-  const CELL_WIDTH = 64;
+  // Pull-to-refresh state
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const pullStartY = useRef<number | null>(null);
+  const PULL_THRESHOLD = 64;
+
+  const [cellWidth, setCellWidth] = useState(() => window.innerWidth < 640 ? 48 : 64);
+
+  useEffect(() => {
+    const handleResize = () => setCellWidth(window.innerWidth < 640 ? 48 : 64);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const CELL_WIDTH = cellWidth;
   const ROW_HEIGHT = 56;
   /** Высота строки с датами (sticky header) внутри scroll-контейнера — для корректного расчёта Y при перетаскивании */
   const DATES_HEADER_HEIGHT = 56;
@@ -266,7 +284,7 @@ export function Calendar({
     return () => {
       scrollContainer.removeEventListener('scroll', handleBodyScroll);
     };
-  }, [dates]);
+  }, [dates, CELL_WIDTH]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -854,6 +872,7 @@ export function Calendar({
       ? Math.round(basePrice + Math.abs(markup))
       : Math.round(basePrice * (1 + markup / 100));
     const displayMinStay = rate?.min_stay ?? property.minimum_booking_days;
+    // endDate = день выезда (не ночует), как в диалоге выбора диапазона
     setConditionsModalData({
       propertyId: rangeChoiceData.propertyId,
       startDate: rangeChoiceData.startDate,
@@ -867,6 +886,37 @@ export function Calendar({
     setRangeChoiceData(null);
     resetDateSelection();
   }, [rangeChoiceData, properties, propertyAvitoMarkup, getRateForDate, resetDateSelection]);
+
+  // Pull-to-refresh touch handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!onRefresh) return;
+    const sc = scrollContainerRef.current;
+    if (sc && sc.scrollTop === 0) {
+      pullStartY.current = e.touches[0].clientY;
+    }
+  }, [onRefresh]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!onRefresh || pullStartY.current === null || isRefreshing) return;
+    const sc = scrollContainerRef.current;
+    if (!sc || sc.scrollTop > 0) { pullStartY.current = null; return; }
+    const delta = e.touches[0].clientY - pullStartY.current;
+    if (delta > 0) {
+      setPullDistance(Math.min(delta * 0.5, PULL_THRESHOLD * 1.5));
+    }
+  }, [onRefresh, isRefreshing]);
+
+  const handleTouchEnd = useCallback(async () => {
+    if (!onRefresh || pullStartY.current === null) return;
+    pullStartY.current = null;
+    if (pullDistance >= PULL_THRESHOLD) {
+      setIsRefreshing(true);
+      setPullDistance(0);
+      try { await Promise.resolve(onRefresh()); } finally { setIsRefreshing(false); }
+    } else {
+      setPullDistance(0);
+    }
+  }, [onRefresh, pullDistance]);
 
   // Expose resetDateSelection to parent via window
   useEffect(() => {
@@ -965,32 +1015,58 @@ export function Calendar({
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-background">
-      <div className="bg-slate-800 border-b border-slate-700 px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+    <div
+      className="flex-1 flex flex-col overflow-hidden bg-background"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Pull-to-refresh indicator */}
+      {(pullDistance > 0 || isRefreshing) && (
+        <div
+          className="flex items-center justify-center text-slate-400 text-sm overflow-hidden transition-all"
+          style={{ height: isRefreshing ? 40 : pullDistance * (40 / PULL_THRESHOLD) }}
+        >
+          {isRefreshing ? (
+            <span className="animate-spin inline-block w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full" />
+          ) : pullDistance >= PULL_THRESHOLD ? (
+            '↑ Отпустите для обновления'
+          ) : (
+            '↓ Потяните для обновления'
+          )}
+        </div>
+      )}
+
+      <div className="bg-slate-800 border-b border-slate-700 px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between">
+        <div className="flex flex-wrap items-center gap-2">
           <button
+            type="button"
             onClick={() => onAddReservation('', '', '')}
-            className="px-4 py-2 bg-add-booking-bg hover:bg-add-booking-bg-hover text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            className="min-h-[44px] px-3 sm:px-4 py-2 bg-add-booking-bg hover:bg-add-booking-bg-hover text-white rounded-lg text-xs sm:text-sm font-medium transition-colors inline-flex items-center gap-2"
+            title={t('calendar.addBooking')}
           >
-            <Plus className="w-4 h-4" />
-            Добавить бронь
+            <Plus className="w-4 h-4 shrink-0" />
+            <span>{t('calendar.addBooking')}</span>
           </button>
           <button
+            type="button"
             onClick={() => {
+              const today = new Date();
               setConditionsModalData({
                 propertyId: properties[0]?.id || '',
-                startDate: format(new Date(), 'yyyy-MM-dd'),
-                endDate: format(new Date(), 'yyyy-MM-dd'),
+                startDate: format(today, 'yyyy-MM-dd'),
+                endDate: format(addDays(today, 1), 'yyyy-MM-dd'),
                 price: properties[0]?.base_price || 0,
                 minStay: properties[0]?.minimum_booking_days || 1,
                 currency: properties[0]?.currency || 'RUB',
               });
               setShowConditionsModal(true);
             }}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            className="min-h-[44px] px-3 sm:px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs sm:text-sm font-medium transition-colors inline-flex items-center gap-2"
+            title={t('calendar.changeConditions')}
           >
-            <Settings className="w-4 h-4" />
-            Изменить условия
+            <Settings className="w-4 h-4 shrink-0" />
+            <span>{t('calendar.changeConditions')}</span>
           </button>
         </div>
       </div>
@@ -1011,9 +1087,9 @@ export function Calendar({
           <div className="flex-1 overflow-auto" ref={scrollContainerRef}>
             {/* Dates header row: lives inside the same scroll container as the grid to avoid scroll-sync lag */}
             <div className="flex border-b border-slate-700 bg-slate-800 sticky top-0 z-20 min-w-max">
-              <div className="w-64 flex-shrink-0 sticky left-0 z-30 border-r border-slate-700 bg-slate-800">
+              <div className="w-28 sm:w-64 flex-shrink-0 sticky left-0 z-30 border-r border-slate-700 bg-slate-800">
                 <div className="h-14 flex items-center justify-center">
-                  <span className="text-sm text-black">Объекты</span>
+                  <span className="text-sm text-slate-400">Объекты</span>
                 </div>
               </div>
               <div className="flex" style={{ width: `${dates.length * CELL_WIDTH}px` }}>

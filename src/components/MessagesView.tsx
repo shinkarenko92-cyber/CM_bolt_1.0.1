@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Search, MessageCircle, User, Bell, RefreshCw } from 'lucide-react';
+import { useState, useMemo, useCallback } from 'react';
+import { Search, MessageCircle, User, Bell, CheckCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNotificationPermission } from '@/hooks/useNotificationPermission';
 import { usePushSubscription } from '@/hooks/usePushSubscription';
@@ -25,8 +25,7 @@ interface MessagesViewProps {
   integrationsForMessenger?: IntegrationForMessenger[];
   onRequestMessengerAuth?: (integrationId: string | null) => void;
   onGoToProperties?: () => void;
-  onRefresh?: () => void;
-  isSyncing?: boolean;
+  onMarkAllRead?: () => void;
 }
 
 export function MessagesView({
@@ -38,8 +37,7 @@ export function MessagesView({
   integrationsForMessenger = [],
   onRequestMessengerAuth,
   onGoToProperties,
-  onRefresh,
-  isSyncing = false,
+  onMarkAllRead,
 }: MessagesViewProps) {
   const { t } = useTranslation();
   const { permission, requestPermission, supported: notifSupported } = useNotificationPermission();
@@ -284,6 +282,17 @@ export function MessagesView({
             <option value="in_progress">{t('messages.status.in_progress')}</option>
             <option value="closed">{t('messages.status.closed')}</option>
           </select>
+          {onMarkAllRead && chats.some(c => c.unread_count > 0) && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-[30px] w-[30px] shrink-0"
+              onClick={onMarkAllRead}
+              title={t('messages.markAllRead', { defaultValue: 'Прочитать всё' })}
+            >
+              <CheckCheck className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -348,18 +357,15 @@ export function MessagesView({
                         {formatTime(chat.last_message_at)}
                       </span>
                     </div>
-                    <p
-                      className={`text-xs font-semibold truncate mb-0.5 ${
-                        isSelected ? 'text-primary' : 'text-muted-foreground'
-                      }`}
-                    >
-                      {chat.property_id ? getPropertyName(chat.property_id) : '—'}
-                    </p>
                     {(chat.avito_item_title || chat.avito_item_id) ? (
-                      <p className="text-xs text-gray-400 truncate mb-1">
-                        {chat.avito_item_title ?? `№ ${chat.avito_item_id}`}
+                      <p className={`text-xs font-semibold truncate mb-0.5 ${isSelected ? 'text-primary' : 'text-primary/70'}`}>
+                        {chat.avito_item_title ?? `Объявление № ${chat.avito_item_id}`}
                       </p>
-                    ) : null}
+                    ) : (
+                      <p className={`text-xs font-semibold truncate mb-0.5 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
+                        {chat.property_id ? getPropertyName(chat.property_id) : '—'}
+                      </p>
+                    )}
                     <p className={`text-xs truncate ${chat.unread_count > 0 ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>
                       {chat.last_message_text ?? ''}
                     </p>

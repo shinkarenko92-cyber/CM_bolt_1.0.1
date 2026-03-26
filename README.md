@@ -121,9 +121,18 @@
 ### 💬 Сообщения (Avito Messenger)
 
 - ✅ **Список чатов** — по объектам, фильтр по статусу (новый / в работе / закрыт)
+- ✅ **Название объявления** — в списке чатов и в шапке показывается `avito_item_title` вместо имени объекта
 - ✅ **Переписка** — получение и отправка сообщений через Avito Messenger API
-- ✅ **Периодическая синхронизация** — чаты и сообщения подтягиваются с Avito
+- ✅ **Быстрые ответы** — редактируемые шаблоны (localStorage), управление через модальное окно
+- ✅ **Периодическая синхронизация** — чаты и сообщения подтягиваются с Avito (клиентский поллинг)
+- ✅ **Серверный поллер** — `avito-message-poller` проверяет новые сообщения каждые 2 мин по крону
+- ✅ **Web Push уведомления** — VAPID-based пуши при новых сообщениях, даже при закрытом приложении (PWA)
+- ✅ **Управление Push** — включить/отключить/тест в модалке аккаунтов
+- ✅ **Поиск в чате** — поиск по тексту с подсветкой совпадений
+- ✅ **Мобильный адаптив** — полноэкранный список или чат с кнопкой «Назад»
+- ✅ **Пометить все прочитанными** — сброс unread для всех чатов
 - ✅ **Доступ к чатам** — при отсутствии scope показывается блок с кнопкой «Авторизоваться в Avito» (OAuth с полным scope, в т.ч. messenger)
+- ✅ **Управление аккаунтами** — один Avito аккаунт со списком объектов, платформы «Скоро» (Циан, Суточно, Airbnb, Booking)
 
 ### 🔍 Дополнительные функции
 
@@ -140,7 +149,7 @@
 
 - **React 18.3** — современный UI фреймворк
 - **TypeScript 5.8** — строгая типизация
-- **Vite 7.x** — сборка и dev-сервер
+- **Vite 7.x** — сборка и dev-сервер (PWA via `vite-plugin-pwa`, `injectManifest`)
 - **React Router DOM 6.30** — маршрутизация
 - **Tailwind CSS 3.4** — utility-first стилизация
 - **shadcn/ui + Radix UI** — UI компоненты (таблицы, формы, диалоги, селекты и т.д.)
@@ -171,6 +180,10 @@
   - OAuth 2.0 (в т.ч. повторная авторизация для Messenger scope)
   - Синхронизация календаря и бронирований (webhook + poller)
   - **Messenger API** — чаты, сообщения (scope `messenger:read`, `messenger:write`)
+- **Web Push (VAPID)**
+  - Подписка через PushManager + сохранение в `push_subscriptions`
+  - AES-GCM шифрование payload (RFC 8291)
+  - Service Worker `push` / `notificationclick` обработчики
 
 ### Утилиты
 
@@ -232,6 +245,9 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 # Avito (публичный, безопасно для frontend)
 VITE_AVITO_CLIENT_ID=your_avito_client_id
 VITE_AVITO_REDIRECT_URI=https://app.roomi.pro/auth/avito-callback
+
+# Web Push (VAPID public key — безопасно для frontend)
+VITE_VAPID_PUBLIC_KEY=your_vapid_public_key
 ```
 
 4. **Настройте Supabase Secrets**
@@ -240,6 +256,9 @@ VITE_AVITO_REDIRECT_URI=https://app.roomi.pro/auth/avito-callback
 
 - `AVITO_CLIENT_ID` - Your Avito OAuth Client ID
 - `AVITO_CLIENT_SECRET` - Your Avito OAuth Client Secret (секретный!)
+- `VAPID_PUBLIC_KEY` - VAPID public key (base64url, 65 bytes uncompressed P-256)
+- `VAPID_PRIVATE_KEY` - VAPID private key (base64url, 32 bytes)
+- `VAPID_EMAIL` - контактный email для VAPID (например `admin@roomi.pro`)
 - Для Messenger API используйте те же `AVITO_CLIENT_ID` / `AVITO_CLIENT_SECRET`, но при авторизации запрашивайте scope `messenger:read,messenger:write` (см. `generateMessengerOAuthUrl`).
 
 **Чеклист Avito credentials:**
@@ -307,6 +326,9 @@ CM_bolt_1.0.1/
 │   │   └── ThemeContext.tsx
 │   ├── hooks/                    # Пользовательские хуки
 │   │   ├── useDashboardData.ts   # Загрузка данных дашборда (properties, bookings, guests, profile)
+│   │   ├── useAvitoChats.ts      # Синхронизация чатов/сообщений Avito
+│   │   ├── useMessageTemplates.ts # Редактируемые шаблоны быстрых ответов (localStorage)
+│   │   ├── usePushSubscription.ts # Web Push подписка + авто-синхронизация с БД
 │   │   ├── useReservationForm.ts # Синхронизация цен в формах бронирования
 │   │   └── use-media-query.ts
 │   ├── stores/                   # Zustand stores
@@ -353,8 +375,10 @@ CM_bolt_1.0.1/
 │   │   ├── avito-oauth-callback/ # OAuth + messenger_auth
 │   │   ├── avito-messenger/      # Прокси Messenger API
 │   │   ├── avito-messenger-webhook/
+│   │   ├── avito-message-poller/ # Серверный поллер сообщений (cron)
+│   │   ├── send-push/            # Web Push уведомления (VAPID)
 │   │   ├── avito-webhook/        # Webhook бронирований
-│   │   ├── avito-poller/         # Poller
+│   │   ├── avito-poller/         # Poller бронирований
 │   │   ├── avito-close-availability/
 │   │   ├── ical/                 # iCal экспорт
 │   │   ├── import-bookings/      # Импорт бронирований
@@ -429,6 +453,8 @@ CM_bolt_1.0.1/
 - **avito-close-availability** — закрытие доступности на Avito
 - **avito-messenger** — прокси к Avito Messenger API (чаты, сообщения)
 - **avito-messenger-webhook** — webhook мессенджера Avito
+- **avito-message-poller** — серверный поллер сообщений (крон каждые 2 мин), вызывает `send-push` при новых непрочитанных
+- **send-push** — Web Push уведомления (VAPID JWT + AES-GCM шифрование, RFC 8291)
 - **ical** — генерация iCal для экспорта календаря
 - **import-bookings** — импорт бронирований из Excel
 - **log-booking-change** — запись истории изменений бронирований
@@ -464,8 +490,9 @@ CM_bolt_1.0.1/
 4. **property_rates** — динамические цены по дням недели
 5. **integrations** — интеграции (Avito: OAuth токены, scope, в т.ч. messenger)
 6. **chats**, **messages** — чаты и сообщения Avito Messenger
-7. **avito_sync_queue** — очередь синхронизации Avito
-8. **avito_logs** — логи операций с Avito
+7. **push_subscriptions** — Web Push подписки (endpoint, p256dh, auth)
+8. **avito_sync_queue** — очередь синхронизации Avito
+9. **avito_logs** — логи операций с Avito
 
 ### Row Level Security (RLS)
 
@@ -577,7 +604,11 @@ npm run test:run
 - [x] **Онбординг**: выбор «Добавить объект вручную» или «Загрузить Excel», затем подключение площадок (Avito)
 - [x] **Тариф Demo 5 дней**: единый план для free/basic/demo/trial, отображение в настройках (план, дата/время окончания демо, возможности)
 - [x] Интеграция с Avito (OAuth, календарь, бронирования)
-- [x] Чаты Avito Messenger (список чатов, сообщения, отправка)
+- [x] Чаты Avito Messenger (список чатов, сообщения, отправка, поиск в чате, мобильный адаптив)
+- [x] Web Push уведомления (VAPID) — пуши о новых сообщениях при закрытом приложении
+- [x] Серверный поллер сообщений (`avito-message-poller`, крон каждые 2 мин)
+- [x] Быстрые ответы — редактируемые шаблоны (localStorage)
+- [x] Управление аккаунтами — Avito + «Скоро» (Циан, Суточно, Airbnb, Booking)
 - [x] Повторная OAuth для доступа к чатам (scope messenger:read/write), fallback по первой интеграции
 - [x] Диалог «Нет подключённых аккаунтов Avito» и переход к объектам при 422
 - [x] Миграция UI с Ant Design на **shadcn/ui + Radix UI** (кнопки, таблицы, модалки, формы, тосты)
@@ -590,7 +621,8 @@ npm run test:run
 
 - [ ] Интеграция с CIAN API
 - [ ] Синхронизация с другими площадками (Airbnb, Booking.com — по возможности API)
-- [ ] Email/Telegram уведомления о новых бронированиях и сообщениях
+- [x] Push-уведомления о новых сообщениях (Web Push / PWA)
+- [ ] Email/Telegram уведомления о новых бронированиях
 - [ ] Мобильное приложение (React Native / Expo)
 - [ ] Расширенная аналитика и экспорт отчётов
 - [ ] Мультивалютность, платежи, публичный календарь для гостей

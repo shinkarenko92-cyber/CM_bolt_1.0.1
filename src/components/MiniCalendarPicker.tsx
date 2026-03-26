@@ -38,9 +38,13 @@ export function MiniCalendarPicker({ onDateSelect, currentDate }: MiniCalendarPi
   useEffect(() => {
     if (isOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
+      const dropdownWidth = 288; // w-72 = 18rem = 288px
+      const margin = 8;
+      const rawLeft = rect.right - dropdownWidth;
+      const clampedLeft = Math.max(margin, Math.min(rawLeft, window.innerWidth - dropdownWidth - margin));
       setDropdownPosition({
         top: rect.bottom + 8,
-        left: rect.right - 288, // 288 = width of dropdown (w-72 = 18rem = 288px)
+        left: clampedLeft,
       });
     }
   }, [isOpen]);

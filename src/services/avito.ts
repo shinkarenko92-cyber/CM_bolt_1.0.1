@@ -390,19 +390,19 @@ export async function getAvitoOAuthInfo(integrationId: string): Promise<AvitoOAu
     });
 
     const result = data as AvitoOAuthInfoResult | undefined;
-    console.log('[avito] oauth/info', { url, status: result?.status, hasToken: !!integrationId });
+    if (import.meta.env.DEV) console.log('[avito] oauth/info', { url, status: result?.status, hasToken: !!integrationId });
 
     if (error) {
-      console.warn('[avito] getAvitoOAuthInfo Edge Function error', error);
+      if (import.meta.env.DEV) console.warn('[avito] getAvitoOAuthInfo Edge Function error', error);
       return { warning: 'Не удалось проверить права', status: error.status ?? 0 };
     }
 
     if (result?.warning) {
-      console.warn('[avito] Ошибка проверки прав:', result.warning);
+      if (import.meta.env.DEV) console.warn('[avito] Ошибка проверки прав:', result.warning);
     }
     return result ?? { skipped: true, reason: 'no_response' };
   } catch (e) {
-    console.warn('[avito] oauth/info skipped:', e);
+    if (import.meta.env.DEV) console.warn('[avito] oauth/info skipped:', e);
     // Не прерываем интеграцию; scope проверяется через integrations.scope из OAuth callback
     return { skipped: true, reason: 'error' };
   }

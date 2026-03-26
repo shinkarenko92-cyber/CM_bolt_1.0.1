@@ -128,10 +128,10 @@ export function startQueueListener(): void {
   listening = true;
 
   window.addEventListener('online', () => {
-    flushQueue().catch(console.error);
+    flushQueue().catch((e) => { if (import.meta.env.DEV) console.error('[photoQueue] flush error:', e); });
   });
 
   if (navigator.onLine) {
-    flushQueue().catch(console.error);
+    flushQueue().catch((e) => { if (import.meta.env.DEV) console.error('[photoQueue] flush error:', e); });
   }
 }

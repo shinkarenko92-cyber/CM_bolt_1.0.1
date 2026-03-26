@@ -14,7 +14,7 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.png', 'icon-192x192.png', 'icon-512x512.png', 'offline.html'],
+      includeAssets: ['favicon-v2.png', 'icon-192x192-v2.png', 'icon-512x512-v2.png', 'offline.html'],
       manifest: {
         name: 'Roomi Pro — Управление бронированиями',
         short_name: 'Roomi',
@@ -57,9 +57,9 @@ export default defineConfig({
           }
         ],
         icons: [
-          { src: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512x512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: '/icon-192x192-v2.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-512x512-v2.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icon-512x512-v2.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       injectManifest: {

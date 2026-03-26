@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
+import { CheckCircle2, XCircle, RefreshCw, Bell, BellOff, Send } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePushSubscription } from '@/hooks/usePushSubscription';
+import { useNotificationPermission } from '@/hooks/useNotificationPermission';
 
 interface AvitoIntegration {
   id: string;
@@ -42,6 +44,10 @@ export function AccountsModal({
   const { user } = useAuth();
   const [avitoIntegrations, setAvitoIntegrations] = useState<AvitoIntegration[]>([]);
   const [loading, setLoading] = useState(false);
+  const { supported: pushSupported, status: pushStatus, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushSubscription();
+  const { permission, requestPermission, supported: notifSupported } = useNotificationPermission();
+  const [testingSend, setTestingSend] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !user || !properties.length) return;
@@ -100,41 +106,181 @@ export function AccountsModal({
                   Подключить
                 </Button>
               </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {avitoIntegrations.map(integration => {
-                  const hasMessenger = (integration.scope ?? '').includes('messenger:read');
-                  return (
-                    <div key={integration.id} className="px-4 py-3 flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{integration.property_name ?? 'Объект'}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          {hasMessenger ? (
-                            <>
-                              <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
-                              <span className="text-xs text-green-600 dark:text-green-400">Мессенджер подключён</span>
-                            </>
-                          ) : (
-                            <>
-                              <XCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                              <span className="text-xs text-amber-600 dark:text-amber-400">Нет доступа к мессенджеру</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
+            ) : (() => {
+              // Group integrations by avito_user_id (one Avito account)
+              const hasMessenger = avitoIntegrations.some(i => (i.scope ?? '').includes('messenger:read'));
+              const firstIntegration = avitoIntegrations[0];
+              return (
+                <div className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      {hasMessenger ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                          <span className="text-xs text-green-600 dark:text-green-400">Мессенджер подключён</span>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span className="text-xs text-amber-600 dark:text-amber-400">Нет доступа к мессенджеру</span>
+                        </>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={hasMessenger ? 'outline' : 'default'}
+                      className="h-7 text-xs shrink-0"
+                      onClick={() => { onOpenChange(false); onRequestMessengerAuth(firstIntegration.id); }}
+                    >
+                      {hasMessenger ? 'Переподключить' : 'Авторизовать'}
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mb-1">Объекты ({avitoIntegrations.length}):</p>
+                  <div className="space-y-0.5">
+                    {avitoIntegrations.map(i => (
+                      <p key={i.id} className="text-xs text-foreground truncate pl-2 border-l-2 border-border">
+                        {i.property_name ?? 'Объект'}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Push notifications section */}
+          <div className="rounded-lg border border-border overflow-hidden">
+            <div className="flex items-center gap-3 px-4 py-3 bg-muted/40 border-b border-border">
+              <div className="w-8 h-8 rounded-lg bg-violet-500 flex items-center justify-center shrink-0">
+                <Bell className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold">Push-уведомления</p>
+                <p className="text-xs text-muted-foreground">Сообщения при закрытом приложении</p>
+              </div>
+            </div>
+            <div className="px-4 py-3">
+              {!notifSupported || !pushSupported ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <BellOff className="w-4 h-4 shrink-0" />
+                  <span className="text-xs">Не поддерживается в этом браузере</span>
+                </div>
+              ) : permission === 'denied' ? (
+                <div className="flex items-center gap-2 text-destructive">
+                  <BellOff className="w-4 h-4 shrink-0" />
+                  <span className="text-xs">Уведомления заблокированы в настройках браузера</span>
+                </div>
+              ) : pushStatus === 'subscribed' ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                      <span className="text-xs text-green-600 dark:text-green-400">Включены</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
                       <Button
                         size="sm"
-                        variant={hasMessenger ? 'outline' : 'default'}
+                        variant="outline"
                         className="h-7 text-xs shrink-0"
-                        onClick={() => { onOpenChange(false); onRequestMessengerAuth(integration.id); }}
+                        disabled={testingSend}
+                        onClick={async () => {
+                          setTestingSend(true);
+                          setTestResult(null);
+                          try {
+                            // Step 1: Ensure subscription is in DB
+                            const reg = await navigator.serviceWorker.ready;
+                            const sub = await reg.pushManager.getSubscription();
+                            if (!sub) {
+                              setTestResult('Нет подписки в браузере. Нажмите "Отключить" и снова "Включить".');
+                              return;
+                            }
+                            const json = sub.toJSON();
+                            const keys = json.keys as Record<string, string> | undefined;
+                            if (!json.endpoint || !keys?.p256dh || !keys?.auth) {
+                              setTestResult('Ошибка: невалидная подписка браузера');
+                              return;
+                            }
+                            // Save to DB
+                            const { error: dbErr } = await supabase.from('push_subscriptions').upsert(
+                              { user_id: user!.id, endpoint: json.endpoint, p256dh: keys.p256dh, auth: keys.auth },
+                              { onConflict: 'user_id,endpoint' }
+                            );
+                            if (dbErr) {
+                              setTestResult(`Ошибка сохранения: ${dbErr.message}`);
+                              return;
+                            }
+                            // Step 2: Send test push
+                            const { data, error } = await supabase.functions.invoke('send-push', {
+                              body: {
+                                user_id: user?.id,
+                                title: 'Тестовое уведомление',
+                                body: 'Push-уведомления работают!',
+                                tag: 'test-push',
+                                url: '/?view=messages',
+                              },
+                            });
+                            if (error) {
+                              setTestResult(`Ошибка отправки: ${error.message}`);
+                            } else {
+                              const result = typeof data === 'object' && data !== null ? data : {};
+                              const sentRaw = (result as Record<string, unknown>).sent;
+                              const sent =
+                                typeof sentRaw === 'number'
+                                  ? sentRaw
+                                  : typeof sentRaw === 'string'
+                                    ? Number(sentRaw) || 0
+                                    : 0;
+                              setTestResult(sent > 0 ? `Отправлено (${sent})` : 'Нет подписок в БД — попробуйте переподключить');
+                            }
+                          } catch (e) {
+                            setTestResult(`Ошибка: ${e instanceof Error ? e.message : String(e)}`);
+                          } finally {
+                            setTestingSend(false);
+                          }
+                        }}
                       >
-                        {hasMessenger ? 'Переподключить' : 'Авторизовать'}
+                        <Send className="h-3 w-3 mr-1" />
+                        {testingSend ? '...' : 'Тест'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs shrink-0 text-destructive hover:text-destructive"
+                        onClick={unsubscribePush}
+                      >
+                        <BellOff className="h-3 w-3 mr-1" />
+                        Отключить
                       </Button>
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                  </div>
+                  {testResult && (
+                    <p className={`text-[11px] mt-1 ${testResult.startsWith('Отправлено') ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                      {testResult}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <BellOff className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-xs text-muted-foreground">Отключены</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs shrink-0"
+                    onClick={async () => {
+                      if (permission !== 'granted') {
+                        await requestPermission();
+                      }
+                      await subscribePush();
+                    }}
+                  >
+                    <Bell className="h-3 w-3 mr-1" />
+                    Включить
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Coming soon platforms */}

@@ -17,7 +17,11 @@ function isColumnError(e: unknown): boolean {
     err?.message?.includes('deposit_returned') ||
     err?.message?.includes('deposit_amount') ||
     err?.message?.includes('guest_id') ||
-    err?.message?.includes('extra_services')
+    err?.message?.includes('extra_services') ||
+    err?.message?.includes('check_in_time') ||
+    err?.message?.includes('check_out_time') ||
+    err?.message?.includes('cancellation_') ||
+    err?.message?.includes('refund_')
   );
 }
 
@@ -47,6 +51,8 @@ const STRIP_GROUPS_INSERT = [
   ['deposit_received', 'deposit_returned'],
   ['deposit_amount'],
   ['guest_id', 'extra_services_amount'],
+  ['check_in_time', 'check_out_time'],
+  ['cancellation_reason', 'cancellation_date', 'cancellation_penalty', 'refund_amount', 'refund_status'],
 ];
 
 const STRIP_GROUPS_UPDATE = [
@@ -54,6 +60,8 @@ const STRIP_GROUPS_UPDATE = [
   ['deposit_received', 'deposit_returned'],
   ['deposit_amount'],
   ['guest_id', 'extra_services_amount'],
+  ['check_in_time', 'check_out_time'],
+  ['cancellation_reason', 'cancellation_date', 'cancellation_penalty', 'refund_amount', 'refund_status'],
 ];
 
 export async function insertBookingWithRetry(payload: Payload) {

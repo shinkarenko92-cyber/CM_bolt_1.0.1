@@ -48,23 +48,23 @@ export function SortablePropertyRow({
       // by the parent's width and appears to "slide" right after some horizontal scrolling.
       className="flex min-w-max border-b border-slate-700 relative"
     >
-      <div 
-        className="w-64 flex-shrink-0 sticky left-0 z-30 bg-slate-800 border-r border-slate-700 flex items-center px-4 gap-2"
+      <div
+        className="w-28 sm:w-64 flex-shrink-0 sticky left-0 z-30 bg-slate-800 border-r border-slate-700 flex items-center px-2 sm:px-4 gap-1 sm:gap-2"
         style={{ height: `${totalRowHeight}px` }}
       >
         <div
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing flex-shrink-0 text-slate-400 hover:text-slate-300 transition-colors"
+          className="cursor-grab active:cursor-grabbing flex-shrink-0 text-slate-400 hover:text-slate-300 transition-colors hidden sm:block"
         >
           <GripVertical className="w-4 h-4" />
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-white leading-tight truncate">
+          <div className="text-xs sm:text-sm font-medium text-white leading-tight truncate">
             {property.name}
           </div>
-          <div className="text-xs text-slate-400">
+          <div className="text-xs text-slate-400 hidden sm:block">
             {property.type}
           </div>
         </div>
