@@ -69,7 +69,6 @@ type DragState = {
 export function Calendar({
   properties,
   bookings,
-  dateBlocks = [],
   onAddReservation,
   onEditReservation,
   onBookingUpdate,
@@ -287,7 +286,7 @@ export function Calendar({
     return () => {
       scrollContainer.removeEventListener('scroll', handleBodyScroll);
     };
-  }, [dates]);
+  }, [dates, CELL_WIDTH]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -862,15 +861,6 @@ export function Calendar({
     setRangeChoiceData(null);
     resetDateSelection();
   }, [rangeChoiceData, onAddReservation, resetDateSelection]);
-
-  const handleRangeChoiceBlockDates = useCallback(() => {
-    if (rangeChoiceData && onBlockDates) {
-      onBlockDates(rangeChoiceData.propertyId, rangeChoiceData.startDate, rangeChoiceData.endDate);
-    }
-    setShowRangeChoiceModal(false);
-    setRangeChoiceData(null);
-    resetDateSelection();
-  }, [rangeChoiceData, onBlockDates, resetDateSelection]);
 
   const handleRangeChoiceChangeConditions = useCallback(() => {
     if (!rangeChoiceData) return;
