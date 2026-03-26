@@ -5,7 +5,6 @@ import type {
   CleaningStatus,
   CleaningPhoto,
   CleaningPhotoType,
-  CleaningComment,
   InventoryItem,
   InventoryCheck,
   InventoryCheckInput,
@@ -102,41 +101,6 @@ export async function updateTaskSchedule(
 
   if (error) throw error;
   return data as CleaningTask;
-}
-
-export async function deleteTask(taskId: string): Promise<void> {
-  const { error } = await supabase.from('cleaning_tasks').delete().eq('id', taskId);
-  if (error) throw error;
-}
-
-export async function getCleaningComments(taskId: string): Promise<CleaningComment[]> {
-  const { data, error } = await supabase
-    .from('cleaning_comments')
-    .select('*')
-    .eq('task_id', taskId)
-    .order('created_at', { ascending: true });
-
-  if (error) throw error;
-  return (data ?? []) as CleaningComment[];
-}
-
-export async function createCleaningComment(taskId: string, text: string): Promise<CleaningComment> {
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError) throw userError;
-  const userId = userData.user?.id;
-  if (!userId) throw new Error('Not authenticated');
-
-  const trimmed = text.trim();
-  if (!trimmed) throw new Error('Empty comment');
-
-  const { data, error } = await supabase
-    .from('cleaning_comments')
-    .insert({ task_id: taskId, author_id: userId, text: trimmed })
-    .select('*')
-    .single();
-
-  if (error) throw error;
-  return data as CleaningComment;
 }
 
 const ASSIGN_CLEANER_FN = 'assign-cleaner-role';

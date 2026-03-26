@@ -44,6 +44,7 @@ type CalendarProps = {
   onAddReservation: (propertyId: string, checkIn: string, checkOut: string) => void;
   onEditReservation: (booking: Booking) => void;
   onBookingUpdate: (bookingId: string, updates: Partial<Booking>) => void;
+  onBlockDates?: (propertyId: string, startDate: string, endDate: string) => void;
   onPropertiesUpdate?: (properties: Property[]) => void;
   onDateSelectionReset?: () => void;
   /** Called when user performs pull-to-refresh gesture */
@@ -860,6 +861,7 @@ export function Calendar({
     resetDateSelection();
   }, [rangeChoiceData, onAddReservation, resetDateSelection]);
 
+
   const handleRangeChoiceChangeConditions = useCallback(() => {
     if (!rangeChoiceData) return;
     const property = properties.find(p => p.id === rangeChoiceData.propertyId);
@@ -1038,18 +1040,16 @@ export function Calendar({
       )}
 
       <div className="bg-slate-800 border-b border-slate-700 px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           <button
-            type="button"
             onClick={() => onAddReservation('', '', '')}
-            className="min-h-[44px] px-3 sm:px-4 py-2 bg-add-booking-bg hover:bg-add-booking-bg-hover text-white rounded-lg text-xs sm:text-sm font-medium transition-colors inline-flex items-center gap-2"
-            title={t('calendar.addBooking')}
+            className="px-2 sm:px-4 py-2 bg-add-booking-bg hover:bg-add-booking-bg-hover text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            title="Добавить бронь"
           >
-            <Plus className="w-4 h-4 shrink-0" />
-            <span>{t('calendar.addBooking')}</span>
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Добавить бронь</span>
           </button>
           <button
-            type="button"
             onClick={() => {
               const today = new Date();
               setConditionsModalData({
@@ -1062,11 +1062,11 @@ export function Calendar({
               });
               setShowConditionsModal(true);
             }}
-            className="min-h-[44px] px-3 sm:px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs sm:text-sm font-medium transition-colors inline-flex items-center gap-2"
-            title={t('calendar.changeConditions')}
+            className="px-2 sm:px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            title="Изменить условия"
           >
-            <Settings className="w-4 h-4 shrink-0" />
-            <span>{t('calendar.changeConditions')}</span>
+            <Settings className="w-4 h-4" />
+            <span className="hidden sm:inline">Изменить условия</span>
           </button>
         </div>
       </div>

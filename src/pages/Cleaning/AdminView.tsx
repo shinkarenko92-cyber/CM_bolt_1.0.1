@@ -6,8 +6,6 @@ import { useCleaning } from '@/stores/cleaningStore';
 import { WeeklyCalendar } from '@/pages/Cleaning/WeeklyCalendar';
 import { CleanerProfiles } from '@/pages/Cleaning/CleanerProfiles';
 import { TaskDrawer } from '@/pages/Cleaning/TaskDrawer';
-import { AdminTaskDetailDialog } from '@/pages/Cleaning/AdminTaskDetailDialog';
-import type { CleaningTask } from '@/types/cleaning';
 import { cn } from '@/lib/utils';
 import type { Property } from '@/lib/supabase';
 
@@ -30,8 +28,6 @@ export function CleaningAdminView({ properties }: CleaningAdminViewProps) {
   const [tabValue, setTabValue] = useState<'calendar' | 'cleaners'>('calendar');
   const [taskDrawerOpen, setTaskDrawerOpen] = useState(false);
   const [addCleanerDialogOpen, setAddCleanerDialogOpen] = useState(false);
-  const [taskDetail, setTaskDetail] = useState<CleaningTask | null>(null);
-  const [taskDetailOpen, setTaskDetailOpen] = useState(false);
 
   useEffect(() => {
     void fetchTasks();
@@ -148,10 +144,6 @@ export function CleaningAdminView({ properties }: CleaningAdminViewProps) {
           tasks={tasks}
           cleaners={cleaners}
           onRefresh={refresh}
-          onTaskClick={(task) => {
-            setTaskDetail(task);
-            setTaskDetailOpen(true);
-          }}
         />
       )}
 
@@ -169,18 +161,6 @@ export function CleaningAdminView({ properties }: CleaningAdminViewProps) {
         cleaners={cleaners}
         defaultDate={new Date().toISOString().slice(0, 10)}
         onSuccess={refresh}
-      />
-
-      <AdminTaskDetailDialog
-        task={taskDetail}
-        open={taskDetailOpen}
-        onOpenChange={(open) => {
-          setTaskDetailOpen(open);
-          if (!open) setTaskDetail(null);
-        }}
-        cleaners={cleaners}
-        properties={properties}
-        onDeleted={refresh}
       />
     </div>
   );

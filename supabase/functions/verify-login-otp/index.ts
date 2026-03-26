@@ -102,7 +102,6 @@ Deno.serve(async (req: Request) => {
         email,
         password,
         email_confirm: true,
-        user_metadata: { phone },
       });
       if (createError || !newUser?.user) {
         console.error("createUser error:", createError);

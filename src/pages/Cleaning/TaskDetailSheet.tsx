@@ -8,7 +8,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import {
   Select,
@@ -18,7 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { CleaningTask, CleaningPhotoType, CleaningComment, InventoryItem, InventoryCheckInput, SupplyUsageInput } from '@/types/cleaning';
+import type { CleaningTask, CleaningPhotoType, InventoryItem, InventoryCheckInput, SupplyUsageInput } from '@/types/cleaning';
 import {
   getCleaningPhotos,
   getSignedPhotoUrl,
@@ -29,12 +28,9 @@ import {
   getSupplyUsageList,
   saveSupplyUsage,
   deleteSupplyUsage,
-  getCleaningComments,
-  createCleaningComment,
 } from '@/services/cleaning';
-import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { Camera, Loader2, MessageSquare, Send, Trash2, WifiOff } from 'lucide-react';
+import { Camera, Loader2, Trash2, WifiOff } from 'lucide-react';
 import { enqueuePhoto, getPendingCount } from '@/lib/photoQueue';
 
 type SavedSupply = { id: string; supply_name: string; amount_used: number; unit: string };
@@ -62,11 +58,6 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
   const [supplyUnit, setSupplyUnit] = useState('ml');
   const [suppliesSaving, setSuppliesSaving] = useState(false);
   const [pendingQueueCount, setPendingQueueCount] = useState(0);
-  const [comments, setComments] = useState<CleaningComment[]>([]);
-  const [commentsLoading, setCommentsLoading] = useState(false);
-  const [commentText, setCommentText] = useState('');
-  const [commentSending, setCommentSending] = useState(false);
-  const [viewerUserId, setViewerUserId] = useState<string | null>(null);
 
   const loadPhotos = useCallback(async (taskId: string) => {
     setPhotosLoading(true);
@@ -129,32 +120,13 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
     }
   }, [t]);
 
-  const loadComments = useCallback(async (taskId: string) => {
-    setCommentsLoading(true);
-    try {
-      const [{ data: u }, list] = await Promise.all([
-        supabase.auth.getUser(),
-        getCleaningComments(taskId),
-      ]);
-      setViewerUserId(u.user?.id ?? null);
-      setComments(list);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('common.loadError'));
-      setComments([]);
-    } finally {
-      setCommentsLoading(false);
-    }
-  }, [t]);
-
   useEffect(() => {
     if (!open || !task) return;
     void loadPhotos(task.id);
     void loadInventory(task.id, task.property_id);
     void loadSupplyUsage(task.id);
-    void loadComments(task.id);
     void getPendingCount().then(setPendingQueueCount);
-    setCommentText('');
-  }, [open, task, loadPhotos, loadInventory, loadSupplyUsage, loadComments]);
+  }, [open, task, loadPhotos, loadInventory, loadSupplyUsage]);
 
   const handlePhotoUpload = async (type: CleaningPhotoType, file: File | null) => {
     if (!task || !file) return;
@@ -252,24 +224,6 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
     }
   };
 
-  const handleSendComment = async () => {
-    if (!task) return;
-    const trimmed = commentText.trim();
-    if (!trimmed) return;
-    setCommentSending(true);
-    try {
-      await createCleaningComment(task.id, trimmed);
-      setCommentText('');
-      await loadComments(task.id);
-      toast.success(t('cleaning.cleaner.commentSent', { defaultValue: 'Сообщение отправлено' }));
-      onTaskUpdated?.();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('common.loadError'));
-    } finally {
-      setCommentSending(false);
-    }
-  };
-
   if (!task) return null;
 
   const beforePhotos = photos.filter((p) => p.type === 'before');
@@ -285,81 +239,6 @@ export function TaskDetailSheet({ task, open, onOpenChange, onTaskUpdated }: Tas
         </DialogHeader>
         <ScrollArea className="flex-1 pr-4 -mr-4">
           <div className="space-y-6 pb-4">
-            <Card className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                <h3 className="font-medium">
-                  {t('cleaning.cleaner.comments', { defaultValue: 'Сообщения' })}
-                </h3>
-              </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                {t('cleaning.cleaner.commentsHint', {
-                  defaultValue: 'Пишите хозяину: вопросы, отчёт, что нужно купить.',
-                })}
-              </p>
-              {commentsLoading ? (
-                <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {t('common.loading')}
-                </div>
-              ) : (
-                <ul className="space-y-2 mb-3 max-h-40 overflow-y-auto">
-                  {comments.length === 0 ? (
-                    <li className="text-sm text-muted-foreground">
-                      {t('cleaning.cleaner.noComments', { defaultValue: 'Пока нет сообщений' })}
-                    </li>
-                  ) : (
-                    comments.map((c) => (
-                      <li
-                        key={c.id}
-                        className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-sm"
-                      >
-                        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground mb-1">
-                          <span className="font-medium text-foreground">
-                            {c.author_id === viewerUserId
-                              ? t('cleaning.cleaner.commentYou', { defaultValue: 'Вы' })
-                              : t('cleaning.cleaner.commentAdmin', { defaultValue: 'Администратор' })}
-                          </span>
-                          <span className="shrink-0 tabular-nums">
-                            {new Date(c.created_at).toLocaleString('ru-RU', {
-                              day: 'numeric',
-                              month: 'short',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                        </div>
-                        <p className="whitespace-pre-wrap break-words">{c.text}</p>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              )}
-              <Textarea
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder={t('cleaning.cleaner.commentPlaceholder', {
-                  defaultValue: 'Ваше сообщение…',
-                })}
-                className="min-h-[88px] resize-y mb-2"
-                disabled={commentSending}
-              />
-              <Button
-                type="button"
-                size="sm"
-                className="gap-1.5"
-                disabled={commentSending || !commentText.trim()}
-                onClick={() => void handleSendComment()}
-              >
-                {commentSending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-                {t('cleaning.cleaner.sendComment', { defaultValue: 'Отправить' })}
-              </Button>
-            </Card>
-
             {/* Photos */}
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
