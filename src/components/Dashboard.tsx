@@ -33,6 +33,7 @@ const SettingsView = lazy(() => import('@/components/SettingsView').then(m => ({
 const MessagesView = lazy(() => import('@/components/MessagesView').then(m => ({ default: m.MessagesView })));
 const ChatPanel = lazy(() => import('@/components/ChatPanel').then(m => ({ default: m.ChatPanel })));
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { LanguageSelector } from '@/components/LanguageSelector';
 import { SkeletonCalendar } from '@/components/Skeleton';
 import { ViewSkeleton } from '@/components/ViewSkeleton';
 import { ErrorRetry } from '@/components/ErrorRetry';
@@ -900,6 +901,7 @@ export function Dashboard() {
 
             <div className="flex items-center gap-2 md:gap-4">
               <ThemeToggle />
+              <LanguageSelector />
 
               <button
                 type="button"
