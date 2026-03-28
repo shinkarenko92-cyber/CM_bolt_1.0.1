@@ -56,16 +56,16 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
   const bookingLimit = getBookingLimit(profile ?? null);
 
   const tierLabels: Record<string, string> = {
-    free: t('subscription.tiers.demo', { defaultValue: 'Demo 5 дней' }),
-    basic: t('subscription.tiers.demo', { defaultValue: 'Demo 5 дней' }),
-    demo: t('subscription.tiers.demo', { defaultValue: 'Demo 5 дней' }),
-    trial: t('subscription.tiers.demo', { defaultValue: 'Demo 5 дней' }),
-    start: t('subscription.tiers.standard', { defaultValue: 'Standard' }),
-    starter: t('subscription.tiers.standard', { defaultValue: 'Standard' }),
-    pro: t('subscription.tiers.pro', { defaultValue: 'Pro' }),
-    business: t('subscription.tiers.business', { defaultValue: 'Business' }),
-    premium: t('subscription.tiers.business', { defaultValue: 'Business' }),
-    enterprise: t('subscription.tiers.enterprise', { defaultValue: 'Enterprise' }),
+    free: t('subscription.tiers.demo'),
+    basic: t('subscription.tiers.demo'),
+    demo: t('subscription.tiers.demo'),
+    trial: t('subscription.tiers.demo'),
+    start: t('subscription.tiers.standard'),
+    starter: t('subscription.tiers.standard'),
+    pro: t('subscription.tiers.pro'),
+    business: t('subscription.tiers.business'),
+    premium: t('subscription.tiers.business'),
+    enterprise: t('subscription.tiers.enterprise'),
   };
 
   const formatDate = (dateString: string | null | undefined) => {
@@ -90,37 +90,37 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
   const planFeatures = [
     {
       key: 'calendar',
-      label: t('subscription.features.calendar', { defaultValue: 'Календарь и бронирования' }),
+      label: t('subscription.features.calendar'),
       enabled: true,
     },
     {
       key: 'excel',
-      label: t('subscription.features.excel', { defaultValue: 'Импорт бронирований из Excel' }),
+      label: t('subscription.features.excel'),
       enabled: true,
     },
     {
       key: 'channel',
-      label: t('subscription.features.channels', { defaultValue: 'Подключение Avito/других площадок' }),
+      label: t('subscription.features.channels'),
       enabled: isDemoPlan || tier === 'start' || tier === 'starter' || tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
     },
     {
       key: 'export',
-      label: t('subscription.features.export', { defaultValue: 'Экспорт и отчёты' }),
+      label: t('subscription.features.export'),
       enabled: isDemoPlan || tier === 'start' || tier === 'starter' || tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
     },
     {
       key: 'templates',
-      label: t('subscription.features.templates', { defaultValue: 'Шаблоны сообщений' }),
+      label: t('subscription.features.templates'),
       enabled: isDemoPlan || tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
     },
     {
       key: 'ai',
-      label: t('subscription.features.ai', { defaultValue: 'AI‑поддержка' }),
+      label: t('subscription.features.ai'),
       enabled: isDemoPlan || tier === 'pro' || tier === 'business' || tier === 'premium' || tier === 'enterprise',
     },
     {
       key: 'mobile',
-      label: t('subscription.features.mobileWithSoon', { defaultValue: 'Мобильное приложение (скоро апрель 2026)' }),
+      label: t('subscription.features.mobileWithSoon'),
       enabled: true,
     },
   ] as const;
@@ -152,7 +152,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
 
   const exportBookingsCSV = () => {
     const filteredBookings = getFilteredBookings();
-    const headers = ['ID', 'Объект', 'Гость', 'Email', 'Телефон', 'Заезд', 'Выезд', 'Ночей', 'Гостей', 'Сумма (RUB)', 'Источник', 'Статус'];
+    const headers = ['ID', 'Property', 'Guest', 'Email', 'Phone', 'Check-in', 'Check-out', 'Nights', 'Guests', 'Amount (RUB)', 'Source', 'Status'];
     const rows = filteredBookings.map(booking => {
       const property = properties.find(p => p.id === booking.property_id);
       const nights = Math.ceil(
@@ -168,7 +168,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
     });
     const csv = [headers.join(','), ...rows].join('\n');
     downloadFile(csv, 'bookings.csv', 'text/csv');
-    toast.success(t('settings.exportComplete', { defaultValue: 'Экспорт завершён' }));
+    toast.success(t('settings.exportComplete'));
   };
 
   const exportBookingsJSON = () => {
@@ -189,7 +189,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
       };
     });
     downloadFile(JSON.stringify(data, null, 2), 'bookings.json', 'application/json');
-    toast.success(t('settings.exportComplete', { defaultValue: 'Экспорт завершён' }));
+    toast.success(t('settings.exportComplete'));
   };
 
   const exportAnalyticsReport = () => {
@@ -218,7 +218,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
       by_source: bySource, by_property: byProperty,
     };
     downloadFile(JSON.stringify(report, null, 2), 'analytics_report.json', 'application/json');
-    toast.success(t('settings.reportGenerated', { defaultValue: 'Отчёт сформирован' }));
+    toast.success(t('settings.reportGenerated'));
   };
 
   const downloadFile = (content: string, filename: string, mimeType: string) => {
@@ -242,16 +242,16 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
       });
       if (error) {
         if (error.code === 'PGRST116' || error.message?.includes('404')) {
-          toast.error(t('settings.deletionTableNotFound', { defaultValue: 'Таблица deletion_requests не найдена. Пожалуйста, примените миграцию базы данных.' }));
+          toast.error(t('settings.deletionTableNotFound'));
         } else {
           throw error;
         }
         return;
       }
-      toast.success(t('settings.deletionRequestSent', { defaultValue: 'Запрос на удаление отправлен. Администратор рассмотрит его в ближайшее время.' }));
+      toast.success(t('settings.deletionRequestSent'));
       setDeletionReason('');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('settings.requestError', { defaultValue: 'Ошибка при отправке запроса' }));
+      toast.error(error instanceof Error ? error.message : t('settings.requestError'));
     }
   };
 
@@ -261,7 +261,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
       await deleteAccount();
       setDeleteNowModalOpen(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('settings.deleteError', { defaultValue: 'Ошибка удаления аккаунта' }));
+      toast.error(error instanceof Error ? error.message : t('settings.deleteError'));
     } finally {
       setDeleteNowLoading(false);
     }
@@ -269,57 +269,57 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
 
   const handleChangePassword = async () => {
     if (!newPassword) {
-      toast.error(t('settings.passwordEmpty', { defaultValue: 'Введите новый пароль' }));
+      toast.error(t('settings.passwordEmpty'));
       return;
     }
     if (newPassword.length < 6) {
-      toast.error(t('settings.passwordTooShort', { defaultValue: 'Пароль должен быть не менее 6 символов' }));
+      toast.error(t('settings.passwordTooShort'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error(t('settings.passwordMismatch', { defaultValue: 'Пароли не совпадают' }));
+      toast.error(t('settings.passwordMismatch'));
       return;
     }
     setPasswordLoading(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      toast.success(t('settings.passwordChanged', { defaultValue: 'Пароль успешно изменён' }));
+      toast.success(t('settings.passwordChanged'));
       setNewPassword('');
       setConfirmPassword('');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('settings.passwordChangeError', { defaultValue: 'Ошибка при смене пароля' }));
+      toast.error(error instanceof Error ? error.message : t('settings.passwordChangeError'));
     } finally {
       setPasswordLoading(false);
     }
   };
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'subscription', label: t('settings.tabSubscription', { defaultValue: 'Подписка' }), icon: <CreditCard className="w-4 h-4" /> },
-    { id: 'appearance', label: t('settings.tabAppearance', { defaultValue: 'Внешний вид' }), icon: <Globe className="w-4 h-4" /> },
-    { id: 'notifications', label: t('settings.tabNotifications', { defaultValue: 'Уведомления' }), icon: <Bell className="w-4 h-4" /> },
-    { id: 'export', label: t('settings.tabExport', { defaultValue: 'Экспорт' }), icon: <Download className="w-4 h-4" /> },
-    { id: 'account', label: t('settings.tabAccount', { defaultValue: 'Аккаунт' }), icon: <User className="w-4 h-4" /> },
+    { id: 'subscription', label: t('settings.tabSubscription'), icon: <CreditCard className="w-4 h-4" /> },
+    { id: 'appearance', label: t('settings.tabAppearance'), icon: <Globe className="w-4 h-4" /> },
+    { id: 'notifications', label: t('settings.tabNotifications'), icon: <Bell className="w-4 h-4" /> },
+    { id: 'export', label: t('settings.tabExport'), icon: <Download className="w-4 h-4" /> },
+    { id: 'account', label: t('settings.tabAccount'), icon: <User className="w-4 h-4" /> },
   ];
 
   return (
-    <div className="flex-1 overflow-auto p-4 md:p-6 bg-white text-black">
+    <div className="flex-1 overflow-auto p-4 md:p-6 bg-background text-foreground">
       <div className="max-w-3xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-xl md:text-2xl font-bold text-black mb-1">{t('settings.title')}</h1>
-          <p className="text-slate-600 text-sm">{t('settings.subtitle', { defaultValue: 'Управление настройками и интеграциями' })}</p>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground mb-1">{t('settings.title')}</h1>
+          <p className="text-muted-foreground text-sm">{t('settings.subtitle')}</p>
         </div>
 
         {/* Tab bar */}
-        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-6 overflow-x-auto">
+        <div className="flex gap-1 bg-muted p-1 rounded-xl mb-6 overflow-x-auto">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
                 activeTab === tab.id
-                  ? 'bg-white text-black shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {tab.icon}
@@ -330,59 +330,59 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
 
         {/* Tab: Подписка */}
         {activeTab === 'subscription' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-5">
+          <div className="bg-card text-card-foreground rounded-xl border border-border shadow-sm p-6 space-y-5">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="text-black font-semibold">
-                {t('settings.currentPlan', { defaultValue: 'Текущий план:' })}{' '}
+              <div className="text-foreground font-semibold">
+                {t('settings.currentPlan')}{' '}
                 <span className="text-primary">{tierLabels[tier] ?? tier}</span>
                 {isDemoPlan && profile?.subscription_expires_at && !expiredDemo && (
-                  <span className="text-slate-600 font-normal text-sm ml-1">
-                    {' '}({t('settings.demoUntilDateTime', { defaultValue: 'до {{dateTime}}', dateTime: formatDateTime(profile.subscription_expires_at) })})
+                  <span className="text-muted-foreground font-normal text-sm ml-1">
+                    {' '}({t('settings.demoUntilDateTime', { dateTime: formatDateTime(profile.subscription_expires_at) })})
                   </span>
                 )}
               </div>
               {isDemoPlan && profile?.subscription_expires_at ? (
-                <span className={`text-xs px-2 py-1 rounded-full ${expiredDemo ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-800'}`}>
+                <span className={`text-xs px-2 py-1 rounded-full ${expiredDemo ? 'bg-red-100 text-red-700' : 'bg-muted text-foreground'}`}>
                   {expiredDemo
-                    ? t('settings.planExpired', { defaultValue: 'Демо истекло' })
-                    : t('settings.planExpires', { defaultValue: 'До {{date}}', date: formatDate(profile.subscription_expires_at) })}
+                    ? t('settings.planExpired')
+                    : t('settings.planExpires', { date: formatDate(profile.subscription_expires_at) })}
                 </span>
               ) : !isDemoPlan ? (
-                <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-800">
-                  {tierRange || t('settings.planUnknown', { defaultValue: '—' })}
+                <span className="text-xs px-2 py-1 rounded-full bg-muted text-foreground">
+                  {tierRange || t('settings.planUnknown')}
                 </span>
               ) : null}
               {tierPriceRub != null && tierPriceRub > 0 && (
-                <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-800">
-                  {t('settings.planPrice', { defaultValue: '{{price}} ₽/мес', price: tierPriceRub })}
+                <span className="text-xs px-2 py-1 rounded-full bg-muted text-foreground">
+                  {t('settings.planPrice', { price: tierPriceRub })}
                 </span>
               )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <p className="text-sm font-semibold text-black mb-2">
-                  {t('settings.planLimits', { defaultValue: 'Лимиты' })}
+              <div className="bg-muted/50 rounded-lg p-4 border border-border">
+                <p className="text-sm font-semibold text-foreground mb-2">
+                  {t('settings.planLimits')}
                 </p>
-                <div className="text-sm text-slate-700 space-y-1">
+                <div className="text-sm text-foreground space-y-1">
                   <div className="flex items-center justify-between gap-3">
-                    <span>{t('settings.planLimitProperties', { defaultValue: 'Объекты' })}</span>
-                    <span className="text-black font-medium">
-                      {propertyLimit >= 999 ? t('settings.unlimited', { defaultValue: 'Без ограничений' }) : propertyLimit}
+                    <span>{t('settings.planLimitProperties')}</span>
+                    <span className="text-foreground font-medium">
+                      {propertyLimit >= 999 ? t('settings.unlimited') : propertyLimit}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span>{t('settings.planLimitBookings', { defaultValue: 'Бронирования/мес' })}</span>
-                    <span className="text-black font-medium">
-                      {bookingLimit === -1 ? t('settings.unlimited', { defaultValue: 'Без ограничений' }) : bookingLimit}
+                    <span>{t('settings.planLimitBookings')}</span>
+                    <span className="text-foreground font-medium">
+                      {bookingLimit === -1 ? t('settings.unlimited') : bookingLimit}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <p className="text-sm font-semibold text-black mb-2">
-                  {t('settings.planFeatures', { defaultValue: 'Особенности тарифа' })}
+              <div className="bg-muted/50 rounded-lg p-4 border border-border">
+                <p className="text-sm font-semibold text-foreground mb-2">
+                  {t('settings.planFeatures')}
                 </p>
                 <ul className="space-y-1">
                   {planFeatures.map((f) => (
@@ -392,31 +392,31 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
                       ) : (
                         <XCircle className="w-4 h-4 text-slate-400 shrink-0" />
                       )}
-                      <span className={f.enabled ? 'text-slate-800' : 'text-slate-500'}>{f.label}</span>
+                      <span className={f.enabled ? 'text-foreground' : 'text-muted-foreground'}>{f.label}</span>
                     </li>
                   ))}
                 </ul>
               </div>
             </div>
 
-            <p className="text-xs text-slate-500">
-              {t('settings.planHelp', { defaultValue: 'Чтобы изменить тариф, напишите в поддержку: support@roomi.pro' })}
+            <p className="text-xs text-muted-foreground">
+              {t('settings.planHelp')}
             </p>
           </div>
         )}
 
         {/* Tab: Внешний вид */}
         {activeTab === 'appearance' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
+          <div className="bg-card text-card-foreground rounded-xl border border-border shadow-sm p-6 space-y-6">
             <div>
-              <p className="text-sm font-medium text-slate-700 mb-3">{t('settings.language')}</p>
+              <p className="text-sm font-medium text-foreground mb-3">{t('settings.language')}</p>
               <div className="flex gap-3">
                 <button
                   onClick={() => { i18n.changeLanguage('ru'); localStorage.setItem('language', 'ru'); }}
                   className={`px-4 py-2 rounded-lg transition-colors ${
                     i18n.language === 'ru'
                       ? 'bg-primary text-primary-foreground'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                      : 'bg-muted text-foreground hover:bg-muted/80 border border-border'
                   }`}
                 >
                   🇷🇺 Русский
@@ -426,7 +426,7 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
                   className={`px-4 py-2 rounded-lg transition-colors ${
                     i18n.language === 'en'
                       ? 'bg-primary text-primary-foreground'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                      : 'bg-muted text-foreground hover:bg-muted/80 border border-border'
                   }`}
                 >
                   🇬🇧 English
@@ -434,11 +434,11 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
               </div>
             </div>
 
-            <div className="border-t border-slate-100 pt-5">
-              <p className="text-sm font-medium text-slate-700 mb-3">{t('settings.theme', { defaultValue: 'Тема оформления' })}</p>
+            <div className="border-t border-border pt-5">
+              <p className="text-sm font-medium text-foreground mb-3">{t('settings.theme')}</p>
               <button
                 onClick={toggleTheme}
-                className="flex items-center gap-3 px-4 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors text-slate-800"
+                className="flex items-center gap-3 px-4 py-2 bg-muted hover:bg-muted/80 border border-border rounded-lg transition-colors text-foreground"
               >
                 {theme === 'dark' ? (
                   <>
@@ -458,17 +458,17 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
 
         {/* Tab: Уведомления */}
         {activeTab === 'notifications' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div className="bg-card text-card-foreground rounded-xl border border-border shadow-sm p-6">
             {!notifSupported ? (
-              <p className="text-sm text-slate-500">{t('settings.notificationsNotSupported', { defaultValue: 'Браузерные уведомления не поддерживаются.' })}</p>
+              <p className="text-sm text-muted-foreground">{t('settings.notificationsNotSupported')}</p>
             ) : notifPermission === 'granted' ? (
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 rounded-lg shrink-0">
                   <Bell className="w-5 h-5 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-800">{t('settings.notificationsEnabled', { defaultValue: 'Уведомления включены' })}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{t('settings.notificationsEnabledHint', { defaultValue: 'Вы будете получать уведомления о новых сообщениях.' })}</p>
+                  <p className="text-sm font-medium text-foreground">{t('settings.notificationsEnabled')}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t('settings.notificationsEnabledHint')}</p>
                 </div>
               </div>
             ) : notifPermission === 'denied' ? (
@@ -477,19 +477,19 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
                   <BellOff className="w-5 h-5 text-red-500" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-800">{t('settings.notificationsBlocked', { defaultValue: 'Уведомления заблокированы' })}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{t('settings.notificationsBlockedHint', { defaultValue: 'Разрешите уведомления в настройках браузера.' })}</p>
+                  <p className="text-sm font-medium text-foreground">{t('settings.notificationsBlocked')}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t('settings.notificationsBlockedHint')}</p>
                 </div>
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-sm text-slate-600">{t('settings.notificationsPrompt', { defaultValue: 'Включите уведомления, чтобы не пропускать новые сообщения от гостей.' })}</p>
+                <p className="text-sm text-muted-foreground">{t('settings.notificationsPrompt')}</p>
                 <button
                   onClick={requestPermission}
                   className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors text-sm"
                 >
                   <Bell className="w-4 h-4" />
-                  {t('settings.notificationsEnable', { defaultValue: 'Включить уведомления' })}
+                  {t('settings.notificationsEnable')}
                 </button>
               </div>
             )}
@@ -498,36 +498,36 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
 
         {/* Tab: Экспорт */}
         {activeTab === 'export' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+          <div className="bg-card text-card-foreground rounded-xl border border-border shadow-sm p-6 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">{t('settings.period', { defaultValue: 'Период' })}</label>
+              <label className="block text-sm font-medium text-foreground mb-2">{t('settings.period')}</label>
               <select
                 value={exportDateRange}
                 onChange={(e) => setExportDateRange(e.target.value)}
-                className="w-full md:w-auto px-4 py-2 bg-white border border-slate-300 rounded-lg text-black"
+                className="w-full md:w-auto px-4 py-2 bg-background border border-input rounded-lg text-foreground"
               >
-                <option value="all">{t('settings.allTime', { defaultValue: 'Все время' })}</option>
-                <option value="year">{t('settings.thisYear', { defaultValue: 'Этот год' })}</option>
-                <option value="quarter">{t('settings.thisQuarter', { defaultValue: 'Этот квартал' })}</option>
-                <option value="month">{t('settings.thisMonth', { defaultValue: 'Этот месяц' })}</option>
+                <option value="all">{t('settings.allTime')}</option>
+                <option value="year">{t('settings.thisYear')}</option>
+                <option value="quarter">{t('settings.thisQuarter')}</option>
+                <option value="month">{t('settings.thisMonth')}</option>
               </select>
             </div>
 
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={exportBookingsCSV}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted/80 text-foreground border border-border rounded-lg transition-colors"
               >
                 <FileSpreadsheet className="w-4 h-4" />
-                {t('settings.exportCSV', { defaultValue: 'Экспорт бронирований (CSV)' })}
+                {t('settings.exportCSV')}
               </button>
 
               <button
                 onClick={exportBookingsJSON}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted/80 text-foreground border border-border rounded-lg transition-colors"
               >
                 <FileText className="w-4 h-4" />
-                {t('settings.exportJSON', { defaultValue: 'Экспорт бронирований (JSON)' })}
+                {t('settings.exportJSON')}
               </button>
 
               <button
@@ -535,12 +535,12 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
                 className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
               >
                 <Download className="w-4 h-4" />
-                {t('settings.exportAnalytics', { defaultValue: 'Аналитический отчёт' })}
+                {t('settings.exportAnalytics')}
               </button>
             </div>
 
-            <p className="text-xs text-slate-500">
-              {t('settings.exportFound', { count: getFilteredBookings().length, defaultValue: 'Найдено {{count}} бронирований для экспорта' })}
+            <p className="text-xs text-muted-foreground">
+              {t('settings.exportFound', { count: getFilteredBookings().length })}
             </p>
           </div>
         )}
@@ -549,37 +549,37 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
         {activeTab === 'account' && (
           <div className="space-y-5">
             {/* Change Password */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+            <div className="bg-card text-card-foreground rounded-xl border border-border shadow-sm p-6">
               <div className="flex items-center gap-3 mb-5">
                 <div className="p-2 bg-blue-500/10 rounded-lg">
                   <Lock className="w-5 h-5 text-blue-600" />
                 </div>
-                <h2 className="text-base font-semibold text-black">{t('settings.changePassword', { defaultValue: 'Сменить пароль' })}</h2>
+                <h2 className="text-base font-semibold text-foreground">{t('settings.changePassword')}</h2>
               </div>
 
               <div className="space-y-3 max-w-sm">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    {t('settings.newPassword', { defaultValue: 'Новый пароль' })}
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    {t('settings.newPassword')}
                   </label>
                   <input
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-black placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    {t('settings.confirmPassword', { defaultValue: 'Повторите пароль' })}
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    {t('settings.confirmPassword')}
                   </label>
                   <input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-black placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                 </div>
                 <button
@@ -588,44 +588,44 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
                   className="px-4 py-2 bg-primary hover:bg-primary/90 disabled:opacity-60 text-primary-foreground rounded-lg transition-colors text-sm font-medium"
                 >
                   {passwordLoading
-                    ? t('common.loading', { defaultValue: 'Сохранение...' })
-                    : t('settings.savePassword', { defaultValue: 'Сохранить пароль' })}
+                    ? t('modals.saving')
+                    : t('settings.savePassword')}
                 </button>
               </div>
             </div>
 
             {/* Delete Account */}
-            <div className="bg-white rounded-xl border border-red-200 shadow-sm p-6">
+            <div className="bg-card text-card-foreground rounded-xl border border-red-200 shadow-sm p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-red-100 rounded-lg">
                   <Trash2 className="w-5 h-5 text-red-600" />
                 </div>
-                <h2 className="text-base font-semibold text-black">{t('settings.deleteAccount', { defaultValue: 'Удаление аккаунта' })}</h2>
+                <h2 className="text-base font-semibold text-foreground">{t('settings.deleteAccount')}</h2>
               </div>
 
-              <p className="text-slate-600 text-sm mb-4">
-                {t('settings.deleteAccountDescription', { defaultValue: 'Для удаления аккаунта отправьте запрос администратору. После одобрения все ваши данные будут безвозвратно удалены. Либо удалите аккаунт сразу — без запроса (все данные будут удалены без возможности восстановления).' })}
+              <p className="text-muted-foreground text-sm mb-4">
+                {t('settings.deleteAccountDescription')}
               </p>
 
               <div className="space-y-3">
                 <textarea
                   value={deletionReason}
                   onChange={(e) => setDeletionReason(e.target.value)}
-                  placeholder={t('settings.deletionReason', { defaultValue: 'Причина удаления (необязательно)' })}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-black min-h-[80px] resize-y placeholder:text-slate-400"
+                  placeholder={t('settings.deletionReason')}
+                  className="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground min-h-[80px] resize-y placeholder:text-muted-foreground"
                 />
                 <div className="flex flex-wrap gap-3">
                   <button
                     onClick={handleRequestDeletion}
                     className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm"
                   >
-                    {t('settings.requestDeletion', { defaultValue: 'Запросить удаление аккаунта' })}
+                    {t('settings.requestDeletion')}
                   </button>
                   <button
                     onClick={() => setDeleteNowModalOpen(true)}
-                    className="px-4 py-2 bg-white hover:bg-slate-50 text-red-600 border border-red-300 rounded-lg transition-colors text-sm"
+                    className="px-4 py-2 bg-background hover:bg-muted/20 text-red-600 border border-red-300 rounded-lg transition-colors text-sm"
                   >
-                    {t('settings.deleteAccountNow', { defaultValue: 'Удалить сейчас' })}
+                    {t('settings.deleteAccountNow')}
                   </button>
                 </div>
               </div>
@@ -638,11 +638,9 @@ export function SettingsView({ bookings, properties }: SettingsViewProps) {
         isOpen={deleteNowModalOpen}
         onClose={() => !deleteNowLoading && setDeleteNowModalOpen(false)}
         onConfirm={handleDeleteNowConfirm}
-        title={t('settings.deleteAccountNowTitle', { defaultValue: 'Удалить аккаунт сейчас' })}
-        message={t('settings.deleteAccountNowMessage', {
-          defaultValue: 'Все ваши данные (объекты, бронирования, гости, чаты) будут безвозвратно удалены. Вы уверены?',
-        })}
-        confirmText={t('settings.deleteAccountNowConfirm', { defaultValue: 'Удалить безвозвратно' })}
+        title={t('settings.deleteAccountNowTitle')}
+        message={t('settings.deleteAccountNowMessage')}
+        confirmText={t('settings.deleteAccountNowConfirm')}
         variant="danger"
         loading={deleteNowLoading}
       />

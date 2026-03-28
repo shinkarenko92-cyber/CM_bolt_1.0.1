@@ -74,7 +74,7 @@ export function SettingsScreen() {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
-      <SectionTitle title="Профиль" colors={colors} />
+      <SectionTitle title="Profile" colors={colors} />
       <View style={styles.profileRow}>
         <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
           <Text style={styles.avatarText}>
@@ -88,10 +88,10 @@ export function SettingsScreen() {
       </View>
       <Divider colors={colors} />
 
-      <SectionTitle title="Уведомления" colors={colors} />
+      <SectionTitle title="Notifications" colors={colors} />
       <View style={[styles.row, { borderBottomColor: colors.border }]}>
         <Ionicons name="calendar-outline" size={22} color={colors.textSecondary} style={styles.rowIcon} />
-        <Text style={[styles.rowLabel, { color: colors.text }]}>Новые брони</Text>
+        <Text style={[styles.rowLabel, { color: colors.text }]}>New bookings</Text>
         <Switch
           value={notifBookings}
           onValueChange={setNotifBookings}
@@ -101,7 +101,7 @@ export function SettingsScreen() {
       </View>
       <View style={[styles.row, { borderBottomColor: colors.border }]}>
         <Ionicons name="chatbubble-outline" size={22} color={colors.textSecondary} style={styles.rowIcon} />
-        <Text style={[styles.rowLabel, { color: colors.text }]}>Сообщения</Text>
+        <Text style={[styles.rowLabel, { color: colors.text }]}>Messages</Text>
         <Switch
           value={notifMessages}
           onValueChange={setNotifMessages}
@@ -111,7 +111,7 @@ export function SettingsScreen() {
       </View>
       <View style={[styles.row, { borderBottomColor: colors.border }]}>
         <Ionicons name="pricetag-outline" size={22} color={colors.textSecondary} style={styles.rowIcon} />
-        <Text style={[styles.rowLabel, { color: colors.text }]}>Изменения цен</Text>
+        <Text style={[styles.rowLabel, { color: colors.text }]}>Price changes</Text>
         <Switch
           value={notifPrices}
           onValueChange={setNotifPrices}
@@ -121,34 +121,34 @@ export function SettingsScreen() {
       </View>
       <Divider colors={colors} />
 
-      <SectionTitle title="Тема" colors={colors} />
+      <SectionTitle title="Theme" colors={colors} />
       <View style={[styles.themeRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <TouchableOpacity
           style={[styles.themeOption, theme === 'light' && { backgroundColor: colors.primaryMuted }]}
           onPress={() => setTheme('light')}
         >
           <Ionicons name="sunny-outline" size={20} color={theme === 'light' ? colors.primary : colors.textSecondary} />
-          <Text style={[styles.themeOptionText, { color: theme === 'light' ? colors.primary : colors.textSecondary }]}>Светлая</Text>
+          <Text style={[styles.themeOptionText, { color: theme === 'light' ? colors.primary : colors.textSecondary }]}>Light</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.themeOption, theme === 'dark' && { backgroundColor: colors.primaryMuted }]}
           onPress={() => setTheme('dark')}
         >
           <Ionicons name="moon-outline" size={20} color={theme === 'dark' ? colors.primary : colors.textSecondary} />
-          <Text style={[styles.themeOptionText, { color: theme === 'dark' ? colors.primary : colors.textSecondary }]}>Тёмная</Text>
+          <Text style={[styles.themeOptionText, { color: theme === 'dark' ? colors.primary : colors.textSecondary }]}>Dark</Text>
         </TouchableOpacity>
       </View>
       <Divider colors={colors} />
 
-      <SectionTitle title="Приложение" colors={colors} />
-      <Row icon="information-circle-outline" label="Версия" value={version} colors={colors} />
-      <Row icon="document-text-outline" label="О приложении" onPress={() => {}} colors={colors} />
-      <Row icon="bar-chart-outline" label="Аналитика" onPress={() => navigation.navigate('Analytics')} colors={colors} />
+      <SectionTitle title="App" colors={colors} />
+      <Row icon="information-circle-outline" label="Version" value={version} colors={colors} />
+      <Row icon="document-text-outline" label="About" onPress={() => {}} colors={colors} />
+      <Row icon="bar-chart-outline" label="Analytics" onPress={() => navigation.navigate('Analytics')} colors={colors} />
       <Divider colors={colors} />
 
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
         <Ionicons name="log-out-outline" size={22} color={colors.error} style={styles.rowIcon} />
-        <Text style={[styles.signOutText, { color: colors.error }]}>Выйти</Text>
+        <Text style={[styles.signOutText, { color: colors.error }]}>Sign Out</Text>
       </TouchableOpacity>
     </ScrollView>
   );
