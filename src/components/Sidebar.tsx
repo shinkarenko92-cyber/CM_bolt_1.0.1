@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, Home, Settings, BarChart3, Users, LogOut, Shield, Menu, X, MessageCircle, Sparkles } from 'lucide-react';
+import { Calendar, Home, Settings, BarChart3, Users, LogOut, Shield, Menu, X, MessageCircle, Sparkles, UserCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
         { id: 'calendar', icon: Calendar, label: t('nav.calendar') },
         { id: 'properties', icon: Home, label: t('nav.properties') },
         { id: 'bookings', icon: Users, label: t('nav.bookings') },
+        { id: 'guests', icon: UserCircle, label: t('nav.guests', { defaultValue: 'Гости' }) },
         { id: 'messages', icon: MessageCircle, label: t('nav.messages') },
         ...(isAdmin ? [{ id: 'cleaning', icon: Sparkles, label: t('nav.cleaning', { defaultValue: 'Уборка' }) }] : []),
         { id: 'analytics', icon: BarChart3, label: t('nav.analytics') },
