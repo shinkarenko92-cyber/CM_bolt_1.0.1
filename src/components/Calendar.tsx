@@ -285,7 +285,7 @@ export function Calendar({
     return () => {
       scrollContainer.removeEventListener('scroll', handleBodyScroll);
     };
-  }, [dates]);
+  }, [dates, CELL_WIDTH]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
