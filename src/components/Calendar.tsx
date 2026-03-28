@@ -144,6 +144,8 @@ export function Calendar({
   }, []);
 
   const CELL_WIDTH = cellWidth;
+  // Property name column: w-28 (112px) on mobile, w-64 (256px) on desktop — mirrors SortablePropertyRow
+  const PROP_COL_WIDTH = cellWidth === 48 ? 112 : 256;
   const ROW_HEIGHT = 56;
   /** Высота строки с датами (sticky header) внутри scroll-контейнера — для корректного расчёта Y при перетаскивании */
   const DATES_HEADER_HEIGHT = 56;
@@ -370,7 +372,7 @@ export function Calendar({
 
   const updateDragOver = useCallback((x: number, y: number) => {
     const propertyInfo = getPropertyAtY(y);
-    const dateIndex = Math.floor((x - 256) / CELL_WIDTH);
+    const dateIndex = Math.floor((x - PROP_COL_WIDTH) / CELL_WIDTH);
 
     if (propertyInfo && dateIndex >= 0 && dateIndex < dates.length) {
       const { propertyId } = propertyInfo;
@@ -1098,7 +1100,8 @@ export function Calendar({
                   return (
                     <div
                       key={i}
-                      className={`w-16 flex-shrink-0 border-r border-border relative ${isToday ? 'bg-today-cell-bg' : isWeekend ? 'bg-slate-700/50' : ''}`}
+                      className={`flex-shrink-0 border-r border-border relative ${isToday ? 'bg-today-cell-bg' : isWeekend ? 'bg-slate-700/50' : ''}`}
+                      style={{ width: `${CELL_WIDTH}px` }}
                     >
                       <div className="px-2 py-2 text-center relative z-10">
                         <div className={`text-sm font-medium ${isToday ? 'text-foreground' : 'text-slate-300'}`}>
@@ -1189,13 +1192,14 @@ export function Calendar({
                                       <div
                                         key={i}
                                         className={cn(
-                                          'w-16 flex-shrink-0 border-r border-border cursor-pointer transition-all relative flex flex-col overflow-hidden',
+                                          'flex-shrink-0 border-r border-border cursor-pointer transition-all relative flex flex-col overflow-hidden',
                                           isToday ? 'bg-today-cell-bg' : isWeekend ? 'bg-slate-700/50' : '',
                                           isSelected ? 'bg-booking/30' : '',
                                           isInRange || isHoverRange ? 'bg-booking/20 shadow-[inset_0_0_15px_rgba(135,221,245,0.3)] ring-1 ring-booking/40 ring-inset' : '',
                                           isDragOverThisCell && !dragState.booking ? dragOverColor : '',
                                           !isOccupied ? 'hover:bg-slate-800/30 hover:ring-2 hover:ring-booking/30' : ''
                                         )}
+                                        style={{ width: `${CELL_WIDTH}px` }}
                                         title={isDragOverOtherProperty ? t('calendar.dragToOtherObject', { defaultValue: 'Перенести на другой объект' }) : undefined}
                                         onClick={() => !isOccupied && handleCellClick(property.id, date)}
                                         onMouseEnter={() => {
