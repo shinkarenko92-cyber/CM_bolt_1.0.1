@@ -130,10 +130,17 @@ Deno.serve(async (req: Request) => {
       // 4. Check for new unread messages
       for (const avitoChat of avitoChats) {
         chatsChecked++;
-        if (avitoChat.unread_count <= 0) continue;
 
         const dbChat = dbChatMap.get(avitoChat.id);
         const lastPushUnread = (dbChat as { last_push_unread?: number } | undefined)?.last_push_unread ?? 0;
+
+        // If user read all messages (in Avito app/web) — reset last_push_unread so next message fires a push
+        if (avitoChat.unread_count <= 0) {
+          if (dbChat && lastPushUnread > 0) {
+            await supabase.from("chats").update({ last_push_unread: 0 }).eq("id", (dbChat as { id: string }).id);
+          }
+          continue;
+        }
 
         // Only notify if unread count increased since last push
         if (avitoChat.unread_count <= lastPushUnread) continue;
