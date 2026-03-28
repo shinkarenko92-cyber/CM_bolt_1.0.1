@@ -5,9 +5,9 @@
  * Flow:
  * 1. Fetch all active integrations with messenger:read scope
  * 2. For each integration, call Avito chats API to get unread counts
- * 3. Compare with stored `last_notified_unread` on the chat row
- * 4. If Avito reports more unread messages → call send-push for the owner
- * 5. Update the chat's unread_count in DB
+ * 3. Compare with stored `last_push_unread` on the chat row
+ * 4. If Avito reports more unread messages → send Web Push directly (no nested function call)
+ * 5. Update the chat's unread_count and last_push_unread in DB
  *
  * Deploy:  supabase functions deploy avito-message-poller --no-verify-jwt
  * Cron:    Set up via Supabase Dashboard -> Database -> Cron Jobs
@@ -48,6 +48,209 @@ interface AvitoChat {
   context?: { value?: { title?: string } };
 }
 
+interface PushSubscriptionRow {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
+// ---------------------------------------------------------------------------
+// Web Push helpers (inlined to avoid nested edge function invocation rate limit)
+// ---------------------------------------------------------------------------
+
+function base64UrlDecode(str: string): Uint8Array {
+  const padding = "=".repeat((4 - (str.length % 4)) % 4);
+  const base64 = (str + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
+
+function base64UrlEncode(buffer: ArrayBuffer | Uint8Array): string {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+async function buildVapidJwt(
+  audience: string,
+  vapidPublicKey: string,
+  vapidPrivateKey: string,
+  email: string
+): Promise<string> {
+  const header = { alg: "ES256", typ: "JWT" };
+  const now = Math.floor(Date.now() / 1000);
+  const claims = { aud: audience, exp: now + 12 * 3600, sub: `mailto:${email}` };
+
+  const headerB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(header)));
+  const claimsB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(claims)));
+  const signingInput = `${headerB64}.${claimsB64}`;
+
+  const privateKeyBytes = base64UrlDecode(vapidPrivateKey);
+  const publicKeyBytes = base64UrlDecode(vapidPublicKey);
+
+  const jwk = {
+    kty: "EC",
+    crv: "P-256",
+    d: base64UrlEncode(privateKeyBytes),
+    x: base64UrlEncode(publicKeyBytes.slice(1, 33)),
+    y: base64UrlEncode(publicKeyBytes.slice(33, 65)),
+  };
+
+  const privateKey = await crypto.subtle.importKey(
+    "jwk", jwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]
+  );
+  const signature = await crypto.subtle.sign(
+    { name: "ECDSA", hash: "SHA-256" }, privateKey, new TextEncoder().encode(signingInput)
+  );
+
+  return `${signingInput}.${base64UrlEncode(signature)}`;
+}
+
+async function encryptPayload(
+  payload: string,
+  p256dhBase64: string,
+  authBase64: string
+): Promise<{ ciphertext: ArrayBuffer; salt: Uint8Array; serverPublicKey: Uint8Array }> {
+  const p256dh = base64UrlDecode(p256dhBase64);
+  const auth = base64UrlDecode(authBase64);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+
+  const serverKeyPair = await crypto.subtle.generateKey(
+    { name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]
+  );
+  const serverPublicKeyRaw = new Uint8Array(
+    await crypto.subtle.exportKey("raw", serverKeyPair.publicKey)
+  );
+
+  const clientPublicKey = await crypto.subtle.importKey(
+    "raw", p256dh, { name: "ECDH", namedCurve: "P-256" }, false, []
+  );
+
+  const sharedSecret = await crypto.subtle.deriveBits(
+    { name: "ECDH", public: clientPublicKey }, serverKeyPair.privateKey, 256
+  );
+
+  const sharedSecretKey = await crypto.subtle.importKey("raw", sharedSecret, "HKDF", false, ["deriveBits"]);
+  const prk = await crypto.subtle.deriveBits(
+    { name: "HKDF", hash: "SHA-256", salt: auth, info: new TextEncoder().encode("Content-Encoding: auth\0") },
+    sharedSecretKey, 256
+  );
+
+  const context = (() => {
+    const label = new TextEncoder().encode("P-256\0");
+    const clientLen = new Uint8Array([(p256dh.length >> 8) & 0xff, p256dh.length & 0xff]);
+    const serverLen = new Uint8Array([(serverPublicKeyRaw.length >> 8) & 0xff, serverPublicKeyRaw.length & 0xff]);
+    const buf = new Uint8Array(label.length + 2 + p256dh.length + 2 + serverPublicKeyRaw.length);
+    let offset = 0;
+    buf.set(label, offset); offset += label.length;
+    buf.set(clientLen, offset); offset += 2;
+    buf.set(p256dh, offset); offset += p256dh.length;
+    buf.set(serverLen, offset); offset += 2;
+    buf.set(serverPublicKeyRaw, offset);
+    return buf;
+  })();
+
+  const prkKey = await crypto.subtle.importKey("raw", prk, "HKDF", false, ["deriveBits"]);
+  const cekInfo = new Uint8Array([...new TextEncoder().encode("Content-Encoding: aesgcm\0"), ...context]);
+  const nonceInfo = new Uint8Array([...new TextEncoder().encode("Content-Encoding: nonce\0"), ...context]);
+
+  const cekBits = await crypto.subtle.deriveBits(
+    { name: "HKDF", hash: "SHA-256", salt, info: cekInfo }, prkKey, 128
+  );
+  const nonceBits = await crypto.subtle.deriveBits(
+    { name: "HKDF", hash: "SHA-256", salt, info: nonceInfo }, prkKey, 96
+  );
+
+  const cek = await crypto.subtle.importKey("raw", cekBits, "AES-GCM", false, ["encrypt"]);
+  const encoded = new TextEncoder().encode(payload);
+  const padded = new Uint8Array(2 + encoded.length);
+  padded.set(encoded, 2);
+
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonceBits }, cek, padded);
+  return { ciphertext, salt, serverPublicKey: serverPublicKeyRaw };
+}
+
+async function sendWebPush(
+  subscription: PushSubscriptionRow,
+  notificationPayload: string,
+  vapidPublicKey: string,
+  vapidPrivateKey: string,
+  vapidEmail: string
+): Promise<{ ok: boolean; status: number }> {
+  const url = new URL(subscription.endpoint);
+  const audience = `${url.protocol}//${url.host}`;
+  const jwt = await buildVapidJwt(audience, vapidPublicKey, vapidPrivateKey, vapidEmail);
+  const { ciphertext, salt, serverPublicKey } = await encryptPayload(
+    notificationPayload, subscription.p256dh, subscription.auth
+  );
+
+  const res = await fetch(subscription.endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/octet-stream",
+      "Content-Encoding": "aesgcm",
+      Encryption: `salt=${base64UrlEncode(salt)}`,
+      "Crypto-Key": `dh=${base64UrlEncode(serverPublicKey)};p256ecdsa=${vapidPublicKey}`,
+      Authorization: `vapid t=${jwt},k=${vapidPublicKey}`,
+      TTL: "86400",
+    },
+    body: new Uint8Array(ciphertext),
+  });
+  await res.text().catch(() => "");
+  return { ok: res.ok, status: res.status };
+}
+
+/**
+ * Send push notifications directly to all subscriptions for a user.
+ * Returns number of successfully delivered pushes.
+ */
+async function sendPushToUser(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  title: string,
+  body: string,
+  tag: string,
+  url: string,
+  vapidPublicKey: string,
+  vapidPrivateKey: string,
+  vapidEmail: string
+): Promise<number> {
+  const { data: subs } = await supabase
+    .from("push_subscriptions")
+    .select("endpoint, p256dh, auth")
+    .eq("user_id", userId);
+
+  if (!subs?.length) return 0;
+
+  const payload = JSON.stringify({ title, body, tag, url });
+  const results = await Promise.allSettled(
+    subs.map((sub) => sendWebPush(sub as PushSubscriptionRow, payload, vapidPublicKey, vapidPrivateKey, vapidEmail))
+  );
+
+  const stale: string[] = [];
+  let sent = 0;
+  results.forEach((r, i) => {
+    if (r.status === "fulfilled") {
+      if (r.value.ok) {
+        sent++;
+      } else if (r.value.status === 404 || r.value.status === 410) {
+        stale.push((subs[i] as PushSubscriptionRow).endpoint);
+      }
+    }
+  });
+
+  if (stale.length > 0) {
+    await supabase.from("push_subscriptions").delete().in("endpoint", stale);
+  }
+
+  return sent;
+}
+
+// ---------------------------------------------------------------------------
+// Main handler
+// ---------------------------------------------------------------------------
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -55,6 +258,18 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY") ?? "";
+  const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
+  const vapidEmail = Deno.env.get("VAPID_EMAIL") ?? "admin@roomi.pro";
+
+  if (!vapidPublicKey || !vapidPrivateKey) {
+    console.error(`${LOG} VAPID keys not configured`);
+    return new Response(JSON.stringify({ error: "VAPID not configured" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
@@ -80,14 +295,12 @@ Deno.serve(async (req: Request) => {
       const avitoUserId = Number(integration.avito_user_id);
       if (!Number.isFinite(avitoUserId) || avitoUserId <= 0) continue;
 
-      // Get access token
       const accessToken = await getAccessToken(supabase, integration);
       if (!accessToken) {
         console.error(`${LOG} No token for integration ${integration.id}`);
         continue;
       }
 
-      // Get property owner
       const { data: property } = await supabase
         .from("properties")
         .select("owner_id")
@@ -113,7 +326,7 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      // 3. Get existing chats from DB for this owner
+      // 3. Get existing chats from DB
       const { data: dbChats } = await supabase
         .from("chats")
         .select("id, avito_chat_id, unread_count, last_push_unread")
@@ -134,7 +347,8 @@ Deno.serve(async (req: Request) => {
         const dbChat = dbChatMap.get(avitoChat.id);
         const lastPushUnread = (dbChat as { last_push_unread?: number } | undefined)?.last_push_unread ?? 0;
 
-        // If user read all messages (in Avito app/web) — reset last_push_unread so next message fires a push
+        // If user read all messages externally (Avito app/web) — reset last_push_unread
+        // so the next incoming message correctly triggers a push
         if (avitoChat.unread_count <= 0) {
           if (dbChat && lastPushUnread > 0) {
             await supabase.from("chats").update({ last_push_unread: 0 }).eq("id", (dbChat as { id: string }).id);
@@ -145,7 +359,6 @@ Deno.serve(async (req: Request) => {
         // Only notify if unread count increased since last push
         if (avitoChat.unread_count <= lastPushUnread) continue;
 
-        // Determine contact name
         const ownerIdStr = String(avitoUserId);
         const contact = avitoChat.users?.find(
           (u) => String(u.user_id ?? u.id ?? "") !== ownerIdStr
@@ -159,29 +372,27 @@ Deno.serve(async (req: Request) => {
             ? lastMsg?.content?.text ?? "Новое сообщение"
             : "Новое сообщение";
 
-        const title = listingTitle
-          ? `${contactName} · ${listingTitle}`
-          : contactName;
+        const title = listingTitle ? `${contactName} · ${listingTitle}` : contactName;
 
-        // 5. Fire send-push
-        const { error: pushErr } = await supabase.functions.invoke("send-push", {
-          body: {
-            user_id: property.owner_id,
-            title,
-            body: msgBody,
-            tag: `avito-msg-${avitoChat.id}`,
-            url: "/?view=messages",
-          },
-        });
+        // 5. Send push directly (no nested function invocation)
+        const sent = await sendPushToUser(
+          supabase,
+          property.owner_id,
+          title,
+          msgBody,
+          `avito-msg-${avitoChat.id}`,
+          "/?view=messages",
+          vapidPublicKey,
+          vapidPrivateKey,
+          vapidEmail
+        );
 
-        if (pushErr) {
-          console.error(`${LOG} send-push error:`, pushErr);
-        } else {
+        if (sent > 0) {
           pushesSent++;
           console.log(`${LOG} push sent for chat ${avitoChat.id} to user ${property.owner_id}`);
         }
 
-        // Update last_push_unread so we don't re-notify
+        // Update last_push_unread so we don't re-notify for the same batch
         if (dbChat) {
           await supabase
             .from("chats")
@@ -220,7 +431,6 @@ async function getAccessToken(
   supabase: ReturnType<typeof createClient>,
   integration: Integration
 ): Promise<string | null> {
-  // Check if token needs refresh
   let tokenExpires = integration.token_expires_at;
   if (tokenExpires && typeof tokenExpires === "string" && !tokenExpires.includes("Z")) {
     tokenExpires += "Z";
@@ -229,7 +439,6 @@ async function getAccessToken(
   const needsRefresh = !tokenExpires || Number.isNaN(expiresMs) || expiresMs < Date.now() + 5 * 60 * 1000;
 
   if (needsRefresh && integration.refresh_token_encrypted) {
-    // Refresh token
     try {
       const { data: refreshToken } = await supabase.rpc("decrypt_avito_token", {
         encrypted_token: integration.refresh_token_encrypted,
@@ -252,18 +461,14 @@ async function getAccessToken(
 
       if (!res.ok) {
         console.error(`${LOG} token refresh failed: ${res.status}`);
-        // Try using existing token anyway
       } else {
         const data = await res.json();
         if (data.access_token) {
           const newExpiresAt = new Date(Date.now() + (data.expires_in ?? 3600) * 1000).toISOString();
-
-          // Encrypt and save new tokens
           const { data: encAccess } = await supabase.rpc("encrypt_avito_token", { token: data.access_token });
           const { data: encRefresh } = await supabase.rpc("encrypt_avito_token", {
             token: data.refresh_token ?? refreshToken,
           });
-
           await supabase
             .from("integrations")
             .update({
@@ -273,7 +478,6 @@ async function getAccessToken(
               updated_at: new Date().toISOString(),
             })
             .eq("id", integration.id);
-
           return data.access_token;
         }
       }
@@ -282,7 +486,6 @@ async function getAccessToken(
     }
   }
 
-  // Decrypt existing token
   try {
     const { data: decrypted } = await supabase.rpc("decrypt_avito_token", {
       encrypted_token: integration.access_token_encrypted,
