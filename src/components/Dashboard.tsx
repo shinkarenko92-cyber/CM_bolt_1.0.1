@@ -21,7 +21,6 @@ import { EditReservationModal } from '@/components/EditReservationModal';
 import { OverlapWarningModal } from '@/components/OverlapWarningModal';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-import { GuestModal } from '@/components/GuestModal';
 import { GuestDrawer } from '@/components/GuestDrawer';
 const GuestsView = lazy(() => import('@/components/GuestsView').then(m => ({ default: m.GuestsView })));
 import { UserProfileModal } from '@/components/UserProfileModal';
