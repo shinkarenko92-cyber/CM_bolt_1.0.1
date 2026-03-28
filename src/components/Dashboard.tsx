@@ -22,7 +22,6 @@ import { OverlapWarningModal } from '@/components/OverlapWarningModal';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { GuestDrawer } from '@/components/GuestDrawer';
-const GuestsView = lazy(() => import('@/components/GuestsView').then(m => ({ default: m.GuestsView })));
 import { UserProfileModal } from '@/components/UserProfileModal';
 
 const PropertiesView = lazy(() => import('@/components/PropertiesView').then(m => ({ default: m.PropertiesView })));
@@ -958,7 +957,6 @@ export function Dashboard() {
         <Suspense fallback={<ViewSkeleton />}>
         {loading ? (
           currentView === 'bookings' ? <ViewSkeleton variant="cards" /> :
-          currentView === 'guests' ? <ViewSkeleton variant="cards" /> :
           currentView === 'properties' ? <ViewSkeleton variant="cards" /> :
           currentView === 'messages' ? <ViewSkeleton variant="chat" /> :
           currentView === 'analytics' ? <ViewSkeleton variant="cards" /> :
@@ -994,11 +992,7 @@ export function Dashboard() {
             properties={properties}
             onEdit={handleEditReservation}
             onImport={() => setIsImportModalOpen(true)}
-          />
-        ) : currentView === 'guests' ? (
-          <GuestsView
             guests={guests}
-            bookings={bookings}
             onEditGuest={(guest) => {
               setSelectedGuest(guest);
               setIsGuestModalOpen(true);

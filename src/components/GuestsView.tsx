@@ -106,7 +106,7 @@ export function GuestsView({ guests, bookings, onEditGuest }: GuestsViewProps) {
     };
 
     return (
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto p-4 md:p-6">
             <div className="max-w-7xl mx-auto">
                 <div className="flex items-center justify-between mb-6">
                     <div>

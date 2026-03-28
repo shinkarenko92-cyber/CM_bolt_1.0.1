@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, Calendar, MapPin, User, Phone, Mail, Upload } from 'lucide-react';
-import { Booking, Property } from '@/lib/supabase';
+import { Booking, Property, Guest } from '@/lib/supabase';
 import { calculateNights } from '@/utils/bookingUtils';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { GuestsView } from '@/components/GuestsView';
 import { cn } from '@/lib/utils';
 
 interface BookingsViewProps {
@@ -21,9 +23,11 @@ interface BookingsViewProps {
   properties: Property[];
   onEdit: (booking: Booking) => void;
   onImport?: () => void;
+  guests?: Guest[];
+  onEditGuest?: (guest: Guest) => void;
 }
 
-export function BookingsView({ bookings, properties, onEdit, onImport }: BookingsViewProps) {
+export function BookingsView({ bookings, properties, onEdit, onImport, guests, onEditGuest }: BookingsViewProps) {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'upcoming' | 'past'>('all');
@@ -114,20 +118,26 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
   }, [bookings]);
 
   return (
-    <div className="flex-1 overflow-auto p-4 md:p-6 bg-background">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">{t('bookings.title', { defaultValue: 'Бронирования' })}</h1>
-            <p className="text-muted-foreground text-sm mt-1">{t('bookings.subtitle', { defaultValue: 'Просмотр всех прошлых и будущих бронирований' })}</p>
+    <div className="flex-1 overflow-auto bg-background">
+      <Tabs defaultValue="bookings" className="flex flex-col h-full">
+        <div className="border-b border-border px-4 md:px-6 pt-4 md:pt-6 bg-background">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <TabsList className="w-fit">
+              <TabsTrigger value="bookings">{t('bookings.title', { defaultValue: 'Бронирования' })}</TabsTrigger>
+              <TabsTrigger value="guests">{t('nav.guests', { defaultValue: 'Гости' })}</TabsTrigger>
+            </TabsList>
+            {onImport && (
+              <Button onClick={onImport} variant="outline" size="sm" className="shrink-0 self-start sm:self-auto">
+                <Upload className="h-4 w-4 mr-2" />
+                {t('bookings.importExcel', { defaultValue: 'Импорт из Excel' })}
+              </Button>
+            )}
           </div>
-          {onImport && (
-            <Button onClick={onImport} className="shrink-0">
-              <Upload className="h-4 w-4 mr-2" />
-              {t('bookings.importExcel', { defaultValue: 'Импорт из Excel' })}
-            </Button>
-          )}
         </div>
+
+        <TabsContent value="bookings" className="flex-1 overflow-auto mt-0">
+      <div className="p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
@@ -318,6 +328,17 @@ export function BookingsView({ bookings, properties, onEdit, onImport }: Booking
           </div>
         )}
       </div>
+      </div>
+        </TabsContent>
+
+        <TabsContent value="guests" className="flex-1 overflow-auto mt-0">
+          <GuestsView
+            guests={guests ?? []}
+            bookings={bookings}
+            onEditGuest={onEditGuest ?? (() => {})}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
