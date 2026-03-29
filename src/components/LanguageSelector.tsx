@@ -1,15 +1,22 @@
 import { useTranslation } from 'react-i18next';
 import { Globe } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 
 export function LanguageSelector() {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
 
   const languages = [
     { code: 'ru', label: 'Русский', flag: '🇷🇺' },
     { code: 'en', label: 'English', flag: '🇬🇧' },
   ];
 
-  const currentLanguage = languages.find(l => l.code === i18n.language) || languages[0];
+  const currentLanguage = languages.find((l) => l.code === i18n.language) || languages[0];
 
   const handleLanguageChange = (langCode: string) => {
     i18n.changeLanguage(langCode);
@@ -17,32 +24,34 @@ export function LanguageSelector() {
   };
 
   return (
-    <div className="relative group">
-      <button
-        className="flex items-center gap-2 px-3 py-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-300 hover:text-white"
-        title={currentLanguage.label}
-      >
-        <Globe className="w-4 h-4" />
-        <span className="text-sm hidden sm:inline">{currentLanguage.flag}</span>
-      </button>
-      
-      <div className="absolute right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[140px]">
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="flex items-center gap-2 px-3 py-2 text-slate-300 hover:text-white hover:bg-slate-700/50 focus-visible:ring-1 focus-visible:ring-slate-400"
+          aria-label={t('common.language', { defaultValue: 'Language' })}
+        >
+          <Globe className="w-4 h-4" />
+          <span className="text-sm hidden sm:inline">{currentLanguage.flag}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[140px] bg-slate-800 border-slate-700 p-1">
         {languages.map((lang) => (
-          <button
+          <DropdownMenuItem
             key={lang.code}
             onClick={() => handleLanguageChange(lang.code)}
-            className={`w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors first:rounded-t-lg last:rounded-b-lg ${
+            className={`flex items-center gap-3 px-3 py-2 text-sm cursor-pointer transition-colors focus:bg-slate-700 focus:text-white ${
               i18n.language === lang.code
-                ? 'bg-teal-600 text-white'
-                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                ? 'bg-teal-600 text-white focus:bg-teal-500'
+                : 'text-slate-300'
             }`}
           >
-            <span>{lang.flag}</span>
+            <span role="img" aria-label={lang.label}>{lang.flag}</span>
             <span>{lang.label}</span>
-          </button>
+          </DropdownMenuItem>
         ))}
-      </div>
-    </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
-
